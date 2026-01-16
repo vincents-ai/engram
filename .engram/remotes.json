@@ -1,0 +1,20 @@
+{
+  "origin": {
+    "name": "origin",
+    "url": "https://github.com/test/repo.git",
+    "branch": "main",
+    "last_sync": null,
+    "auth_type": null,
+    "username": null,
+    "ssh_key_path": null
+  },
+  "test-remote": {
+    "name": "test-remote",
+    "url": "https://github.com/test/repo.git",
+    "branch": "main",
+    "last_sync": null,
+    "auth_type": "ssh",
+    "username": "git",
+    "ssh_key_path": null
+  }
+}
