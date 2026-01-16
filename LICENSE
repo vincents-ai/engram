@@ -1,0 +1,28 @@
+Engram is dual-licensed under:
+
+1. GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later)
+2. Commercial License (LicenseRef-Commercial)
+
+---
+
+OPTION 1: OPEN SOURCE LICENSE (AGPL-3.0)
+
+Unless you have obtained a commercial license from vincents.ai, you are
+subject to the terms of the GNU Affero General Public License v3.0.
+
+This typically means:
+- You may use this software for personal or internal business purposes.
+- If you modify this software and distribute it (or provide it as a SaaS/Network service),
+  you must release your source code under the AGPL-3.0.
+
+See the full text of the AGPL-3.0 in the file 'LICENSE.AGPL'.
+
+---
+
+OPTION 2: COMMERCIAL LICENSE
+
+If you wish to use Engram in a proprietary product, distribute it without
+source code, or offer it as a service without AGPL restrictions, you must
+obtain a Commercial License.
+
+Contact: shift@someone.section.me
