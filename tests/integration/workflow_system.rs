@@ -1,8 +1,5 @@
 use engram::cli;
-use engram::entities::{
-    CommitPolicy, QualityGate, Task, TaskStatus, TransitionTrigger, Workflow, WorkflowStage,
-    WorkflowTransition,
-};
+use engram::entities::{CommitPolicy, Task, TaskPriority, TaskStatus, TransitionTrigger, Workflow};
 use engram::error::EngramError;
 use engram::storage::MemoryStorage;
 use engram::workflow::{WorkflowEngine, WorkflowParser};
@@ -20,7 +17,9 @@ mod integration_tests {
         let task_id = Uuid::new_v4().to_string();
         let mut task = Task::new(
             "Test feature implementation".to_string(),
+            "Test task description".to_string(),
             "default".to_string(),
+            TaskPriority::Medium,
         );
         task.id = task_id.clone();
         task.status = TaskStatus::Pending;
@@ -32,7 +31,8 @@ mod integration_tests {
 
         storage.store(&workflow)?;
 
-        let engine = WorkflowEngine::new(Arc::new(storage))?;
+        let storage = Arc::new(storage);
+        let engine = WorkflowEngine::new(storage)?;
 
         assert!(engine.can_advance(&task_id, "planning")?);
 
@@ -173,7 +173,12 @@ mod integration_tests {
         let mut storage = MemoryStorage::new();
 
         let task_id = Uuid::new_v4().to_string();
-        let mut task = Task::new("CLI test task".to_string(), "default".to_string());
+        let mut task = Task::new(
+            "CLI test task".to_string(),
+            "Test task for CLI integration".to_string(),
+            "default".to_string(),
+            TaskPriority::Low,
+        );
         task.id = task_id.clone();
         storage.store(&task)?;
 
