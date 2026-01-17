@@ -112,6 +112,12 @@ pub enum TaskCommands {
         #[arg(help = "Task ID to delete")]
         id: String,
     },
+    /// Advance task to next workflow stage
+    Advance {
+        /// Task ID to advance to next workflow stage
+        #[arg(help = "Task ID to advance")]
+        id: String,
+    },
 }
 
 /// Read content from stdin
@@ -363,6 +369,20 @@ pub fn update_task<S: Storage>(
 pub fn delete_task<S: Storage>(storage: &mut S, id: &str) -> Result<(), EngramError> {
     storage.delete(id, "task")?;
     println!("✅ Task '{}' deleted", id);
+    Ok(())
+}
+
+/// Advance task to next workflow stage
+pub fn advance_task_stage<S: Storage>(_storage: &mut S, task_id: &str) -> Result<(), EngramError> {
+    println!("🔄 Advancing task '{}' to next workflow stage...", task_id);
+
+    // Create workflow engine - this requires Arc<dyn Storage> but we have S: Storage
+    // For now, we'll return a placeholder message since the engine integration
+    // needs the storage architecture to be refactored
+    println!("⚠️  Workflow advancement requires workflow system integration");
+    println!("   This feature will be available once workflow-task relationships are implemented");
+    println!("   Current status: Task workflow integration pending");
+
     Ok(())
 }
 

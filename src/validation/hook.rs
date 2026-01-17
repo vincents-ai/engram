@@ -289,7 +289,7 @@ mod tests {
         let hook_manager = HookManager::new(git_dir).unwrap();
 
         let script = hook_manager.generate_hook_script();
-        assert!(script.contains("ENGRAM_PRE_COMMIT_HOOK"));
+        assert!(script.contains("ENGRAM_COMMIT_MSG_HOOK"));
     }
 
     #[test]

@@ -190,6 +190,9 @@ fn handle_task_command<S: engram::storage::Storage>(
         cli::TaskCommands::Delete { id } => {
             cli::delete_task(storage, &id)?;
         }
+        cli::TaskCommands::Advance { id } => {
+            cli::advance_task_stage(storage, &id)?;
+        }
     }
     Ok(())
 }
