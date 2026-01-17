@@ -8,8 +8,8 @@ pub mod config;
 pub mod hook;
 pub mod parser;
 pub mod validator;
+pub mod workflow_validator;
 
-use crate::error::EngramError;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -17,6 +17,7 @@ pub use config::ValidationConfig;
 pub use hook::HookManager;
 pub use parser::{CommitMessageParser, ConventionalCommit};
 pub use validator::CommitValidator;
+pub use workflow_validator::WorkflowValidator;
 
 /// Result of commit validation
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -47,6 +48,7 @@ pub enum ValidationErrorType {
     InvalidTaskIdFormat,
     HookNotInstalled,
     ConfigurationError,
+    WorkflowPolicyViolation,
 }
 
 /// Parsed task information from commit message

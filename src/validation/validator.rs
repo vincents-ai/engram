@@ -1,13 +1,11 @@
 //! Core validation engine for commit validation
 
-use crate::entities::{Entity, Task};
 use crate::error::EngramError;
 use crate::storage::{RelationshipStorage, Storage};
 use crate::validation::{
-    config::ValidationConfig, parser::CommitMessageParser, CachedTaskInfo, ParsedTaskInfo,
-    ValidationCache, ValidationError, ValidationErrorType, ValidationResult,
+    config::ValidationConfig, parser::CommitMessageParser, CachedTaskInfo, ValidationCache,
+    ValidationError, ValidationErrorType, ValidationResult,
 };
-use std::path::Path;
 use std::time::Instant;
 
 /// Main commit validator
@@ -97,6 +95,15 @@ impl<S: Storage + RelationshipStorage> CommitValidator<S> {
 
         if !errors.is_empty() {
             return ValidationResult::failure(errors, start_time.elapsed().as_millis() as u64);
+        }
+
+        // Validate workflow commit policy if applicable
+        if let Err(workflow_error) = self.validate_workflow_policy(&task_info.task_id, staged_files)
+        {
+            return ValidationResult::failure(
+                vec![workflow_error],
+                start_time.elapsed().as_millis() as u64,
+            );
         }
 
         ValidationResult::success(
@@ -298,8 +305,19 @@ impl<S: Storage + RelationshipStorage> CommitValidator<S> {
         }
         Ok(())
     }
-}
 
+    /// Validate commit against workflow policies
+    fn validate_workflow_policy(
+        &self,
+        _task_id: &str,
+        _staged_files: &[String],
+    ) -> Result<(), ValidationError> {
+        // For now, gracefully skip workflow validation
+        // TODO: Implement proper workflow validation integration
+        // This requires refactoring to work with the generic storage system
+        Ok(())
+    }
+}
 /// Cache statistics
 #[derive(Debug)]
 pub struct CacheStats {
