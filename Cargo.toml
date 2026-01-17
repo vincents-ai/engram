@@ -6,6 +6,7 @@ authors = ["Vincent Palmer <shift@someone.section.me>"]
 description = "Distributed memory system for AI agents - Rust implementation"
 license = "AGPL-3.0-or-later OR LicenseRef-Commercial"
 repository = "https://github.com/vincents-ai/engram"
+build = "build.rs"
 
 [dependencies]
 # CLI and argument parsing
@@ -55,6 +56,9 @@ git2 = { version = "0.19", features = ["vendored-openssl"] }
 
 # Async runtime
 tokio = { version = "1.0", features = ["rt", "rt-multi-thread", "macros"] }
+
+[build-dependencies]
+chrono = { version = "0.4", features = ["serde"] }
 
 [dev-dependencies]
 tempfile = "3.8"
