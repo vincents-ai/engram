@@ -6,6 +6,7 @@
 pub mod adr;
 pub mod compliance;
 pub mod context;
+pub mod execution_result;
 pub mod knowledge;
 pub mod reasoning;
 pub mod relationship;
@@ -19,6 +20,7 @@ pub mod workflow;
 pub use adr::*;
 pub use compliance::*;
 pub use context::*;
+pub use execution_result::*;
 pub use knowledge::*;
 pub use reasoning::*;
 pub use relationship::*;
