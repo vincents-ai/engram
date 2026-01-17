@@ -1,3 +1,4 @@
 target/*
 .engram/*
 !.engram/README.md
+.worktrees/
