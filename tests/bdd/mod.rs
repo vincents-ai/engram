@@ -193,8 +193,8 @@ impl EngramWorld {
                     .current_agent
                     .clone()
                     .unwrap_or_else(|| "default".to_string()),
-                created_at: chrono::Utc::now().to_rfc3339(),
-                updated_at: chrono::Utc::now().to_rfc3339(),
+                created_at: chrono::Utc::now(),
+                updated_at: chrono::Utc::now(),
             };
 
             let generic = context.to_generic();
