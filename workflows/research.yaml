@@ -1,0 +1,44 @@
+name: "Research and Exploration"
+description: "Workflow for research tasks and technical exploration"
+
+stages:
+  - name: "scope"
+    description: "Define research scope and questions"
+    commit_policy: "engram_only"
+    quality_gates:
+      - command: "engram validate research-scope-defined"
+        required: true
+        
+  - name: "exploration"
+    description: "Research and exploration phase"
+    commit_policy: "research_artifacts"
+    quality_gates:
+      - command: "engram validate exploration-documented"
+        required: true
+        
+  - name: "analysis"
+    description: "Analyze findings and draw conclusions"
+    commit_policy: "research_artifacts"
+    quality_gates:
+      - command: "engram validate analysis-complete"
+        required: true
+        
+  - name: "documentation"
+    description: "Document findings and recommendations"
+    commit_policy: "research_artifacts"
+    quality_gates:
+      - command: "engram validate documentation-complete"
+        required: true
+
+transitions:
+  - from: "scope"
+    to: "exploration"
+    trigger: "manual"
+    
+  - from: "exploration"
+    to: "analysis"
+    trigger: "manual"
+    
+  - from: "analysis"
+    to: "documentation"
+    trigger: "manual"

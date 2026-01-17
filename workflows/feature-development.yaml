@@ -1,0 +1,73 @@
+name: "Feature Development"
+description: "Complete BDD workflow for new features"
+
+stages:
+  - name: "requirements"
+    description: "Requirements gathering and brainstorming"
+    commit_policy: "engram_only"
+    quality_gates:
+      - command: "engram validate requirements-complete"
+        required: true
+        
+  - name: "planning" 
+    description: "Technical planning and architecture design"
+    commit_policy: "engram_only"
+    quality_gates:
+      - command: "engram validate design-documented"
+        required: true
+    
+  - name: "research"
+    description: "Technical research and proof of concepts"
+    commit_policy: "research_artifacts"
+    quality_gates:
+      - command: "engram validate research-documented"
+        required: true
+        
+  - name: "bdd"
+    description: "Write failing tests that specify desired behavior"
+    commit_policy: "tests_only"
+    quality_gates:
+      - command: "cargo test"
+        required: true
+        expected_result: "failure"
+        failure_message: "Tests should fail in BDD phase - this proves they're testing something real"
+        
+  - name: "development"
+    description: "Implementation to make tests pass (GREEN phase)"
+    commit_policy: "code_with_tests"
+    quality_gates:
+      - command: "cargo test"
+        required: true
+        expected_result: "success"
+      - command: "cargo clippy"
+        required: false
+        
+  - name: "integration"
+    description: "Full system testing and validation"
+    commit_policy: "full_validation"
+    quality_gates:
+      - command: "nix build"
+        required: true
+      - command: "cargo test --all-features"
+        required: true
+
+transitions:
+  - from: "requirements"
+    to: "planning"
+    trigger: "manual"
+    
+  - from: "planning"
+    to: "research"
+    trigger: "manual"
+    
+  - from: "research"
+    to: "bdd"
+    trigger: "manual"
+    
+  - from: "bdd"
+    to: "development"
+    trigger: "manual"
+    
+  - from: "development"
+    to: "integration"
+    trigger: "auto"
