@@ -14,6 +14,7 @@ pub mod error;
 pub mod session;
 pub mod storage;
 pub mod validation;
+pub mod workflow;
 
 use std::result::Result as StdResult;
 
