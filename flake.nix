@@ -5,9 +5,10 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
     rust-overlay.url = "github:oxalica/rust-overlay";
+    crane.url = "github:ipetkov/crane";
   };
 
-  outputs = { self, nixpkgs, flake-utils, rust-overlay }:
+  outputs = { self, nixpkgs, flake-utils, rust-overlay, crane }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs {
@@ -16,31 +17,20 @@
         };
         
         rustToolchain = pkgs.rust-bin.stable.latest.default;
+        
+        # Use crane for better cargo dependency handling
+        craneLib = crane.mkLib pkgs;
       in
       {
-        packages.default = pkgs.rustPlatform.buildRustPackage {
+        packages.default = craneLib.buildPackage {
           pname = "engram";
           version = "0.1.0";
-          src = ./.;
+          src = craneLib.cleanCargoSource ./.;
           
-          cargoLock = {
-            lockFile = ./Cargo.lock;
-          };
+          cargoLockFile = ./Cargo.lock;
 
           # Skip tests during build (tests have compilation errors)
           doCheck = false;
-
-          nativeBuildInputs = with pkgs; [
-            pkg-config
-            rustToolchain
-            perl  # Required for OpenSSL compilation
-          ];
-
-          buildInputs = with pkgs; [
-            openssl
-            openssl.dev
-            git
-          ];
 
           # Use system OpenSSL instead of building from source
           OPENSSL_NO_VENDOR = "1";
