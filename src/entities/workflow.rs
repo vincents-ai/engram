@@ -49,6 +49,10 @@ pub struct Workflow {
     #[serde(rename = "title")]
     pub title: String,
 
+    /// Workflow name (alias for title for compatibility)
+    #[serde(skip)]
+    _name_alias: Option<String>,
+
     /// Workflow description
     #[serde(rename = "description")]
     pub description: String,
@@ -76,6 +80,10 @@ pub struct Workflow {
     /// Workflow transitions
     #[serde(rename = "transitions")]
     pub transitions: Vec<WorkflowTransition>,
+
+    /// Workflow stages (simplified interface for quality gates)
+    #[serde(rename = "stages", skip_serializing_if = "Vec::is_empty", default)]
+    pub stages: Vec<WorkflowStage>,
 
     /// Initial state
     #[serde(rename = "initial_state")]
@@ -293,25 +301,54 @@ pub struct PermissionScheme {
 /// Event handler
 #[derive(Debug, Clone, Serialize, Deserialize, Validate)]
 pub struct EventHandler {
-    /// Handler identifier
     #[serde(rename = "id")]
     pub id: String,
-
-    /// Event type
     #[serde(rename = "event_type")]
     pub event_type: String,
-
-    /// Event name
     #[serde(rename = "event_name")]
     pub event_name: String,
-
-    /// Handler logic
     #[serde(rename = "handler")]
     pub handler: serde_json::Value,
-
-    /// Whether this handler is active
     #[serde(rename = "active")]
     pub active: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkflowStage {
+    #[serde(rename = "name")]
+    pub name: String,
+    #[serde(rename = "description")]
+    pub description: String,
+    #[serde(rename = "commit_policy")]
+    pub commit_policy: CommitPolicy,
+    #[serde(
+        rename = "quality_gates",
+        skip_serializing_if = "Vec::is_empty",
+        default
+    )]
+    pub quality_gates: Vec<QualityGate>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QualityGate {
+    #[serde(rename = "command")]
+    pub command: String,
+    #[serde(rename = "required")]
+    pub required: bool,
+    #[serde(rename = "expected_result", skip_serializing_if = "Option::is_none")]
+    pub expected_result: Option<String>,
+    #[serde(rename = "failure_message", skip_serializing_if = "Option::is_none")]
+    pub failure_message: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CommitPolicy {
+    EngramOnly,
+    ResearchArtifacts,
+    TestsOnly,
+    CodeWithTests,
+    FullValidation,
 }
 
 impl Workflow {
@@ -321,6 +358,7 @@ impl Workflow {
         Self {
             id: Uuid::new_v4().to_string(),
             title,
+            _name_alias: None,
             description,
             status: WorkflowStatus::Draft,
             agent,
@@ -328,6 +366,7 @@ impl Workflow {
             updated_at: now,
             states: Vec::new(),
             transitions: Vec::new(),
+            stages: Vec::new(),
             initial_state: String::new(),
             final_states: Vec::new(),
             entity_types: Vec::new(),
@@ -336,6 +375,16 @@ impl Workflow {
             tags: Vec::new(),
             metadata: HashMap::new(),
         }
+    }
+
+    /// Create a new workflow with simple interface (for compatibility)
+    pub fn new_simple(name: String, description: String) -> Self {
+        Self::new(name.clone(), description, "default".to_string())
+    }
+
+    /// Get workflow name (compatibility property)
+    pub fn name(&self) -> &str {
+        &self.title
     }
 
     /// Activate workflow
@@ -362,6 +411,12 @@ impl Workflow {
         self.updated_at = Utc::now();
     }
 
+    /// Add a stage (simplified interface)
+    pub fn add_stage(&mut self, stage: WorkflowStage) {
+        self.stages.push(stage);
+        self.updated_at = Utc::now();
+    }
+
     /// Set initial state
     pub fn set_initial_state(&mut self, state_id: String) {
         self.initial_state = state_id;
@@ -382,6 +437,11 @@ impl Workflow {
             self.entity_types.push(entity_type);
         }
         self.updated_at = Utc::now();
+    }
+
+    /// Get stage by name
+    pub fn get_stage(&self, name: &str) -> Option<&WorkflowStage> {
+        self.stages.iter().find(|stage| stage.name == name)
     }
 }
 
@@ -427,8 +487,12 @@ impl Entity for Workflow {
             return Err("Workflow description cannot be empty".to_string());
         }
 
-        if self.initial_state.is_empty() {
-            return Err("Workflow must have an initial state".to_string());
+        // Validate stage names are unique
+        let mut stage_names = std::collections::HashSet::new();
+        for stage in &self.stages {
+            if !stage_names.insert(&stage.name) {
+                return Err(format!("Duplicate stage name: {}", stage.name));
+            }
         }
 
         Ok(())
@@ -454,5 +518,108 @@ impl Entity for Workflow {
         Self: Sized,
     {
         self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json;
+
+    #[test]
+    fn test_workflow_creation() {
+        let workflow = Workflow::new_simple(
+            "feature-development".to_string(),
+            "Complete BDD workflow for features".to_string(),
+        );
+
+        assert_eq!(workflow.name(), "feature-development");
+        assert_eq!(workflow.description, "Complete BDD workflow for features");
+        assert!(workflow.stages.is_empty());
+    }
+
+    #[test]
+    fn test_workflow_serialization() {
+        let workflow =
+            Workflow::new_simple("test-workflow".to_string(), "Test workflow".to_string());
+
+        let json = serde_json::to_string(&workflow).unwrap();
+        let deserialized: Workflow = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(workflow.name(), deserialized.name());
+    }
+
+    #[test]
+    fn test_workflow_add_stage() {
+        let mut workflow =
+            Workflow::new_simple("test-workflow".to_string(), "Test workflow".to_string());
+
+        let stage = WorkflowStage {
+            name: "development".to_string(),
+            description: "Development phase".to_string(),
+            commit_policy: CommitPolicy::CodeWithTests,
+            quality_gates: vec![],
+        };
+
+        workflow.add_stage(stage);
+        assert_eq!(workflow.stages.len(), 1);
+        assert_eq!(workflow.stages[0].name, "development");
+    }
+
+    #[test]
+    fn test_workflow_with_quality_gates() {
+        let mut workflow =
+            Workflow::new_simple("test-workflow".to_string(), "Test workflow".to_string());
+
+        let quality_gate = QualityGate {
+            command: "cargo test".to_string(),
+            required: true,
+            expected_result: Some("success".to_string()),
+            failure_message: Some("Tests failed".to_string()),
+        };
+
+        let stage = WorkflowStage {
+            name: "testing".to_string(),
+            description: "Testing phase".to_string(),
+            commit_policy: CommitPolicy::TestsOnly,
+            quality_gates: vec![quality_gate],
+        };
+
+        workflow.add_stage(stage);
+
+        let testing_stage = workflow.get_stage("testing").unwrap();
+        assert_eq!(testing_stage.quality_gates.len(), 1);
+        assert_eq!(testing_stage.quality_gates[0].command, "cargo test");
+        assert!(testing_stage.quality_gates[0].required);
+    }
+
+    #[test]
+    fn test_workflow_validation() {
+        let mut workflow =
+            Workflow::new_simple("test-workflow".to_string(), "Test workflow".to_string());
+
+        let stage1 = WorkflowStage {
+            name: "planning".to_string(),
+            description: "Planning phase".to_string(),
+            commit_policy: CommitPolicy::EngramOnly,
+            quality_gates: vec![],
+        };
+
+        let stage2 = WorkflowStage {
+            name: "planning".to_string(), // Duplicate name
+            description: "Planning phase 2".to_string(),
+            commit_policy: CommitPolicy::CodeWithTests,
+            quality_gates: vec![],
+        };
+
+        workflow.add_stage(stage1);
+        workflow.add_stage(stage2);
+
+        // Should fail validation due to duplicate stage names
+        let result = workflow.validate_entity();
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .contains("Duplicate stage name: planning"));
     }
 }
