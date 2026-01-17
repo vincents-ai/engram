@@ -2,7 +2,7 @@
 
 use crate::error::EngramError;
 use crate::storage::{RelationshipStorage, Storage};
-use crate::validation::{CommitValidator, HookManager, ValidationConfig};
+use crate::validation::{CommitValidator, HookManager};
 use clap::Subcommand;
 
 /// Validation commands
@@ -95,7 +95,7 @@ fn handle_commit_validation<S: Storage + RelationshipStorage>(
 
 /// Handle hook management commands
 fn handle_hook_command<S: Storage + RelationshipStorage>(
-    storage: S,
+    _storage: S,
     command: HookCommands,
 ) -> Result<(), EngramError> {
     let git_dir = ".";

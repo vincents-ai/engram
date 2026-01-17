@@ -9,7 +9,6 @@ pub mod hook;
 pub mod parser;
 pub mod validator;
 
-use crate::error::EngramError;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

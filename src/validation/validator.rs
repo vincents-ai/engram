@@ -1,13 +1,11 @@
 //! Core validation engine for commit validation
 
-use crate::entities::{Entity, Task};
 use crate::error::EngramError;
 use crate::storage::{RelationshipStorage, Storage};
 use crate::validation::{
-    config::ValidationConfig, parser::CommitMessageParser, CachedTaskInfo, ParsedTaskInfo,
-    ValidationCache, ValidationError, ValidationErrorType, ValidationResult,
+    config::ValidationConfig, parser::CommitMessageParser, CachedTaskInfo, ValidationCache,
+    ValidationError, ValidationErrorType, ValidationResult,
 };
-use std::path::Path;
 use std::time::Instant;
 
 /// Main commit validator
@@ -224,7 +222,7 @@ impl<S: Storage + RelationshipStorage> CommitValidator<S> {
     /// Validate that changed files are within task scope
     fn validate_file_scope(
         &mut self,
-        task_id: &str,
+        _task_id: &str,
         staged_files: &[String],
     ) -> (Vec<String>, Vec<ValidationError>) {
         let mut validated_files = Vec::new();
