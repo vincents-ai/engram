@@ -32,7 +32,66 @@ impl HookManager {
 
     /// Generate the hook script content
     fn generate_hook_script(&self) -> String {
-        "#!/usr/bin/env bash\n# ENGRAM_PRE_COMMIT_HOOK placeholder\necho \"Hook not yet implemented\"\nexit 0\n".to_string()
+        format!(
+            r#"#!/usr/bin/env bash
+# ENGRAM_PRE_COMMIT_HOOK
+
+set -e
+
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${{BASH_SOURCE[0]}}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
+# Try to find engram binary in multiple locations
+ENGRAM_BIN=""
+
+# First try: relative to repo (if built locally)
+if [ -x "$REPO_ROOT/target/release/engram" ]; then
+    ENGRAM_BIN="$REPO_ROOT/target/release/engram"
+# Second try: PATH
+elif command -v engram >/dev/null 2>&1; then
+    ENGRAM_BIN="engram"
+# Third try: nix result link
+elif [ -x "$REPO_ROOT/result/bin/engram" ]; then
+    ENGRAM_BIN="$REPO_ROOT/result/bin/engram"
+else
+    echo "❌ Error: engram binary not found"
+    echo "Please ensure engram is built or available in PATH"
+    echo "Try: cargo build --release"
+    exit 1
+fi
+
+# Change to repo root for validation
+cd "$REPO_ROOT"
+
+# Get the commit message from git
+if [ -n "$1" ]; then
+    # Message file provided (prepare-commit-msg hook)
+    COMMIT_MSG="$(cat "$1")"
+else
+    # Extract from git (pre-commit hook)
+    COMMIT_MSG="$(git log --format=%B -n 1 HEAD 2>/dev/null || echo "New commit")"
+fi
+
+# Run engram validation
+echo "🔍 Validating commit with engram..."
+if ! "$ENGRAM_BIN" validate commit --message "$COMMIT_MSG"; then
+    echo "❌ Commit validation failed"
+    echo ""
+    echo "To bypass this hook (not recommended):"
+    echo "  git commit --no-verify ..."
+    echo ""
+    echo "To fix the commit:"
+    echo "  1. Ensure your commit message references a valid task"
+    echo "  2. Check that the task has required relationships"
+    echo "  3. Run: engram validate commit --message 'your message' --dry-run"
+    exit 1
+fi
+
+echo "✅ Commit validation passed"
+exit 0
+"#
+        )
     }
 
     /// Check if hook is installed
