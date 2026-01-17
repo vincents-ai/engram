@@ -119,10 +119,7 @@ pub enum Commands {
         command: AdrCommands,
     },
     /// State machines and process flows
-    Workflow {
-        #[command(subcommand)]
-        command: WorkflowCommands,
-    },
+    Workflow(workflow::WorkflowArgs),
     /// Link entities (REQUIRED: task↔reasoning, task↔context for validation)
     Relationship {
         #[command(subcommand)]

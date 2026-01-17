@@ -57,9 +57,9 @@ fn run() -> Result<(), EngramError> {
             let mut storage = GitStorage::new(".", "default")?;
             handle_adr_command(command, &mut storage)?;
         }
-        cli::Commands::Workflow { command } => {
-            let mut storage = GitStorage::new(".", "default")?;
-            handle_workflow_command(command, &mut storage)?;
+        cli::Commands::Workflow(args) => {
+            let storage = GitStorage::new(".", "default")?;
+            cli::workflow::handle_workflow_command(args, storage)?;
         }
         cli::Commands::Relationship { command } => {
             let mut storage = GitStorage::new(".", "default")?;
@@ -688,131 +688,6 @@ fn handle_adr_command<S: engram::storage::Storage>(
         }
         cli::AdrCommands::AddStakeholder { id, stakeholder } => {
             cli::add_stakeholder(storage, &id, stakeholder)?;
-        }
-    }
-    Ok(())
-}
-
-/// Handle workflow commands
-fn handle_workflow_command<S: engram::storage::Storage>(
-    command: engram::cli::WorkflowCommands,
-    storage: &mut S,
-) -> Result<(), EngramError> {
-    match command {
-        cli::WorkflowCommands::Create {
-            title,
-            description,
-            entity_types,
-            agent,
-        } => {
-            cli::create_workflow(storage, title, description, entity_types, agent)?;
-        }
-        cli::WorkflowCommands::Get { id } => {
-            cli::get_workflow(storage, &id)?;
-        }
-        cli::WorkflowCommands::Update {
-            id,
-            title,
-            description,
-            status,
-            entity_types,
-            initial_state,
-        } => {
-            cli::update_workflow(
-                storage,
-                &id,
-                title,
-                description,
-                status,
-                entity_types,
-                initial_state,
-            )?;
-        }
-        cli::WorkflowCommands::Delete { id } => {
-            cli::delete_workflow(storage, &id)?;
-        }
-        cli::WorkflowCommands::List {
-            status,
-            search,
-            limit,
-            offset,
-        } => {
-            cli::list_workflows(storage, status, search, limit, offset)?;
-        }
-        cli::WorkflowCommands::AddState {
-            id,
-            name,
-            state_type,
-            description,
-            is_final,
-        } => {
-            cli::add_state(storage, &id, name, state_type, description, is_final)?;
-        }
-        cli::WorkflowCommands::AddTransition {
-            id,
-            name,
-            from_state,
-            to_state,
-            transition_type,
-            description,
-        } => {
-            cli::add_transition(
-                storage,
-                &id,
-                name,
-                from_state,
-                to_state,
-                transition_type,
-                description,
-            )?;
-        }
-        cli::WorkflowCommands::Activate { id } => {
-            cli::activate_workflow(storage, &id)?;
-        }
-        cli::WorkflowCommands::Start {
-            workflow_id,
-            entity_id,
-            entity_type,
-            agent,
-            variables,
-        } => {
-            let storage_for_workflow = GitStorage::new(".", "default")?;
-            cli::start_workflow_instance(
-                storage_for_workflow,
-                workflow_id,
-                entity_id,
-                entity_type,
-                agent,
-                variables,
-            )?;
-        }
-        cli::WorkflowCommands::Transition {
-            instance_id,
-            transition,
-            agent,
-        } => {
-            let storage_for_workflow = GitStorage::new(".", "default")?;
-            cli::execute_workflow_transition(storage_for_workflow, instance_id, transition, agent)?;
-        }
-        cli::WorkflowCommands::Status { instance_id } => {
-            let storage_for_workflow = GitStorage::new(".", "default")?;
-            cli::get_workflow_instance_status(storage_for_workflow, instance_id)?;
-        }
-        cli::WorkflowCommands::Instances {
-            workflow_id,
-            agent,
-            running_only,
-        } => {
-            let storage_for_workflow = GitStorage::new(".", "default")?;
-            cli::list_workflow_instances(storage_for_workflow, workflow_id, agent, running_only)?;
-        }
-        cli::WorkflowCommands::Cancel {
-            instance_id,
-            agent,
-            reason,
-        } => {
-            let storage_for_workflow = GitStorage::new(".", "default")?;
-            cli::cancel_workflow_instance(storage_for_workflow, instance_id, agent, reason)?;
         }
     }
     Ok(())
