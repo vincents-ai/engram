@@ -2,6 +2,7 @@
 
 use engram::entities::Task;
 use engram::storage::{memory_only_storage::MemoryStorage, Storage};
+use engram::Entity;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Engram Rust Implementation - Memory Storage Demo");
@@ -44,22 +45,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let retrieved_tasks = storage.query_by_agent("demo-agent", Some("task"))?;
     println!("✅ Retrieved {} tasks", retrieved_tasks.len());
 
-    // Display task details
     for task in &retrieved_tasks {
-        if let Ok(task_obj) = task.as_any().downcast_ref::<Task>() {
-            println!(
-                "📋 Task: {} [{}] - {}",
-                task_obj.id,
-                format!("{:?}", task_obj.status).to_lowercase(),
-                task_obj.title
-            );
-            println!("   Description: {}", task_obj.description);
-            println!("   Priority: {:?}", task_obj.priority);
-            println!(
-                "   Created: {}",
-                task_obj.start_time.format("%Y-%m-%d %H:%M")
-            );
-        }
+        println!(
+            "📋 Task: {} [{}] - {}",
+            task.id,
+            task.entity_type,
+            task.data.get("title").and_then(|v| v.as_str()).unwrap_or("Untitled")
+        );
+    }
     }
 
     // Show commit history

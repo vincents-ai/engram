@@ -46,7 +46,11 @@ impl<S: Storage + RelationshipStorage> CommitValidator<S> {
         let task_info = match self.parser.parse_task_id(commit_message) {
             Ok(Some(info)) => info,
             Ok(None) => {
-                if self.config.require_task_reference && !self.parser.is_exempt(commit_message) {
+                if self.config.require_task_reference
+                    && !self
+                        .config
+                        .should_exempt(commit_message, "require_task_reference")
+                {
                     return ValidationResult::failure(
                         vec![ValidationError::new(
                             ValidationErrorType::NoTaskReference,
@@ -283,6 +287,11 @@ impl<S: Storage + RelationshipStorage> CommitValidator<S> {
             task_cache_size: self.cache.task_cache.len(),
             file_cache_size: self.cache.file_cache.len(),
         }
+    }
+
+    /// Get reference to the storage (for workflow validator integration)
+    pub fn storage(&self) -> &S {
+        &self.storage
     }
 
     /// Warm up cache with common task IDs

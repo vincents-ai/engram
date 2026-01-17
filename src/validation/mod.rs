@@ -7,7 +7,10 @@
 pub mod config;
 pub mod hook;
 pub mod parser;
+pub mod quality_gates;
+pub mod stage_transitions;
 pub mod validator;
+pub mod workflow_validator;
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -15,7 +18,12 @@ use std::collections::HashMap;
 pub use config::ValidationConfig;
 pub use hook::HookManager;
 pub use parser::{CommitMessageParser, ConventionalCommit};
+pub use quality_gates::{BuiltinValidators, QualityGate, QualityGatesExecutor};
+pub use stage_transitions::{
+    StageTransitionManager, StageTransitionRule, TransitionCondition, TransitionEligibility,
+};
 pub use validator::CommitValidator;
+pub use workflow_validator::{StagePolicy, WorkflowValidator};
 
 /// Result of commit validation
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -46,6 +54,9 @@ pub enum ValidationErrorType {
     InvalidTaskIdFormat,
     HookNotInstalled,
     ConfigurationError,
+    QualityGateFailed,
+    PolicyViolation,
+    Other,
 }
 
 /// Parsed task information from commit message

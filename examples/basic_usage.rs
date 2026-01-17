@@ -3,6 +3,7 @@
 use engram::{
     entities::Task,
     storage::{GitStorage, Storage},
+    Entity,
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -29,15 +30,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Retrieve task
     if let Some(retrieved_task) = storage.get(&task.id, "task")? {
-        if let Ok(task_obj) = retrieved_task
-            .as_any()
-            .downcast_ref::<engram::entities::Task>()
-        {
-            println!("✅ Task retrieved: {}", task_obj.title);
-            println!("   Description: {}", task_obj.description);
-            println!("   Status: {:?}", task_obj.status);
-            println!("   Priority: {:?}", task_obj.priority);
-        }
+        println!(
+            "✅ Task retrieved: {}",
+            retrieved_task
+                .data
+                .get("title")
+                .and_then(|v| v.as_str())
+                .unwrap_or("Untitled")
+        );
+        println!(
+            "   Description: {}",
+            retrieved_task
+                .data
+                .get("description")
+                .and_then(|v| v.as_str())
+                .unwrap_or("No description")
+        );
     }
 
     // List all tasks for agent

@@ -961,29 +961,22 @@ fn handle_help_command(command: Option<cli::HelpCommands>) -> Result<(), EngramE
             println!("For more details: engram <command> --help");
         }
         None => {
-            println!("ENGRAM - Task Memory System for LLM Coding Agents");
+            println!("ENGRAM Guide - Task Memory System for LLM Coding Agents");
+            println!("==========================================================");
             println!();
-            println!("Available commands:");
-            println!("  setup       Initialize workspace or agent");
-            println!(
-                "  task        Create/manage work items (returns UUIDs for commit references)"
-            );
-            println!("  context     Background information and documentation");
-            println!("  reasoning   Decision chains and rationale");
-            println!("  relationship Link entities (required: task↔reasoning, task↔context)");
-            println!("  validate    Git commit validation and hooks");
-            println!("  knowledge   Manage knowledge base");
-            println!("  session     Manage coding sessions");
-            println!("  compliance  Manage compliance requirements");
-            println!("  rule        Manage rules and policies");
-            println!("  standard    Manage coding standards");
-            println!("  adr         Architectural decision records");
-            println!("  workflow    Manage workflows");
-            println!("  sync        Synchronize between agents");
+            println!("Available guide sections:");
+            println!("  getting-started  Step-by-step setup and first tasks");
+            println!("  examples         Complete command examples with real workflows");
+            println!("  onboarding       Overview and core concepts");
             println!();
-            println!("QUICK START: engram guide getting-started");
-            println!("EXAMPLES: engram guide examples");
-            println!("Use 'engram <command> --help' for detailed help on each command.");
+            println!("Usage:");
+            println!("  engram guide getting-started   # Quick start tutorial");
+            println!("  engram guide examples          # Copy-paste examples");
+            println!("  engram guide onboarding        # Detailed overview");
+            println!();
+            println!("For specific command help:");
+            println!("  engram <command> --help        # Help for individual commands");
+            println!("  engram --help                  # Show all available commands");
         }
     }
 
