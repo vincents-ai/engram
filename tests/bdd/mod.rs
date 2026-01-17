@@ -81,7 +81,7 @@ impl EngramWorld {
                     self.last_result = Some(Ok(format!("Task '{}' created", task.id)));
                 }
                 Err(e) => {
-                    self.last_result = Some(Err(e));
+                    self.last_result = Some(Err(e.to_string()));
                 }
             }
         } else {
@@ -180,6 +180,16 @@ impl EngramWorld {
 
     pub fn create_context(&mut self, title: &str, content: &str, relevance: &str) {
         if let Some(ref mut storage) = self.storage {
+            use engram::entities::context::ContextRelevance;
+
+            let relevance_enum = match relevance {
+                "low" => ContextRelevance::Low,
+                "medium" => ContextRelevance::Medium,
+                "high" => ContextRelevance::High,
+                "critical" => ContextRelevance::Critical,
+                _ => ContextRelevance::Medium,
+            };
+
             let context = Context {
                 id: format!(
                     "context-{}",
@@ -188,13 +198,17 @@ impl EngramWorld {
                 title: title.to_string(),
                 content: content.to_string(),
                 source: "test".to_string(),
-                relevance: relevance.to_string(),
+                source_id: None,
+                relevance: relevance_enum,
                 agent: self
                     .current_agent
                     .clone()
                     .unwrap_or_else(|| "default".to_string()),
                 created_at: chrono::Utc::now(),
                 updated_at: chrono::Utc::now(),
+                tags: Vec::new(),
+                related_entities: Vec::new(),
+                metadata: std::collections::HashMap::new(),
             };
 
             let generic = context.to_generic();
@@ -212,6 +226,18 @@ impl EngramWorld {
 
     pub fn create_knowledge(&mut self, title: &str, knowledge_type: &str, confidence: f64) {
         if let Some(ref mut storage) = self.storage {
+            use engram::entities::knowledge::KnowledgeType;
+
+            let knowledge_type_enum = match knowledge_type {
+                "fact" => KnowledgeType::Fact,
+                "pattern" => KnowledgeType::Pattern,
+                "rule" => KnowledgeType::Rule,
+                "concept" => KnowledgeType::Concept,
+                "procedure" => KnowledgeType::Procedure,
+                "heuristic" => KnowledgeType::Heuristic,
+                _ => KnowledgeType::Fact,
+            };
+
             let knowledge = Knowledge {
                 id: format!(
                     "knowledge-{}",
@@ -219,14 +245,21 @@ impl EngramWorld {
                 ),
                 title: title.to_string(),
                 content: "Test knowledge content".to_string(),
-                knowledge_type: knowledge_type.to_string(),
+                knowledge_type: knowledge_type_enum,
                 confidence,
                 agent: self
                     .current_agent
                     .clone()
                     .unwrap_or_else(|| "default".to_string()),
-                created_at: chrono::Utc::now().to_rfc3339(),
-                updated_at: chrono::Utc::now().to_rfc3339(),
+                created_at: chrono::Utc::now(),
+                updated_at: chrono::Utc::now(),
+                source: Some("test".to_string()),
+                related_knowledge: Vec::new(),
+                tags: Vec::new(),
+                contexts: Vec::new(),
+                usage_count: 0,
+                last_used: None,
+                metadata: std::collections::HashMap::new(),
             };
 
             let generic = knowledge.to_generic();
@@ -250,15 +283,19 @@ impl EngramWorld {
                     uuid::Uuid::new_v4().to_string().replace("-", "")
                 ),
                 title: title.to_string(),
-                description: description.to_string(),
+                task_id: "test-task-id".to_string(),
+                steps: Vec::new(),
                 conclusion: conclusion.to_string(),
+                confidence: 0.8,
                 agent: self
                     .current_agent
                     .clone()
                     .unwrap_or_else(|| "default".to_string()),
-                task_id: None,
-                created_at: chrono::Utc::now().to_rfc3339(),
-                updated_at: chrono::Utc::now().to_rfc3339(),
+                created_at: chrono::Utc::now(),
+                tags: Vec::new(),
+                context_ids: Vec::new(),
+                knowledge_ids: Vec::new(),
+                metadata: std::collections::HashMap::new(),
             };
 
             let generic = reasoning.to_generic();
@@ -276,6 +313,8 @@ impl EngramWorld {
 
     pub fn create_session(&mut self, title: &str, auto_detect: bool) {
         if let Some(ref mut storage) = self.storage {
+            use engram::entities::session::SessionStatus;
+
             let session = Session {
                 id: format!(
                     "session-{}",
@@ -286,18 +325,19 @@ impl EngramWorld {
                     .current_agent
                     .clone()
                     .unwrap_or_else(|| "default".to_string()),
-                start_time: chrono::Utc::now().to_rfc3339(),
-                end_time: None,
                 status: SessionStatus::Active,
+                start_time: chrono::Utc::now(),
+                end_time: None,
+                duration_seconds: None,
                 task_ids: vec![],
                 context_ids: vec![],
-                reasoning_ids: vec![],
                 knowledge_ids: vec![],
-                auto_detected: auto_detect,
                 goals: vec![],
                 outcomes: vec![],
                 space_metrics: None,
                 dora_metrics: None,
+                tags: Vec::new(),
+                metadata: std::collections::HashMap::new(),
             };
 
             let generic = session.to_generic();

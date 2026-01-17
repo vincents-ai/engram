@@ -94,6 +94,12 @@ impl Default for ValidationConfig {
                     name: "Refs format".to_string(),
                     example: "Refs: #456".to_string(),
                 },
+                TaskIdPattern {
+                    pattern: r"\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]"
+                        .to_string(),
+                    name: "UUID format".to_string(),
+                    example: "[69190cf0-243a-4979-b4c1-604ba48f72eb]".to_string(),
+                },
             ],
             exemptions: vec![
                 ValidationExemption {
