@@ -80,6 +80,12 @@ impl Default for ValidationConfig {
             require_file_scope_match: true,
             task_id_patterns: vec![
                 TaskIdPattern {
+                    pattern: r"\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]"
+                        .to_string(),
+                    name: "UUID format".to_string(),
+                    example: "[69190cf0-243a-4979-b4c1-604ba48f72eb]".to_string(),
+                },
+                TaskIdPattern {
                     pattern: r"\[([A-Z]+-\d+)\]".to_string(),
                     name: "Brackets format".to_string(),
                     example: "[TASK-123]".to_string(),
@@ -93,12 +99,6 @@ impl Default for ValidationConfig {
                     pattern: r"Refs:\s*#(\d+)".to_string(),
                     name: "Refs format".to_string(),
                     example: "Refs: #456".to_string(),
-                },
-                TaskIdPattern {
-                    pattern: r"\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]"
-                        .to_string(),
-                    name: "UUID format".to_string(),
-                    example: "[69190cf0-243a-4979-b4c1-604ba48f72eb]".to_string(),
                 },
             ],
             exemptions: vec![

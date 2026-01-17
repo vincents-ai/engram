@@ -42,7 +42,10 @@ use clap::{Parser, Subcommand};
 /// Main CLI structure
 #[derive(Parser)]
 #[command(name = "engram")]
-#[command(about = "Distributed memory system for AI agents", long_about = None)]
+#[command(
+    about = "Task memory system for LLM coding agents",
+    long_about = "ENGRAM: Task-driven memory system for LLM coding agents\n\nPURPOSE: Maintains project state, tasks, and reasoning across coding sessions.\nEnforces disciplined development via Git commit validation requiring task references.\n\nWORKFLOW:\n1. engram setup workspace              # Initialize project\n2. engram task create --title \"...\"    # Create work items (returns UUIDs)\n3. engram context create --title \"...\" # Add background info\n4. engram reasoning create --task-id <uuid> # Document decisions\n5. engram relationship create ...       # Link entities (REQUIRED for validation)\n6. engram validate hook install        # Enable Git integration\n\nGIT INTEGRATION: Commits must reference task UUIDs: \"feat: implement auth [<uuid>]\"\nJSON I/O: Most commands support --json input/output for programmatic access.\n\nUse 'engram guide examples' for working command examples."
+)]
 #[command(version = env!("CARGO_PKG_VERSION"))]
 #[command(author = "Engram Team")]
 pub struct Cli {
@@ -70,62 +73,62 @@ pub enum Commands {
     },
     /// Run test suite
     Test,
-    /// Manage tasks
+    /// Create/manage work items (returns UUIDs for commit references)
     Task {
         #[command(subcommand)]
         command: TaskCommands,
     },
-    /// Manage context
+    /// Background information and documentation
     Context {
         #[command(subcommand)]
         command: ContextCommands,
     },
-    /// Manage reasoning chains
+    /// Decision chains and rationale (required for task validation)
     Reasoning {
         #[command(subcommand)]
         command: ReasoningCommands,
     },
-    /// Manage knowledge
+    /// Knowledge base management
     Knowledge {
         #[command(subcommand)]
         command: KnowledgeCommands,
     },
-    /// Manage sessions
+    /// Coding session tracking
     Session {
         #[command(subcommand)]
         command: SessionCommands,
     },
-    /// Manage compliance requirements
+    /// Compliance requirements
     Compliance {
         #[command(subcommand)]
         command: ComplianceCommands,
     },
-    /// Manage rules
+    /// Rules and policies
     Rule {
         #[command(subcommand)]
         command: RuleCommands,
     },
-    /// Manage standards
+    /// Coding standards
     Standard {
         #[command(subcommand)]
         command: StandardCommands,
     },
-    /// Manage architectural decision records
+    /// Architectural decisions
     Adr {
         #[command(subcommand)]
         command: AdrCommands,
     },
-    /// Manage workflows
+    /// State machines and process flows
     Workflow {
         #[command(subcommand)]
         command: WorkflowCommands,
     },
-    /// Manage entity relationships
+    /// Link entities (REQUIRED: task↔reasoning, task↔context for validation)
     Relationship {
         #[command(subcommand)]
         command: RelationshipCommands,
     },
-    /// Manage validation and hooks
+    /// Git commit validation and pre-commit hooks
     Validate {
         #[command(subcommand)]
         command: ValidationCommands,

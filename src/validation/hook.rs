@@ -34,7 +34,7 @@ impl HookManager {
     fn generate_hook_script(&self) -> String {
         format!(
             r#"#!/usr/bin/env bash
-# ENGRAM_PRE_COMMIT_HOOK
+# ENGRAM_COMMIT_MSG_HOOK
 
 set -e
 
@@ -64,22 +64,18 @@ fi
 # Change to repo root for validation
 cd "$REPO_ROOT"
 
-# Get the commit message from git
-if [ -n "$1" ]; then
-    # Message file provided (prepare-commit-msg hook)
-    COMMIT_MSG="$(cat "$1")"
-else
-    # Extract from git (pre-commit hook)
-    COMMIT_MSG="$(git log --format=%B -n 1 HEAD 2>/dev/null || echo "New commit")"
+# Get the commit message from the commit-msg file (first argument)
+if [ -z "$1" ]; then
+    echo "❌ Error: No commit message file provided"
+    exit 1
 fi
+
+COMMIT_MSG="$(cat "$1")"
 
 # Run engram validation
 echo "🔍 Validating commit with engram..."
 if ! "$ENGRAM_BIN" validate commit --message "$COMMIT_MSG"; then
     echo "❌ Commit validation failed"
-    echo ""
-    echo "To bypass this hook (not recommended):"
-    echo "  git commit --no-verify ..."
     echo ""
     echo "To fix the commit:"
     echo "  1. Ensure your commit message references a valid task"
@@ -99,7 +95,7 @@ exit 0
         let hook_path = Path::new(&self.git_dir)
             .join(".git")
             .join("hooks")
-            .join("pre-commit");
+            .join("commit-msg");
 
         if !hook_path.exists() {
             return Ok(false);
@@ -107,7 +103,7 @@ exit 0
 
         let content = fs::read_to_string(&hook_path).map_err(EngramError::Io)?;
 
-        Ok(content.contains("ENGRAM_PRE_COMMIT_HOOK"))
+        Ok(content.contains("ENGRAM_COMMIT_MSG_HOOK"))
     }
 
     /// Get hook script content
@@ -115,12 +111,12 @@ exit 0
         self.generate_hook_script()
     }
 
-    /// Install the pre-commit hook
+    /// Install the commit-msg hook
     pub fn install(&mut self) -> Result<(), EngramError> {
         let hook_path = Path::new(&self.git_dir)
             .join(".git")
             .join("hooks")
-            .join("pre-commit");
+            .join("commit-msg");
 
         // Create hooks directory if it doesn't exist
         if let Some(hooks_dir) = hook_path.parent() {
@@ -145,21 +141,21 @@ exit 0
         Ok(())
     }
 
-    /// Uninstall the pre-commit hook
+    /// Uninstall the commit-msg hook
     pub fn uninstall(&mut self) -> Result<(), EngramError> {
         let hook_path = Path::new(&self.git_dir)
             .join(".git")
             .join("hooks")
-            .join("pre-commit");
+            .join("commit-msg");
 
         if hook_path.exists() {
             let content = fs::read_to_string(&hook_path).map_err(EngramError::Io)?;
 
-            if content.contains("ENGRAM_PRE_COMMIT_HOOK") {
+            if content.contains("ENGRAM_COMMIT_MSG_HOOK") {
                 fs::remove_file(&hook_path).map_err(EngramError::Io)?;
             } else {
                 return Err(EngramError::Validation(
-                    "Pre-commit hook exists but was not installed by Engram".to_string(),
+                    "Commit-msg hook exists but was not installed by Engram".to_string(),
                 ));
             }
         }
