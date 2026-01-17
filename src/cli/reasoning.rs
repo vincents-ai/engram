@@ -34,6 +34,10 @@ pub enum ReasoningCommands {
         #[arg(long, short)]
         agent: Option<String>,
 
+        /// Initial confidence level (0.0 to 1.0)
+        #[arg(long, short)]
+        confidence: Option<f64>,
+
         /// Tags (comma-separated)
         #[arg(long)]
         tags: Option<String>,
@@ -173,7 +177,8 @@ pub fn create_reasoning<S: Storage>(
     title: Option<String>,
     task_id: Option<String>,
     agent: Option<String>,
-    tags: Option<String>,
+    confidence: Option<f64>,
+    _tags: Option<String>,
     title_stdin: bool,
     title_file: Option<String>,
     json: bool,
@@ -209,7 +214,12 @@ pub fn create_reasoning<S: Storage>(
 
     let final_agent = agent.unwrap_or_else(|| "default".to_string());
 
-    let reasoning = Reasoning::new(final_title, final_task_id, final_agent.clone());
+    let mut reasoning = Reasoning::new(final_title, final_task_id, final_agent.clone());
+
+    // Set initial confidence if provided
+    if let Some(conf) = confidence {
+        reasoning.confidence = conf;
+    }
 
     let generic_entity = reasoning.to_generic();
     storage.store(&generic_entity)?;
@@ -224,7 +234,7 @@ pub fn create_reasoning<S: Storage>(
 }
 
 pub fn add_reasoning_step<S: Storage>(
-    storage: &mut S,
+    _storage: &mut S,
     id: &str,
     description: Option<String>,
     conclusion: Option<String>,
@@ -275,7 +285,7 @@ pub fn add_reasoning_step<S: Storage>(
 }
 
 pub fn conclude_reasoning<S: Storage>(
-    storage: &mut S,
+    _storage: &mut S,
     id: &str,
     conclusion: Option<String>,
     confidence: f64,

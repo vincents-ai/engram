@@ -6,10 +6,12 @@
 pub mod git_storage;
 pub mod memory_entity;
 pub mod memory_only_storage;
+pub mod relationship_storage;
 
 pub use git_storage::*;
 pub use memory_entity::*;
 pub use memory_only_storage::*;
+pub use relationship_storage::*;
 
 use crate::entities::GenericEntity;
 use crate::error::EngramError;

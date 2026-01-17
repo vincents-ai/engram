@@ -20,6 +20,9 @@ pub enum EngramError {
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
 
+    #[error("Deserialization error: {0}")]
+    Deserialization(String),
+
     #[error("Serialization error: {0}")]
     Serialization(#[from] serde_json::Error),
 
@@ -34,6 +37,12 @@ pub enum EngramError {
 
     #[error("Invalid operation: {0}")]
     InvalidOperation(String),
+}
+
+impl From<git2::Error> for EngramError {
+    fn from(error: git2::Error) -> Self {
+        EngramError::Git(error.to_string())
+    }
 }
 
 /// Storage-specific errors

@@ -23,6 +23,29 @@ A distributed memory system for AI agents, implemented in Rust with extensible a
 - **Standards**: Team standards with versioning and relationships
 - **ADRs**: Architectural Decision Records with alternatives and outcomes
 - **Workflows**: State machines with transitions and permission schemes
+- **Relationships**: Entity relationships with graph operations and path finding
+- **Commit Validation**: Pre-commit hook system with task relationship requirements
+
+### Relationship Management
+The relationship system provides powerful graph-based operations for modeling connections between entities:
+
+#### Relationship Types
+- **DependsOn**: Entity dependencies and prerequisites
+- **Contains**: Hierarchical containment relationships
+- **References**: Cross-references and citations
+- **Fulfills**: Implementation and completion relationships
+- **Implements**: Technical implementation relationships
+- **Supersedes**: Version and replacement relationships
+- **AssociatedWith**: General associations
+- **Influences**: Impact and influence relationships
+- **Custom**: User-defined relationship types
+
+#### Relationship Features
+- **Bidirectional/Unidirectional**: Configurable relationship directions
+- **Weighted Connections**: Relationship strength (Weak, Medium, Strong, Critical)
+- **Graph Traversal**: BFS, DFS, and Dijkstra pathfinding algorithms
+- **Relationship Constraints**: Validation rules and cardinality limits
+- **Analytics**: Connection statistics and graph metrics
 
 ### Storage Features
 - **Content-addressable**: SHA-256 hashing for integrity verification
@@ -64,6 +87,23 @@ engram adr create --title "Database choice" --number 001
 
 # Workflows
 engram workflow create --title "Development pipeline"
+
+# Relationship Management
+engram relationship create --source-id task1 --source-type task --target-id task2 --target-type task --relationship-type depends-on --agent alice
+engram relationship list --agent alice
+engram relationship get <relationship-id>
+engram relationship find-path --source-id task1 --target-id task3 --algorithm dijkstra
+engram relationship connected --entity-id task1 --relationship-type depends-on
+engram relationship stats --agent alice
+engram relationship delete <relationship-id>
+
+# Commit Validation and Hooks
+engram validation commit --message "feat: implement user authentication [TASK-123]"
+engram validation commit --message "test commit" --dry-run
+engram validation hook install
+engram validation hook uninstall
+engram validation hook status
+engram validation check
 
 # Synchronization
 engram sync --agents "alice,bob" --strategy intelligent_merge
@@ -149,6 +189,56 @@ registry.register::<CustomEntity>();
 // Create from generic representation
 let entity = registry.create(generic_entity)?;
 ```
+
+### Commit Validation and Pre-commit Hooks
+
+The validation system enforces disciplined development practices by ensuring all commits follow established patterns and reference proper tasks with required relationships.
+
+#### Key Features:
+- **Task Reference Validation**: Commits must reference existing tasks in multiple formats
+- **Relationship Requirements**: Tasks must have reasoning and context relationships
+- **File Scope Validation**: Changed files must match planned task scope
+- **Exemption Support**: Configurable exemptions for chore, docs, fixup commits
+- **Performance Optimized**: Caching and parallel validation support
+
+#### Supported Task ID Formats:
+- `[TASK-123]` - Brackets format
+- `[task:auth-impl-001]` - Colon format  
+- `Refs: #456` - Reference format
+
+#### Validation Rules:
+```bash
+# Validate a commit
+engram validation commit --message "feat: implement authentication [TASK-123]"
+
+# Check hook status
+engram validation hook status
+
+# Install validation hook
+engram validation hook install
+```
+
+#### Configuration:
+Configuration via `.engram/validation.yaml`:
+
+```yaml
+enabled: true
+require_task_reference: true
+require_reasoning_relationship: true
+require_context_relationship: true
+task_id_patterns:
+  - pattern: '\[([A-Z]+-\d+)\]'
+    name: "Brackets format"
+    example: "[TASK-123]"
+exemptions:
+  - message_pattern: '^(chore|docs):'
+    skip_specific: ["require_task_reference"]
+performance:
+  cache_ttl_seconds: 300
+  enable_parallel_validation: true
+```
+
+### Plugin System
 
 ### Storage Layer
 The storage layer supports multiple backends through the `Storage` trait:

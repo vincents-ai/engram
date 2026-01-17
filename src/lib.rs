@@ -13,6 +13,7 @@ pub mod entities;
 pub mod error;
 pub mod session;
 pub mod storage;
+pub mod validation;
 
 use std::result::Result as StdResult;
 

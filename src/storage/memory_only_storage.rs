@@ -1,7 +1,13 @@
 //! In-memory storage implementation for testing and development
 
-use super::{GitCommit, MemoryEntity, QueryFilter, QueryResult, SortOrder, Storage, StorageStats};
-use crate::entities::{EntityRegistry, GenericEntity};
+use super::{
+    GitCommit, MemoryEntity, QueryFilter, QueryResult, RelationshipIndex, RelationshipStats,
+    RelationshipStorage, SortOrder, Storage, StorageStats, TraversalAlgorithm,
+};
+use crate::entities::{
+    Entity, EntityRegistry, EntityRelationType, EntityRelationship, GenericEntity,
+    RelationshipDirection, RelationshipFilter,
+};
 use crate::error::EngramError;
 use chrono::{DateTime, Utc};
 use serde_json::Value;
@@ -11,9 +17,11 @@ use std::sync::{Arc, Mutex};
 /// In-memory storage backend
 pub struct MemoryStorage {
     entities: Arc<Mutex<HashMap<String, MemoryEntity>>>,
+    #[allow(dead_code)]
     entity_registry: EntityRegistry,
     current_agent: String,
     commits: Vec<GitCommit>,
+    relationship_index: Arc<Mutex<RelationshipIndex>>,
 }
 
 impl MemoryStorage {
@@ -36,6 +44,7 @@ impl MemoryStorage {
             entity_registry: registry,
             current_agent: agent.to_string(),
             commits: Vec::new(),
+            relationship_index: Arc::new(Mutex::new(RelationshipIndex::new())),
         }
     }
 }
@@ -441,6 +450,256 @@ impl Storage for MemoryStorage {
             entities_by_agent,
             total_storage_size,
             last_sync: None,
+        })
+    }
+}
+
+impl RelationshipStorage for MemoryStorage {
+    fn store_relationship(&mut self, relationship: &EntityRelationship) -> Result<(), EngramError> {
+        let generic = GenericEntity {
+            id: relationship.id.clone(),
+            entity_type: EntityRelationship::entity_type().to_string(),
+            agent: relationship.agent.clone(),
+            timestamp: relationship.timestamp,
+            data: serde_json::to_value(relationship)?,
+        };
+
+        self.store(&generic)?;
+
+        let mut index = self.relationship_index.lock().unwrap();
+        index.add_relationship(relationship);
+
+        Ok(())
+    }
+
+    fn get_relationship(&self, id: &str) -> Result<Option<EntityRelationship>, EngramError> {
+        if let Some(generic) = self.get(id, EntityRelationship::entity_type())? {
+            if let Ok(relationship) = serde_json::from_value::<EntityRelationship>(generic.data) {
+                return Ok(Some(relationship));
+            }
+        }
+        Ok(None)
+    }
+
+    fn query_relationships(
+        &self,
+        filter: &RelationshipFilter,
+    ) -> Result<Vec<EntityRelationship>, EngramError> {
+        let all_rels = self.get_all(EntityRelationship::entity_type())?;
+        let mut relationships = Vec::new();
+
+        for generic in all_rels {
+            if let Ok(relationship) = serde_json::from_value::<EntityRelationship>(generic.data) {
+                if filter.matches(&relationship) {
+                    relationships.push(relationship);
+                }
+            }
+        }
+
+        Ok(relationships)
+    }
+
+    fn get_entity_relationships(
+        &self,
+        entity_id: &str,
+    ) -> Result<Vec<EntityRelationship>, EngramError> {
+        let index = self.relationship_index.lock().unwrap();
+        let rel_ids = index.get_all_relationships(entity_id);
+
+        let mut relationships = Vec::new();
+        for rel_id in &rel_ids {
+            if let Some(rel) = self.get_relationship(&rel_id)? {
+                relationships.push(rel);
+            }
+        }
+
+        Ok(relationships)
+    }
+
+    fn get_outbound_relationships(
+        &self,
+        entity_id: &str,
+    ) -> Result<Vec<EntityRelationship>, EngramError> {
+        let index = self.relationship_index.lock().unwrap();
+        let rel_ids = index.get_outbound(entity_id);
+
+        let mut relationships = Vec::new();
+        for rel_id in &rel_ids {
+            if let Some(rel) = self.get_relationship(&rel_id)? {
+                relationships.push(rel);
+            }
+        }
+
+        Ok(relationships)
+    }
+
+    fn get_inbound_relationships(
+        &self,
+        entity_id: &str,
+    ) -> Result<Vec<EntityRelationship>, EngramError> {
+        let index = self.relationship_index.lock().unwrap();
+        let rel_ids = index.get_inbound(entity_id);
+
+        let mut relationships = Vec::new();
+        for rel_id in &rel_ids {
+            if let Some(rel) = self.get_relationship(&rel_id)? {
+                relationships.push(rel);
+            }
+        }
+
+        Ok(relationships)
+    }
+
+    fn find_paths(
+        &self,
+        source_id: &str,
+        target_id: &str,
+        algorithm: TraversalAlgorithm,
+        max_depth: Option<usize>,
+    ) -> Result<Vec<super::EntityPath>, EngramError> {
+        match algorithm {
+            TraversalAlgorithm::BreadthFirst => {
+                let path = super::GraphAnalyzer::bfs(self, source_id, Some(target_id), max_depth)?;
+                if path.len() > 1 && path.last() == Some(&target_id.to_string()) {
+                    Ok(vec![super::EntityPath {
+                        entities: path,
+                        relationships: Vec::new(),
+                        total_weight: 0.0,
+                        path_type: super::PathType::Shortest,
+                    }])
+                } else {
+                    Ok(vec![])
+                }
+            }
+            TraversalAlgorithm::DepthFirst => {
+                let path = super::GraphAnalyzer::dfs(self, source_id, Some(target_id), max_depth)?;
+                if path.len() > 1 && path.last() == Some(&target_id.to_string()) {
+                    Ok(vec![super::EntityPath {
+                        entities: path,
+                        relationships: Vec::new(),
+                        total_weight: 0.0,
+                        path_type: super::PathType::Shortest,
+                    }])
+                } else {
+                    Ok(vec![])
+                }
+            }
+            TraversalAlgorithm::Dijkstra => {
+                if let Some(path) = super::GraphAnalyzer::dijkstra(self, source_id, target_id)? {
+                    Ok(vec![path])
+                } else {
+                    Ok(vec![])
+                }
+            }
+        }
+    }
+
+    fn get_connected_entities(
+        &self,
+        entity_id: &str,
+        algorithm: TraversalAlgorithm,
+        max_depth: Option<usize>,
+    ) -> Result<Vec<String>, EngramError> {
+        match algorithm {
+            TraversalAlgorithm::BreadthFirst => {
+                super::GraphAnalyzer::bfs(self, entity_id, None, max_depth)
+            }
+            TraversalAlgorithm::DepthFirst => {
+                super::GraphAnalyzer::dfs(self, entity_id, None, max_depth)
+            }
+            TraversalAlgorithm::Dijkstra => {
+                super::GraphAnalyzer::bfs(self, entity_id, None, max_depth)
+            }
+        }
+    }
+
+    fn delete_relationship(&mut self, id: &str) -> Result<(), EngramError> {
+        if let Some(relationship) = self.get_relationship(id)? {
+            let mut index = self.relationship_index.lock().unwrap();
+            index.remove_relationship(&relationship);
+        }
+
+        self.delete(id, EntityRelationship::entity_type())
+    }
+
+    fn get_relationship_index(&self) -> Result<&RelationshipIndex, EngramError> {
+        Err(EngramError::Validation(
+            "Direct index access not supported for MemoryStorage. Use query methods instead."
+                .to_string(),
+        ))
+    }
+
+    fn rebuild_relationship_index(&mut self) -> Result<(), EngramError> {
+        let all_rels = self.get_all(EntityRelationship::entity_type())?;
+        let mut index = self.relationship_index.lock().unwrap();
+
+        *index = RelationshipIndex::new();
+
+        for generic in all_rels {
+            if let Ok(relationship) = serde_json::from_value::<EntityRelationship>(generic.data) {
+                index.add_relationship(&relationship);
+            }
+        }
+
+        Ok(())
+    }
+
+    fn get_relationship_stats(&self) -> Result<RelationshipStats, EngramError> {
+        use std::collections::HashMap;
+
+        let all_rels = self.get_all(EntityRelationship::entity_type())?;
+        let mut total_relationships = 0;
+        let mut relationships_by_type: HashMap<EntityRelationType, usize> = HashMap::new();
+        let mut bidirectional_count = 0;
+        let mut entity_connections: HashMap<String, usize> = HashMap::new();
+
+        for generic in all_rels {
+            if let Ok(relationship) = serde_json::from_value::<EntityRelationship>(generic.data) {
+                total_relationships += 1;
+
+                *relationships_by_type
+                    .entry(relationship.relationship_type.clone())
+                    .or_insert(0) += 1;
+
+                if relationship.direction == RelationshipDirection::Bidirectional {
+                    bidirectional_count += 1;
+                }
+
+                *entity_connections
+                    .entry(relationship.source_id.clone())
+                    .or_insert(0) += 1;
+                *entity_connections
+                    .entry(relationship.target_id.clone())
+                    .or_insert(0) += 1;
+            }
+        }
+
+        let entity_count = entity_connections.len();
+        let average_connections_per_entity = if entity_count > 0 {
+            entity_connections.values().sum::<usize>() as f64 / entity_count as f64
+        } else {
+            0.0
+        };
+
+        let most_connected_entity = entity_connections
+            .into_iter()
+            .max_by_key(|(_, count)| *count)
+            .map(|(entity, count)| (entity, count));
+
+        let max_possible_edges = if entity_count > 1 {
+            entity_count * (entity_count - 1)
+        } else {
+            1
+        };
+        let relationship_density = total_relationships as f64 / max_possible_edges as f64;
+
+        Ok(RelationshipStats {
+            total_relationships,
+            relationships_by_type,
+            bidirectional_count,
+            average_connections_per_entity,
+            most_connected_entity,
+            relationship_density,
         })
     }
 }

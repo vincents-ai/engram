@@ -71,6 +71,7 @@ pub struct RuleExecutionResult {
 
 /// Rule execution engine
 pub struct RuleExecutionEngine {
+    #[allow(dead_code)]
     builtin_functions: HashMap<String, Box<dyn Fn(&[RuleValue]) -> Result<RuleValue, String>>>,
 }
 

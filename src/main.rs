@@ -1,8 +1,11 @@
 //! Main entry point for Engram CLI
 
 use clap::Parser;
-use engram::{cli, error::EngramError, storage::GitStorage};
-use std::env;
+use engram::{
+    cli::{self, handle_relationship_command, handle_validation_command},
+    error::EngramError,
+    storage::GitStorage,
+};
 
 fn main() {
     if let Err(e) = run() {
@@ -57,6 +60,14 @@ fn run() -> Result<(), EngramError> {
         cli::Commands::Workflow { command } => {
             let mut storage = GitStorage::new(".", "default")?;
             handle_workflow_command(command, &mut storage)?;
+        }
+        cli::Commands::Relationship { command } => {
+            let mut storage = GitStorage::new(".", "default")?;
+            handle_relationship_command(&mut storage, command)?;
+        }
+        cli::Commands::Validate { command } => {
+            let storage = GitStorage::new(".", "default")?;
+            handle_validation_command(command, storage)?;
         }
         cli::Commands::Sync { command } => {
             let mut storage = GitStorage::new(".", "default")?;
@@ -251,6 +262,7 @@ fn handle_reasoning_command<S: engram::storage::Storage>(
             title,
             task_id,
             agent,
+            confidence,
             tags,
             title_stdin,
             title_file,
@@ -262,6 +274,7 @@ fn handle_reasoning_command<S: engram::storage::Storage>(
                 title,
                 task_id,
                 agent,
+                confidence,
                 tags,
                 title_stdin,
                 title_file,
@@ -818,7 +831,7 @@ fn handle_migration_command() -> Result<(), EngramError> {
 }
 
 /// Handle help command
-fn handle_help_command(command: Option<cli::HelpCommands>) -> Result<(), EngramError> {
+fn handle_help_command(_command: Option<cli::HelpCommands>) -> Result<(), EngramError> {
     println!("Engram - Distributed Memory System for AI Agents");
     println!();
     println!("Available commands:");

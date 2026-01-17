@@ -1,11 +1,11 @@
-use crate::engines::rule_engine::{RuleExecutionEngine, RuleValue};
+use crate::engines::rule_engine::RuleValue;
 use crate::engines::workflow_engine::WorkflowAutomationEngine;
 use crate::entities::{
     Entity, StateType, TransitionType, Workflow, WorkflowState, WorkflowStatus, WorkflowTransition,
 };
 use crate::error::EngramError;
 use crate::storage::Storage;
-use clap::{Parser, Subcommand};
+use clap::Subcommand;
 use std::collections::HashMap;
 use uuid::Uuid;
 
@@ -963,29 +963,4 @@ pub fn cancel_workflow_instance<S: Storage + 'static>(
     }
 
     Ok(())
-}
-
-/// Parse workflow variables from string format (key=value,key2=value2)
-fn parse_workflow_variables(variables_str: &str) -> HashMap<String, RuleValue> {
-    let mut variables = HashMap::new();
-
-    for pair in variables_str.split(',') {
-        if let Some((key, value)) = pair.split_once('=') {
-            let key = key.trim().to_string();
-            let value_str = value.trim();
-
-            // Try to parse as different types
-            let rule_value = if value_str == "true" || value_str == "false" {
-                RuleValue::Boolean(value_str.parse().unwrap())
-            } else if let Ok(num) = value_str.parse::<f64>() {
-                RuleValue::Number(num)
-            } else {
-                RuleValue::String(value_str.to_string())
-            };
-
-            variables.insert(key, rule_value);
-        }
-    }
-
-    variables
 }

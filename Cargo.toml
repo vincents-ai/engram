@@ -47,6 +47,9 @@ validator = { version = "0.16", features = ["derive"] }
 # SHA-256 hashing
 sha2 = "0.10"
 
+# Regular expressions
+regex = "1.10"
+
 # Git integration
 git2 = { version = "0.19", features = ["vendored-openssl"] }
 

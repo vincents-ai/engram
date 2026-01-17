@@ -451,6 +451,7 @@ dependencies = [
  "futures",
  "git2",
  "predicates",
+ "regex",
  "schemars",
  "serde",
  "serde_json",

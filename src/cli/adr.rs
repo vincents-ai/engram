@@ -1,7 +1,7 @@
-use crate::entities::{AdrStatus, Alternative, Entity, ADR};
+use crate::entities::{AdrStatus, Entity, ADR};
 use crate::error::EngramError;
 use crate::storage::Storage;
-use clap::{Parser, Subcommand};
+use clap::Subcommand;
 
 /// ADR commands
 #[derive(Debug, Subcommand)]

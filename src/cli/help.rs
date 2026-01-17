@@ -1,4 +1,4 @@
-use clap::{Parser, Subcommand};
+use clap::Subcommand;
 
 /// Help and onboarding commands
 #[derive(Subcommand)]

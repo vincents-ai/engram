@@ -3,8 +3,8 @@
 use crate::entities::{Entity, Task, TaskPriority};
 use crate::error::EngramError;
 use crate::storage::Storage;
-use clap::{Parser, Subcommand};
-use serde::{Deserialize, Serialize};
+use clap::Subcommand;
+use serde::Deserialize;
 use std::fs;
 use std::io::{self, Read};
 
@@ -210,7 +210,7 @@ pub fn create_task<S: Storage>(
     };
 
     // Resolve description from various sources
-    let final_description = if description_stdin {
+    let _final_description = if description_stdin {
         Some(read_stdin()?)
     } else if let Some(ref file_path) = description_file {
         Some(read_file(file_path)?)

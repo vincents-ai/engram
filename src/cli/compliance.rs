@@ -1,7 +1,7 @@
-use crate::entities::{Compliance, Entity, SeverityLevel};
+use crate::entities::{Compliance, Entity};
 use crate::error::EngramError;
 use crate::storage::Storage;
-use clap::{Parser, Subcommand};
+use clap::Subcommand;
 
 /// Compliance commands
 #[derive(Debug, Subcommand)]

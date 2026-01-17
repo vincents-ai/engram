@@ -3,7 +3,6 @@
 //! Provides SPACE framework and DORA metrics calculation
 //! for productivity analysis and session management.
 
-use crate::error::EngramError;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 

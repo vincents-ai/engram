@@ -3,7 +3,7 @@ use crate::entities::{Entity, Session, SessionStatus};
 use crate::error::EngramError;
 use crate::storage::Storage;
 use chrono::Utc;
-use clap::{Parser, Subcommand};
+use clap::Subcommand;
 
 /// Session commands
 #[derive(Debug, Subcommand)]

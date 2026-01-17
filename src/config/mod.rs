@@ -337,7 +337,7 @@ impl Config {
     pub fn load_with_defaults() -> Result<Self, EngramError> {
         match Self::find_config_file() {
             Some(config_path) => {
-                let mut config = Self::load_from_file(&config_path)?;
+                let config = Self::load_from_file(&config_path)?;
                 config.validate()?;
                 Ok(config)
             }

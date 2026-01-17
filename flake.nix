@@ -30,14 +30,21 @@
           nativeBuildInputs = with pkgs; [
             pkg-config
             rustToolchain
+            perl  # Required for OpenSSL compilation
           ];
 
           buildInputs = with pkgs; [
             openssl
             openssl.dev
-            pkg-config
             git
           ];
+
+          # Use system OpenSSL instead of building from source
+          OPENSSL_NO_VENDOR = "1";
+          OPENSSL_DIR = "${pkgs.openssl.dev}";
+          OPENSSL_LIB_DIR = "${pkgs.openssl.out}/lib";
+          OPENSSL_INCLUDE_DIR = "${pkgs.openssl.dev}/include";
+          PKG_CONFIG_PATH = "${pkgs.openssl.dev}/lib/pkgconfig";
         };
 
         devShells.default = pkgs.mkShell {
@@ -48,6 +55,7 @@
             openssl.dev
             git
             rust-analyzer
+            perl
           ];
 
           shellHook = ''
@@ -55,6 +63,7 @@
             export OPENSSL_DIR="${pkgs.openssl.dev}"
             export OPENSSL_LIB_DIR="${pkgs.openssl.out}/lib"
             export OPENSSL_INCLUDE_DIR="${pkgs.openssl.dev}/include"
+            export OPENSSL_NO_VENDOR="1"
             echo 'Engram Rust development environment ready with OpenSSL support'
           '';
         };
@@ -69,8 +78,23 @@
             lockFile = ./Cargo.lock;
           };
 
-          nativeBuildInputs = with pkgs; [ pkg-config rustToolchain ];
-          buildInputs = with pkgs; [ openssl openssl.dev git ];
+          nativeBuildInputs = with pkgs; [ 
+            pkg-config 
+            rustToolchain 
+            perl 
+          ];
+          
+          buildInputs = with pkgs; [ 
+            openssl 
+            openssl.dev 
+            git 
+          ];
+
+          # Use system OpenSSL
+          OPENSSL_NO_VENDOR = "1";
+          OPENSSL_DIR = "${pkgs.openssl.dev}";
+          OPENSSL_LIB_DIR = "${pkgs.openssl.out}/lib";
+          OPENSSL_INCLUDE_DIR = "${pkgs.openssl.dev}/include";
 
           doCheck = true;
           checkPhase = ''

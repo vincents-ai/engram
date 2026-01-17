@@ -181,7 +181,7 @@ pub fn create_context<S: Storage>(
     relevance: &str,
     source_id: Option<String>,
     agent: Option<String>,
-    tags: Option<String>,
+    _tags: Option<String>,
     // Flexible input parameters
     title_stdin: bool,
     title_file: Option<String>,
@@ -270,7 +270,7 @@ pub fn create_context<S: Storage>(
 
 /// List contexts
 pub fn list_contexts<S: Storage>(
-    storage: &S,
+    _storage: &S,
     agent: Option<&str>,
     relevance: Option<&str>,
     limit: Option<usize>,
@@ -283,7 +283,7 @@ pub fn list_contexts<S: Storage>(
 }
 
 /// Show context details
-pub fn show_context<S: Storage>(storage: &S, id: &str) -> Result<(), EngramError> {
+pub fn show_context<S: Storage>(_storage: &S, id: &str) -> Result<(), EngramError> {
     println!("Show context command - to be implemented");
     println!("ID: {}", id);
     Ok(())
@@ -291,7 +291,7 @@ pub fn show_context<S: Storage>(storage: &S, id: &str) -> Result<(), EngramError
 
 /// Update context
 pub fn update_context<S: Storage>(
-    storage: &mut S,
+    _storage: &mut S,
     id: &str,
     content: &str,
 ) -> Result<(), EngramError> {
@@ -302,7 +302,7 @@ pub fn update_context<S: Storage>(
 }
 
 /// Delete context
-pub fn delete_context<S: Storage>(storage: &mut S, id: &str) -> Result<(), EngramError> {
+pub fn delete_context<S: Storage>(_storage: &mut S, id: &str) -> Result<(), EngramError> {
     println!("Delete context command - to be implemented");
     println!("ID: {}", id);
     Ok(())

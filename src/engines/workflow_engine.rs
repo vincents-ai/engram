@@ -3,8 +3,7 @@
 //! Provides state machine-based workflow automation for business processes,
 //! multi-agent coordination, and automated task orchestration.
 
-use crate::engines::rule_engine::{RuleExecutionContext, RuleExecutionEngine, RuleValue};
-use crate::entities::{GenericEntity, Task};
+use crate::engines::rule_engine::{RuleExecutionEngine, RuleValue};
 use crate::error::EngramError;
 use crate::storage::Storage;
 use chrono::{DateTime, Utc};
@@ -141,10 +140,13 @@ impl fmt::Display for WorkflowStatus {
 
 /// Workflow automation engine for state machine execution
 pub struct WorkflowAutomationEngine<S: Storage> {
+    #[allow(dead_code)]
     storage: S,
+    #[allow(dead_code)]
     rule_engine: RuleExecutionEngine,
     active_instances: HashMap<String, WorkflowInstance>,
     event_queue: VecDeque<WorkflowExecutionEvent>,
+    #[allow(dead_code)]
     max_execution_steps: usize,
 }
 
@@ -238,7 +240,7 @@ impl<S: Storage> WorkflowAutomationEngine<S> {
     /// Add a state to workflow definition
     pub fn add_state(
         &mut self,
-        workflow_id: &str,
+        _workflow_id: &str,
         name: String,
         description: Option<String>,
         is_initial: bool,
@@ -262,7 +264,7 @@ impl<S: Storage> WorkflowAutomationEngine<S> {
     /// Add a transition to workflow definition
     pub fn add_transition(
         &mut self,
-        workflow_id: &str,
+        _workflow_id: &str,
         name: String,
         from_state: String,
         to_state: String,
@@ -453,7 +455,7 @@ impl<S: Storage> WorkflowAutomationEngine<S> {
 
     /// Process pending workflow events
     pub fn process_events(&mut self) -> Result<Vec<WorkflowExecutionResult>, EngramError> {
-        let mut results = Vec::new();
+        let results = Vec::new();
 
         while let Some(event) = self.event_queue.pop_front() {
             // Process event based on type

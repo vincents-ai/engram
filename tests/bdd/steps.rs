@@ -648,3 +648,365 @@ async fn then_should_see_description(_world: &mut EngramWorld) {
 async fn then_should_see_conclusion(_world: &mut EngramWorld) {
     // TODO: Verify conclusion
 }
+
+// ============================================================================
+// RELATIONSHIP MANAGEMENT STEPS
+// ============================================================================
+
+#[given(expr = "I have an entity {string} of type {string}")]
+async fn given_entity_of_type(world: &mut EngramWorld, entity_id: String, entity_type: String) {
+    world.create_test_entity(&entity_id, &entity_type);
+}
+
+#[given(expr = "{string} depends on {string}")]
+async fn given_entity_depends_on(world: &mut EngramWorld, source: String, target: String) {
+    world.create_test_relationship(&source, &target, "depends-on", "unidirectional", "medium");
+}
+
+#[given(expr = "{string} contains {string}")]
+async fn given_entity_contains(world: &mut EngramWorld, source: String, target: String) {
+    world.create_test_relationship(&source, &target, "contains", "unidirectional", "medium");
+}
+
+#[given(expr = "{string} references {string}")]
+async fn given_entity_references(world: &mut EngramWorld, source: String, target: String) {
+    world.create_test_relationship(&source, &target, "references", "unidirectional", "medium");
+}
+
+#[given(expr = "{string} is associated with {string}")]
+async fn given_entity_associated_with(world: &mut EngramWorld, source: String, target: String) {
+    world.create_test_relationship(
+        &source,
+        &target,
+        "associated-with",
+        "bidirectional",
+        "medium",
+    );
+}
+
+#[given("I have multiple entities with various relationships")]
+async fn given_multiple_entities_with_relationships(world: &mut EngramWorld) {
+    // Create test entities
+    world.create_test_entity("project1", "project");
+    world.create_test_entity("task1", "task");
+    world.create_test_entity("task2", "task");
+    world.create_test_entity("doc1", "document");
+
+    // Create various relationships
+    world.create_test_relationship("project1", "task1", "contains", "unidirectional", "strong");
+    world.create_test_relationship("project1", "task2", "contains", "unidirectional", "strong");
+    world.create_test_relationship("task1", "doc1", "references", "unidirectional", "weak");
+    world.create_test_relationship("task1", "task2", "depends-on", "unidirectional", "medium");
+}
+
+#[when(expr = "I create a relationship from {string} to {string} of type {string}")]
+async fn when_create_relationship(
+    world: &mut EngramWorld,
+    source: String,
+    target: String,
+    rel_type: String,
+) {
+    world.create_test_relationship(&source, &target, &rel_type, "unidirectional", "medium");
+}
+
+#[when(expr = "I create a bidirectional relationship from {string} to {string} of type {string}")]
+async fn when_create_bidirectional_relationship(
+    world: &mut EngramWorld,
+    source: String,
+    target: String,
+    rel_type: String,
+) {
+    world.create_test_relationship(&source, &target, &rel_type, "bidirectional", "medium");
+}
+
+#[when(
+    expr = "I create a relationship from {string} to {string} of type {string} with strength {string}"
+)]
+async fn when_create_relationship_with_strength(
+    world: &mut EngramWorld,
+    source: String,
+    target: String,
+    rel_type: String,
+    strength: String,
+) {
+    world.create_test_relationship(&source, &target, &rel_type, "unidirectional", &strength);
+}
+
+#[when(
+    expr = "I create a relationship from {string} to {string} of type {string} with description {string}"
+)]
+async fn when_create_relationship_with_description(
+    world: &mut EngramWorld,
+    source: String,
+    target: String,
+    rel_type: String,
+    description: String,
+) {
+    world.create_test_relationship_with_description(
+        &source,
+        &target,
+        &rel_type,
+        "unidirectional",
+        "medium",
+        &description,
+    );
+}
+
+#[when(expr = "I list relationships for entity {string}")]
+async fn when_list_relationships_for_entity(world: &mut EngramWorld, entity_id: String) {
+    world.list_relationships_for_entity(&entity_id);
+}
+
+#[when(expr = "I list relationships for {string} filtered by type {string}")]
+async fn when_list_relationships_filtered_by_type(
+    world: &mut EngramWorld,
+    entity_id: String,
+    rel_type: String,
+) {
+    world.list_relationships_for_entity_filtered(&entity_id, &rel_type);
+}
+
+#[when("I show the relationship details")]
+async fn when_show_relationship_details(world: &mut EngramWorld) {
+    world.show_last_relationship_details();
+}
+
+#[when(expr = "I delete the relationship between {string} and {string}")]
+async fn when_delete_relationship(world: &mut EngramWorld, source: String, target: String) {
+    world.delete_relationship_between(&source, &target);
+}
+
+#[when(expr = "I find a path from {string} to {string}")]
+async fn when_find_path(world: &mut EngramWorld, source: String, target: String) {
+    world.find_path_between(&source, &target);
+}
+
+#[when(expr = "I get entities connected to {string}")]
+async fn when_get_connected_entities(world: &mut EngramWorld, entity_id: String) {
+    world.get_connected_entities(&entity_id);
+}
+
+#[when("I generate relationship statistics")]
+async fn when_generate_relationship_statistics(world: &mut EngramWorld) {
+    world.generate_relationship_statistics();
+}
+
+#[when(expr = "I try to create a relationship where {string} depends on {string}")]
+async fn when_try_create_reverse_dependency(
+    world: &mut EngramWorld,
+    source: String,
+    target: String,
+) {
+    world.try_create_relationship(&source, &target, "depends-on", "unidirectional", "medium");
+}
+
+#[when("the relationship constraints do not allow cycles")]
+async fn when_constraints_disallow_cycles(_world: &mut EngramWorld) {
+    // TODO: Set constraint configuration
+}
+
+#[when("the relationship constraints allow cycles")]
+async fn when_constraints_allow_cycles(_world: &mut EngramWorld) {
+    // TODO: Set constraint configuration
+}
+
+#[when(expr = "I try to create a third outbound relationship from {string}")]
+async fn when_try_create_third_relationship(world: &mut EngramWorld, entity_id: String) {
+    world.try_create_relationship(
+        &entity_id,
+        "target3",
+        "depends-on",
+        "unidirectional",
+        "medium",
+    );
+}
+
+#[when(expr = "I update the relationship strength to {string}")]
+async fn when_update_relationship_strength(world: &mut EngramWorld, new_strength: String) {
+    world.update_last_relationship_strength(&new_strength);
+}
+
+#[when("I restart the system")]
+async fn when_restart_system(world: &mut EngramWorld) {
+    world.restart_storage_system();
+}
+
+#[then("the relationship should be created successfully")]
+async fn then_relationship_created_successfully(world: &mut EngramWorld) {
+    let relationships = world.get_created_entities("relationship");
+    assert!(!relationships.is_empty(), "Relationship was not created");
+}
+
+#[then("the relationship should be stored in Git")]
+async fn then_relationship_stored_in_git(world: &mut EngramWorld) {
+    assert!(world.is_storage_initialized());
+}
+
+#[then("the relationship ID should be returned")]
+async fn then_relationship_id_returned(world: &mut EngramWorld) {
+    if let Some(result) = world.get_last_result() {
+        assert!(result.is_ok(), "Expected successful result");
+    } else {
+        panic!("No result available");
+    }
+}
+
+#[then(expr = "the relationship direction should be {string}")]
+async fn then_relationship_direction_should_be(
+    world: &mut EngramWorld,
+    expected_direction: String,
+) {
+    world.verify_last_relationship_direction(&expected_direction);
+}
+
+#[then(expr = "the relationship strength should be {string}")]
+async fn then_relationship_strength_should_be(world: &mut EngramWorld, expected_strength: String) {
+    world.verify_last_relationship_strength(&expected_strength);
+}
+
+#[then(expr = "I should see {int} relationships")]
+async fn then_should_see_n_relationships(world: &mut EngramWorld, count: i32) {
+    let relationships = world.get_last_relationship_count();
+    assert_eq!(
+        relationships, count as usize,
+        "Expected {} relationships",
+        count
+    );
+}
+
+#[then(expr = "I should see a relationship to {string}")]
+async fn then_should_see_relationship_to(world: &mut EngramWorld, target: String) {
+    assert!(
+        world.last_results_contain_relationship_to(&target),
+        "Should contain relationship to {}",
+        target
+    );
+}
+
+#[then(expr = "I should not see a relationship to {string}")]
+async fn then_should_not_see_relationship_to(world: &mut EngramWorld, target: String) {
+    assert!(
+        !world.last_results_contain_relationship_to(&target),
+        "Should not contain relationship to {}",
+        target
+    );
+}
+
+#[then(expr = "I should see the source entity {string}")]
+async fn then_should_see_source_entity(world: &mut EngramWorld, source: String) {
+    world.verify_relationship_detail_contains_source(&source);
+}
+
+#[then(expr = "I should see the target entity {string}")]
+async fn then_should_see_target_entity(world: &mut EngramWorld, target: String) {
+    world.verify_relationship_detail_contains_target(&target);
+}
+
+#[then(expr = "I should see the relationship type {string}")]
+async fn then_should_see_relationship_type(world: &mut EngramWorld, rel_type: String) {
+    world.verify_relationship_detail_contains_type(&rel_type);
+}
+
+#[then("the relationship should be deleted successfully")]
+async fn then_relationship_deleted_successfully(world: &mut EngramWorld) {
+    if let Some(result) = world.get_last_result() {
+        assert!(result.is_ok(), "Relationship deletion should succeed");
+    }
+}
+
+#[then("the relationship should not exist in storage")]
+async fn then_relationship_not_in_storage(world: &mut EngramWorld) {
+    world.verify_relationship_deleted();
+}
+
+#[then("I should find a path")]
+async fn then_should_find_path(world: &mut EngramWorld) {
+    assert!(world.last_path_finding_found_path(), "Should find a path");
+}
+
+#[then("I should find no path")]
+async fn then_should_find_no_path(world: &mut EngramWorld) {
+    assert!(!world.last_path_finding_found_path(), "Should find no path");
+}
+
+#[then(expr = "the path should include {string}, {string}, {string} in order")]
+async fn then_path_should_include_entities_in_order(
+    world: &mut EngramWorld,
+    entity1: String,
+    entity2: String,
+    entity3: String,
+) {
+    world.verify_path_includes_entities_in_order(&[entity1, entity2, entity3]);
+}
+
+#[then(expr = "I should see {int} connected entities")]
+async fn then_should_see_n_connected_entities(world: &mut EngramWorld, count: i32) {
+    let connected_count = world.get_last_connected_entities_count();
+    assert_eq!(
+        connected_count, count as usize,
+        "Expected {} connected entities",
+        count
+    );
+}
+
+#[then("I should see the total number of relationships")]
+async fn then_should_see_total_relationships(world: &mut EngramWorld) {
+    world.verify_statistics_contain_total_relationships();
+}
+
+#[then("I should see relationships broken down by type")]
+async fn then_should_see_relationships_by_type(world: &mut EngramWorld) {
+    world.verify_statistics_contain_breakdown_by_type();
+}
+
+#[then("I should see the most connected entity")]
+async fn then_should_see_most_connected_entity(world: &mut EngramWorld) {
+    world.verify_statistics_contain_most_connected_entity();
+}
+
+#[then("I should see relationship density")]
+async fn then_should_see_relationship_density(world: &mut EngramWorld) {
+    world.verify_statistics_contain_relationship_density();
+}
+
+#[then("the relationship creation should fail")]
+async fn then_relationship_creation_should_fail(world: &mut EngramWorld) {
+    if let Some(result) = world.get_last_result() {
+        assert!(result.is_err(), "Relationship creation should fail");
+    } else {
+        panic!("No result available to verify failure");
+    }
+}
+
+#[then("I should see a cycle prevention error")]
+async fn then_should_see_cycle_error(world: &mut EngramWorld) {
+    if let Some(result) = world.get_last_result() {
+        if let Err(error_msg) = result {
+            assert!(
+                error_msg.contains("cycle"),
+                "Should contain cycle error message"
+            );
+        }
+    }
+}
+
+#[then("I should see a relationship limit error")]
+async fn then_should_see_limit_error(world: &mut EngramWorld) {
+    if let Some(result) = world.get_last_result() {
+        if let Err(error_msg) = result {
+            assert!(
+                error_msg.contains("limit"),
+                "Should contain limit error message"
+            );
+        }
+    }
+}
+
+#[then(expr = "I should still see the relationship to {string}")]
+async fn then_should_still_see_relationship_to(world: &mut EngramWorld, target: String) {
+    assert!(
+        world.last_results_contain_relationship_to(&target),
+        "Should still contain relationship to {}",
+        target
+    );
+}

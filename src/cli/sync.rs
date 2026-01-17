@@ -1,9 +1,6 @@
-use crate::entities::{Entity, GenericEntity};
-use crate::error::{EngramError, StorageError};
-use crate::storage::{
-    ConflictResolution, RemoteAuth, RemoteSyncDirection, RemoteSyncOptions, Storage, SyncResult,
-    SyncStrategy,
-};
+use crate::entities::GenericEntity;
+use crate::error::EngramError;
+use crate::storage::{ConflictResolution, RemoteAuth, Storage, SyncResult};
 use chrono::Utc;
 use git2::{Cred, FetchOptions, IndexAddOption, PushOptions, RemoteCallbacks, Repository};
 use serde::{Deserialize, Serialize};
@@ -539,7 +536,7 @@ pub struct RemoteSyncStatus {
 
 /// Add a remote repository
 pub fn add_remote<S: Storage>(
-    storage: &mut S,
+    _storage: &mut S,
     name: String,
     url: String,
     branch: String,
@@ -720,7 +717,7 @@ pub fn get_sync_status(remote_name: &str) -> Result<RemoteSyncStatus, EngramErro
 
 /// Pull from remote repository
 pub fn pull_from_remote<S: Storage>(
-    storage: &mut S,
+    _storage: &mut S,
     remote_name: String,
     branch: Option<String>,
     agents: Option<String>,
@@ -792,11 +789,11 @@ pub fn pull_from_remote<S: Storage>(
 
 /// Push to remote repository
 pub fn push_to_remote<S: Storage>(
-    storage: &mut S,
+    _storage: &mut S,
     remote_name: String,
     branch: Option<String>,
     agents: Option<String>,
-    auth: RemoteAuth,
+    _auth: RemoteAuth,
     dry_run: bool,
 ) -> Result<(), EngramError> {
     println!("📤 Pushing to remote '{}'...", remote_name);
@@ -920,7 +917,7 @@ pub fn push_to_remote<S: Storage>(
 }
 
 /// Create Git2 credentials based on authentication configuration
-pub fn create_credentials(auth: &RemoteAuth) -> Result<Option<RemoteCallbacks>, EngramError> {
+pub fn create_credentials(auth: &RemoteAuth) -> Result<Option<RemoteCallbacks<'_>>, EngramError> {
     match auth.auth_type.as_str() {
         "ssh" => {
             let mut callbacks = RemoteCallbacks::new();
@@ -1039,7 +1036,7 @@ pub fn handle_sync_command<S: Storage>(
             }
 
             let merge_strategy = MergeStrategy::from_str(strategy)?;
-            let result = sync_agents(storage, agent_list, merge_strategy, *dry_run)?;
+            let _result = sync_agents(storage, agent_list, merge_strategy, *dry_run)?;
 
             println!("\n🎉 Synchronization completed successfully!");
             Ok(())
@@ -1250,7 +1247,7 @@ pub fn switch_branch(branch_name: &str, create_if_missing: bool) -> Result<(), E
 }
 
 /// List all branches
-pub fn list_branches(all: bool, current_only: bool) -> Result<(), EngramError> {
+pub fn list_branches(_all: bool, current_only: bool) -> Result<(), EngramError> {
     let repo_path = std::env::current_dir()?.join(".engram");
     let repo = Repository::open(&repo_path)
         .map_err(|e| EngramError::Git(format!("Failed to open repository: {}", e)))?;

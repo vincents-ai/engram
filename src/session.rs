@@ -3,8 +3,7 @@
 //! Provides agent session lifecycle management with real-time analytics
 //! and productivity tracking using SPACE framework.
 
-use crate::analytics::{DoraMetrics, FatigueAnalysis, SessionAnalytics, SpaceMetrics};
-use crate::error::EngramError;
+use crate::analytics::{DoraMetrics, SessionAnalytics, SpaceMetrics};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 

@@ -1,7 +1,7 @@
 use crate::entities::{Entity, Rule, RulePriority, RuleStatus, RuleType};
 use crate::error::EngramError;
 use crate::storage::Storage;
-use clap::{Parser, Subcommand};
+use clap::Subcommand;
 
 /// Rule commands
 #[derive(Debug, Subcommand)]
