@@ -3,11 +3,13 @@
 //! Provides Git-based persistence with content-addressable storage
 //! and multi-agent synchronization capabilities.
 
+pub mod git_refs_storage;
 pub mod git_storage;
 pub mod memory_entity;
 pub mod memory_only_storage;
 pub mod relationship_storage;
 
+pub use git_refs_storage::*;
 pub use git_storage::*;
 pub use memory_entity::*;
 pub use memory_only_storage::*;
@@ -145,6 +147,9 @@ pub trait Storage: Send {
 
     /// Get statistics about stored entities
     fn get_stats(&self) -> Result<StorageStats, EngramError>;
+
+    /// Cast to concrete type for accessing specific implementations
+    fn as_any(&self) -> &dyn std::any::Any;
 }
 
 /// Git commit information

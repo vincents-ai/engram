@@ -2,19 +2,21 @@
 
 use clap::Parser;
 use engram::{
+    ask::handle_ask_command,
     cli::{self, handle_relationship_command, handle_validation_command},
     error::EngramError,
     storage::GitStorage,
 };
 
-fn main() {
-    if let Err(e) = run() {
+#[tokio::main]
+async fn main() {
+    if let Err(e) = run().await {
         eprintln!("Error: {}", e);
         std::process::exit(1);
     }
 }
 
-fn run() -> Result<(), EngramError> {
+async fn run() -> Result<(), EngramError> {
     let args = cli::Cli::parse();
 
     match args.command {
@@ -28,6 +30,9 @@ fn run() -> Result<(), EngramError> {
         cli::Commands::Context { command } => {
             let mut storage = GitStorage::new(".", "default")?;
             handle_context_command(command, &mut storage)?;
+        }
+        cli::Commands::Ask { command } => {
+            handle_ask_command(command).await?;
         }
         cli::Commands::Reasoning { command } => {
             let mut storage = GitStorage::new(".", "default")?;

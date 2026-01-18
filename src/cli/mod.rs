@@ -37,6 +37,8 @@ pub use task::*;
 pub use validation::*;
 pub use workflow::*;
 
+use crate::ask::AskCommands;
+use crate::version::BuildInfo;
 use clap::{Parser, Subcommand};
 
 /// Main CLI structure
@@ -46,7 +48,7 @@ use clap::{Parser, Subcommand};
     about = "Task memory system for LLM coding agents",
     long_about = "ENGRAM: Task-driven memory system for LLM coding agents\n\nPURPOSE: Maintains project state, tasks, and reasoning across coding sessions.\nEnforces disciplined development via Git commit validation requiring task references.\n\nWORKFLOW:\n1. engram setup workspace              # Initialize project\n2. engram task create --title \"...\"    # Create work items (returns UUIDs)\n3. engram context create --title \"...\" # Add background info\n4. engram reasoning create --task-id <uuid> # Document decisions\n5. engram relationship create ...       # Link entities (REQUIRED for validation)\n6. engram validate hook install        # Enable Git integration\n\nGIT INTEGRATION: Commits must reference task UUIDs: \"feat: implement auth [<uuid>]\"\nJSON I/O: Most commands support --json input/output for programmatic access.\n\nUse 'engram guide examples' for working command examples."
 )]
-#[command(version = env!("ENGRAM_FULL_VERSION"))]
+#[command(version = env!("CARGO_PKG_VERSION"))]
 #[command(author = "Engram Team")]
 pub struct Cli {
     #[command(subcommand)]
@@ -82,6 +84,11 @@ pub enum Commands {
     Context {
         #[command(subcommand)]
         command: ContextCommands,
+    },
+    /// Natural Language Query Interface
+    Ask {
+        #[command(subcommand)]
+        command: AskCommands,
     },
     /// Decision chains and rationale (required for task validation)
     Reasoning {

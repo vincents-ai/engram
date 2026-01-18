@@ -5,15 +5,18 @@
 //! and extensible architecture for AI agents.
 
 pub mod analytics;
+pub mod ask;
 pub mod cli;
 pub mod collab;
 pub mod config;
 pub mod engines;
 pub mod entities;
 pub mod error;
+pub mod nlq;
 pub mod session;
 pub mod storage;
 pub mod validation;
+pub mod version;
 
 use std::result::Result as StdResult;
 

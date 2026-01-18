@@ -641,6 +641,10 @@ impl Storage for GitStorage {
             last_sync: None,
         })
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 impl RelationshipStorage for GitStorage {
