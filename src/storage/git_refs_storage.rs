@@ -6,6 +6,7 @@
 //! refs/engram/{entity_type}/{entity_id}
 
 use super::{
+    relationship_storage::{EntityPath, PathType},
     GitCommit, MemoryEntity, QueryFilter, QueryResult, RelationshipIndex, RelationshipStats,
     RelationshipStorage, SortOrder, Storage, StorageStats, TraversalAlgorithm,
 };
@@ -95,8 +96,8 @@ impl GitRefsStorage {
             entity.id.clone(),
             entity.entity_type.clone(),
             entity.agent.clone(),
-            entity.created.unwrap_or_else(Utc::now),
-            entity.updated.unwrap_or_else(Utc::now),
+            entity.timestamp,
+            entity.timestamp,
             entity.data.clone(),
         );
 
@@ -157,8 +158,7 @@ impl GitRefsStorage {
                     id: memory_entity.id,
                     entity_type: memory_entity.entity_type,
                     agent: memory_entity.agent,
-                    created: Some(memory_entity.created),
-                    updated: Some(memory_entity.updated),
+                    timestamp: memory_entity.created,
                     data: memory_entity.data,
                 };
 
@@ -169,7 +169,7 @@ impl GitRefsStorage {
     }
 
     /// Delete entity ref
-    fn delete_entity_ref(&self, entity_type: &str, entity_id: &str) -> Result<bool, EngramError> {
+    fn delete_entity_ref(&self, entity_type: &str, entity_id: &str) -> Result<(), EngramError> {
         let mut repo = self
             .repository
             .lock()
@@ -182,9 +182,9 @@ impl GitRefsStorage {
                 reference
                     .delete()
                     .map_err(|e| EngramError::Git(format!("Failed to delete ref: {}", e)))?;
-                Ok(true)
+                Ok(())
             }
-            Err(_) => Ok(false), // Reference doesn't exist
+            Err(_) => Ok(()),
         }
     }
 
@@ -284,7 +284,7 @@ impl Storage for GitRefsStorage {
         self.load_entity_from_ref(entity_type, id)
     }
 
-    fn delete(&mut self, id: &str, entity_type: &str) -> Result<bool, EngramError> {
+    fn delete(&mut self, id: &str, entity_type: &str) -> Result<(), EngramError> {
         // Remove from relationship index if it's a relationship
         if entity_type == "relationship" {
             if let Some(entity) = self.load_entity_from_ref(entity_type, id)? {
@@ -362,10 +362,10 @@ impl Storage for GitRefsStorage {
                     SortOrder::Desc => b_val.cmp(&a_val),
                 }
             } else {
-                // Default sort by updated timestamp
+                // Default sort by timestamp
                 match filter.sort_order {
-                    SortOrder::Asc => a.updated.cmp(&b.updated),
-                    SortOrder::Desc => b.updated.cmp(&a.updated),
+                    SortOrder::Asc => a.timestamp.cmp(&b.timestamp),
+                    SortOrder::Desc => b.timestamp.cmp(&a.timestamp),
                 }
             }
         });
@@ -426,49 +426,222 @@ impl Storage for GitRefsStorage {
         Ok(entities)
     }
 
-    fn update(&mut self, entity: &GenericEntity) -> Result<(), EngramError> {
-        // For refs storage, update is the same as store
-        self.store(entity)
+    fn query_by_agent(
+        &self,
+        agent: &str,
+        entity_type: Option<&str>,
+    ) -> Result<Vec<GenericEntity>, EngramError> {
+        let filter = QueryFilter {
+            entity_type: entity_type.map(String::from),
+            agent: Some(agent.to_string()),
+            ..Default::default()
+        };
+        self.query(&filter).map(|result| result.entities)
     }
 
-    fn set_agent(&mut self, agent: &str) {
-        self.current_agent = agent.to_string();
+    fn query_by_time_range(
+        &self,
+        start: chrono::DateTime<chrono::Utc>,
+        end: chrono::DateTime<chrono::Utc>,
+    ) -> Result<Vec<GenericEntity>, EngramError> {
+        let filter = QueryFilter::default();
+        let result = self.query(&filter)?;
+
+        let filtered_entities = result
+            .entities
+            .into_iter()
+            .filter(|entity| entity.timestamp >= start && entity.timestamp <= end)
+            .collect();
+
+        Ok(filtered_entities)
     }
 
-    fn get_agent(&self) -> &str {
-        &self.current_agent
-    }
-
-    fn get_git_commits(
+    fn query_by_type(
         &self,
         entity_type: &str,
+        filters: Option<&HashMap<String, Value>>,
         limit: Option<usize>,
-    ) -> Result<Vec<GitCommit>, EngramError> {
+        offset: Option<usize>,
+    ) -> Result<QueryResult, EngramError> {
+        let mut filter = QueryFilter {
+            entity_type: Some(entity_type.to_string()),
+            limit,
+            offset,
+            ..Default::default()
+        };
+
+        if let Some(field_filters) = filters {
+            filter.field_filters = field_filters.clone();
+        }
+
+        self.query(&filter)
+    }
+
+    fn text_search(
+        &self,
+        query: &str,
+        entity_types: Option<&[String]>,
+        limit: Option<usize>,
+    ) -> Result<Vec<GenericEntity>, EngramError> {
+        let mut results = Vec::new();
+        let query_lower = query.to_lowercase();
+
+        let search_types = entity_types.unwrap_or(&[
+            "task".to_string(),
+            "context".to_string(),
+            "reasoning".to_string(),
+            "knowledge".to_string(),
+            "session".to_string(),
+            "compliance".to_string(),
+        ]);
+
+        for entity_type in search_types {
+            let entities = self.get_all(entity_type)?;
+
+            for entity in entities {
+                let entity_json = serde_json::to_string(&entity.data).unwrap_or_default();
+                if entity_json.to_lowercase().contains(&query_lower) {
+                    results.push(entity);
+                }
+
+                if let Some(limit) = limit {
+                    if results.len() >= limit {
+                        return Ok(results);
+                    }
+                }
+            }
+        }
+
+        Ok(results)
+    }
+
+    fn count(&self, filter: &QueryFilter) -> Result<usize, EngramError> {
+        let result = self.query(filter)?;
+        Ok(result.total_count)
+    }
+
+    fn list_ids(&self, entity_type: &str) -> Result<Vec<String>, EngramError> {
+        self.list_entity_refs(entity_type)
+    }
+
+    fn sync(&mut self) -> Result<(), EngramError> {
+        // For Git refs storage, sync could involve pushing/pulling refs
+        // This is a simplified implementation
+        Ok(())
+    }
+
+    fn current_branch(&self) -> Result<String, EngramError> {
         let repo = self
             .repository
             .lock()
             .map_err(|_| EngramError::Storage("Repository lock failed".to_string()))?;
+
+        let head = repo
+            .head()
+            .map_err(|e| EngramError::Git(format!("Failed to get HEAD: {}", e)))?;
+
+        if let Some(name) = head.shorthand() {
+            Ok(name.to_string())
+        } else {
+            Ok("HEAD".to_string())
+        }
+    }
+
+    fn create_branch(&mut self, branch_name: &str) -> Result<(), EngramError> {
+        let repo = self
+            .repository
+            .lock()
+            .map_err(|_| EngramError::Storage("Repository lock failed".to_string()))?;
+
+        let head_commit = repo
+            .head()
+            .map_err(|e| EngramError::Git(format!("Failed to get HEAD: {}", e)))?
+            .peel_to_commit()
+            .map_err(|e| EngramError::Git(format!("Failed to get HEAD commit: {}", e)))?;
+
+        repo.branch(branch_name, &head_commit, false)
+            .map_err(|e| EngramError::Git(format!("Failed to create branch: {}", e)))?;
+
+        Ok(())
+    }
+
+    fn switch_branch(&mut self, branch_name: &str) -> Result<(), EngramError> {
+        let mut repo = self
+            .repository
+            .lock()
+            .map_err(|_| EngramError::Storage("Repository lock failed".to_string()))?;
+
+        let branch = repo
+            .find_branch(branch_name, git2::BranchType::Local)
+            .map_err(|e| EngramError::Git(format!("Failed to find branch: {}", e)))?;
+
+        let branch_ref = branch.get();
+        repo.set_head(branch_ref.name().unwrap())
+            .map_err(|e| EngramError::Git(format!("Failed to switch branch: {}", e)))?;
+
+        Ok(())
+    }
+
+    fn merge_branches(&mut self, source: &str, target: &str) -> Result<(), EngramError> {
+        // Simplified merge implementation
+        // In a real implementation, this would handle merge conflicts, etc.
+        Err(EngramError::Git(
+            "Branch merging not yet implemented for Git refs storage".to_string(),
+        ))
+    }
+
+    fn history(&self, limit: Option<usize>) -> Result<Vec<GitCommit>, EngramError> {
+        let repo = self
+            .repository
+            .lock()
+            .map_err(|_| EngramError::Storage("Repository lock failed".to_string()))?;
+
+        let mut revwalk = repo
+            .revwalk()
+            .map_err(|e| EngramError::Git(format!("Failed to create revwalk: {}", e)))?;
+
+        revwalk
+            .push_head()
+            .map_err(|e| EngramError::Git(format!("Failed to push HEAD: {}", e)))?;
+
         let mut commits = Vec::new();
+        let max_commits = limit.unwrap_or(100);
 
-        // For Git refs storage, we need to track refs changes in Git history
-        // This is a simplified implementation - in practice we'd need to traverse
-        // Git history looking for ref updates
+        for (i, oid_result) in revwalk.enumerate() {
+            if i >= max_commits {
+                break;
+            }
 
-        // For now, return empty list as this feature needs more sophisticated implementation
+            let oid = oid_result
+                .map_err(|e| EngramError::Git(format!("Failed to get commit OID: {}", e)))?;
+            let commit = repo
+                .find_commit(oid)
+                .map_err(|e| EngramError::Git(format!("Failed to find commit: {}", e)))?;
+
+            let git_commit = GitCommit {
+                id: commit.id().to_string(),
+                author: commit.author().name().unwrap_or("Unknown").to_string(),
+                message: commit.message().unwrap_or("").to_string(),
+                timestamp: chrono::DateTime::from_timestamp(commit.time().seconds(), 0)
+                    .unwrap_or_else(chrono::Utc::now),
+                parents: commit.parent_ids().map(|id| id.to_string()).collect(),
+            };
+
+            commits.push(git_commit);
+        }
+
         Ok(commits)
     }
 
-    fn commit_changes(&self, message: &str) -> Result<(), EngramError> {
-        let repo = self
-            .repository
-            .lock()
-            .map_err(|_| EngramError::Storage("Repository lock failed".to_string()))?;
-
-        // For Git refs storage, changes are automatically committed when refs are updated
-        // This method could be used to create summary commits or update working directory
-
-        // For now, this is a no-op as refs are updated atomically
+    fn bulk_store(&mut self, entities: &[GenericEntity]) -> Result<(), EngramError> {
+        for entity in entities {
+            self.store(entity)?;
+        }
         Ok(())
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 
@@ -479,8 +652,7 @@ impl RelationshipStorage for GitRefsStorage {
             id: relationship.id.clone(),
             entity_type: "relationship".to_string(),
             agent: relationship.agent.clone(),
-            created: Some(relationship.created),
-            updated: Some(relationship.updated),
+            timestamp: relationship.created,
             data: serde_json::to_value(relationship)
                 .map_err(|e| EngramError::Serialization(e.to_string()))?,
         };
@@ -498,11 +670,11 @@ impl RelationshipStorage for GitRefsStorage {
         }
     }
 
-    fn delete_relationship(&mut self, id: &str) -> Result<bool, EngramError> {
+    fn delete_relationship(&mut self, id: &str) -> Result<(), EngramError> {
         self.delete(id, "relationship")
     }
 
-    fn find_relationships(
+    fn query_relationships(
         &self,
         filter: &RelationshipFilter,
     ) -> Result<Vec<EntityRelationship>, EngramError> {
@@ -513,49 +685,115 @@ impl RelationshipStorage for GitRefsStorage {
         Ok(index.find_relationships(filter))
     }
 
-    fn find_connected_entities(
+    fn get_entity_relationships(
         &self,
         entity_id: &str,
-        direction: RelationshipDirection,
-        relationship_type: Option<&str>,
     ) -> Result<Vec<EntityRelationship>, EngramError> {
         let index = self
             .relationship_index
             .lock()
             .map_err(|_| EngramError::Storage("Index lock failed".to_string()))?;
-        Ok(index.find_connected_entities(entity_id, direction, relationship_type))
+        Ok(index.find_connected_entities(entity_id, RelationshipDirection::Both, None))
     }
 
-    fn get_relationship_stats(&self) -> Result<RelationshipStats, EngramError> {
+    fn get_outbound_relationships(
+        &self,
+        entity_id: &str,
+    ) -> Result<Vec<EntityRelationship>, EngramError> {
         let index = self
             .relationship_index
             .lock()
             .map_err(|_| EngramError::Storage("Index lock failed".to_string()))?;
-        Ok(index.get_stats())
+        Ok(index.find_connected_entities(entity_id, RelationshipDirection::Outbound, None))
     }
 
-    fn find_path(
+    fn get_inbound_relationships(
+        &self,
+        entity_id: &str,
+    ) -> Result<Vec<EntityRelationship>, EngramError> {
+        let index = self
+            .relationship_index
+            .lock()
+            .map_err(|_| EngramError::Storage("Index lock failed".to_string()))?;
+        Ok(index.find_connected_entities(entity_id, RelationshipDirection::Inbound, None))
+    }
+
+    fn find_paths(
         &self,
         source_id: &str,
         target_id: &str,
-        max_depth: usize,
         algorithm: TraversalAlgorithm,
-    ) -> Result<Option<Vec<EntityRelationship>>, EngramError> {
+        max_depth: Option<usize>,
+    ) -> Result<Vec<EntityPath>, EngramError> {
         let index = self
             .relationship_index
             .lock()
             .map_err(|_| EngramError::Storage("Index lock failed".to_string()))?;
-        Ok(index.find_path(source_id, target_id, max_depth, algorithm))
+
+        // Convert from the old find_path interface to new find_paths interface
+        let max_depth = max_depth.unwrap_or(10);
+        if let Some(path) = index.find_path(source_id, target_id, max_depth, algorithm)? {
+            let entity_path = EntityPath {
+                entities: path.iter().map(|r| r.source_id.clone()).collect(),
+                relationships: path.iter().map(|r| r.id.clone()).collect(),
+                path_type: PathType::Shortest,
+                total_weight: 1.0,
+            };
+            Ok(vec![entity_path])
+        } else {
+            Ok(vec![])
+        }
     }
 
-    fn get_connected_component(
+    fn get_connected_entities(
         &self,
         entity_id: &str,
-    ) -> Result<Vec<EntityRelationship>, EngramError> {
+        algorithm: TraversalAlgorithm,
+        max_depth: Option<usize>,
+    ) -> Result<Vec<String>, EngramError> {
         let index = self
             .relationship_index
             .lock()
             .map_err(|_| EngramError::Storage("Index lock failed".to_string()))?;
-        Ok(index.get_connected_component(entity_id))
+
+        let relationships = index.get_connected_component(entity_id);
+        let mut entities = HashSet::new();
+
+        for relationship in relationships {
+            entities.insert(relationship.source_id.clone());
+            entities.insert(relationship.target_id.clone());
+        }
+
+        entities.remove(entity_id);
+        Ok(entities.into_iter().collect())
+    }
+
+    fn get_relationship_index(&self) -> Result<&RelationshipIndex, EngramError> {
+        // This method is tricky because we can't return a reference to the locked Mutex content
+        // In a real implementation, we'd need to restructure this
+        Err(EngramError::Storage(
+            "Direct relationship index access not supported in Git refs storage".to_string(),
+        ))
+    }
+
+    fn rebuild_relationship_index(&mut self) -> Result<(), EngramError> {
+        let mut index = self
+            .relationship_index
+            .lock()
+            .map_err(|_| EngramError::Storage("Index lock failed".to_string()))?;
+        index.clear();
+
+        let entity_ids = self.list_entity_refs("relationship")?;
+
+        for entity_id in entity_ids {
+            if let Some(entity) = self.load_entity_from_ref("relationship", &entity_id)? {
+                if let Ok(relationship) = serde_json::from_value::<EntityRelationship>(entity.data)
+                {
+                    index.add_relationship(&relationship);
+                }
+            }
+        }
+
+        Ok(())
     }
 }
