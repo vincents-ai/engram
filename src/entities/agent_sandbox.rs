@@ -164,7 +164,7 @@ pub struct PathRestriction {
 }
 
 /// File operations
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum FileOperation {
     Read,

@@ -10,9 +10,9 @@ pub mod command_validator;
 pub mod permission_engine;
 pub mod resource_monitor;
 
-use crate::entities::{AgentSandbox, SandboxLevel};
+use crate::entities::{AgentSandbox, Entity, GenericEntity, OperationType, SandboxLevel};
 use crate::storage::Storage;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Duration as ChronoDuration, Utc};
 use std::time::Instant;
 use thiserror::Error;
 
@@ -46,7 +46,7 @@ pub enum SandboxError {
 pub type SandboxResult<T> = Result<T, SandboxError>;
 
 /// Request context for sandbox validation
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct SandboxRequest {
     pub agent_id: String,
     pub operation: String,
@@ -158,13 +158,17 @@ impl SandboxEngine {
                 if sandbox
                     .escalation_policy
                     .require_human_approval
-                    .contains(&request.operation)
+                    .iter()
+                    .any(|op_type| self.matches_operation_type(&request.operation, op_type))
                 {
                     let escalation_id = self.create_escalation_request(&request, &sandbox).await?;
                     return Ok(SandboxResponse::Escalate {
                         reason: "Operation requires human approval".to_string(),
                         escalation_id,
-                        timeout: sandbox.escalation_policy.escalation_timeout.into(),
+                        timeout: ChronoDuration::from_std(
+                            sandbox.escalation_policy.escalation_timeout,
+                        )
+                        .unwrap_or(ChronoDuration::minutes(10)),
                     });
                 }
             }
@@ -183,15 +187,17 @@ impl SandboxEngine {
     /// Get sandbox configuration for an agent
     async fn get_agent_sandbox(&mut self, agent_id: &str) -> SandboxResult<AgentSandbox> {
         // Try to find existing sandbox for this agent
-        let sandboxes = self
+        let entity_ids: Vec<String> = self
             .storage
-            .list_entities("agent_sandbox")
+            .list_ids("agent_sandbox")
             .map_err(|e| SandboxError::StorageError(e.to_string()))?;
 
-        for entity in sandboxes {
-            if let Ok(sandbox) = AgentSandbox::from_generic(entity) {
-                if sandbox.agent_id == agent_id {
-                    return Ok(sandbox);
+        for entity_id in entity_ids {
+            if let Ok(Some(entity)) = self.storage.get(&entity_id, "agent_sandbox") {
+                if let Ok(sandbox) = AgentSandbox::from_generic(entity) {
+                    if sandbox.agent_id == agent_id {
+                        return Ok(sandbox);
+                    }
                 }
             }
         }
@@ -202,7 +208,7 @@ impl SandboxEngine {
 
     /// Create default sandbox configuration for an agent
     async fn create_default_sandbox(&mut self, agent_id: &str) -> SandboxResult<AgentSandbox> {
-        let sandbox = AgentSandbox::new_with_level(
+        let sandbox = AgentSandbox::new(
             agent_id.to_string(),
             SandboxLevel::Standard, // Default level
             "system".to_string(),   // Created by system
@@ -211,7 +217,7 @@ impl SandboxEngine {
 
         // Store the new sandbox
         self.storage
-            .store(&sandbox)
+            .store(&sandbox.to_generic())
             .map_err(|e| SandboxError::StorageError(e.to_string()))?;
 
         Ok(sandbox)
@@ -311,7 +317,7 @@ impl SandboxEngine {
         sandbox.last_modified = Utc::now();
 
         self.storage
-            .store(&sandbox)
+            .store(&sandbox.to_generic())
             .map_err(|e| SandboxError::StorageError(e.to_string()))?;
 
         Ok(())
@@ -348,7 +354,7 @@ impl SandboxEngine {
         }
 
         self.storage
-            .store(&sandbox)
+            .store(&sandbox.to_generic())
             .map_err(|e| SandboxError::StorageError(e.to_string()))?;
 
         Ok(())
@@ -366,6 +372,23 @@ impl SandboxEngine {
             last_modified: sandbox.last_modified,
             uptime: self.start_time.elapsed(),
         })
+    }
+
+    /// Helper method to match operation string to OperationType
+    fn matches_operation_type(&self, operation: &str, op_type: &OperationType) -> bool {
+        use OperationType::*;
+        match op_type {
+            FileWrite => {
+                operation == "file_write" || operation == "write_file" || operation == "create_file"
+            }
+            FileDelete => operation == "file_delete" || operation == "delete_file",
+            CommandExecution => operation == "execute_command",
+            NetworkAccess => operation == "network_request",
+            ConfigChange => operation == "config_change",
+            DatabaseOperation => operation == "database_operation",
+            SystemFileAccess => operation == "system_file_access",
+            PrivilegedOperation => operation == "privileged_operation",
+        }
     }
 }
 

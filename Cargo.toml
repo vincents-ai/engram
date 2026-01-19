@@ -69,6 +69,10 @@ predicates = "3.0"
 name = "engram"
 path = "src/main.rs"
 
+[[bin]]
+name = "locus"
+path = "src/locus_main.rs"
+
 [lib]
 name = "engram"
 path = "src/lib.rs"

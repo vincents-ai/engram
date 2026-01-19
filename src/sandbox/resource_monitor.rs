@@ -47,50 +47,63 @@ impl ResourceMonitor {
         request: &SandboxRequest,
         limits: &ResourceLimits,
     ) -> SandboxResult<()> {
-        let usage = self
-            .agent_usage
-            .entry(agent_id.to_string())
-            .or_insert_with(AgentResourceUsage::new);
-
+        // First update usage
         self.update_current_usage(agent_id).await?;
 
-        if usage.memory_mb > limits.max_memory_mb as f64 {
+        // Get usage values after update
+        let (memory, cpu, disk, active_ops, execution_start) = {
+            let usage = self
+                .agent_usage
+                .entry(agent_id.to_string())
+                .or_insert_with(AgentResourceUsage::new);
+            (
+                usage.memory_mb,
+                usage.cpu_percentage,
+                usage.disk_space_mb,
+                usage.active_operations,
+                usage.execution_start,
+            )
+        }; // usage borrow is dropped here
+
+        if memory > limits.max_memory_mb as f64 {
             return Err(SandboxError::ResourceLimitExceeded(format!(
                 "Memory usage {:.1}MB exceeds limit {}MB",
-                usage.memory_mb, limits.max_memory_mb
+                memory, limits.max_memory_mb
             )));
         }
 
-        if usage.cpu_percentage > limits.max_cpu_percentage as f64 {
+        if cpu > limits.max_cpu_percentage as f64 {
             return Err(SandboxError::ResourceLimitExceeded(format!(
                 "CPU usage {:.1}% exceeds limit {}%",
-                usage.cpu_percentage, limits.max_cpu_percentage
+                cpu, limits.max_cpu_percentage
             )));
         }
 
-        if usage.disk_space_mb > limits.max_disk_space_mb as f64 {
+        if disk > limits.max_disk_space_mb as f64 {
             return Err(SandboxError::ResourceLimitExceeded(format!(
                 "Disk usage {:.1}MB exceeds limit {}MB",
-                usage.disk_space_mb, limits.max_disk_space_mb
+                disk, limits.max_disk_space_mb
             )));
         }
 
-        if usage.active_operations >= limits.max_concurrent_operations {
+        if active_ops >= limits.max_concurrent_operations {
             return Err(SandboxError::ResourceLimitExceeded(format!(
                 "Active operations {} exceeds limit {}",
-                usage.active_operations, limits.max_concurrent_operations
+                active_ops, limits.max_concurrent_operations
             )));
         }
 
+        // Check network requests (can now safely borrow &mut self)
         if request.operation == "network_request" {
             self.check_network_rate_limit(agent_id, limits).await?;
         }
 
+        // Check execution timeout for command operations
         if matches!(
             request.operation.as_str(),
             "execute_command" | "execute_workflow"
         ) {
-            if let Some(start_time) = usage.execution_start {
+            if let Some(start_time) = execution_start {
                 let execution_duration = start_time.elapsed();
                 let max_duration =
                     Duration::from_secs(limits.max_execution_time_minutes as u64 * 60);
@@ -104,6 +117,7 @@ impl ResourceMonitor {
             }
         }
 
+        // Check file size limits
         if let Some(file_size) = request.parameters.get("file_size_mb") {
             if let Some(size) = file_size.as_f64() {
                 if size > limits.max_file_size_mb as f64 {
@@ -119,14 +133,20 @@ impl ResourceMonitor {
     }
 
     async fn update_current_usage(&mut self, agent_id: &str) -> SandboxResult<()> {
+        // Get current usage metrics first (these only borrow self immutably)
+        let memory_usage = self.get_memory_usage(agent_id).await?;
+        let cpu_usage = self.get_cpu_usage(agent_id).await?;
+        let disk_usage = self.get_disk_usage(agent_id).await?;
+
+        // Now update the usage map (this borrows self mutably)
         let usage = self
             .agent_usage
             .entry(agent_id.to_string())
             .or_insert_with(AgentResourceUsage::new);
 
-        usage.memory_mb = self.get_memory_usage(agent_id).await?;
-        usage.cpu_percentage = self.get_cpu_usage(agent_id).await?;
-        usage.disk_space_mb = self.get_disk_usage(agent_id).await?;
+        usage.memory_mb = memory_usage;
+        usage.cpu_percentage = cpu_usage;
+        usage.disk_space_mb = disk_usage;
 
         Ok(())
     }
