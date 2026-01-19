@@ -13,6 +13,7 @@ pub mod knowledge;
 pub mod reasoning;
 pub mod relationship;
 pub mod rule;
+#[cfg(feature = "sandbox")]
 pub mod sandbox;
 pub mod session;
 pub mod setup;
@@ -32,6 +33,7 @@ pub use knowledge::*;
 pub use reasoning::*;
 pub use relationship::*;
 pub use rule::*;
+#[cfg(feature = "sandbox")]
 pub use sandbox::*;
 pub use session::*;
 pub use setup::*;
@@ -144,6 +146,7 @@ pub enum Commands {
         command: validation::ValidationCommands,
     },
     /// Agent sandbox security and resource management
+    #[cfg(feature = "sandbox")]
     Sandbox {
         #[command(subcommand)]
         command: SandboxCommands,

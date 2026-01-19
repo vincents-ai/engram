@@ -5,6 +5,7 @@ use std::time::{Duration, Instant};
 
 pub struct ResourceMonitor {
     agent_usage: HashMap<String, AgentResourceUsage>,
+    #[allow(dead_code)]
     start_time: Instant,
 }
 

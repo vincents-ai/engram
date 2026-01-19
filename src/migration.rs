@@ -32,7 +32,7 @@ impl Migration {
         workspace_path: &str,
         agent: &str,
         dry_run: bool,
-        #[allow(dead_code)] backup_only: bool,
+        backup_only: bool,
     ) -> Result<Self, EngramError> {
         let source_path = PathBuf::from(workspace_path).join(".engram");
         let target_storage = GitStorage::new(workspace_path, agent)?;
@@ -56,10 +56,11 @@ impl Migration {
             )));
         }
 
-        println!(
-            "🚀 Starting migration from {} to Git refs storage",
-            self.source_path.display()
-        );
+        if self.backup_only {
+            println!("💾 Creating backup only...");
+            self.create_backup()?;
+            return Ok(stats);
+        }
         if self.dry_run {
             println!("📝 DRY RUN: No changes will be made");
         }

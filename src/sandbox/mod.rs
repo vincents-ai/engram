@@ -10,7 +10,8 @@ pub mod command_validator;
 pub mod permission_engine;
 pub mod resource_monitor;
 
-use crate::entities::{AgentSandbox, Entity, GenericEntity, OperationType, SandboxLevel};
+use crate::entities::agent_sandbox::OperationType;
+use crate::entities::{AgentSandbox, Entity, SandboxLevel};
 use crate::storage::Storage;
 use chrono::{DateTime, Duration as ChronoDuration, Utc};
 use std::time::Instant;
@@ -227,7 +228,7 @@ impl SandboxEngine {
     async fn create_escalation_request(
         &mut self,
         request: &SandboxRequest,
-        sandbox: &AgentSandbox,
+        _sandbox: &AgentSandbox,
     ) -> SandboxResult<String> {
         // Generate unique escalation ID
         let escalation_id = format!(
@@ -309,7 +310,7 @@ impl SandboxEngine {
         &mut self,
         agent_id: &str,
         level: SandboxLevel,
-        updated_by: &str,
+        _updated_by: &str,
     ) -> SandboxResult<()> {
         let mut sandbox = self.get_agent_sandbox(agent_id).await?;
 

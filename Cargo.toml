@@ -76,3 +76,7 @@ path = "src/locus_main.rs"
 [lib]
 name = "engram"
 path = "src/lib.rs"
+
+[features]
+default = ["sandbox"]
+sandbox = []

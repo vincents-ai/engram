@@ -6,8 +6,7 @@ pub use complexity_analyzer::ComplexityAnalyzer;
 pub use level_selector::LevelSelector;
 pub use progressive_engine::ProgressiveEngine;
 
-use crate::entities::{ProgressiveGateConfig, Task};
-use crate::storage::Storage;
+use crate::entities::Task;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use thiserror::Error;

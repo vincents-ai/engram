@@ -1,9 +1,6 @@
-use super::complexity_analyzer::ComplexityAnalyzer;
 use super::level_selector::LevelSelector;
 use super::{GateContext, GateResult, QualityGateError, QualityGateResult};
-use crate::entities::progressive_config::{
-    ChangeType, GateLevel, ProgressiveRiskLevel, QualityGate,
-};
+use crate::entities::progressive_config::QualityGate;
 use crate::entities::{Entity, ProgressiveGateConfig, Task};
 use crate::storage::Storage;
 use std::collections::HashMap;
@@ -26,7 +23,7 @@ impl<S: Storage> ProgressiveEngine<S> {
         &mut self,
         context: &GateContext,
     ) -> QualityGateResult<Vec<GateResult>> {
-        let start_time = Instant::now();
+        let _start_time = Instant::now();
 
         let config = self.get_config_for_task(&context.task).await?;
         let selected_level = LevelSelector::select_level(context, &config.gate_levels)?;
@@ -50,7 +47,7 @@ impl<S: Storage> ProgressiveEngine<S> {
             }
         }
 
-        let total_time = start_time.elapsed().as_millis() as u64;
+        let _total_time = _start_time.elapsed().as_millis() as u64;
 
         Ok(results)
     }
