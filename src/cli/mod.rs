@@ -7,11 +7,13 @@ pub mod adr;
 pub mod compliance;
 pub mod context;
 pub mod convert;
+pub mod escalation;
 pub mod help;
 pub mod knowledge;
 pub mod reasoning;
 pub mod relationship;
 pub mod rule;
+pub mod sandbox;
 pub mod session;
 pub mod setup;
 pub mod standard;
@@ -24,11 +26,13 @@ pub use adr::*;
 pub use compliance::*;
 pub use context::*;
 pub use convert::*;
+pub use escalation::*;
 pub use help::*;
 pub use knowledge::*;
 pub use reasoning::*;
 pub use relationship::*;
 pub use rule::*;
+pub use sandbox::*;
 pub use session::*;
 pub use setup::*;
 pub use standard::*;
@@ -138,6 +142,16 @@ pub enum Commands {
     Validate {
         #[command(subcommand)]
         command: validation::ValidationCommands,
+    },
+    /// Agent sandbox security and resource management
+    Sandbox {
+        #[command(subcommand)]
+        command: SandboxCommands,
+    },
+    /// Escalation requests for sandbox permission denied operations
+    Escalation {
+        #[command(subcommand)]
+        command: EscalationCommands,
     },
     /// Synchronize between agents
     Sync {

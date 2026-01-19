@@ -75,6 +75,14 @@ async fn run() -> Result<(), EngramError> {
             let storage = GitRefsStorage::new(".", "default")?;
             handle_validation_command(command, storage)?;
         }
+        cli::Commands::Sandbox { command } => {
+            let mut storage = GitRefsStorage::new(".", "default")?;
+            handle_sandbox_command(command, &mut storage)?;
+        }
+        cli::Commands::Escalation { command } => {
+            let mut storage = GitRefsStorage::new(".", "default")?;
+            handle_escalation_command(command, &mut storage)?;
+        }
         cli::Commands::Sync { command } => {
             let mut storage = GitRefsStorage::new(".", "default")?;
             engram::cli::sync::handle_sync_command(&mut storage, &command)?;
@@ -873,6 +881,196 @@ fn handle_migration_command() -> Result<(), EngramError> {
     Ok(())
 }
 
+/// Handle sandbox commands
+fn handle_sandbox_command<S: engram::storage::Storage>(
+    command: engram::cli::SandboxCommands,
+    storage: &mut S,
+) -> Result<(), EngramError> {
+    use engram::cli::sandbox::*;
+
+    match command {
+        engram::cli::SandboxCommands::Create {
+            agent_id,
+            level,
+            created_by,
+            agent,
+            stdin,
+            file,
+            json,
+        } => {
+            create_sandbox(
+                storage, agent_id, level, created_by, agent, stdin, file, json,
+            )?;
+        }
+        engram::cli::SandboxCommands::List {
+            agent_id,
+            level,
+            agent,
+            json,
+        } => {
+            list_sandboxes(storage, agent_id, level, agent, json)?;
+        }
+        engram::cli::SandboxCommands::Get { id, json } => {
+            get_sandbox(storage, id, json)?;
+        }
+        engram::cli::SandboxCommands::Update {
+            id,
+            level,
+            stdin,
+            file,
+            json,
+        } => {
+            update_sandbox(storage, id, level, stdin, file, json)?;
+        }
+        engram::cli::SandboxCommands::Delete { id, force } => {
+            delete_sandbox(storage, id, force)?;
+        }
+        engram::cli::SandboxCommands::Validate {
+            agent_id,
+            operation,
+            resource_type,
+            stdin,
+            file,
+            json,
+        } => {
+            validate_operation(
+                storage,
+                agent_id,
+                operation,
+                resource_type,
+                stdin,
+                file,
+                json,
+            )?;
+        }
+        engram::cli::SandboxCommands::Stats { agent_id, json } => {
+            show_stats(storage, agent_id, json)?;
+        }
+        engram::cli::SandboxCommands::Reset {
+            agent_id,
+            force,
+            json,
+        } => {
+            reset_sandbox(storage, agent_id, force, json)?;
+        }
+    }
+
+    Ok(())
+}
+
+/// Handle escalation commands
+fn handle_escalation_command<S: engram::storage::Storage>(
+    command: engram::cli::EscalationCommands,
+    storage: &mut S,
+) -> Result<(), EngramError> {
+    use engram::cli::escalation::*;
+
+    match command {
+        engram::cli::EscalationCommands::Create {
+            agent_id,
+            operation_type,
+            operation,
+            block_reason,
+            justification,
+            priority,
+            impact,
+            reviewer,
+            agent,
+            stdin,
+            file,
+            json,
+        } => {
+            create_escalation(
+                storage,
+                agent_id,
+                operation_type,
+                operation,
+                block_reason,
+                justification,
+                priority,
+                impact,
+                reviewer,
+                agent,
+                stdin,
+                file,
+                json,
+            )?;
+        }
+        engram::cli::EscalationCommands::List {
+            agent_id,
+            status,
+            priority,
+            operation_type,
+            expired_only,
+            actionable_only,
+            agent,
+            json,
+        } => {
+            list_escalations(
+                storage,
+                agent_id,
+                status,
+                priority,
+                operation_type,
+                expired_only,
+                actionable_only,
+                agent,
+                json,
+            )?;
+        }
+        engram::cli::EscalationCommands::Get { id, json } => {
+            get_escalation(storage, id, json)?;
+        }
+        engram::cli::EscalationCommands::Review {
+            id,
+            status,
+            reason,
+            reviewer_id,
+            reviewer_name,
+            duration,
+            create_policy,
+            notes,
+            stdin,
+            file,
+            json,
+        } => {
+            review_escalation(
+                storage,
+                id,
+                status,
+                reason,
+                reviewer_id,
+                reviewer_name,
+                duration,
+                create_policy,
+                notes,
+                stdin,
+                file,
+                json,
+            )?;
+        }
+        engram::cli::EscalationCommands::Cancel {
+            id,
+            reason,
+            force,
+            json,
+        } => {
+            cancel_escalation(storage, id, reason, force, json)?;
+        }
+        engram::cli::EscalationCommands::Cleanup { apply, json } => {
+            cleanup_escalations(storage, apply, json)?;
+        }
+        engram::cli::EscalationCommands::Stats {
+            agent_id,
+            days,
+            json,
+        } => {
+            show_escalation_stats(storage, agent_id, days, json)?;
+        }
+    }
+
+    Ok(())
+}
 /// Handle help command
 fn handle_help_command(command: Option<cli::HelpCommands>) -> Result<(), EngramError> {
     match command {
