@@ -12,6 +12,8 @@ pub mod config;
 pub mod engines;
 pub mod entities;
 pub mod error;
+pub mod locus_cli;
+pub mod migration;
 pub mod nlq;
 pub mod session;
 pub mod storage;

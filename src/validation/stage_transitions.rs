@@ -6,7 +6,6 @@
 use crate::engines::workflow_engine::WorkflowAutomationEngine;
 use crate::error::EngramError;
 use crate::storage::{RelationshipStorage, Storage};
-use crate::validation::quality_gates::QualityGatesExecutor;
 use std::collections::HashMap;
 
 /// Automatic stage transition manager
@@ -173,7 +172,7 @@ impl<S: Storage + RelationshipStorage> StageTransitionManager<S> {
         &mut self,
         workflow_id: &str,
         current_stage: &str,
-        agent: &str,
+        _agent: &str,
     ) -> Result<TransitionEligibility, EngramError> {
         let _rule_key = format!("{}_to_*", current_stage);
 
@@ -444,7 +443,7 @@ struct ConditionsSummary {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::storage::{GitStorage, MemoryStorage};
+    use crate::storage::{GitRefsStorage, MemoryStorage};
     use tempfile::TempDir;
 
     #[tokio::test]
@@ -471,8 +470,8 @@ mod tests {
     #[tokio::test]
     async fn test_transition_eligibility_check_git_storage() {
         let temp_dir = TempDir::new().unwrap();
-        let storage = GitStorage::new(temp_dir.path().to_str().unwrap(), "test-agent").unwrap();
-        let mut manager = StageTransitionManager::new(Box::new(storage)).unwrap();
+        let storage = GitRefsStorage::new(temp_dir.path().to_str().unwrap(), "test-agent").unwrap();
+        let mut manager = StageTransitionManager::new(storage).unwrap();
 
         // Test checking eligibility for a known transition
         let eligibility =

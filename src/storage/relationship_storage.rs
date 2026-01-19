@@ -122,6 +122,14 @@ impl RelationshipIndex {
     pub fn is_bidirectional(&self, rel_id: &str) -> bool {
         self.bidirectional.contains(rel_id)
     }
+
+    /// Clear all relationships from the index
+    pub fn clear(&mut self) {
+        self.outbound.clear();
+        self.inbound.clear();
+        self.by_type.clear();
+        self.bidirectional.clear();
+    }
 }
 
 /// Extended storage trait for relationship operations

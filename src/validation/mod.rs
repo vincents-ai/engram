@@ -196,7 +196,6 @@ impl ValidationCache {
 
     /// Clear expired cache entries
     pub fn cleanup_expired(&mut self) {
-        let now = std::time::Instant::now();
         self.task_cache
             .retain(|_, info| info.cached_at.elapsed() < info.ttl);
         // Note: file cache doesn't expire as often since file changes are handled differently

@@ -38,7 +38,6 @@ pub use validation::*;
 pub use workflow::*;
 
 use crate::ask::AskCommands;
-use crate::version::BuildInfo;
 use clap::{Parser, Subcommand};
 
 /// Main CLI structure
@@ -138,14 +137,14 @@ pub enum Commands {
     /// Git commit validation and pre-commit hooks
     Validate {
         #[command(subcommand)]
-        command: ValidationCommands,
+        command: validation::ValidationCommands,
     },
     /// Synchronize between agents
     Sync {
         #[command(subcommand)]
         command: SyncCommands,
     },
-    Update,
+    /// Migrate from dual-repository to Git refs storage
     Migration,
     #[command(name = "guide")]
     Guide {

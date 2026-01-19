@@ -270,40 +270,170 @@ pub fn create_context<S: Storage>(
 
 /// List contexts
 pub fn list_contexts<S: Storage>(
-    _storage: &S,
+    storage: &S,
     agent: Option<&str>,
     relevance: Option<&str>,
     limit: Option<usize>,
 ) -> Result<(), EngramError> {
-    println!("List contexts command - to be implemented");
-    println!("Agent filter: {:?}", agent);
-    println!("Relevance filter: {:?}", relevance);
-    println!("Limit: {:?}", limit);
+    // Query contexts from storage
+    let mut filter = crate::storage::QueryFilter {
+        entity_type: Some("context".to_string()),
+        agent: agent.map(|s| s.to_string()),
+        limit,
+        ..Default::default()
+    };
+
+    // Add relevance filter if specified
+    if let Some(rel) = relevance {
+        filter.field_filters.insert(
+            "relevance".to_string(),
+            serde_json::Value::String(rel.to_string()),
+        );
+    }
+
+    let result = storage.query(&filter)?;
+
+    if result.entities.is_empty() {
+        println!("No contexts found");
+        return Ok(());
+    }
+
+    println!("Found {} context(s)", result.entities.len());
+    println!();
+
+    for entity in result.entities {
+        if let Ok(context) = Context::from_generic(entity) {
+            println!("ID: {}", context.id);
+            println!("Title: {}", context.title);
+            println!("Agent: {}", context.agent);
+            println!("Relevance: {:?}", context.relevance);
+            if !context.source.is_empty() {
+                println!("Source: {}", context.source);
+            }
+            if context.content.len() > 100 {
+                println!("Content: {}...", &context.content[..97]);
+            } else {
+                println!("Content: {}", context.content);
+            }
+            println!(
+                "Created: {}",
+                context.timestamp().format("%Y-%m-%d %H:%M:%S")
+            );
+            println!("---");
+        }
+    }
+
+    if result.has_more {
+        println!("(More results available - use --limit to see more)");
+    }
+
     Ok(())
 }
 
 /// Show context details
-pub fn show_context<S: Storage>(_storage: &S, id: &str) -> Result<(), EngramError> {
-    println!("Show context command - to be implemented");
-    println!("ID: {}", id);
+pub fn show_context<S: Storage>(storage: &S, id: &str) -> Result<(), EngramError> {
+    let entity = storage.get(id, "context")?;
+
+    match entity {
+        Some(generic_entity) => {
+            let context =
+                Context::from_generic(generic_entity).map_err(|e| EngramError::Validation(e))?;
+
+            println!("Context Details:");
+            println!("================");
+            println!("ID: {}", context.id);
+            println!("Title: {}", context.title);
+            println!("Agent: {}", context.agent);
+            println!("Relevance: {:?}", context.relevance);
+            println!(
+                "Source: {}",
+                if context.source.is_empty() {
+                    "N/A"
+                } else {
+                    &context.source
+                }
+            );
+            if let Some(ref source_id) = context.source_id {
+                println!("Source ID: {}", source_id);
+            }
+            println!(
+                "Created: {}",
+                context.timestamp().format("%Y-%m-%d %H:%M:%S UTC")
+            );
+            println!();
+            println!("Content:");
+            println!("--------");
+            println!("{}", context.content);
+        }
+        None => {
+            return Err(EngramError::NotFound(format!(
+                "Context with ID '{}' not found",
+                id
+            )));
+        }
+    }
+
     Ok(())
 }
 
 /// Update context
 pub fn update_context<S: Storage>(
-    _storage: &mut S,
+    storage: &mut S,
     id: &str,
     content: &str,
 ) -> Result<(), EngramError> {
-    println!("Update context command - to be implemented");
-    println!("ID: {}", id);
-    println!("Content: {}", content);
+    let entity = storage.get(id, "context")?;
+
+    match entity {
+        Some(generic_entity) => {
+            let mut context =
+                Context::from_generic(generic_entity).map_err(|e| EngramError::Validation(e))?;
+
+            context.content = content.to_string();
+            context.updated_at = chrono::Utc::now();
+
+            let updated_entity = context.to_generic();
+            storage.store(&updated_entity)?;
+
+            println!("Context '{}' updated successfully", context.id);
+            println!("Title: {}", context.title);
+            println!(
+                "Updated: {}",
+                context.updated_at.format("%Y-%m-%d %H:%M:%S UTC")
+            );
+        }
+        None => {
+            return Err(EngramError::NotFound(format!(
+                "Context with ID '{}' not found",
+                id
+            )));
+        }
+    }
+
     Ok(())
 }
 
 /// Delete context
-pub fn delete_context<S: Storage>(_storage: &mut S, id: &str) -> Result<(), EngramError> {
-    println!("Delete context command - to be implemented");
-    println!("ID: {}", id);
+pub fn delete_context<S: Storage>(storage: &mut S, id: &str) -> Result<(), EngramError> {
+    let entity = storage.get(id, "context")?;
+
+    match entity {
+        Some(generic_entity) => {
+            let context =
+                Context::from_generic(generic_entity).map_err(|e| EngramError::Validation(e))?;
+
+            storage.delete(id, "context")?;
+
+            println!("Context '{}' deleted successfully", context.title);
+            println!("ID: {}", context.id);
+        }
+        None => {
+            return Err(EngramError::NotFound(format!(
+                "Context with ID '{}' not found",
+                id
+            )));
+        }
+    }
+
     Ok(())
 }

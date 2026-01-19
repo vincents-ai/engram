@@ -163,7 +163,7 @@ pub struct GitCommit {
 }
 
 /// Storage statistics
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct StorageStats {
     pub total_entities: usize,
     pub entities_by_type: HashMap<String, usize>,

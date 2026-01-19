@@ -133,7 +133,7 @@ impl<S: Storage> QualityGatesExecutor<S> {
 
                     break;
                 }
-                Err(e) if attempts < max_attempts => {
+                Err(_e) if attempts < max_attempts => {
                     continue;
                 }
                 Err(e) => {
@@ -244,7 +244,7 @@ impl<S: Storage> QualityGatesExecutor<S> {
 
     fn wait_for_output_with_timeout(
         &self,
-        mut child: std::process::Child,
+        child: std::process::Child,
         timeout: Duration,
     ) -> Result<std::process::Output, EngramError> {
         use std::sync::mpsc;

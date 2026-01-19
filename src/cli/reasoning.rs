@@ -73,7 +73,7 @@ pub enum ReasoningCommands {
         conclusion: Option<String>,
 
         /// Confidence level (0.0 to 1.0)
-        #[arg(long, short)]
+        #[arg(long, short = 'f')]
         confidence: f64,
 
         /// Read description from stdin
@@ -103,7 +103,7 @@ pub enum ReasoningCommands {
         conclusion: Option<String>,
 
         /// Overall confidence
-        #[arg(long, short)]
+        #[arg(long, short = 'f')]
         confidence: f64,
 
         /// Read conclusion from stdin
@@ -234,7 +234,7 @@ pub fn create_reasoning<S: Storage>(
 }
 
 pub fn add_reasoning_step<S: Storage>(
-    _storage: &mut S,
+    storage: &mut S,
     id: &str,
     description: Option<String>,
     conclusion: Option<String>,
@@ -276,16 +276,33 @@ pub fn add_reasoning_step<S: Storage>(
         ));
     }
 
-    println!("Add reasoning step - to be implemented");
-    println!("ID: {}", id);
-    println!("Description: {}", final_description);
-    println!("Conclusion: {}", final_conclusion);
-    println!("Confidence: {}", confidence);
+    let entity = storage.get(id, "reasoning")?;
+    match entity {
+        Some(generic_entity) => {
+            let mut reasoning =
+                Reasoning::from_generic(generic_entity).map_err(|e| EngramError::Validation(e))?;
+
+            reasoning.add_step(final_description, final_conclusion, confidence);
+
+            let updated_entity = reasoning.to_generic();
+            storage.store(&updated_entity)?;
+
+            println!("Added step to reasoning '{}' successfully", reasoning.title);
+            println!("Step count: {}", reasoning.steps.len());
+        }
+        None => {
+            return Err(EngramError::NotFound(format!(
+                "Reasoning with ID '{}' not found",
+                id
+            )));
+        }
+    }
+
     Ok(())
 }
 
 pub fn conclude_reasoning<S: Storage>(
-    _storage: &mut S,
+    storage: &mut S,
     id: &str,
     conclusion: Option<String>,
     confidence: f64,
@@ -311,34 +328,172 @@ pub fn conclude_reasoning<S: Storage>(
         ));
     }
 
-    println!("Conclude reasoning - to be implemented");
-    println!("ID: {}", id);
-    println!("Conclusion: {}", final_conclusion);
-    println!("Confidence: {}", confidence);
+    let entity = storage.get(id, "reasoning")?;
+    match entity {
+        Some(generic_entity) => {
+            let mut reasoning =
+                Reasoning::from_generic(generic_entity).map_err(|e| EngramError::Validation(e))?;
+
+            reasoning.set_conclusion(final_conclusion, confidence);
+
+            let updated_entity = reasoning.to_generic();
+            storage.store(&updated_entity)?;
+
+            println!("Reasoning '{}' concluded successfully", reasoning.title);
+            println!("Final confidence: {}", reasoning.confidence);
+        }
+        None => {
+            return Err(EngramError::NotFound(format!(
+                "Reasoning with ID '{}' not found",
+                id
+            )));
+        }
+    }
+
     Ok(())
 }
 
 pub fn list_reasoning<S: Storage>(
-    _storage: &S,
+    storage: &S,
     agent: Option<&str>,
     task_id: Option<&str>,
     limit: Option<usize>,
 ) -> Result<(), EngramError> {
-    println!("List reasoning command - to be implemented");
-    println!("Agent filter: {:?}", agent);
-    println!("Task ID filter: {:?}", task_id);
-    println!("Limit: {:?}", limit);
+    let mut filter = crate::storage::QueryFilter {
+        entity_type: Some("reasoning".to_string()),
+        agent: agent.map(|s| s.to_string()),
+        limit,
+        ..Default::default()
+    };
+
+    if let Some(tid) = task_id {
+        filter.field_filters.insert(
+            "task_id".to_string(),
+            serde_json::Value::String(tid.to_string()),
+        );
+    }
+
+    let result = storage.query(&filter)?;
+
+    if result.entities.is_empty() {
+        println!("No reasoning chains found");
+        return Ok(());
+    }
+
+    println!("Found {} reasoning chain(s)", result.entities.len());
+    println!();
+
+    for entity in result.entities {
+        if let Ok(reasoning) = Reasoning::from_generic(entity) {
+            println!("ID: {}", reasoning.id);
+            println!("Title: {}", reasoning.title);
+            println!("Task ID: {}", reasoning.task_id);
+            println!("Agent: {}", reasoning.agent);
+            println!("Steps: {}", reasoning.steps.len());
+            println!("Confidence: {:.2}", reasoning.confidence);
+            if !reasoning.conclusion.is_empty() {
+                println!("Status: Concluded");
+            } else {
+                println!("Status: In Progress");
+            }
+            println!(
+                "Created: {}",
+                reasoning.created_at.format("%Y-%m-%d %H:%M:%S")
+            );
+            println!("---");
+        }
+    }
+
+    if result.has_more {
+        println!("(More results available - use --limit to see more)");
+    }
+
     Ok(())
 }
 
-pub fn show_reasoning<S: Storage>(_storage: &S, id: &str) -> Result<(), EngramError> {
-    println!("Show reasoning command - to be implemented");
-    println!("ID: {}", id);
+pub fn show_reasoning<S: Storage>(storage: &S, id: &str) -> Result<(), EngramError> {
+    let entity = storage.get(id, "reasoning")?;
+
+    match entity {
+        Some(generic_entity) => {
+            let reasoning =
+                Reasoning::from_generic(generic_entity).map_err(|e| EngramError::Validation(e))?;
+
+            println!("Reasoning Details:");
+            println!("==================");
+            println!("ID: {}", reasoning.id);
+            println!("Title: {}", reasoning.title);
+            println!("Task ID: {}", reasoning.task_id);
+            println!("Agent: {}", reasoning.agent);
+            println!(
+                "Created: {}",
+                reasoning.created_at.format("%Y-%m-%d %H:%M:%S UTC")
+            );
+
+            if reasoning.steps.is_empty() {
+                println!("Steps: None");
+            } else {
+                println!("Steps: {}", reasoning.steps.len());
+                println!();
+                for (i, step) in reasoning.steps.iter().enumerate() {
+                    println!("Step {} (Confidence: {:.2}):", i + 1, step.confidence);
+                    println!("  Description: {}", step.description);
+                    println!("  Conclusion: {}", step.conclusion);
+                    println!(
+                        "  Created: {}",
+                        step.timestamp.format("%Y-%m-%d %H:%M:%S UTC")
+                    );
+                    if !step.evidence.is_empty() {
+                        println!("  Evidence: {}", step.evidence.join(", "));
+                    }
+                    println!();
+                }
+            }
+
+            if reasoning.conclusion.is_empty() {
+                println!("Final Conclusion: Not yet concluded");
+            } else {
+                println!("Final Conclusion:");
+                println!("  {}", reasoning.conclusion);
+                println!("  Overall Confidence: {:.2}", reasoning.confidence);
+            }
+
+            if !reasoning.tags.is_empty() {
+                println!("Tags: {}", reasoning.tags.join(", "));
+            }
+        }
+        None => {
+            return Err(EngramError::NotFound(format!(
+                "Reasoning with ID '{}' not found",
+                id
+            )));
+        }
+    }
+
     Ok(())
 }
 
-pub fn delete_reasoning<S: Storage>(_storage: &mut S, id: &str) -> Result<(), EngramError> {
-    println!("Delete reasoning command - to be implemented");
-    println!("ID: {}", id);
+pub fn delete_reasoning<S: Storage>(storage: &mut S, id: &str) -> Result<(), EngramError> {
+    let entity = storage.get(id, "reasoning")?;
+
+    match entity {
+        Some(generic_entity) => {
+            let reasoning =
+                Reasoning::from_generic(generic_entity).map_err(|e| EngramError::Validation(e))?;
+
+            storage.delete(id, "reasoning")?;
+
+            println!("Reasoning '{}' deleted successfully", reasoning.title);
+            println!("ID: {}", reasoning.id);
+            println!("Task ID: {}", reasoning.task_id);
+        }
+        None => {
+            return Err(EngramError::NotFound(format!(
+                "Reasoning with ID '{}' not found",
+                id
+            )));
+        }
+    }
+
     Ok(())
 }

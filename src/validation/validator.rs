@@ -230,7 +230,7 @@ impl<S: Storage + RelationshipStorage> CommitValidator<S> {
         staged_files: &[String],
     ) -> (Vec<String>, Vec<ValidationError>) {
         let mut validated_files = Vec::new();
-        let mut errors = Vec::new();
+        let errors = Vec::new();
 
         // For now, accept all files. In a full implementation, this would:
         // 1. Get the task's context and reasoning entities

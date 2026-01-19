@@ -120,7 +120,7 @@ fn handle_hook_command<S: Storage + RelationshipStorage>(
 
 /// Handle check command
 fn handle_check_command<S: Storage + RelationshipStorage>(storage: S) -> Result<(), EngramError> {
-    let mut validator = CommitValidator::new(storage)?;
+    let _validator = CommitValidator::new(storage)?;
     let git_dir = ".";
     let hook_manager = HookManager::new(git_dir)?;
 

@@ -5,7 +5,8 @@ use engram::{
     ask::handle_ask_command,
     cli::{self, handle_relationship_command, handle_validation_command},
     error::EngramError,
-    storage::GitStorage,
+    migration::Migration,
+    storage::GitRefsStorage,
 };
 
 #[tokio::main]
@@ -24,61 +25,60 @@ async fn run() -> Result<(), EngramError> {
         cli::Commands::Convert { from, file } => handle_convert_command(&from, &file)?,
         cli::Commands::Test => handle_test_command()?,
         cli::Commands::Task { command } => {
-            let mut storage = GitStorage::new(".", "default")?;
+            let mut storage = GitRefsStorage::new(".", "default")?;
             handle_task_command(command, &mut storage)?;
         }
         cli::Commands::Context { command } => {
-            let mut storage = GitStorage::new(".", "default")?;
+            let mut storage = GitRefsStorage::new(".", "default")?;
             handle_context_command(command, &mut storage)?;
         }
         cli::Commands::Ask { command } => {
             handle_ask_command(command).await?;
         }
         cli::Commands::Reasoning { command } => {
-            let mut storage = GitStorage::new(".", "default")?;
+            let mut storage = GitRefsStorage::new(".", "default")?;
             handle_reasoning_command(command, &mut storage)?;
         }
         cli::Commands::Knowledge { command } => {
-            let mut storage = GitStorage::new(".", "default")?;
+            let mut storage = GitRefsStorage::new(".", "default")?;
             handle_knowledge_command(command, &mut storage)?;
         }
         cli::Commands::Session { command } => {
-            let mut storage = GitStorage::new(".", "default")?;
+            let mut storage = GitRefsStorage::new(".", "default")?;
             handle_session_command(command, &mut storage)?;
         }
         cli::Commands::Compliance { command } => {
-            let mut storage = GitStorage::new(".", "default")?;
+            let mut storage = GitRefsStorage::new(".", "default")?;
             handle_compliance_command(command, &mut storage)?;
         }
         cli::Commands::Rule { command } => {
-            let mut storage = GitStorage::new(".", "default")?;
+            let mut storage = GitRefsStorage::new(".", "default")?;
             handle_rule_command(command, &mut storage)?;
         }
         cli::Commands::Standard { command } => {
-            let mut storage = GitStorage::new(".", "default")?;
+            let mut storage = GitRefsStorage::new(".", "default")?;
             handle_standard_command(command, &mut storage)?;
         }
         cli::Commands::Adr { command } => {
-            let mut storage = GitStorage::new(".", "default")?;
+            let mut storage = GitRefsStorage::new(".", "default")?;
             handle_adr_command(command, &mut storage)?;
         }
         cli::Commands::Workflow { command } => {
-            let mut storage = GitStorage::new(".", "default")?;
+            let mut storage = GitRefsStorage::new(".", "default")?;
             handle_workflow_command(command, &mut storage)?;
         }
         cli::Commands::Relationship { command } => {
-            let mut storage = GitStorage::new(".", "default")?;
+            let mut storage = GitRefsStorage::new(".", "default")?;
             handle_relationship_command(&mut storage, command)?;
         }
         cli::Commands::Validate { command } => {
-            let storage = GitStorage::new(".", "default")?;
+            let storage = GitRefsStorage::new(".", "default")?;
             handle_validation_command(command, storage)?;
         }
         cli::Commands::Sync { command } => {
-            let mut storage = GitStorage::new(".", "default")?;
+            let mut storage = GitRefsStorage::new(".", "default")?;
             engram::cli::sync::handle_sync_command(&mut storage, &command)?;
         }
-        cli::Commands::Update => handle_update_command()?,
         cli::Commands::Migration => handle_migration_command()?,
         cli::Commands::Guide { command } => handle_help_command(command)?,
     }
@@ -781,7 +781,7 @@ fn handle_workflow_command<S: engram::storage::Storage>(
             agent,
             variables,
         } => {
-            let storage_for_workflow = GitStorage::new(".", "default")?;
+            let storage_for_workflow = GitRefsStorage::new(".", "default")?;
             cli::start_workflow_instance(
                 storage_for_workflow,
                 workflow_id,
@@ -796,11 +796,11 @@ fn handle_workflow_command<S: engram::storage::Storage>(
             transition,
             agent,
         } => {
-            let storage_for_workflow = GitStorage::new(".", "default")?;
+            let storage_for_workflow = GitRefsStorage::new(".", "default")?;
             cli::execute_workflow_transition(storage_for_workflow, instance_id, transition, agent)?;
         }
         cli::WorkflowCommands::Status { instance_id } => {
-            let storage_for_workflow = GitStorage::new(".", "default")?;
+            let storage_for_workflow = GitRefsStorage::new(".", "default")?;
             cli::get_workflow_instance_status(storage_for_workflow, instance_id)?;
         }
         cli::WorkflowCommands::Instances {
@@ -808,7 +808,7 @@ fn handle_workflow_command<S: engram::storage::Storage>(
             agent,
             running_only,
         } => {
-            let storage_for_workflow = GitStorage::new(".", "default")?;
+            let storage_for_workflow = GitRefsStorage::new(".", "default")?;
             cli::list_workflow_instances(storage_for_workflow, workflow_id, agent, running_only)?;
         }
         cli::WorkflowCommands::Cancel {
@@ -816,22 +816,60 @@ fn handle_workflow_command<S: engram::storage::Storage>(
             agent,
             reason,
         } => {
-            let storage_for_workflow = GitStorage::new(".", "default")?;
+            let storage_for_workflow = GitRefsStorage::new(".", "default")?;
             cli::cancel_workflow_instance(storage_for_workflow, instance_id, agent, reason)?;
         }
     }
     Ok(())
 }
 
-/// Handle update command
-fn handle_update_command() -> Result<(), EngramError> {
-    println!("Update functionality will be implemented in a future version");
-    Ok(())
-}
-
 /// Handle migration command
 fn handle_migration_command() -> Result<(), EngramError> {
-    println!("Migration functionality will be implemented in a future version");
+    let args: Vec<String> = std::env::args().collect();
+    let dry_run = args.contains(&String::from("--dry-run"));
+    let backup_only = args.contains(&String::from("--backup-only"));
+
+    if backup_only {
+        println!("📦 Creating backup of .engram directory...");
+        let migration = Migration::new(".", "default", true, backup_only)?;
+        migration.create_backup()?;
+        println!("✅ Backup completed successfully");
+        return Ok(());
+    }
+
+    let mut migration = Migration::new(".", "default", dry_run, false)?;
+
+    // Pre-flight validation
+    if let Err(e) = Migration::validate_migration_readiness(".") {
+        eprintln!("❌ Migration pre-check failed: {}", e);
+        return Err(e);
+    }
+
+    println!("🚀 Starting migration from dual-repository to Git refs storage");
+    if dry_run {
+        println!("📝 DRY RUN: No changes will be made");
+    } else {
+        println!("🔄 MIGRATION: Converting data to Git refs storage");
+    }
+
+    match migration.execute() {
+        Ok(stats) => {
+            println!("\n🏁 Migration Summary:");
+            println!("  📊 Total processed: {}", stats.entities_processed);
+            println!("  ✅ Successfully migrated: {}", stats.entities_migrated);
+            if stats.entities_failed > 0 {
+                println!("  ❌ Failed: {}", stats.entities_failed);
+            }
+            if !dry_run && stats.entities_migrated > 0 {
+                println!("\n💾 Backup created at: .engram_backup_<timestamp>");
+            }
+            println!("\n✅ Migration completed successfully!");
+        }
+        Err(e) => {
+            eprintln!("❌ Migration failed: {}", e);
+        }
+    }
+
     Ok(())
 }
 

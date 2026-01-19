@@ -8,6 +8,7 @@ use std::path::Path;
 /// Manager for git pre-commit hooks
 pub struct HookManager {
     git_dir: String,
+    #[allow(dead_code)]
     config: ValidationConfig,
 }
 
