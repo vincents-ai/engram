@@ -4,6 +4,7 @@
 //! configured and extended through the configuration system.
 
 pub mod adr;
+pub mod agent_sandbox;
 pub mod compliance;
 pub mod context;
 pub mod execution_result;
@@ -18,6 +19,7 @@ pub mod workflow;
 
 // Re-export all entity types
 pub use adr::*;
+pub use agent_sandbox::*;
 pub use compliance::*;
 pub use context::*;
 pub use execution_result::*;

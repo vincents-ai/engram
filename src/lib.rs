@@ -15,6 +15,7 @@ pub mod error;
 pub mod locus_cli;
 pub mod migration;
 pub mod nlq;
+pub mod sandbox;
 pub mod session;
 pub mod storage;
 pub mod validation;
