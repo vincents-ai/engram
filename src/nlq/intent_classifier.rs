@@ -17,6 +17,7 @@ impl IntentClassifier {
             QueryIntent::ListTasks,
             vec![
                 Regex::new(r"(?i)^(show|list|get)\s+(my\s+)?tasks?").unwrap(),
+                Regex::new(r"(?i)^(show|list|get|find)\s+(me\s+)?(the\s+)?tasks?\s+(about|with|containing|titled|called)").unwrap(),
                 Regex::new(r"(?i)^what\s+tasks?\s+(do\s+i\s+have|am\s+i\s+working\s+on)").unwrap(),
                 Regex::new(r"(?i)^tasks?\s+for\s+").unwrap(),
                 // Status-based patterns

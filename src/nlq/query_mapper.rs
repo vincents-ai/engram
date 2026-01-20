@@ -46,6 +46,7 @@ impl QueryMapper {
         let agent = self.extract_agent_or_default(&processed_query.entities);
         let status = self.extract_status(&processed_query.entities);
         let priority = self.extract_priority(&processed_query.entities);
+        let title_search = self.extract_title_search(&processed_query.original_query);
 
         let tasks = storage.query_by_agent(&agent, Some("task"))?;
 
@@ -80,6 +81,13 @@ impl QueryMapper {
                     }
                 }
 
+                // Filter by title search if specified
+                if include_task && !title_search.is_empty() {
+                    let title_lower = task.title.to_lowercase();
+                    let search_lower = title_search.to_lowercase();
+                    include_task = title_lower.contains(&search_lower);
+                }
+
                 if include_task {
                     filtered_tasks.push(json!({
                         "id": task.id,
@@ -96,7 +104,8 @@ impl QueryMapper {
             "count": filtered_tasks.len(),
             "agent": agent,
             "status_filter": status,
-            "priority_filter": priority
+            "priority_filter": priority,
+            "title_search": if title_search.is_empty() { None } else { Some(title_search) }
         }))
     }
 
@@ -272,14 +281,12 @@ impl QueryMapper {
     }
 
     fn extract_search_term(&self, entities: &[ExtractedEntity], query: &str) -> String {
-        // Extract search terms from common context search patterns
         let lower_query = query.to_lowercase();
 
         if let Some(start) = lower_query.find("about ") {
-            let start_idx = start + 6; // "about ".len()
+            let start_idx = start + 6;
             let remaining = &query[start_idx..];
 
-            // Extract the search term, stopping at "for" if agent is specified
             if let Some(for_idx) = remaining.find(" for ") {
                 remaining[..for_idx].trim().to_string()
             } else {
@@ -290,6 +297,26 @@ impl QueryMapper {
         } else {
             String::new()
         }
+    }
+
+    fn extract_title_search(&self, query: &str) -> String {
+        let lower_query = query.to_lowercase();
+
+        let search_keywords = ["about", "with", "containing", "titled", "called"];
+        for keyword in &search_keywords {
+            if let Some(start) = lower_query.find(&format!("{} ", keyword)) {
+                let start_idx = start + keyword.len() + 1;
+                let remaining = &query[start_idx..];
+
+                if let Some(for_idx) = remaining.find(" for ") {
+                    return remaining[..for_idx].trim().to_string();
+                } else {
+                    return remaining.trim().to_string();
+                }
+            }
+        }
+
+        String::new()
     }
 }
 

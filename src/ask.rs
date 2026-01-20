@@ -5,7 +5,7 @@
 
 use crate::error::EngramError;
 use crate::nlq::NLQEngine;
-use crate::storage::GitStorage;
+use crate::storage::GitRefsStorage;
 use clap::Subcommand;
 use serde_json;
 
@@ -46,7 +46,7 @@ pub async fn handle_ask_command(command: AskCommands) -> Result<(), EngramError>
     } = command;
 
     let nlq_engine = NLQEngine::new();
-    let storage = GitStorage::new(".", "default")?;
+    let storage = GitRefsStorage::new(".", "default")?;
 
     match nlq_engine.process_query(&query, context, &storage).await {
         Ok(result) => {
