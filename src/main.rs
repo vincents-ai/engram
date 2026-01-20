@@ -11,8 +11,18 @@ use engram::{
 
 #[tokio::main]
 async fn main() {
+    let args: Vec<String> = std::env::args().collect();
+    let json_mode = args.iter().any(|arg| arg == "--json");
+
     if let Err(e) = run().await {
-        eprintln!("Error: {}", e);
+        if json_mode {
+            let error_msg = serde_json::json!({
+                "error": e.to_string()
+            });
+            println!("{}", error_msg);
+        } else {
+            eprintln!("Error: {}", e);
+        }
         std::process::exit(1);
     }
 }

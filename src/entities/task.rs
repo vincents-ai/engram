@@ -91,6 +91,12 @@ pub struct Task {
     #[serde(rename = "outcome", skip_serializing_if = "Option::is_none")]
     pub outcome: Option<String>,
 
+    #[serde(rename = "workflow_id", skip_serializing_if = "Option::is_none")]
+    pub workflow_id: Option<String>,
+
+    #[serde(rename = "workflow_state", skip_serializing_if = "Option::is_none")]
+    pub workflow_state: Option<String>,
+
     /// Additional metadata
     #[serde(
         rename = "metadata",
@@ -102,7 +108,13 @@ pub struct Task {
 
 impl Task {
     /// Create a new task
-    pub fn new(title: String, description: String, agent: String, priority: TaskPriority) -> Self {
+    pub fn new(
+        title: String,
+        description: String,
+        agent: String,
+        priority: TaskPriority,
+        workflow_id: Option<String>,
+    ) -> Self {
         let now = Utc::now();
         Self {
             id: Uuid::new_v4().to_string(),
@@ -120,6 +132,8 @@ impl Task {
             knowledge: Vec::new(),
             files: Vec::new(),
             outcome: None,
+            workflow_id,
+            workflow_state: None,
             metadata: HashMap::new(),
         }
     }
@@ -127,6 +141,11 @@ impl Task {
     /// Mark task as in progress
     pub fn start(&mut self) {
         self.status = TaskStatus::InProgress;
+    }
+
+    /// Update workflow state
+    pub fn update_workflow_state(&mut self, state: String) {
+        self.workflow_state = Some(state);
     }
 
     /// Complete the task

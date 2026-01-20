@@ -3,8 +3,11 @@
 //! Implements Gherkin steps for testing tasks, contexts, reasoning,
 //! knowledge, sessions, and synchronization.
 
-use crate::bdd::EngramWorld;
+use super::{EngramSteps, EngramWorld};
 use cucumber::{given, then, when};
+
+// Function to force linking of this module
+pub fn register() {}
 
 // ============================================================================
 // GIVEN steps - Setup and preconditions
@@ -31,7 +34,7 @@ async fn given_agent_has_task_with_status(
     world: &mut EngramWorld,
     agent: String,
     title: String,
-    status: String,
+    _status: String,
 ) {
     world.initialize_storage(&agent);
     world.create_task(&title, "Test description", "medium");
@@ -465,7 +468,7 @@ async fn then_should_see_n_sessions(world: &mut EngramWorld, count: i32) {
     );
 }
 
-#[then("all sessions should be for agent {string}")]
+#[then(expr = "all sessions should be for agent {string}")]
 async fn then_all_sessions_for_agent(_world: &mut EngramWorld, _agent: String) {
     // TODO: Verify all sessions belong to agent
 }

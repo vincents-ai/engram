@@ -19,18 +19,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "Create directories and initial files".to_string(),
             "demo-agent".to_string(),
             engram::entities::TaskPriority::High,
+            None,
         ),
         Task::new(
             "Implement core entities".to_string(),
             "Define Task, Context, Reasoning types".to_string(),
             "demo-agent".to_string(),
             engram::entities::TaskPriority::Medium,
+            None,
         ),
         Task::new(
             "Add CLI interface".to_string(),
             "Create modular command structure".to_string(),
             "demo-agent".to_string(),
             engram::entities::TaskPriority::Medium,
+            None,
         ),
     ];
 

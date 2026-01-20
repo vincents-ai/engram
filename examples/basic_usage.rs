@@ -20,6 +20,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "This is a sample task created using Rust API".to_string(),
         "example-agent".to_string(),
         engram::entities::TaskPriority::Medium,
+        None,
     );
 
     let generic_task = task.to_generic();

@@ -58,6 +58,9 @@ use clap::{Parser, Subcommand};
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
+
+    #[arg(long, global = true)]
+    pub json: bool,
 }
 
 /// Available CLI commands

@@ -146,6 +146,7 @@ fn create_task_from_input<S: Storage>(
         input.description.unwrap_or_default(),
         input.agent.unwrap_or_else(|| "default".to_string()),
         priority_enum,
+        None,
     );
 
     if let Some(parent_id) = input.parent {
@@ -240,6 +241,7 @@ pub fn create_task<S: Storage>(
         final_description.unwrap_or_default(),
         agent.unwrap_or_else(|| "default".to_string()),
         priority_enum,
+        None,
     );
 
     if let Some(parent_id) = parent {

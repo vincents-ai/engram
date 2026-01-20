@@ -73,6 +73,11 @@ path = "src/main.rs"
 name = "locus"
 path = "src/locus_main.rs"
 
+[[test]]
+name = "bdd_runner"
+path = "tests/bdd_runner.rs"
+harness = false
+
 [lib]
 name = "engram"
 path = "src/lib.rs"

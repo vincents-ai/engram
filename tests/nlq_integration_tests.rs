@@ -68,6 +68,7 @@ impl NLQTestFixture {
                 "Description for task".to_string(),
                 "test-agent".to_string(),
                 priority,
+                None,
             );
             task.status = status;
 
