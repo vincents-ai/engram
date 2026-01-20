@@ -18,6 +18,7 @@ pub mod session;
 pub mod standard;
 pub mod task;
 pub mod workflow;
+pub mod workflow_instance;
 
 // Re-export all entity types
 pub use adr::*;
@@ -35,6 +36,7 @@ pub use session::*;
 pub use standard::*;
 pub use task::*;
 pub use workflow::*;
+pub use workflow_instance::*;
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

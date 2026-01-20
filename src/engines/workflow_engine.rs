@@ -4,6 +4,7 @@
 //! multi-agent coordination, and automated task orchestration.
 
 use crate::engines::rule_engine::{RuleExecutionEngine, RuleValue};
+use crate::entities::{Entity, WorkflowInstance};
 use crate::error::EngramError;
 use crate::storage::Storage;
 use chrono::{DateTime, Utc};
@@ -50,20 +51,6 @@ pub struct WorkflowDefinition {
     pub created_by: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
-}
-
-/// Workflow instance execution state
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WorkflowInstance {
-    pub id: String,
-    pub workflow_id: String,
-    pub current_state: String,
-    pub context: WorkflowExecutionContext,
-    pub status: WorkflowStatus,
-    pub started_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-    pub completed_at: Option<DateTime<Utc>>,
-    pub execution_history: Vec<WorkflowExecutionEvent>,
 }
 
 /// Workflow execution context
@@ -339,6 +326,8 @@ impl<S: Storage> WorkflowAutomationEngine<S> {
         self.active_instances
             .insert(instance_id.clone(), instance.clone());
 
+        self.storage.store(&instance.to_generic())?;
+
         Ok(WorkflowExecutionResult {
             success: true,
             instance_id,
@@ -356,17 +345,27 @@ impl<S: Storage> WorkflowAutomationEngine<S> {
         transition_name: String,
         executing_agent: String,
     ) -> Result<WorkflowExecutionResult, EngramError> {
-        // Get current state first without mutable borrow
+        if !self.active_instances.contains_key(instance_id) {
+            if let Some(generic) = self.storage.get(instance_id, "workflow_instance")? {
+                let instance = WorkflowInstance::from_generic(generic)
+                    .map_err(|e| EngramError::Validation(e))?;
+                self.active_instances
+                    .insert(instance_id.to_string(), instance);
+            } else {
+                return Err(EngramError::NotFound(format!(
+                    "Workflow instance {} not found",
+                    instance_id
+                )));
+            }
+        }
+
         let current_state = {
-            let instance = self.active_instances.get(instance_id).ok_or_else(|| {
-                EngramError::NotFound(format!("Workflow instance {} not found", instance_id))
-            })?;
+            let instance = self.active_instances.get(instance_id).unwrap();
             instance.current_state.clone()
         };
 
         let new_state = self.determine_next_state(&current_state, &transition_name)?;
 
-        // Now get mutable reference
         let instance = self.active_instances.get_mut(instance_id).unwrap();
 
         // Create transition event
@@ -390,6 +389,8 @@ impl<S: Storage> WorkflowAutomationEngine<S> {
             instance.completed_at = Some(Utc::now());
         }
 
+        self.storage.store(&instance.to_generic())?;
+
         Ok(WorkflowExecutionResult {
             success: true,
             instance_id: instance_id.to_string(),
@@ -402,17 +403,29 @@ impl<S: Storage> WorkflowAutomationEngine<S> {
 
     /// Get workflow instance status
     pub fn get_instance_status(&self, instance_id: &str) -> Result<WorkflowInstance, EngramError> {
-        self.active_instances
-            .get(instance_id)
-            .cloned()
-            .ok_or_else(|| {
-                EngramError::NotFound(format!("Workflow instance {} not found", instance_id))
-            })
+        if let Some(instance) = self.active_instances.get(instance_id) {
+            return Ok(instance.clone());
+        }
+
+        if let Some(generic) = self.storage.get(instance_id, "workflow_instance")? {
+            return WorkflowInstance::from_generic(generic).map_err(|e| EngramError::Validation(e));
+        }
+
+        Err(EngramError::NotFound(format!(
+            "Workflow instance {} not found",
+            instance_id
+        )))
     }
 
     /// List all active workflow instances
     pub fn list_active_instances(&self) -> Vec<WorkflowInstance> {
-        self.active_instances.values().cloned().collect()
+        match self.storage.get_all("workflow_instance") {
+            Ok(entities) => entities
+                .into_iter()
+                .filter_map(|e| WorkflowInstance::from_generic(e).ok())
+                .collect(),
+            Err(_) => Vec::new(),
+        }
     }
 
     /// Cancel a workflow instance
@@ -422,9 +435,21 @@ impl<S: Storage> WorkflowAutomationEngine<S> {
         executing_agent: String,
         reason: String,
     ) -> Result<WorkflowExecutionResult, EngramError> {
-        let instance = self.active_instances.get_mut(instance_id).ok_or_else(|| {
-            EngramError::NotFound(format!("Workflow instance {} not found", instance_id))
-        })?;
+        if !self.active_instances.contains_key(instance_id) {
+            if let Some(generic) = self.storage.get(instance_id, "workflow_instance")? {
+                let instance = WorkflowInstance::from_generic(generic)
+                    .map_err(|e| EngramError::Validation(e))?;
+                self.active_instances
+                    .insert(instance_id.to_string(), instance);
+            } else {
+                return Err(EngramError::NotFound(format!(
+                    "Workflow instance {} not found",
+                    instance_id
+                )));
+            }
+        }
+
+        let instance = self.active_instances.get_mut(instance_id).unwrap();
 
         let cancel_event = WorkflowExecutionEvent {
             id: Uuid::new_v4().to_string(),
@@ -442,6 +467,8 @@ impl<S: Storage> WorkflowAutomationEngine<S> {
         instance.updated_at = Utc::now();
         instance.completed_at = Some(Utc::now());
         instance.execution_history.push(cancel_event.clone());
+
+        self.storage.store(&instance.to_generic())?;
 
         Ok(WorkflowExecutionResult {
             success: true,
