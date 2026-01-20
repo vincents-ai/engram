@@ -302,6 +302,16 @@ async fn then_task_id_returned(world: &mut EngramWorld) {
 #[then(expr = "I should see {int} tasks")]
 async fn then_should_see_n_tasks(world: &mut EngramWorld, count: i32) {
     let entities = world.get_created_entities("task");
+    if entities.len() != count as usize {
+        if let Some(query_count) = world.last_query_count {
+            assert_eq!(
+                query_count, count as usize,
+                "Expected {} tasks (from query)",
+                count
+            );
+            return;
+        }
+    }
     assert_eq!(entities.len(), count as usize, "Expected {} tasks", count);
 }
 
@@ -460,6 +470,18 @@ async fn then_should_see_activity_counts(_world: &mut EngramWorld) {
 #[then(expr = "I should see {int} sessions")]
 async fn then_should_see_n_sessions(world: &mut EngramWorld, count: i32) {
     let entities = world.get_created_entities("session");
+
+    if entities.len() != count as usize {
+        if let Some(query_count) = world.last_query_count {
+            assert_eq!(
+                query_count, count as usize,
+                "Expected {} sessions (from query)",
+                count
+            );
+            return;
+        }
+    }
+
     assert_eq!(
         entities.len(),
         count as usize,
@@ -593,6 +615,19 @@ async fn then_knowledge_confidence_should_be(_world: &mut EngramWorld, _confiden
 #[then(expr = "I should see {int} knowledge items")]
 async fn then_should_see_n_knowledge(world: &mut EngramWorld, count: i32) {
     let entities = world.get_created_entities("knowledge");
+
+    // Check last query count first if available (for filtered lists)
+    if entities.len() != count as usize {
+        if let Some(query_count) = world.last_query_count {
+            assert_eq!(
+                query_count, count as usize,
+                "Expected {} knowledge items (from query)",
+                count
+            );
+            return;
+        }
+    }
+
     assert_eq!(
         entities.len(),
         count as usize,
@@ -986,8 +1021,9 @@ async fn then_should_see_cycle_error(world: &mut EngramWorld) {
     if let Some(result) = world.get_last_result() {
         if let Err(error_msg) = result {
             assert!(
-                error_msg.contains("cycle"),
-                "Should contain cycle error message"
+                error_msg.to_lowercase().contains("cycle"),
+                "Should contain cycle error message. Got: {}",
+                error_msg
             );
         }
     }

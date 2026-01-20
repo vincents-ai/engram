@@ -64,13 +64,17 @@ impl GitRefsStorage {
         registry.register::<crate::entities::Compliance>();
         registry.register::<crate::entities::EntityRelationship>();
 
-        Ok(GitRefsStorage {
+        let mut storage = GitRefsStorage {
             repository: Arc::new(Mutex::new(repository)),
             workspace_path,
             entity_registry: registry,
             current_agent: agent.to_string(),
             relationship_index: Arc::new(Mutex::new(RelationshipIndex::new())),
-        })
+        };
+
+        storage.rebuild_relationship_index()?;
+
+        Ok(storage)
     }
 
     /// Get ref name for an entity
@@ -234,7 +238,6 @@ impl GitRefsStorage {
     }
 
     /// Rebuild relationship index from all stored entities
-    #[allow(dead_code)]
     fn rebuild_relationship_index(&mut self) -> Result<(), EngramError> {
         let mut index = self.relationship_index.lock().map_err(|_| {
             EngramError::Storage(StorageError::InvalidState("Index lock failed".to_string()))
@@ -711,23 +714,65 @@ impl RelationshipStorage for GitRefsStorage {
 
     fn get_entity_relationships(
         &self,
-        _entity_id: &str,
+        entity_id: &str,
     ) -> Result<Vec<EntityRelationship>, EngramError> {
-        Ok(Vec::new())
+        let index = self.relationship_index.lock().map_err(|_| {
+            EngramError::Storage(StorageError::InvalidState("Index lock failed".to_string()))
+        })?;
+
+        let rel_ids = index.get_all_relationships(entity_id);
+        drop(index);
+
+        let mut relationships = Vec::new();
+        for rel_id in rel_ids {
+            if let Some(rel) = self.get_relationship(&rel_id)? {
+                relationships.push(rel);
+            }
+        }
+
+        Ok(relationships)
     }
 
     fn get_outbound_relationships(
         &self,
-        _entity_id: &str,
+        entity_id: &str,
     ) -> Result<Vec<EntityRelationship>, EngramError> {
-        Ok(Vec::new())
+        let index = self.relationship_index.lock().map_err(|_| {
+            EngramError::Storage(StorageError::InvalidState("Index lock failed".to_string()))
+        })?;
+
+        let rel_ids = index.get_outbound(entity_id);
+        drop(index);
+
+        let mut relationships = Vec::new();
+        for rel_id in rel_ids {
+            if let Some(rel) = self.get_relationship(&rel_id)? {
+                relationships.push(rel);
+            }
+        }
+
+        Ok(relationships)
     }
 
     fn get_inbound_relationships(
         &self,
-        _entity_id: &str,
+        entity_id: &str,
     ) -> Result<Vec<EntityRelationship>, EngramError> {
-        Ok(Vec::new())
+        let index = self.relationship_index.lock().map_err(|_| {
+            EngramError::Storage(StorageError::InvalidState("Index lock failed".to_string()))
+        })?;
+
+        let rel_ids = index.get_inbound(entity_id);
+        drop(index);
+
+        let mut relationships = Vec::new();
+        for rel_id in rel_ids {
+            if let Some(rel) = self.get_relationship(&rel_id)? {
+                relationships.push(rel);
+            }
+        }
+
+        Ok(relationships)
     }
 
     fn find_paths(
@@ -756,7 +801,7 @@ impl RelationshipStorage for GitRefsStorage {
     }
 
     fn rebuild_relationship_index(&mut self) -> Result<(), EngramError> {
-        Ok(())
+        self.rebuild_relationship_index()
     }
 
     fn get_relationship_stats(&self) -> Result<RelationshipStats, EngramError> {

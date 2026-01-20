@@ -164,6 +164,16 @@ pub enum Commands {
         #[command(subcommand)]
         command: SyncCommands,
     },
+    /// Get next task and generate prompt
+    Next {
+        /// Optional specific task ID
+        #[arg(long, short)]
+        id: Option<String>,
+
+        /// Output format (markdown, json)
+        #[arg(long, default_value = "markdown")]
+        format: String,
+    },
     /// Migrate from dual-repository to Git refs storage
     Migration,
     #[command(name = "guide")]

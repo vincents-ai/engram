@@ -1,6 +1,6 @@
 use crate::entities::task::{Task, TaskPriority, TaskStatus};
-use crate::entities::{Entity, GenericEntity};
-use crate::storage::{GitCommit, QueryFilter, QueryResult, Storage, StorageStats};
+use crate::entities::Entity;
+use crate::storage::Storage;
 use crate::EngramError;
 use std::collections::HashMap;
 
@@ -56,11 +56,125 @@ pub fn find_next_task<S: Storage>(storage: &S, agent: &str) -> Result<Option<Tas
     Ok(task_entities.first().cloned())
 }
 
+use crate::entities::context::Context;
+use crate::entities::workflow::Workflow;
+
+pub fn handle_next_command<S: Storage>(
+    storage: &mut S,
+    id: Option<String>,
+    format: String,
+) -> Result<(), EngramError> {
+    // 1. Identify Task
+    let task = if let Some(task_id) = id {
+        if let Some(entity) = storage.get(&task_id, "task")? {
+            Task::from_generic(entity).map_err(|e| EngramError::Validation(e))?
+        } else {
+            return Err(EngramError::NotFound(format!("Task {} not found", task_id)));
+        }
+    } else {
+        // Default agent to "default" for CLI usage, typically would come from config/auth
+        if let Some(t) = find_next_task(storage, "default")? {
+            t
+        } else {
+            println!("No pending tasks found.");
+            return Ok(());
+        }
+    };
+
+    // 2. Load associated Workflow (if any)
+    let workflow = if let Some(workflow_id) = &task.workflow_id {
+        if let Some(entity) = storage.get(workflow_id, "workflow")? {
+            Some(Workflow::from_generic(entity).map_err(|e| EngramError::Validation(e))?)
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    // 3. Build Context Map
+    let mut prompt_context = HashMap::new();
+    prompt_context.insert("TASK_ID".to_string(), task.id.clone());
+    prompt_context.insert("TASK_TITLE".to_string(), task.title.clone());
+    prompt_context.insert("TASK_DESCRIPTION".to_string(), task.description.clone());
+
+    // Load related Context entities
+    let mut context_content = String::new();
+    for context_id in &task.context_ids {
+        if let Some(entity) = storage.get(context_id, "context")? {
+            let context = Context::from_generic(entity).map_err(|e| EngramError::Validation(e))?;
+            context_content.push_str(&format!("\n- {}: {}", context.title, context.content));
+        }
+    }
+    prompt_context.insert("CONTEXT".to_string(), context_content);
+
+    // 4. Select Prompts
+    let (system_prompt, user_prompt) = if let Some(wf) = workflow {
+        if let Some(state_name) = &task.workflow_state {
+            if let Some(state) = wf.states.iter().find(|s| &s.name == state_name) {
+                if let Some(prompts) = &state.prompts {
+                    (
+                        prompts
+                            .system
+                            .clone()
+                            .unwrap_or_else(|| "You are an AI assistant.".to_string()),
+                        prompts.user.clone().unwrap_or_else(|| {
+                            "Task: {{TASK_TITLE}}\nDescription: {{TASK_DESCRIPTION}}".to_string()
+                        }),
+                    )
+                } else {
+                    (
+                        "You are an AI assistant.".to_string(),
+                        "Task: {{TASK_TITLE}}\nDescription: {{TASK_DESCRIPTION}}".to_string(),
+                    )
+                }
+            } else {
+                (
+                    "You are an AI assistant.".to_string(),
+                    "Task: {{TASK_TITLE}}\nDescription: {{TASK_DESCRIPTION}}".to_string(),
+                )
+            }
+        } else {
+            (
+                "You are an AI assistant.".to_string(),
+                "Task: {{TASK_TITLE}}\nDescription: {{TASK_DESCRIPTION}}".to_string(),
+            )
+        }
+    } else {
+        (
+            "You are an AI assistant.".to_string(),
+            "Task: {{TASK_TITLE}}\nDescription: {{TASK_DESCRIPTION}}".to_string(),
+        )
+    };
+
+    // 5. Interpolate
+    let final_system = interpolate(&system_prompt, &prompt_context);
+    let final_user = interpolate(&user_prompt, &prompt_context);
+
+    // 6. Output
+    if format == "json" {
+        let output = serde_json::json!({
+            "task_id": task.id,
+            "system_prompt": final_system,
+            "user_prompt": final_user
+        });
+        println!("{}", serde_json::to_string_pretty(&output).unwrap());
+    } else {
+        println!(
+            "## System Prompt\n\n{}\n\n## User Prompt\n\n{}",
+            final_system, final_user
+        );
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::entities::task::{Task, TaskPriority, TaskStatus};
     use crate::entities::GenericEntity;
+    use crate::storage::{GitCommit, QueryFilter, QueryResult, StorageStats};
     use chrono::Utc;
     use serde_json::Value;
 

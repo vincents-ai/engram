@@ -97,6 +97,10 @@ async fn run() -> Result<(), EngramError> {
             let mut storage = GitRefsStorage::new(".", "default")?;
             engram::cli::sync::handle_sync_command(&mut storage, &command)?;
         }
+        cli::Commands::Next { id, format } => {
+            let mut storage = GitRefsStorage::new(".", "default")?;
+            engram::cli::next::handle_next_command(&mut storage, id, format)?;
+        }
         cli::Commands::Migration => handle_migration_command()?,
         cli::Commands::Guide { command } => handle_help_command(command)?,
     }
