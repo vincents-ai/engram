@@ -197,3 +197,4 @@ pub enum SetupCommands {
         email: Option<String>,
     },
 }
+pub mod next;
