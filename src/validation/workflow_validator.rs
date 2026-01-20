@@ -246,7 +246,8 @@ impl<S: Storage + RelationshipStorage> WorkflowValidator<S> {
             .clone();
 
         // Enforce stage-specific policies
-        let policy_errors = self.validate_stage_policy(&policy, staged_files, commit_message);
+        let policy_errors =
+            self.validate_stage_policy(&policy, staged_files, commit_message, &task_id);
         if !policy_errors.is_empty() {
             return ValidationResult::failure(
                 policy_errors,
@@ -281,6 +282,45 @@ impl<S: Storage + RelationshipStorage> WorkflowValidator<S> {
                 quality_gate_results.errors,
                 start_time.elapsed().as_millis() as u64,
             )
+        }
+    }
+
+    /// Validate a state transition against a workflow definition or default rules
+    pub fn validate_transition(
+        &self,
+        current_state: &str,
+        target_state: &str,
+        workflow: Option<&Workflow>,
+    ) -> Result<(), EngramError> {
+        if let Some(wf) = workflow {
+            for transition in &wf.transitions {
+                if transition.from_state == current_state && transition.to_state == target_state {
+                    return Ok(());
+                }
+            }
+            return Err(EngramError::Validation(format!(
+                "Invalid transition in workflow '{}': '{}' -> '{}'",
+                wf.title, current_state, target_state
+            )));
+        }
+
+        let valid = match (current_state, target_state) {
+            ("todo", "inprogress") => true,
+            ("inprogress", "done") => true,
+            ("inprogress", "blocked") => true,
+            ("blocked", "inprogress") => true,
+            ("done", "reopened") => true,
+            (from, to) if from == to => true,
+            _ => false,
+        };
+
+        if valid {
+            Ok(())
+        } else {
+            Err(EngramError::Validation(format!(
+                "Invalid default transition: '{}' -> '{}'",
+                current_state, target_state
+            )))
         }
     }
 
@@ -358,7 +398,8 @@ impl<S: Storage + RelationshipStorage> WorkflowValidator<S> {
         &self,
         policy: &StagePolicy,
         staged_files: &[String],
-        _commit_message: &str,
+        commit_message: &str,
+        task_id: &str,
     ) -> Vec<ValidationError> {
         let mut errors = Vec::new();
 
@@ -416,7 +457,71 @@ impl<S: Storage + RelationshipStorage> WorkflowValidator<S> {
             }
         }
 
+        // Check if task is transitioning states
+        if let Some(target_state) = self.extract_target_state_from_commit(commit_message) {
+            let workflow_stage = &policy.stage_name;
+
+            // Verify transition is valid
+            if let Ok(Some(workflow_id)) = self.get_task_workflow_id(task_id) {
+                if let Ok(valid_transition) =
+                    self.is_valid_transition(&workflow_id, workflow_stage, &target_state)
+                {
+                    if !valid_transition {
+                        errors.push(ValidationError::new(
+                            ValidationErrorType::PolicyViolation,
+                            format!(
+                                "Invalid workflow transition from '{}' to '{}'",
+                                workflow_stage, target_state
+                            ),
+                        ));
+                    }
+                }
+            }
+        }
+
         errors
+    }
+
+    /// Extract target state from commit message
+    fn extract_target_state_from_commit(&self, commit_message: &str) -> Option<String> {
+        // Look for [state:new_state] pattern
+        if let Some(start) = commit_message.find("[state:") {
+            if let Some(end) = commit_message[start..].find(']') {
+                let state_tag = &commit_message[start + 7..start + end];
+                return Some(state_tag.to_string());
+            }
+        }
+        None
+    }
+
+    /// Get workflow ID for a task
+    fn get_task_workflow_id(&self, task_id: &str) -> Result<Option<String>, EngramError> {
+        if let Some(generic_entity) = self.base_validator.storage().get(task_id, "task")? {
+            if let Ok(task) = Task::from_generic(generic_entity) {
+                return Ok(task.workflow_id);
+            }
+        }
+        Ok(None)
+    }
+
+    /// Check if transition is valid
+    fn is_valid_transition(
+        &self,
+        workflow_id: &str,
+        from_state: &str,
+        to_state: &str,
+    ) -> Result<bool, EngramError> {
+        if let Some(workflow_entity) = self.base_validator.storage().get(workflow_id, "workflow")? {
+            if let Ok(workflow) = Workflow::from_generic(workflow_entity) {
+                // Check if transition exists in workflow
+                for transition in workflow.transitions {
+                    if transition.from_state == from_state && transition.to_state == to_state {
+                        return Ok(true);
+                    }
+                }
+            }
+        }
+        Ok(false)
     }
 
     /// Check if the commit contains code files
@@ -500,27 +605,72 @@ impl QualityGateExecutionSummary {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::entities::workflow::{TransitionType, WorkflowTransition};
     use crate::storage::MemoryStorage;
 
     #[tokio::test]
-    async fn test_workflow_validator_creation() {
+    async fn test_validate_transition_default_rules() {
         let storage = MemoryStorage::new("test-agent");
+        let validator = WorkflowValidator::new(storage).unwrap();
 
-        let validator = WorkflowValidator::new(storage);
-        assert!(validator.is_ok());
+        assert!(validator
+            .validate_transition("todo", "inprogress", None)
+            .is_ok());
+        assert!(validator
+            .validate_transition("inprogress", "done", None)
+            .is_ok());
+        assert!(validator
+            .validate_transition("inprogress", "blocked", None)
+            .is_ok());
+        assert!(validator
+            .validate_transition("blocked", "inprogress", None)
+            .is_ok());
+        assert!(validator
+            .validate_transition("done", "reopened", None)
+            .is_ok());
+        assert!(validator.validate_transition("todo", "todo", None).is_ok());
+
+        assert!(validator.validate_transition("todo", "done", None).is_err());
+        assert!(validator
+            .validate_transition("done", "inprogress", None)
+            .is_err());
+        assert!(validator
+            .validate_transition("blocked", "done", None)
+            .is_err());
     }
 
     #[tokio::test]
-    async fn test_stage_policy_enforcement() {
+    async fn test_validate_transition_workflow_rules() {
         let storage = MemoryStorage::new("test-agent");
-        let mut validator = WorkflowValidator::new(storage).unwrap();
+        let validator = WorkflowValidator::new(storage).unwrap();
 
-        // Test that planning stage rejects code commits
-        let staged_files = vec!["src/main.rs".to_string()];
-        let commit_message = "feat: add feature [task-123]";
+        let mut workflow = Workflow::new(
+            "Custom Workflow".to_string(),
+            "Description".to_string(),
+            "test-agent".to_string(),
+        );
 
-        // This would require mocking the workflow lookup, skipping for now
-        // let result = validator.validate_commit(commit_message, &staged_files);
-        // assert!(!result.is_valid);
+        workflow.add_transition(WorkflowTransition {
+            id: "t1".to_string(),
+            name: "Start".to_string(),
+            from_state: "draft".to_string(),
+            to_state: "review".to_string(),
+            transition_type: TransitionType::Manual,
+            description: "Start review".to_string(),
+            conditions: vec![],
+            actions: vec![],
+        });
+
+        assert!(validator
+            .validate_transition("draft", "review", Some(&workflow))
+            .is_ok());
+
+        assert!(validator
+            .validate_transition("draft", "published", Some(&workflow))
+            .is_err());
+
+        assert!(validator
+            .validate_transition("todo", "inprogress", Some(&workflow))
+            .is_err());
     }
 }
