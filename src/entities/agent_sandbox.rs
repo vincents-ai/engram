@@ -826,6 +826,7 @@ impl Entity for AgentSandbox {
     fn to_generic(&self) -> GenericEntity {
         let mut data = serde_json::Map::new();
 
+        data.insert("id".to_string(), serde_json::to_value(&self.id).unwrap());
         data.insert(
             "agent_id".to_string(),
             serde_json::to_value(&self.agent_id).unwrap(),
@@ -865,6 +866,10 @@ impl Entity for AgentSandbox {
         data.insert(
             "violation_count".to_string(),
             serde_json::to_value(&self.violation_count).unwrap(),
+        );
+        data.insert(
+            "agent".to_string(),
+            serde_json::to_value(&self.agent).unwrap(),
         );
         data.insert(
             "metadata".to_string(),

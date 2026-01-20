@@ -7,17 +7,23 @@
 //! - Escalation handling
 
 pub mod command_validator;
+pub mod escalation_handler;
 pub mod permission_engine;
 pub mod resource_monitor;
 
 use crate::entities::agent_sandbox::OperationType;
-use crate::entities::{AgentSandbox, Entity, SandboxLevel};
+use crate::entities::{
+    AgentSandbox, Entity, EscalationOperationType, EscalationPriority, EscalationRequest,
+    OperationContext, SandboxLevel,
+};
 use crate::storage::Storage;
 use chrono::{DateTime, Duration as ChronoDuration, Utc};
+use std::collections::HashMap;
 use std::time::Instant;
 use thiserror::Error;
 
 pub use command_validator::CommandValidator;
+pub use escalation_handler::{EscalationHandler, EscalationStatistics};
 pub use permission_engine::PermissionEngine;
 pub use resource_monitor::ResourceMonitor;
 
@@ -228,19 +234,125 @@ impl SandboxEngine {
     async fn create_escalation_request(
         &mut self,
         request: &SandboxRequest,
-        _sandbox: &AgentSandbox,
+        sandbox: &AgentSandbox,
     ) -> SandboxResult<String> {
-        // Generate unique escalation ID
-        let escalation_id = format!(
-            "esc_{}_{}",
-            request.agent_id,
-            chrono::Utc::now().timestamp_millis()
+        let operation_type = self.infer_escalation_operation_type(&request.operation);
+        let priority = self.infer_escalation_priority(sandbox, &request.operation);
+
+        let operation_context = OperationContext {
+            operation: request.operation.clone(),
+            parameters: match request.parameters.as_object() {
+                Some(obj) => obj.iter().map(|(k, v)| (k.clone(), v.clone())).collect(),
+                None => HashMap::new(),
+            },
+            resource: Some(request.resource_type.clone()),
+            block_reason: format!(
+                "Operation blocked by sandbox level {:?}",
+                sandbox.sandbox_level
+            ),
+            alternatives: self.suggest_alternatives(&request.operation),
+            risk_assessment: Some(self.assess_risk(&request.operation)),
+        };
+
+        let mut escalation = EscalationRequest::new(
+            request.agent_id.clone(),
+            operation_type,
+            operation_context,
+            format!(
+                "Agent {} requests permission for operation: {}",
+                request.agent_id, request.operation
+            ),
+            priority,
+            "default".to_string(),
         );
 
-        // TODO: Create escalation entity and store it
-        // This will be implemented when we create the escalation entities
+        escalation.session_id = request.session_id.clone();
+
+        let generic_entity = escalation.to_generic();
+        let escalation_id = escalation.id.clone();
+
+        self.storage.store(&generic_entity).map_err(|e| {
+            SandboxError::StorageError(format!("Failed to store escalation: {}", e))
+        })?;
 
         Ok(escalation_id)
+    }
+
+    fn infer_escalation_operation_type(&self, operation: &str) -> EscalationOperationType {
+        match operation {
+            op if op.contains("file") || op.contains("File") => {
+                EscalationOperationType::FileSystemAccess
+            }
+            op if op.contains("network") || op.contains("Network") => {
+                EscalationOperationType::NetworkAccess
+            }
+            op if op.contains("command") || op.contains("execute") => {
+                EscalationOperationType::CommandExecution
+            }
+            op if op.contains("workflow") || op.contains("Workflow") => {
+                EscalationOperationType::WorkflowModification
+            }
+            op if op.contains("quality_gate") => EscalationOperationType::QualityGateOverride,
+            op if op.contains("resource") || op.contains("limit") => {
+                EscalationOperationType::ResourceLimitIncrease
+            }
+            _ => EscalationOperationType::Custom(operation.to_string()),
+        }
+    }
+
+    fn infer_escalation_priority(
+        &self,
+        sandbox: &AgentSandbox,
+        operation: &str,
+    ) -> EscalationPriority {
+        let high_risk_ops = ["delete", "remove", "execute", "command"];
+        let is_high_risk = high_risk_ops.iter().any(|risk| operation.contains(risk));
+
+        match (&sandbox.sandbox_level, is_high_risk) {
+            (SandboxLevel::Training, _) => EscalationPriority::Low,
+            (SandboxLevel::Isolated, true) => EscalationPriority::High,
+            (SandboxLevel::Isolated, false) => EscalationPriority::Normal,
+            (SandboxLevel::Restricted, true) => EscalationPriority::High,
+            (SandboxLevel::Restricted, false) => EscalationPriority::Normal,
+            (_, true) => EscalationPriority::High,
+            (_, false) => EscalationPriority::Normal,
+        }
+    }
+
+    fn suggest_alternatives(&self, operation: &str) -> Vec<String> {
+        match operation {
+            "file_delete" => vec![
+                "Use file_move to archive instead".to_string(),
+                "Request permission for specific file patterns".to_string(),
+            ],
+            "network_request" => vec![
+                "Use internal API endpoints if available".to_string(),
+                "Request proxy configuration".to_string(),
+            ],
+            "execute_command" => vec![
+                "Use engram built-in operations".to_string(),
+                "Request specific command whitelist".to_string(),
+            ],
+            _ => vec!["Contact administrator for guidance".to_string()],
+        }
+    }
+
+    fn assess_risk(&self, operation: &str) -> String {
+        match operation {
+            op if op.contains("delete") || op.contains("remove") => {
+                "High risk: Irreversible data modification".to_string()
+            }
+            op if op.contains("network") => {
+                "Medium risk: External communication and data exfiltration potential".to_string()
+            }
+            op if op.contains("execute") || op.contains("command") => {
+                "High risk: Arbitrary code execution".to_string()
+            }
+            op if op.contains("write") || op.contains("modify") => {
+                "Medium risk: Data modification".to_string()
+            }
+            _ => "Low risk: Read-only or safe operation".to_string(),
+        }
     }
 
     /// Check if an operation requires monitoring
