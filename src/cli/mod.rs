@@ -71,14 +71,14 @@ pub enum Commands {
         #[command(subcommand)]
         command: SetupCommands,
     },
-    /// Convert from other formats
+    /// Convert from other formats (EXPERIMENTAL - Not yet implemented)
     Convert {
         /// Source format (openspec, beads, github)
-        #[arg(long, short)]
+        #[arg(long, short = 'o')]
         from: String,
 
         /// Source file path
-        #[arg(long, short)]
+        #[arg(long, short = 'f')]
         file: String,
     },
     /// Run test suite
