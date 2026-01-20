@@ -122,6 +122,18 @@ pub struct Workflow {
     pub metadata: HashMap<String, serde_json::Value>,
 }
 
+/// Prompt template for agent instructions
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, PartialEq)]
+pub struct PromptTemplate {
+    /// System prompt template (sets behavior/role)
+    #[serde(rename = "system", skip_serializing_if = "Option::is_none")]
+    pub system: Option<String>,
+
+    /// User prompt template (specific task instructions)
+    #[serde(rename = "user", skip_serializing_if = "Option::is_none")]
+    pub user: Option<String>,
+}
+
 /// Workflow state
 #[derive(Debug, Clone, Serialize, Deserialize, Validate)]
 pub struct WorkflowState {
@@ -144,6 +156,10 @@ pub struct WorkflowState {
     /// Whether this is a final state
     #[serde(rename = "is_final")]
     pub is_final: bool,
+
+    /// Prompt templates for this state
+    #[serde(rename = "prompts", skip_serializing_if = "Option::is_none")]
+    pub prompts: Option<PromptTemplate>,
 
     /// Guards (conditions for entering/leaving state)
     #[serde(rename = "guards", skip_serializing_if = "Vec::is_empty", default)]

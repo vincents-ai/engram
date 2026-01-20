@@ -501,6 +501,7 @@ pub fn add_state<S: Storage>(
             is_final,
             guards: Vec::new(),
             post_functions: Vec::new(),
+            prompts: None,
         };
 
         let state_id = state.id.clone();
