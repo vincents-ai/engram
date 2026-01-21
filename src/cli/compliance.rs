@@ -259,7 +259,7 @@ fn display_compliance_summary(compliance: &Compliance) {
     println!(
         "  {} [{}] {} - {} ({})",
         status_icon,
-        compliance.id[..8].to_string(),
+        &compliance.id[..8],
         compliance.title,
         compliance.category,
         compliance.agent

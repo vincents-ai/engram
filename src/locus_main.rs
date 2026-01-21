@@ -36,8 +36,7 @@ async fn main() -> std::io::Result<()> {
         // CLI mode
         let storage = GitRefsStorage::new(".", "default")
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
-        let config = Config::default();
-        let mut integration = LocusIntegration::new(storage, config);
+        let mut integration = LocusIntegration::new(storage);
 
         if let Some(command) = cli.command {
             handle_locus_command(&mut integration, command).await?;
@@ -48,8 +47,7 @@ async fn main() -> std::io::Result<()> {
         // TUI mode (default)
         let storage = GitRefsStorage::new(".", "default")
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
-        let config = Config::default();
-        let mut app = LocusTuiApp::new(storage, config);
+        let mut app = LocusTuiApp::new(storage);
         app.run()?;
     }
     Ok(())

@@ -120,7 +120,7 @@ fn read_stdin() -> Result<String, EngramError> {
     let mut buffer = String::new();
     io::stdin()
         .read_to_string(&mut buffer)
-        .map_err(|e| EngramError::Io(e))?;
+        .map_err(EngramError::Io)?;
     Ok(buffer.trim().to_string())
 }
 

@@ -2,12 +2,9 @@
 //!
 //! Handles loading configuration and setting up integration layer
 
-use crate::config::Config;
 use crate::entities::TaskStatus;
-use crate::error::EngramError;
 use crate::locus_integration::LocusIntegration;
-use crate::storage::{GitStorage, RelationshipStorage, Storage};
-use clap::Subcommand;
+use crate::storage::{RelationshipStorage, Storage};
 use std::io;
 
 pub async fn handle_locus_command<S: Storage + RelationshipStorage>(

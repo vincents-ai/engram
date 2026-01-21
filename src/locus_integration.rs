@@ -3,22 +3,19 @@
 //! Provides Locus with access to Engram's storage, entities,
 //! and functionality through a clean API boundary.
 
-use crate::config::Config;
 use crate::entities::*;
 use crate::error::EngramError;
 use crate::storage::{RelationshipStorage, Storage};
-use std::collections::HashMap;
 
 /// Integration interface for Locus to access Engram functionality
 pub struct LocusIntegration<S: Storage + RelationshipStorage> {
     storage: S,
-    config: Config,
 }
 
 impl<S: Storage + RelationshipStorage> LocusIntegration<S> {
     /// Create new Locus integration instance
-    pub fn new(storage: S, config: Config) -> Self {
-        Self { storage, config }
+    pub fn new(storage: S) -> Self {
+        Self { storage }
     }
 
     /// Get all workflows from Engram storage

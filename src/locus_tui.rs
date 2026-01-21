@@ -1,7 +1,5 @@
-use crate::entities::{GenericEntity, Task, Workflow};
 use crate::locus_integration::LocusIntegration;
-use crate::storage::{GitRefsStorage, RelationshipStorage, Storage};
-use crate::Config;
+use crate::storage::{RelationshipStorage, Storage};
 use crossterm::event::{self, Event, KeyCode};
 use ratatui::backend::CrosstermBackend;
 use ratatui::layout::{Constraint, Direction, Layout};
@@ -15,8 +13,8 @@ pub struct LocusTuiApp<S: Storage + RelationshipStorage> {
 }
 
 impl<S: Storage + RelationshipStorage> LocusTuiApp<S> {
-    pub fn new(storage: S, config: Config) -> Self {
-        let integration = LocusIntegration::new(storage, config);
+    pub fn new(storage: S) -> Self {
+        let integration = LocusIntegration::new(storage);
         Self { integration }
     }
 
