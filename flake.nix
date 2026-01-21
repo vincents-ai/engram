@@ -9,98 +9,94 @@
   };
 
   outputs = { self, nixpkgs, flake-utils, rust-overlay, crane }:
-    flake-utils.lib.eachDefaultSystem (system:
-      let
-        pkgs = import nixpkgs {
-          inherit system;
-          overlays = [ rust-overlay.overlays.default ];
-        };
+    let
+      pkgs = import nixpkgs {
+        system = "x86_64-linux";
+        overlays = [ rust-overlay.overlays.default ];
+      };
+      
+      rustToolchain = pkgs.rust-bin.stable.latest.default;
+      
+      craneLib = crane.mkLib pkgs;
+      
+      engramPackage = craneLib.buildPackage {
+        pname = "engram";
+        version = "0.1.0";
+        src = craneLib.cleanCargoSource ./.;
         
-        rustToolchain = pkgs.rust-bin.stable.latest.default;
+        cargoLockFile = ./Cargo.lock;
+
+        doCheck = false;
+
+        OPENSSL_NO_VENDOR = "1";
+        OPENSSL_DIR = "${pkgs.openssl.dev}";
+        OPENSSL_LIB_DIR = "${pkgs.openssl.out}/lib";
+        OPENSSL_INCLUDE_DIR = "${pkgs.openssl.dev}/include";
+        PKG_CONFIG_PATH = "${pkgs.openssl.dev}/lib/pkgconfig";
+      };
+    in
+    {
+      packages.x86_64-linux.default = engramPackage;
+      packages.x86_64-linux.engram = engramPackage;
+      
+      devShells.x86_64-linux.default = pkgs.mkShell {
+        buildInputs = with pkgs; [
+          rustToolchain
+          pkg-config
+          openssl
+          openssl.dev
+          git
+          rust-analyzer
+          perl
+        ];
+
+        shellHook = ''
+          export PKG_CONFIG_PATH="${pkgs.openssl.dev}/lib/pkgconfig:$PKG_CONFIG_PATH"
+          export OPENSSL_DIR="${pkgs.openssl.dev}"
+          export OPENSSL_LIB_DIR="${pkgs.openssl.out}/lib"
+          export OPENSSL_INCLUDE_DIR="${pkgs.openssl.dev}/include"
+          export OPENSSL_NO_VENDOR="1"
+          echo 'Engram Rust development environment ready with OpenSSL support'
+        '';
+      };
+
+      checks.x86_64-linux.default = pkgs.rustPlatform.buildRustPackage {
+        pname = "engram-check";
+        version = "0.1.0";
+        src = ./.;
         
-        # Use crane for better cargo dependency handling
-        craneLib = crane.mkLib pkgs;
-      in
-      {
-        packages.default = craneLib.buildPackage {
-          pname = "engram";
-          version = "0.1.0";
-          src = craneLib.cleanCargoSource ./.;
-          
-          cargoLockFile = ./Cargo.lock;
-
-          # Skip tests during build (tests have compilation errors)
-          doCheck = false;
-
-          # Use system OpenSSL instead of building from source
-          OPENSSL_NO_VENDOR = "1";
-          OPENSSL_DIR = "${pkgs.openssl.dev}";
-          OPENSSL_LIB_DIR = "${pkgs.openssl.out}/lib";
-          OPENSSL_INCLUDE_DIR = "${pkgs.openssl.dev}/include";
-          PKG_CONFIG_PATH = "${pkgs.openssl.dev}/lib/pkgconfig";
+        cargoLock = {
+          lockFile = ./Cargo.lock;
         };
 
-        devShells.default = pkgs.mkShell {
-          buildInputs = with pkgs; [
-            rustToolchain
-            pkg-config
-            openssl
-            openssl.dev
-            git
-            rust-analyzer
-            perl
-          ];
+        nativeBuildInputs = with pkgs; [ 
+          pkg-config 
+          rustToolchain 
+          perl 
+        ];
+        
+        buildInputs = with pkgs; [ 
+          openssl 
+          openssl.dev 
+          git 
+        ];
 
-          shellHook = ''
-            export PKG_CONFIG_PATH="${pkgs.openssl.dev}/lib/pkgconfig:$PKG_CONFIG_PATH"
-            export OPENSSL_DIR="${pkgs.openssl.dev}"
-            export OPENSSL_LIB_DIR="${pkgs.openssl.out}/lib"
-            export OPENSSL_INCLUDE_DIR="${pkgs.openssl.dev}/include"
-            export OPENSSL_NO_VENDOR="1"
-            echo 'Engram Rust development environment ready with OpenSSL support'
-          '';
-        };
+        OPENSSL_NO_VENDOR = "1";
+        OPENSSL_DIR = "${pkgs.openssl.dev}";
+        OPENSSL_LIB_DIR = "${pkgs.openssl.out}/lib";
+        OPENSSL_INCLUDE_DIR = "${pkgs.openssl.dev}/include";
 
-        # Add check target for development
-        checks.default = pkgs.rustPlatform.buildRustPackage {
-          pname = "engram-check";
-          version = "0.1.0";
-          src = ./.;
-          
-          cargoLock = {
-            lockFile = ./Cargo.lock;
-          };
-
-          nativeBuildInputs = with pkgs; [ 
-            pkg-config 
-            rustToolchain 
-            perl 
-          ];
-          
-          buildInputs = with pkgs; [ 
-            openssl 
-            openssl.dev 
-            git 
-          ];
-
-          # Use system OpenSSL
-          OPENSSL_NO_VENDOR = "1";
-          OPENSSL_DIR = "${pkgs.openssl.dev}";
-          OPENSSL_LIB_DIR = "${pkgs.openssl.out}/lib";
-          OPENSSL_INCLUDE_DIR = "${pkgs.openssl.dev}/include";
-
-          doCheck = true;
-          checkPhase = ''
-            cargo test --workspace
-            cargo clippy -- -D warnings
-          '';
-          
-          installPhase = ''
-            echo "Checks completed"
-            mkdir -p $out
-            touch $out/check-results
-          '';
-        };
-      }
-    );
+        doCheck = true;
+        checkPhase = ''
+          cargo test --workspace
+          cargo clippy -- -D warnings
+        '';
+        
+        installPhase = ''
+          echo "Checks completed"
+          mkdir -p $out
+          touch $out/check-results
+        '';
+      };
+    };
 }

@@ -79,7 +79,7 @@ jobs:
           nix_path: nixpkgs=channel:nixpkgs-unstable
 
       - name: Build with Nix
-        run: nix-build .#engram
+        run: nix build .#engram --system x86_64-linux
 
   examples:
     name: Build Examples
