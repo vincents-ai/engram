@@ -1,6 +1,6 @@
 //! Workflow Instance entity implementation
 
-use super::{Entity, EntityResult, GenericEntity};
+use super::{Entity, GenericEntity};
 use crate::engines::workflow_engine::{
     WorkflowExecutionContext, WorkflowExecutionEvent, WorkflowStatus,
 };
@@ -64,18 +64,26 @@ impl Entity for WorkflowInstance {
         self.updated_at
     }
 
-    fn validate_entity(&self) -> EntityResult<()> {
+    fn validate_entity(&self) -> crate::Result<()> {
         if self.id.is_empty() {
-            return Err("Workflow instance ID cannot be empty".to_string());
+            return Err(crate::EngramError::Validation(
+                "Workflow instance ID cannot be empty".to_string(),
+            ));
         }
         if self.workflow_id.is_empty() {
-            return Err("Workflow ID cannot be empty".to_string());
+            return Err(crate::EngramError::Validation(
+                "Workflow ID cannot be empty".to_string(),
+            ));
         }
         if self.current_state.is_empty() {
-            return Err("Current state cannot be empty".to_string());
+            return Err(crate::EngramError::Validation(
+                "Current state cannot be empty".to_string(),
+            ));
         }
         if self.context.executing_agent.is_empty() {
-            return Err("Executing agent cannot be empty".to_string());
+            return Err(crate::EngramError::Validation(
+                "Executing agent cannot be empty".to_string(),
+            ));
         }
         Ok(())
     }
@@ -90,9 +98,13 @@ impl Entity for WorkflowInstance {
         }
     }
 
-    fn from_generic(entity: GenericEntity) -> EntityResult<Self> {
-        serde_json::from_value(entity.data)
-            .map_err(|e| format!("Failed to deserialize workflow instance: {}", e))
+    fn from_generic(entity: GenericEntity) -> crate::Result<Self> {
+        serde_json::from_value(entity.data).map_err(|e| {
+            crate::EngramError::Deserialization(format!(
+                "Failed to deserialize workflow instance: {}",
+                e
+            ))
+        })
     }
 
     fn as_any(&self) -> &dyn std::any::Any {

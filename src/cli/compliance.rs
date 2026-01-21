@@ -143,8 +143,7 @@ pub fn show_compliance<S: Storage>(storage: &S, id: &str) -> Result<(), EngramEr
     let generic = storage.get(id, "compliance")?;
 
     if let Some(generic_item) = generic {
-        let compliance =
-            Compliance::from_generic(generic_item).map_err(|e| EngramError::Validation(e))?;
+        let compliance = Compliance::from_generic(generic_item)?;
         display_compliance(&compliance);
     } else {
         println!("❌ Compliance requirement '{}' not found", id);
@@ -163,8 +162,7 @@ pub fn update_compliance<S: Storage>(
     let generic = storage.get(id, "compliance")?;
 
     if let Some(generic_item) = generic {
-        let mut compliance =
-            Compliance::from_generic(generic_item).map_err(|e| EngramError::Validation(e))?;
+        let mut compliance = Compliance::from_generic(generic_item)?;
 
         match field.to_lowercase().as_str() {
             "status" => match value.to_lowercase().as_str() {

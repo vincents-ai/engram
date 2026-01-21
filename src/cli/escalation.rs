@@ -442,8 +442,7 @@ pub fn list_escalations<S: Storage>(
 pub fn get_escalation<S: Storage>(storage: &S, id: String, json: bool) -> Result<(), EngramError> {
     match storage.get(&id, "escalation_request")? {
         Some(entity) => {
-            let mut escalation =
-                EscalationRequest::from_generic(entity).map_err(|e| EngramError::Validation(e))?;
+            let mut escalation = EscalationRequest::from_generic(entity)?;
 
             // Check for expiration and update if needed
             if escalation.is_expired() && escalation.status == EscalationStatus::Pending {

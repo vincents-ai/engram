@@ -1,6 +1,6 @@
 //! Task entity implementation
 
-use super::{Entity, EntityResult, GenericEntity};
+use super::{Entity, GenericEntity};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -187,13 +187,17 @@ impl Entity for Task {
         self.start_time
     }
 
-    fn validate_entity(&self) -> super::EntityResult<()> {
+    fn validate_entity(&self) -> crate::Result<()> {
         if self.title.is_empty() {
-            return Err("Task title cannot be empty".to_string());
+            return Err(crate::EngramError::Validation(
+                "Task title cannot be empty".to_string(),
+            ));
         }
 
         if self.agent.is_empty() {
-            return Err("Task agent cannot be empty".to_string());
+            return Err(crate::EngramError::Validation(
+                "Task agent cannot be empty".to_string(),
+            ));
         }
 
         Ok(())
@@ -209,9 +213,10 @@ impl Entity for Task {
         }
     }
 
-    fn from_generic(entity: GenericEntity) -> EntityResult<Self> {
-        serde_json::from_value(entity.data)
-            .map_err(|e| format!("Failed to deserialize Task: {}", e))
+    fn from_generic(entity: GenericEntity) -> crate::Result<Self> {
+        serde_json::from_value(entity.data).map_err(|e| {
+            crate::EngramError::Deserialization(format!("Failed to deserialize Task: {}", e))
+        })
     }
 
     fn as_any(&self) -> &dyn std::any::Any

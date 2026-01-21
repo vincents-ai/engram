@@ -795,7 +795,7 @@ impl Entity for AgentSandbox {
         self.created_at
     }
 
-    fn validate_entity(&self) -> super::EntityResult<()> {
+    fn validate_entity(&self) -> crate::Result<()> {
         if let Err(errors) = <AgentSandbox as validator::Validate>::validate(self) {
             let error_messages: Vec<String> = errors
                 .field_errors()
@@ -809,15 +809,19 @@ impl Entity for AgentSandbox {
                         .unwrap_or_default()
                 })
                 .collect();
-            return Err(error_messages.join(", "));
+            return Err(crate::EngramError::Validation(error_messages.join(", ")));
         }
 
         if self.agent_id.is_empty() {
-            return Err("Agent ID cannot be empty".to_string());
+            return Err(crate::EngramError::Validation(
+                "Agent ID cannot be empty".to_string(),
+            ));
         }
 
         if self.created_by.is_empty() {
-            return Err("Created by field cannot be empty".to_string());
+            return Err(crate::EngramError::Validation(
+                "Created by field cannot be empty".to_string(),
+            ));
         }
 
         Ok(())
@@ -885,12 +889,16 @@ impl Entity for AgentSandbox {
         }
     }
 
-    fn from_generic(generic: GenericEntity) -> super::EntityResult<Self>
+    fn from_generic(generic: GenericEntity) -> crate::Result<Self>
     where
         Self: Sized,
     {
-        serde_json::from_value(generic.data)
-            .map_err(|e| format!("Failed to deserialize AgentSandbox: {}", e))
+        serde_json::from_value(generic.data).map_err(|e| {
+            crate::EngramError::Deserialization(format!(
+                "Failed to deserialize AgentSandbox: {}",
+                e
+            ))
+        })
     }
 
     fn as_any(&self) -> &dyn std::any::Any

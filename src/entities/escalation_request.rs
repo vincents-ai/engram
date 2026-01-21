@@ -1,6 +1,6 @@
 //! Escalation Request entity for sandbox permission escalations
 
-use super::{Entity, EntityResult, GenericEntity};
+use super::{Entity, GenericEntity};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -346,8 +346,9 @@ impl Entity for EscalationRequest {
         self.updated_at
     }
 
-    fn validate_entity(&self) -> EntityResult<()> {
-        validator::Validate::validate(self).map_err(|e| format!("Validation failed: {}", e))
+    fn validate_entity(&self) -> crate::Result<()> {
+        validator::Validate::validate(self)
+            .map_err(|e| crate::EngramError::Validation(format!("Validation failed: {}", e)))
     }
 
     fn to_generic(&self) -> GenericEntity {
@@ -360,17 +361,21 @@ impl Entity for EscalationRequest {
         }
     }
 
-    fn from_generic(entity: GenericEntity) -> EntityResult<Self> {
+    fn from_generic(entity: GenericEntity) -> crate::Result<Self> {
         if entity.entity_type != Self::entity_type() {
-            return Err(format!(
+            return Err(crate::EngramError::Validation(format!(
                 "Expected entity type '{}', got '{}'",
                 Self::entity_type(),
                 entity.entity_type
-            ));
+            )));
         }
 
-        serde_json::from_value(entity.data)
-            .map_err(|e| format!("Failed to deserialize EscalationRequest: {}", e))
+        serde_json::from_value(entity.data).map_err(|e| {
+            crate::EngramError::Deserialization(format!(
+                "Failed to deserialize EscalationRequest: {}",
+                e
+            ))
+        })
     }
 
     fn as_any(&self) -> &dyn std::any::Any

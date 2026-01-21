@@ -336,8 +336,7 @@ pub fn show_context<S: Storage>(storage: &S, id: &str) -> Result<(), EngramError
 
     match entity {
         Some(generic_entity) => {
-            let context =
-                Context::from_generic(generic_entity).map_err(|e| EngramError::Validation(e))?;
+            let context = Context::from_generic(generic_entity)?;
 
             println!("Context Details:");
             println!("================");
@@ -386,8 +385,7 @@ pub fn update_context<S: Storage>(
 
     match entity {
         Some(generic_entity) => {
-            let mut context =
-                Context::from_generic(generic_entity).map_err(|e| EngramError::Validation(e))?;
+            let mut context = Context::from_generic(generic_entity)?;
 
             context.content = content.to_string();
             context.updated_at = chrono::Utc::now();
@@ -419,8 +417,7 @@ pub fn delete_context<S: Storage>(storage: &mut S, id: &str) -> Result<(), Engra
 
     match entity {
         Some(generic_entity) => {
-            let context =
-                Context::from_generic(generic_entity).map_err(|e| EngramError::Validation(e))?;
+            let context = Context::from_generic(generic_entity)?;
 
             storage.delete(id, "context")?;
 

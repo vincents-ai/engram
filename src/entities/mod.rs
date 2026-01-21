@@ -41,9 +41,6 @@ pub use workflow_instance::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-/// Result type for entity operations
-pub type EntityResult<T> = std::result::Result<T, String>;
-
 /// Trait for extensible entities
 pub trait Entity: Serialize + for<'de> Deserialize<'de> + Send + Sync {
     /// Get the entity type identifier
@@ -59,13 +56,13 @@ pub trait Entity: Serialize + for<'de> Deserialize<'de> + Send + Sync {
     fn timestamp(&self) -> chrono::DateTime<chrono::Utc>;
 
     /// Validate the entity
-    fn validate_entity(&self) -> EntityResult<()>;
+    fn validate_entity(&self) -> crate::Result<()>;
 
     /// Convert to generic representation
     fn to_generic(&self) -> GenericEntity;
 
     /// Create from generic representation
-    fn from_generic(entity: GenericEntity) -> EntityResult<Self>
+    fn from_generic(entity: GenericEntity) -> crate::Result<Self>
     where
         Self: Sized;
 
@@ -102,7 +99,7 @@ pub trait Entity: Serialize + for<'de> Deserialize<'de> + Send + Sync {
     }
 
     /// Validate the entity (associated function)
-    fn validate_entity_static(entity: &Self) -> EntityResult<()>
+    fn validate_entity_static(entity: &Self) -> crate::Result<()>
     where
         Self: Sized,
     {
@@ -144,9 +141,13 @@ pub struct GenericEntity {
 
 impl GenericEntity {
     /// Create a GenericEntity from a serde_json::Value
-    pub fn from_value(value: serde_json::Value) -> EntityResult<Self> {
-        serde_json::from_value(value)
-            .map_err(|e| format!("Failed to deserialize GenericEntity: {}", e))
+    pub fn from_value(value: serde_json::Value) -> crate::Result<Self> {
+        serde_json::from_value(value).map_err(|e| {
+            crate::EngramError::Deserialization(format!(
+                "Failed to deserialize GenericEntity: {}",
+                e
+            ))
+        })
     }
 }
 
@@ -176,7 +177,7 @@ pub struct EntityRegistry {
     entities: HashMap<String, EntityFactory>,
 }
 
-type EntityFactory = Box<dyn Fn(GenericEntity) -> EntityResult<GenericEntity> + Send + Sync>;
+type EntityFactory = Box<dyn Fn(GenericEntity) -> crate::Result<GenericEntity> + Send + Sync>;
 
 impl EntityRegistry {
     pub fn new() -> Self {
@@ -189,17 +190,16 @@ impl EntityRegistry {
     where
         T: Entity + 'static + for<'de> Deserialize<'de> + Serialize,
     {
-        let factory = Box::new(|entity: GenericEntity| -> EntityResult<GenericEntity> {
+        let factory = Box::new(|entity: GenericEntity| -> crate::Result<GenericEntity> {
             T::from_generic(entity.clone()).map(|t| t.to_generic())
         });
         self.entities.insert(T::entity_type().to_string(), factory);
     }
 
-    pub fn create(&self, entity: GenericEntity) -> EntityResult<GenericEntity> {
-        let factory = self
-            .entities
-            .get(&entity.entity_type)
-            .ok_or_else(|| format!("Unknown entity type: {}", entity.entity_type))?;
+    pub fn create(&self, entity: GenericEntity) -> crate::Result<GenericEntity> {
+        let factory = self.entities.get(&entity.entity_type).ok_or_else(|| {
+            crate::EngramError::Validation(format!("Unknown entity type: {}", entity.entity_type))
+        })?;
         factory(entity)
     }
 

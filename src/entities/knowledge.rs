@@ -1,6 +1,6 @@
 //! Knowledge entity implementation
 
-use super::{Entity, EntityResult, GenericEntity};
+use super::{Entity, GenericEntity};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -177,7 +177,7 @@ impl Entity for Knowledge {
         self.created_at
     }
 
-    fn validate_entity(&self) -> super::EntityResult<()> {
+    fn validate_entity(&self) -> crate::Result<()> {
         if let Err(errors) = <Knowledge as validator::Validate>::validate(self) {
             let error_messages: Vec<String> = errors
                 .field_errors()
@@ -191,19 +191,25 @@ impl Entity for Knowledge {
                         .unwrap_or_default()
                 })
                 .collect();
-            return Err(error_messages.join(", "));
+            return Err(crate::EngramError::Validation(error_messages.join(", ")));
         }
 
         if self.title.is_empty() {
-            return Err("Knowledge title cannot be empty".to_string());
+            return Err(crate::EngramError::Validation(
+                "Knowledge title cannot be empty".to_string(),
+            ));
         }
 
         if self.content.is_empty() {
-            return Err("Knowledge content cannot be empty".to_string());
+            return Err(crate::EngramError::Validation(
+                "Knowledge content cannot be empty".to_string(),
+            ));
         }
 
         if self.confidence < 0.0 || self.confidence > 1.0 {
-            return Err("Confidence must be between 0.0 and 1.0".to_string());
+            return Err(crate::EngramError::Validation(
+                "Confidence must be between 0.0 and 1.0".to_string(),
+            ));
         }
 
         Ok(())
@@ -219,9 +225,10 @@ impl Entity for Knowledge {
         }
     }
 
-    fn from_generic(entity: GenericEntity) -> EntityResult<Self> {
-        serde_json::from_value(entity.data)
-            .map_err(|e| format!("Failed to deserialize Knowledge: {}", e))
+    fn from_generic(entity: GenericEntity) -> crate::Result<Self> {
+        serde_json::from_value(entity.data).map_err(|e| {
+            crate::EngramError::Deserialization(format!("Failed to deserialize Knowledge: {}", e))
+        })
     }
 
     fn as_any(&self) -> &dyn std::any::Any

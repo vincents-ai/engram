@@ -3,7 +3,7 @@
 //! Stores results from quality gate execution including command output,
 //! timing, environment context, and validation status.
 
-use super::{Entity, EntityResult, GenericEntity};
+use super::{Entity, GenericEntity};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -314,7 +314,7 @@ impl Entity for ExecutionResult {
         self.timestamp
     }
 
-    fn validate_entity(&self) -> super::EntityResult<()> {
+    fn validate_entity(&self) -> crate::Result<()> {
         if let Err(errors) = <ExecutionResult as validator::Validate>::validate(self) {
             let error_messages: Vec<String> = errors
                 .field_errors()
@@ -328,27 +328,37 @@ impl Entity for ExecutionResult {
                         .unwrap_or_default()
                 })
                 .collect();
-            return Err(error_messages.join(", "));
+            return Err(crate::EngramError::Validation(error_messages.join(", ")));
         }
 
         if self.task_id.is_empty() {
-            return Err("ExecutionResult must have a task_id".to_string());
+            return Err(crate::EngramError::Validation(
+                "ExecutionResult must have a task_id".to_string(),
+            ));
         }
 
         if self.workflow_stage.is_empty() {
-            return Err("ExecutionResult must have a workflow_stage".to_string());
+            return Err(crate::EngramError::Validation(
+                "ExecutionResult must have a workflow_stage".to_string(),
+            ));
         }
 
         if self.command.is_empty() {
-            return Err("ExecutionResult must have a command".to_string());
+            return Err(crate::EngramError::Validation(
+                "ExecutionResult must have a command".to_string(),
+            ));
         }
 
         if self.quality_gate.is_empty() {
-            return Err("ExecutionResult must have a quality_gate identifier".to_string());
+            return Err(crate::EngramError::Validation(
+                "ExecutionResult must have a quality_gate identifier".to_string(),
+            ));
         }
 
         if self.agent.is_empty() {
-            return Err("ExecutionResult must have an agent".to_string());
+            return Err(crate::EngramError::Validation(
+                "ExecutionResult must have an agent".to_string(),
+            ));
         }
 
         Ok(())
@@ -364,9 +374,13 @@ impl Entity for ExecutionResult {
         }
     }
 
-    fn from_generic(entity: GenericEntity) -> EntityResult<Self> {
-        serde_json::from_value(entity.data)
-            .map_err(|e| format!("Failed to deserialize ExecutionResult: {}", e))
+    fn from_generic(entity: GenericEntity) -> crate::Result<Self> {
+        serde_json::from_value(entity.data).map_err(|e| {
+            crate::EngramError::Deserialization(format!(
+                "Failed to deserialize ExecutionResult: {}",
+                e
+            ))
+        })
     }
 
     fn as_any(&self) -> &dyn std::any::Any

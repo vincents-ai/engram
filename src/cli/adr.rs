@@ -151,7 +151,7 @@ pub fn create_adr<S: Storage>(
 /// Get ADR details
 pub fn get_adr<S: Storage>(storage: &S, id: &str) -> Result<(), EngramError> {
     if let Some(generic) = storage.get(id, "adr")? {
-        let adr = ADR::from_generic(generic).map_err(|e| EngramError::Validation(e))?;
+        let adr = ADR::from_generic(generic)?;
         display_adr(&adr);
     } else {
         println!("❌ ADR not found: {}", id);

@@ -36,7 +36,7 @@
 //! }
 //! ```
 
-use super::{Entity, EntityResult, GenericEntity};
+use super::{Entity, GenericEntity};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -312,7 +312,7 @@ impl Entity for Rule {
         self.created_at
     }
 
-    fn validate_entity(&self) -> super::EntityResult<()> {
+    fn validate_entity(&self) -> crate::Result<()> {
         if let Err(errors) = <Rule as validator::Validate>::validate(self) {
             let error_messages: Vec<String> = errors
                 .field_errors()
@@ -326,15 +326,19 @@ impl Entity for Rule {
                         .unwrap_or_default()
                 })
                 .collect();
-            return Err(error_messages.join(", "));
+            return Err(crate::EngramError::Validation(error_messages.join(", ")));
         }
 
         if self.title.is_empty() {
-            return Err("Rule title cannot be empty".to_string());
+            return Err(crate::EngramError::Validation(
+                "Rule title cannot be empty".to_string(),
+            ));
         }
 
         if self.description.is_empty() {
-            return Err("Rule description cannot be empty".to_string());
+            return Err(crate::EngramError::Validation(
+                "Rule description cannot be empty".to_string(),
+            ));
         }
 
         Ok(())
@@ -350,9 +354,10 @@ impl Entity for Rule {
         }
     }
 
-    fn from_generic(entity: GenericEntity) -> EntityResult<Self> {
-        serde_json::from_value(entity.data)
-            .map_err(|e| format!("Failed to deserialize Rule: {}", e))
+    fn from_generic(entity: GenericEntity) -> crate::Result<Self> {
+        serde_json::from_value(entity.data).map_err(|e| {
+            crate::EngramError::Deserialization(format!("Failed to deserialize Rule: {}", e))
+        })
     }
 
     fn as_any(&self) -> &dyn std::any::Any

@@ -7,7 +7,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use super::{Entity, EntityResult, GenericEntity};
+use super::{Entity, GenericEntity};
 
 /// Direction of a relationship between entities
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -236,23 +236,23 @@ impl EntityRelationship {
     }
 
     /// Validate relationship constraints
-    pub fn validate_constraints(&self) -> EntityResult<()> {
+    pub fn validate_constraints(&self) -> crate::Result<()> {
         // Check entity type constraints
         if let Some(ref source_types) = self.constraints.source_types {
             if !source_types.contains(&self.source_type) {
-                return Err(format!(
+                return Err(crate::EngramError::Validation(format!(
                     "Source type '{}' not allowed for this relationship",
                     self.source_type
-                ));
+                )));
             }
         }
 
         if let Some(ref target_types) = self.constraints.target_types {
             if !target_types.contains(&self.target_type) {
-                return Err(format!(
+                return Err(crate::EngramError::Validation(format!(
                     "Target type '{}' not allowed for this relationship",
                     self.target_type
-                ));
+                )));
             }
         }
 
@@ -277,33 +277,47 @@ impl Entity for EntityRelationship {
         self.timestamp
     }
 
-    fn validate_entity(&self) -> EntityResult<()> {
+    fn validate_entity(&self) -> crate::Result<()> {
         if self.id.trim().is_empty() {
-            return Err("Relationship ID cannot be empty".to_string());
+            return Err(crate::EngramError::Validation(
+                "Relationship ID cannot be empty".to_string(),
+            ));
         }
 
         if self.source_id.trim().is_empty() {
-            return Err("Source ID cannot be empty".to_string());
+            return Err(crate::EngramError::Validation(
+                "Source ID cannot be empty".to_string(),
+            ));
         }
 
         if self.target_id.trim().is_empty() {
-            return Err("Target ID cannot be empty".to_string());
+            return Err(crate::EngramError::Validation(
+                "Target ID cannot be empty".to_string(),
+            ));
         }
 
         if self.source_id == self.target_id {
-            return Err("Self-relationships are not allowed".to_string());
+            return Err(crate::EngramError::Validation(
+                "Self-relationships are not allowed".to_string(),
+            ));
         }
 
         if self.source_type.trim().is_empty() {
-            return Err("Source type cannot be empty".to_string());
+            return Err(crate::EngramError::Validation(
+                "Source type cannot be empty".to_string(),
+            ));
         }
 
         if self.target_type.trim().is_empty() {
-            return Err("Target type cannot be empty".to_string());
+            return Err(crate::EngramError::Validation(
+                "Target type cannot be empty".to_string(),
+            ));
         }
 
         if self.agent.trim().is_empty() {
-            return Err("Agent cannot be empty".to_string());
+            return Err(crate::EngramError::Validation(
+                "Agent cannot be empty".to_string(),
+            ));
         }
 
         self.validate_constraints()?;
@@ -321,17 +335,21 @@ impl Entity for EntityRelationship {
         }
     }
 
-    fn from_generic(entity: GenericEntity) -> EntityResult<Self> {
+    fn from_generic(entity: GenericEntity) -> crate::Result<Self> {
         if entity.entity_type != Self::entity_type() {
-            return Err(format!(
+            return Err(crate::EngramError::Deserialization(format!(
                 "Expected entity type '{}', got '{}'",
                 Self::entity_type(),
                 entity.entity_type
-            ));
+            )));
         }
 
-        serde_json::from_value(entity.data)
-            .map_err(|e| format!("Failed to deserialize relationship: {}", e))
+        serde_json::from_value(entity.data).map_err(|e| {
+            crate::EngramError::Deserialization(format!(
+                "Failed to deserialize relationship: {}",
+                e
+            ))
+        })
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
