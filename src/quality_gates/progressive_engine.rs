@@ -65,7 +65,7 @@ impl<S: Storage> ProgressiveEngine<S> {
         match self.storage.get(&config_id, "progressive_gate_config") {
             Ok(Some(entity)) => {
                 let config = ProgressiveGateConfig::from_generic(entity)
-                    .map_err(|e| QualityGateError::ConfigError(e))?;
+                    .map_err(|e| QualityGateError::ConfigError(e.to_string()))?;
                 self.config_cache.insert(task.id.clone(), config.clone());
                 Ok(config)
             }

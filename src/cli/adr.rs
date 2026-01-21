@@ -172,7 +172,8 @@ pub fn update_adr<S: Storage>(
     superseded_by: Option<String>,
 ) -> Result<(), EngramError> {
     if let Some(generic) = storage.get(id, "adr")? {
-        let mut adr = ADR::from_generic(generic).map_err(|e| EngramError::Validation(e))?;
+        let mut adr =
+            ADR::from_generic(generic).map_err(|e| EngramError::Validation(e.to_string()))?;
 
         let mut updated = false;
 
@@ -245,7 +246,8 @@ pub fn update_adr<S: Storage>(
 /// Delete ADR
 pub fn delete_adr<S: Storage>(storage: &mut S, id: &str) -> Result<(), EngramError> {
     if let Some(generic) = storage.get(id, "adr")? {
-        let mut adr = ADR::from_generic(generic).map_err(|e| EngramError::Validation(e))?;
+        let mut adr =
+            ADR::from_generic(generic).map_err(|e| EngramError::Validation(e.to_string()))?;
         adr.deprecate(None);
         let updated_generic = adr.to_generic();
         storage.store(&updated_generic)?;
@@ -388,7 +390,8 @@ pub fn accept_adr<S: Storage>(
     consequences: String,
 ) -> Result<(), EngramError> {
     if let Some(generic) = storage.get(id, "adr")? {
-        let mut adr = ADR::from_generic(generic).map_err(|e| EngramError::Validation(e))?;
+        let mut adr =
+            ADR::from_generic(generic).map_err(|e| EngramError::Validation(e.to_string()))?;
         adr.accept(decision, consequences);
         let updated_generic = adr.to_generic();
         storage.store(&updated_generic)?;
@@ -407,7 +410,8 @@ pub fn add_alternative<S: Storage>(
     description: String,
 ) -> Result<(), EngramError> {
     if let Some(generic) = storage.get(id, "adr")? {
-        let mut adr = ADR::from_generic(generic).map_err(|e| EngramError::Validation(e))?;
+        let mut adr =
+            ADR::from_generic(generic).map_err(|e| EngramError::Validation(e.to_string()))?;
         let alt_id = adr.add_alternative(description);
         let updated_generic = adr.to_generic();
         storage.store(&updated_generic)?;
@@ -425,7 +429,8 @@ pub fn add_stakeholder<S: Storage>(
     stakeholder: String,
 ) -> Result<(), EngramError> {
     if let Some(generic) = storage.get(id, "adr")? {
-        let mut adr = ADR::from_generic(generic).map_err(|e| EngramError::Validation(e))?;
+        let mut adr =
+            ADR::from_generic(generic).map_err(|e| EngramError::Validation(e.to_string()))?;
         adr.add_stakeholder(stakeholder.clone());
         let updated_generic = adr.to_generic();
         storage.store(&updated_generic)?;

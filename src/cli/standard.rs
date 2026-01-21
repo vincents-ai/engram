@@ -181,7 +181,8 @@ pub fn create_standard<S: Storage>(
 /// Get standard details
 pub fn get_standard<S: Storage>(storage: &S, id: &str) -> Result<(), EngramError> {
     if let Some(generic) = storage.get(id, "standard")? {
-        let standard = Standard::from_generic(generic).map_err(|e| EngramError::Validation(e))?;
+        let standard =
+            Standard::from_generic(generic).map_err(|e| EngramError::Validation(e.to_string()))?;
         display_standard(&standard);
     } else {
         println!("❌ Standard not found: {}", id);
@@ -203,7 +204,7 @@ pub fn update_standard<S: Storage>(
 ) -> Result<(), EngramError> {
     if let Some(generic) = storage.get(id, "standard")? {
         let mut standard =
-            Standard::from_generic(generic).map_err(|e| EngramError::Validation(e))?;
+            Standard::from_generic(generic).map_err(|e| EngramError::Validation(e.to_string()))?;
 
         let mut updated = false;
 
@@ -293,7 +294,7 @@ pub fn update_standard<S: Storage>(
 pub fn delete_standard<S: Storage>(storage: &mut S, id: &str) -> Result<(), EngramError> {
     if let Some(generic) = storage.get(id, "standard")? {
         let mut standard =
-            Standard::from_generic(generic).map_err(|e| EngramError::Validation(e))?;
+            Standard::from_generic(generic).map_err(|e| EngramError::Validation(e.to_string()))?;
         standard.deprecate(None);
         let updated_generic = standard.to_generic();
         storage.store(&updated_generic)?;
@@ -452,7 +453,7 @@ pub fn add_requirement<S: Storage>(
 ) -> Result<(), EngramError> {
     if let Some(generic) = storage.get(id, "standard")? {
         let mut standard =
-            Standard::from_generic(generic).map_err(|e| EngramError::Validation(e))?;
+            Standard::from_generic(generic).map_err(|e| EngramError::Validation(e.to_string()))?;
 
         let priority = match priority.to_lowercase().as_str() {
             "low" => crate::entities::rule::RulePriority::Low,

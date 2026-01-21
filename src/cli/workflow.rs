@@ -247,7 +247,8 @@ pub fn create_workflow<S: Storage>(
 /// Get workflow details
 pub fn get_workflow<S: Storage>(storage: &S, id: &str) -> Result<(), EngramError> {
     if let Some(generic) = storage.get(id, "workflow")? {
-        let workflow = Workflow::from_generic(generic).map_err(|e| EngramError::Validation(e))?;
+        let workflow =
+            Workflow::from_generic(generic).map_err(|e| EngramError::Validation(e.to_string()))?;
         display_workflow(&workflow);
     } else {
         println!("❌ Workflow not found: {}", id);
@@ -267,7 +268,7 @@ pub fn update_workflow<S: Storage>(
 ) -> Result<(), EngramError> {
     if let Some(generic) = storage.get(id, "workflow")? {
         let mut workflow =
-            Workflow::from_generic(generic).map_err(|e| EngramError::Validation(e))?;
+            Workflow::from_generic(generic).map_err(|e| EngramError::Validation(e.to_string()))?;
 
         let mut updated = false;
 
@@ -331,7 +332,7 @@ pub fn update_workflow<S: Storage>(
 pub fn delete_workflow<S: Storage>(storage: &mut S, id: &str) -> Result<(), EngramError> {
     if let Some(generic) = storage.get(id, "workflow")? {
         let mut workflow =
-            Workflow::from_generic(generic).map_err(|e| EngramError::Validation(e))?;
+            Workflow::from_generic(generic).map_err(|e| EngramError::Validation(e.to_string()))?;
         workflow.status = WorkflowStatus::Archived;
         workflow.updated_at = chrono::Utc::now();
         let updated_generic = workflow.to_generic();
@@ -479,7 +480,7 @@ pub fn add_state<S: Storage>(
 ) -> Result<(), EngramError> {
     if let Some(generic) = storage.get(id, "workflow")? {
         let mut workflow =
-            Workflow::from_generic(generic).map_err(|e| EngramError::Validation(e))?;
+            Workflow::from_generic(generic).map_err(|e| EngramError::Validation(e.to_string()))?;
 
         let state_type = match state_type.to_lowercase().as_str() {
             "start" => StateType::Start,
@@ -537,7 +538,7 @@ pub fn add_transition<S: Storage>(
 ) -> Result<(), EngramError> {
     if let Some(generic) = storage.get(id, "workflow")? {
         let mut workflow =
-            Workflow::from_generic(generic).map_err(|e| EngramError::Validation(e))?;
+            Workflow::from_generic(generic).map_err(|e| EngramError::Validation(e.to_string()))?;
 
         let transition_type = match transition_type.to_lowercase().as_str() {
             "automatic" => TransitionType::Automatic,
@@ -583,7 +584,7 @@ pub fn add_transition<S: Storage>(
 pub fn activate_workflow<S: Storage>(storage: &mut S, id: &str) -> Result<(), EngramError> {
     if let Some(generic) = storage.get(id, "workflow")? {
         let mut workflow =
-            Workflow::from_generic(generic).map_err(|e| EngramError::Validation(e))?;
+            Workflow::from_generic(generic).map_err(|e| EngramError::Validation(e.to_string()))?;
         workflow.activate();
         let updated_generic = workflow.to_generic();
         storage.store(&updated_generic)?;

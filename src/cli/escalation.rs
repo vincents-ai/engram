@@ -555,9 +555,8 @@ pub fn review_escalation<S: Storage>(
     json: bool,
 ) -> Result<(), EngramError> {
     let mut escalation = match storage.get(&id, "escalation_request")? {
-        Some(entity) => {
-            EscalationRequest::from_generic(entity).map_err(|e| EngramError::Validation(e))?
-        }
+        Some(entity) => EscalationRequest::from_generic(entity)
+            .map_err(|e| EngramError::Validation(e.to_string()))?,
         None => {
             return Err(EngramError::NotFound(format!(
                 "Escalation request with ID {} not found",
@@ -672,9 +671,8 @@ pub fn cancel_escalation<S: Storage>(
     }
 
     let mut escalation = match storage.get(&id, "escalation_request")? {
-        Some(entity) => {
-            EscalationRequest::from_generic(entity).map_err(|e| EngramError::Validation(e))?
-        }
+        Some(entity) => EscalationRequest::from_generic(entity)
+            .map_err(|e| EngramError::Validation(e.to_string()))?,
         None => {
             return Err(EngramError::NotFound(format!(
                 "Escalation request with ID {} not found",

@@ -339,7 +339,8 @@ pub fn show_knowledge<S: Storage>(storage: &S, id: &str) -> Result<(), EngramErr
         .get(id, Knowledge::entity_type())?
         .ok_or_else(|| EngramError::NotFound(format!("Knowledge not found: {}", id)))?;
 
-    let knowledge = Knowledge::from_generic(entity).map_err(|e| EngramError::Validation(e))?;
+    let knowledge =
+        Knowledge::from_generic(entity).map_err(|e| EngramError::Validation(e.to_string()))?;
 
     println!("Knowledge Details:");
     println!("==================");
@@ -391,7 +392,8 @@ pub fn update_knowledge<S: Storage>(
         .get(id, Knowledge::entity_type())?
         .ok_or_else(|| EngramError::NotFound(format!("Knowledge not found: {}", id)))?;
 
-    let mut knowledge = Knowledge::from_generic(entity).map_err(|e| EngramError::Validation(e))?;
+    let mut knowledge =
+        Knowledge::from_generic(entity).map_err(|e| EngramError::Validation(e.to_string()))?;
 
     match field.to_lowercase().as_str() {
         "content" => {

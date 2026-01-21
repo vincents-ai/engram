@@ -103,7 +103,8 @@ pub fn show_session_status<S: Storage>(
         .get(&session_id, Session::entity_type())?
         .ok_or_else(|| EngramError::NotFound(format!("Session not found: {}", session_id)))?;
 
-    let session = Session::from_generic(generic).map_err(|e| EngramError::Validation(e))?;
+    let session =
+        Session::from_generic(generic).map_err(|e| EngramError::Validation(e.to_string()))?;
 
     println!("Session Status");
     println!("==============");
@@ -187,7 +188,8 @@ pub fn end_session<S: Storage>(
         .get(&session_id, Session::entity_type())?
         .ok_or_else(|| EngramError::NotFound(format!("Session not found: {}", session_id)))?;
 
-    let mut session = Session::from_generic(generic).map_err(|e| EngramError::Validation(e))?;
+    let mut session =
+        Session::from_generic(generic).map_err(|e| EngramError::Validation(e.to_string()))?;
 
     if session.status == SessionStatus::Completed || session.status == SessionStatus::Cancelled {
         return Err(EngramError::Validation(format!(

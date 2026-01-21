@@ -208,7 +208,7 @@ pub trait RelationshipStorage: Storage {
     ) -> Result<(), EngramError> {
         relationship
             .validate_entity()
-            .map_err(|e| EngramError::Validation(e))?;
+            .map_err(|e| EngramError::Validation(e.to_string()))?;
 
         let outbound_count = self
             .get_outbound_relationships(&relationship.source_id)?

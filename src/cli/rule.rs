@@ -209,7 +209,8 @@ pub fn create_rule<S: Storage>(
 /// Get rule details
 pub fn get_rule<S: Storage>(storage: &S, id: &str) -> Result<(), EngramError> {
     if let Some(generic) = storage.get(id, "rule")? {
-        let rule = Rule::from_generic(generic).map_err(|e| EngramError::Validation(e))?;
+        let rule =
+            Rule::from_generic(generic).map_err(|e| EngramError::Validation(e.to_string()))?;
         display_rule(&rule);
     } else {
         println!("❌ Rule not found: {}", id);
@@ -231,7 +232,8 @@ pub fn update_rule<S: Storage>(
     status: Option<String>,
 ) -> Result<(), EngramError> {
     if let Some(generic) = storage.get(id, "rule")? {
-        let mut rule = Rule::from_generic(generic).map_err(|e| EngramError::Validation(e))?;
+        let mut rule =
+            Rule::from_generic(generic).map_err(|e| EngramError::Validation(e.to_string()))?;
 
         let mut updated = false;
 
@@ -334,7 +336,8 @@ pub fn update_rule<S: Storage>(
 /// Delete rule
 pub fn delete_rule<S: Storage>(storage: &mut S, id: &str) -> Result<(), EngramError> {
     if let Some(generic) = storage.get(id, "rule")? {
-        let mut rule = Rule::from_generic(generic).map_err(|e| EngramError::Validation(e))?;
+        let mut rule =
+            Rule::from_generic(generic).map_err(|e| EngramError::Validation(e.to_string()))?;
         rule.deactivate();
         let updated_generic = rule.to_generic();
         storage.store(&updated_generic)?;
@@ -495,7 +498,8 @@ pub fn execute_rule<S: Storage>(
     entity_type: String,
 ) -> Result<(), EngramError> {
     if let Some(generic) = storage.get(id, "rule")? {
-        let mut rule = Rule::from_generic(generic).map_err(|e| EngramError::Validation(e))?;
+        let mut rule =
+            Rule::from_generic(generic).map_err(|e| EngramError::Validation(e.to_string()))?;
 
         if let Some(target_entity) = storage.get(&entity_id, &entity_type)? {
             let result = rule.execute(&target_entity);

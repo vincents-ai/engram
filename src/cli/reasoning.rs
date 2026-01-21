@@ -279,8 +279,8 @@ pub fn add_reasoning_step<S: Storage>(
     let entity = storage.get(id, "reasoning")?;
     match entity {
         Some(generic_entity) => {
-            let mut reasoning =
-                Reasoning::from_generic(generic_entity).map_err(|e| EngramError::Validation(e))?;
+            let mut reasoning = Reasoning::from_generic(generic_entity)
+                .map_err(|e| EngramError::Validation(e.to_string()))?;
 
             reasoning.add_step(final_description, final_conclusion, confidence);
 
@@ -331,8 +331,8 @@ pub fn conclude_reasoning<S: Storage>(
     let entity = storage.get(id, "reasoning")?;
     match entity {
         Some(generic_entity) => {
-            let mut reasoning =
-                Reasoning::from_generic(generic_entity).map_err(|e| EngramError::Validation(e))?;
+            let mut reasoning = Reasoning::from_generic(generic_entity)
+                .map_err(|e| EngramError::Validation(e.to_string()))?;
 
             reasoning.set_conclusion(final_conclusion, confidence);
 
@@ -416,8 +416,8 @@ pub fn show_reasoning<S: Storage>(storage: &S, id: &str) -> Result<(), EngramErr
 
     match entity {
         Some(generic_entity) => {
-            let reasoning =
-                Reasoning::from_generic(generic_entity).map_err(|e| EngramError::Validation(e))?;
+            let reasoning = Reasoning::from_generic(generic_entity)
+                .map_err(|e| EngramError::Validation(e.to_string()))?;
 
             println!("Reasoning Details:");
             println!("==================");
@@ -478,8 +478,8 @@ pub fn delete_reasoning<S: Storage>(storage: &mut S, id: &str) -> Result<(), Eng
 
     match entity {
         Some(generic_entity) => {
-            let reasoning =
-                Reasoning::from_generic(generic_entity).map_err(|e| EngramError::Validation(e))?;
+            let reasoning = Reasoning::from_generic(generic_entity)
+                .map_err(|e| EngramError::Validation(e.to_string()))?;
 
             storage.delete(id, "reasoning")?;
 

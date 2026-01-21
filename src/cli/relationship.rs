@@ -271,8 +271,10 @@ fn create_relationship<S: Storage>(
     agent: String,
 ) -> Result<(), EngramError> {
     let id = Uuid::new_v4().to_string();
-    let direction = parse_direction(&direction_str).map_err(|e| EngramError::Validation(e))?;
-    let strength = parse_strength(&strength_str).map_err(|e| EngramError::Validation(e))?;
+    let direction =
+        parse_direction(&direction_str).map_err(|e| EngramError::Validation(e.to_string()))?;
+    let strength =
+        parse_strength(&strength_str).map_err(|e| EngramError::Validation(e.to_string()))?;
 
     let mut relationship = EntityRelationship::new(
         id,
@@ -292,7 +294,7 @@ fn create_relationship<S: Storage>(
 
     relationship
         .validate_entity()
-        .map_err(|e| EngramError::Validation(e))?;
+        .map_err(|e| EngramError::Validation(e.to_string()))?;
 
     let generic = relationship.to_generic();
     storage.store(&generic)?;
@@ -332,7 +334,7 @@ fn list_relationships<S: Storage>(
         filter = filter.relationship_type(rel_type);
     }
     if let Some(dir_str) = direction {
-        let dir = parse_direction(&dir_str).map_err(|e| EngramError::Validation(e))?;
+        let dir = parse_direction(&dir_str).map_err(|e| EngramError::Validation(e.to_string()))?;
         filter = filter.direction(dir);
     }
     if active_only {
@@ -494,7 +496,8 @@ fn find_path<S: RelationshipStorage>(
     algorithm_str: &str,
     max_depth: Option<usize>,
 ) -> Result<(), EngramError> {
-    let algorithm = parse_algorithm(algorithm_str).map_err(|e| EngramError::Validation(e))?;
+    let algorithm =
+        parse_algorithm(algorithm_str).map_err(|e| EngramError::Validation(e.to_string()))?;
 
     println!(
         "🔍 Finding path from {} to {} using {:?}",
@@ -532,7 +535,8 @@ fn show_connected<S: RelationshipStorage>(
     algorithm_str: &str,
     max_depth: Option<usize>,
 ) -> Result<(), EngramError> {
-    let algorithm = parse_algorithm(algorithm_str).map_err(|e| EngramError::Validation(e))?;
+    let algorithm =
+        parse_algorithm(algorithm_str).map_err(|e| EngramError::Validation(e.to_string()))?;
 
     println!(
         "🕸️ Finding entities connected to {} using {:?}",

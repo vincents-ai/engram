@@ -67,7 +67,7 @@ pub fn handle_next_command<S: Storage>(
     // 1. Identify Task
     let task = if let Some(task_id) = id {
         if let Some(entity) = storage.get(&task_id, "task")? {
-            Task::from_generic(entity).map_err(|e| EngramError::Validation(e))?
+            Task::from_generic(entity).map_err(|e| EngramError::Validation(e.to_string()))?
         } else {
             return Err(EngramError::NotFound(format!("Task {} not found", task_id)));
         }
@@ -84,7 +84,10 @@ pub fn handle_next_command<S: Storage>(
     // 2. Load associated Workflow (if any)
     let workflow = if let Some(workflow_id) = &task.workflow_id {
         if let Some(entity) = storage.get(workflow_id, "workflow")? {
-            Some(Workflow::from_generic(entity).map_err(|e| EngramError::Validation(e))?)
+            Some(
+                Workflow::from_generic(entity)
+                    .map_err(|e| EngramError::Validation(e.to_string()))?,
+            )
         } else {
             None
         }
@@ -102,7 +105,8 @@ pub fn handle_next_command<S: Storage>(
     let mut context_content = String::new();
     for context_id in &task.context_ids {
         if let Some(entity) = storage.get(context_id, "context")? {
-            let context = Context::from_generic(entity).map_err(|e| EngramError::Validation(e))?;
+            let context = Context::from_generic(entity)
+                .map_err(|e| EngramError::Validation(e.to_string()))?;
             context_content.push_str(&format!("\n- {}: {}", context.title, context.content));
         }
     }

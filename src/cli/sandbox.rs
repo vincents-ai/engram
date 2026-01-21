@@ -284,8 +284,8 @@ pub fn list_sandboxes<S: Storage>(
 pub fn get_sandbox<S: Storage>(storage: &S, id: String, json: bool) -> Result<(), EngramError> {
     match storage.get(&id, "agent_sandbox")? {
         Some(entity) => {
-            let sandbox =
-                AgentSandbox::from_generic(entity).map_err(|e| EngramError::Validation(e))?;
+            let sandbox = AgentSandbox::from_generic(entity)
+                .map_err(|e| EngramError::Validation(e.to_string()))?;
 
             if json {
                 println!("{}", serde_json::to_string_pretty(&sandbox.to_generic())?);
@@ -328,9 +328,8 @@ pub fn update_sandbox<S: Storage>(
     json: bool,
 ) -> Result<(), EngramError> {
     let mut sandbox = match storage.get(&id, "agent_sandbox")? {
-        Some(entity) => {
-            AgentSandbox::from_generic(entity).map_err(|e| EngramError::Validation(e))?
-        }
+        Some(entity) => AgentSandbox::from_generic(entity)
+            .map_err(|e| EngramError::Validation(e.to_string()))?,
         None => {
             return Err(EngramError::NotFound(format!(
                 "Sandbox with ID {} not found",

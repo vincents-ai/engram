@@ -348,7 +348,7 @@ impl<S: Storage> WorkflowAutomationEngine<S> {
         if !self.active_instances.contains_key(instance_id) {
             if let Some(generic) = self.storage.get(instance_id, "workflow_instance")? {
                 let instance = WorkflowInstance::from_generic(generic)
-                    .map_err(|e| EngramError::Validation(e))?;
+                    .map_err(|e| EngramError::Validation(e.to_string()))?;
                 self.active_instances
                     .insert(instance_id.to_string(), instance);
             } else {
@@ -408,7 +408,8 @@ impl<S: Storage> WorkflowAutomationEngine<S> {
         }
 
         if let Some(generic) = self.storage.get(instance_id, "workflow_instance")? {
-            return WorkflowInstance::from_generic(generic).map_err(|e| EngramError::Validation(e));
+            return WorkflowInstance::from_generic(generic)
+                .map_err(|e| EngramError::Validation(e.to_string()));
         }
 
         Err(EngramError::NotFound(format!(
@@ -438,7 +439,7 @@ impl<S: Storage> WorkflowAutomationEngine<S> {
         if !self.active_instances.contains_key(instance_id) {
             if let Some(generic) = self.storage.get(instance_id, "workflow_instance")? {
                 let instance = WorkflowInstance::from_generic(generic)
-                    .map_err(|e| EngramError::Validation(e))?;
+                    .map_err(|e| EngramError::Validation(e.to_string()))?;
                 self.active_instances
                     .insert(instance_id.to_string(), instance);
             } else {
