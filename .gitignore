@@ -2,3 +2,7 @@ target/*
 .engram/*
 !.engram/README.md
 .worktrees/
+.direnv/
+result
+*.tarpaulin-report.html
+.DS_Store
