@@ -301,11 +301,49 @@ pub fn list_tasks<S: Storage>(
     Ok(())
 }
 
-pub fn show_task<S: Storage>(storage: &S, id: &str) -> Result<(), EngramError> {
+pub fn show_task<S: Storage + 'static>(storage: &S, id: &str) -> Result<(), EngramError> {
     if let Some(generic_task) = storage.get(id, "task")? {
         if let Ok(task_obj) = Task::from_generic(generic_task) {
             println!("📋 Task Details:");
             display_task(&task_obj);
+
+            // Query and display associated workflow instances
+            println!("\n🔄 Associated Workflows:");
+            println!("=======================");
+
+            let instances: Vec<_> = storage
+                .get_all("workflow_instance")
+                .unwrap_or_else(|_| Vec::new())
+                .into_iter()
+                .filter_map(|e| crate::entities::WorkflowInstance::from_generic(e).ok())
+                .filter(|instance| instance.context.entity_id.as_deref() == Some(id))
+                .collect();
+
+            if instances.is_empty() {
+                println!("  No active workflows associated with this task.");
+            } else {
+                for instance in &instances {
+                    let status_icon = match instance.status {
+                        crate::engines::workflow_engine::WorkflowStatus::Running => "🟢",
+                        crate::engines::workflow_engine::WorkflowStatus::Completed => "🎯",
+                        crate::engines::workflow_engine::WorkflowStatus::Failed(_) => "💥",
+                        crate::engines::workflow_engine::WorkflowStatus::Suspended(_) => "⏸️",
+                        crate::engines::workflow_engine::WorkflowStatus::Cancelled => "❌",
+                    };
+
+                    println!(
+                        "  {} Workflow: {} [{}]",
+                        status_icon, instance.workflow_id, instance.status
+                    );
+                    println!(
+                        "     State: {} | Started: {}",
+                        instance.current_state,
+                        instance.started_at.format("%Y-%m-%d %H:%M")
+                    );
+                    println!("     Instance ID: {}", instance.id);
+                    println!();
+                }
+            }
         } else {
             return Err(EngramError::Validation("Invalid task type".to_string()));
         }

@@ -1,4 +1,52 @@
 //! Compliance entity implementation
+//!
+//! Compliance items track the organization's adherence to Standards and requirements.
+//! They provide visibility into whether the team is meeting established guidelines.
+//!
+//! ## Compliance Status
+//!
+//! - **Compliant**: All requirements are being met
+//! - **NonCompliant**: Requirements are not being met
+//! - **Pending**: Assessment not yet complete
+//! - **Exempt**: Requirement does not apply in this context
+//!
+//! ## Relationship to Rules and Standards
+//!
+//! Compliance answers the question: **"Are we meeting our standards?"**
+//!
+//! ```text
+//! Standard (What) → Rule (How to enforce) → Compliance (Are we meeting it?)
+//! ```
+//!
+//! Compliance entities:
+//! - Reference Standards they track adherence to via `related_standards`
+//! - Record violations found during assessment via `violations`
+//! - Store evidence of compliance via `evidence`
+//! - Track remediation due dates via `due_date`
+//!
+//! ## Workflow
+//!
+//! 1. Create a Compliance item referencing relevant Standards
+//! 2. Run Rule evaluations to check compliance
+//! 3. Record violations and evidence
+//! 4. Update status based on findings
+//! 5. Track remediation progress until compliant
+//!
+//! ## Example
+//!
+//! ```json
+//! {
+//!   "title": "Q4 Security Compliance",
+//!   "category": "security",
+//!   "status": "non_compliant",
+//!   "severity": "high",
+//!   "due_date": "2024-12-31T00:00:00Z",
+//!   "related_standards": ["security-standards-v2"],
+//!   "violations": [
+//!     {"description": "Missing rate limiting on API endpoints"}
+//!   ]
+//! }
+//! ```
 
 use super::{Entity, GenericEntity, Result};
 use chrono::{DateTime, Utc};

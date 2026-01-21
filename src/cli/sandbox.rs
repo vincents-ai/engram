@@ -37,33 +37,22 @@ pub struct SandboxValidationRequest {
 /// Sandbox commands
 #[derive(Subcommand)]
 pub enum SandboxCommands {
-    /// Create a new agent sandbox configuration
     Create {
-        /// Agent ID to create sandbox for
         #[arg(long, short)]
-        agent_id: Option<String>,
+        agent: Option<String>,
 
-        /// Sandbox security level (unrestricted, standard, restricted, isolated, training)
         #[arg(long, short, default_value = "standard")]
         level: String,
 
-        /// Created by user
         #[arg(long)]
         created_by: Option<String>,
 
-        /// Agent name
-        #[arg(long)]
-        agent: Option<String>,
-
-        /// Read input from stdin as JSON
-        #[arg(long, conflicts_with_all = ["agent_id"])]
+        #[arg(long, conflicts_with_all = ["agent"])]
         stdin: bool,
 
-        /// Read input from file as JSON
-        #[arg(long, conflicts_with_all = ["agent_id", "stdin"])]
+        #[arg(long, conflicts_with_all = ["agent", "stdin"])]
         file: Option<String>,
 
-        /// Output in JSON format
         #[arg(long)]
         json: bool,
     },
@@ -182,10 +171,9 @@ pub enum SandboxCommands {
 /// Create a new sandbox configuration
 pub fn create_sandbox<S: Storage>(
     storage: &mut S,
-    agent_id: Option<String>,
+    agent: Option<String>,
     level: String,
     created_by: Option<String>,
-    agent: Option<String>,
     stdin: bool,
     file: Option<String>,
     json: bool,
@@ -196,13 +184,13 @@ pub fn create_sandbox<S: Storage>(
         read_sandbox_input_from_file(&file_path)?
     } else {
         let agent_id =
-            agent_id.ok_or_else(|| EngramError::Validation("Agent ID is required".to_string()))?;
+            agent.ok_or_else(|| EngramError::Validation("Agent is required".to_string()))?;
 
         SandboxInput {
             agent_id,
             sandbox_level: level,
             created_by,
-            agent,
+            agent: None,
         }
     };
 

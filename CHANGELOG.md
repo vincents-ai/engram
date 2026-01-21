@@ -23,12 +23,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Workflow state progression validation
   - Transition rule enforcement
   - State-based commit policy validation
+- **Perkeep Integration**: Backup and restore for all entity types
+  - Content-addressable blob storage using Perkeep server
+  - Backup/restore commands: `engram perkeep backup`, `restore`, `list`, `health`
+  - Configuration via PERKEEP_SERVER and PERKEEP_AUTH_TOKEN environment variables
+- **engram info command**: Workspace and storage visibility
+  - Shows storage backend path and type
+  - Displays entity counts by type
+  - Shows current agent and workspace path
+- **Analytics System**: Task duration and workflow reporting
+  - TaskDurationReport: Tracks time to complete tasks
+  - WorkflowStageReport: Analyzes workflow state progression
+  - BottleneckReport: Identifies workflow inefficiencies
+- **Vector Search**: Optional semantic similarity search
+  - SQLite-based vector storage with sqlite-vec
+  - FastEmbed provider for embeddings
+  - SearchQuery and SearchResult types for similarity search
 
 ### Fixed
 - Build warnings and compilation errors
 - Feature-gated sandbox module to prevent unused code warnings
 - Test compilation errors in BDD framework
 - Agent sandbox entity serialization in generic conversion
+- Workflow instance persistence to storage (fixed in previous commit)
 
 ### Changed
 - Improved workflow engine with prompt template support

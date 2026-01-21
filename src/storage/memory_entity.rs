@@ -11,6 +11,7 @@ pub struct MemoryEntity {
     pub id: String,
 
     /// Entity type (task, context, reasoning, etc.)
+    #[serde(alias = "type")]
     pub entity_type: String,
 
     /// Associated agent
@@ -23,18 +24,23 @@ pub struct MemoryEntity {
     pub data: HashMap<String, serde_json::Value>,
 
     /// Content hash for integrity
+    #[serde(default)]
     pub content_hash: String,
 
     /// Size in bytes
+    #[serde(default)]
     pub size_bytes: usize,
 
     /// Tags for indexing
+    #[serde(default)]
     pub tags: Vec<String>,
 
     /// References to other entities
+    #[serde(default)]
     pub references: Vec<String>,
 
     /// Additional metadata
+    #[serde(default)]
     pub metadata: HashMap<String, serde_json::Value>,
 }
 

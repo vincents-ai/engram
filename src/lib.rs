@@ -15,12 +15,14 @@ pub mod error;
 pub mod locus_cli;
 pub mod migration;
 pub mod nlq;
+pub mod perkeep;
 pub mod quality_gates;
 #[cfg(feature = "sandbox")]
 pub mod sandbox;
 pub mod session;
 pub mod storage;
 pub mod validation;
+pub mod vector;
 pub mod version;
 
 use std::result::Result as StdResult;

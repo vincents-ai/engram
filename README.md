@@ -107,7 +107,80 @@ engram validation check
 
 # Synchronization
 engram sync --agents "alice,bob" --strategy intelligent_merge
+
+# Perkeep Backup and Restore
+engram perkeep backup --description "Full backup"
+engram perkeep backup --entity-type task --include-relationships
+engram perkeep list --detailed
+engram perkeep restore --blobref "sha256-..."
+engram perkeep health
+engram perkeep config --server "http://localhost:3179"
 ```
+
+## Perkeep Integration
+
+Engram supports backing up and restoring entities using [Perkeep](https://perkeep.org), a personal data store for content-addressable storage.
+
+### Configuration
+
+Set environment variables to configure Perkeep:
+```bash
+export PERKEEP_SERVER="http://localhost:3179"  # Default: http://localhost:3179
+export PERKEEP_AUTH_TOKEN="your-token"         # Optional: for authenticated servers
+```
+
+### Backup Commands
+
+```bash
+# Backup all entity types
+engram perkeep backup
+
+# Backup specific entity type
+engram perkeep backup --entity-type task
+
+# Backup with description
+engram perkeep backup --description "Weekly backup"
+
+# Include relationships in backup (default: true)
+engram perkeep backup --include-relationships
+```
+
+### Restore Commands
+
+```bash
+# Restore from most recent backup
+engram perkeep restore
+
+# Restore from specific backup blobref
+engram perkeep restore --blobref "sha256-abc123..."
+
+# Dry run (preview what would be restored)
+engram perkeep restore --dry-run
+
+# Restore with agent override
+engram perkeep restore --agent default
+```
+
+### Management Commands
+
+```bash
+# List available backups
+engram perkeep list
+engram perkeep list --detailed
+
+# Check server health
+engram perkeep health
+
+# Configure settings
+engram perkeep config --server "http://localhost:3179"
+```
+
+### How It Works
+
+1. **Content-Addressable Storage**: Entities are serialized to JSON and uploaded as blobs to Perkeep
+2. **Backup Metadata**: A schema object tracks all entity blobrefs, timestamps, and counts
+3. **Entity Types**: task, context, reasoning, knowledge, session, and relationship entities
+4. **Restore Process**: Fetches backup metadata, retrieves all entity blobs, and stores them
 
 ## Development
 

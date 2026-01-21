@@ -1,4 +1,40 @@
 //! Rule entity implementation
+//!
+//! Rules define automated policies and validations that the system enforces.
+//! Rules are evaluated against entities to ensure compliance with team policies.
+//!
+//! ## Rule Types
+//!
+//! - **Validation**: Check entities meet criteria before creation/update
+//! - **Transformation**: Modify entity data during processing
+//! - **Enforcement**: Block operations that violate policies
+//! - **Notification**: Trigger alerts when conditions are met
+//!
+//! ## Execution Flow
+//!
+//! Rules are evaluated by the [`RuleEngine`](crate::engines::rule_engine) when
+//! entities are created or modified. The engine checks the `condition` expression
+//! and executes the `action` if the condition evaluates to true.
+//!
+//! ## Relationship to Standards and Compliance
+//!
+//! Rules are the **implementation mechanism** for Standards. A Standard defines
+//! "what" should be done, while Rules define "how" it's enforced automatically.
+//! Compliance items track adherence to Standards, using Rules as the validation layer.
+//!
+//! Example: Standard "All code must have tests" → Rule "Reject commits without test files"
+//!
+//! ## Example
+//!
+//! ```json
+//! {
+//!   "title": "Require task reasoning",
+//!   "rule_type": "validation",
+//!   "condition": {"equals": [{"entity_type": "task"}, "reasoning_count", 0]},
+//!   "action": {"error": "Task requires at least one reasoning entity"},
+//!   "entity_types": ["task"]
+//! }
+//! ```
 
 use super::{Entity, GenericEntity, Result};
 use chrono::{DateTime, Utc};

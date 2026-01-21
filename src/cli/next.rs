@@ -109,7 +109,7 @@ pub fn handle_next_command<S: Storage>(
     prompt_context.insert("CONTEXT".to_string(), context_content);
 
     // 4. Select Prompts
-    let (system_prompt, user_prompt) = if let Some(wf) = workflow {
+    let (system_prompt, user_prompt) = if let Some(ref wf) = workflow {
         if let Some(state_name) = &task.workflow_state {
             if let Some(state) = wf.states.iter().find(|s| &s.name == state_name) {
                 if let Some(prompts) = &state.prompts {
@@ -151,18 +151,84 @@ pub fn handle_next_command<S: Storage>(
     let final_system = interpolate(&system_prompt, &prompt_context);
     let final_user = interpolate(&user_prompt, &prompt_context);
 
+    let task_management_instructions = format!(
+        r#"
+## Task Management with Engram
+
+**Current Task**: {} ({})
+**Status**: {:?} | **Priority**: {:?}
+
+### Required Workflow Actions:
+
+1. **Update Task Status**:
+   ```bash
+   # Mark task as in progress
+   engram task update {} --status in_progress
+   
+   # Mark task as done when complete
+   engram task update {} --status done
+   ```
+
+2. **Create Context and Reasoning**:
+   ```bash
+   # Create context for important findings
+   engram context create --title "Context title" --content "Details..."
+   
+   # Create reasoning for decisions made
+   engram reasoning create --title "Why we chose X" --content "Because..."
+   
+   # Link to task
+   engram relationship create --source-id {} --source-type task \
+     --target-id <context-id> --target-type context --relationship-type references
+   ```
+
+3. **Workflow Management** (if applicable):
+   {}
+
+4. **Before Committing Code**:
+   - All commits MUST reference this task: `[{}]`
+   - Task must have both context and reasoning relationships
+   - Example: `git commit -m "feat: implement feature [{}]"`
+
+### Query Task Details:
+```bash
+engram task show {}
+engram relationship connected --entity-id {}
+```
+"#,
+        task.title,
+        task.id,
+        task.status,
+        task.priority,
+        task.id,
+        task.id,
+        task.id,
+        if workflow.is_some() {
+            format!(
+                "This task is part of a workflow. Use:\n   engram workflow status <instance-id>\n   engram workflow transition <instance-id> --transition <name> --agent default"
+            )
+        } else {
+            "No active workflow for this task.".to_string()
+        },
+        task.id,
+        task.id,
+        task.id,
+        task.id
+    );
+
     // 6. Output
     if format == "json" {
         let output = serde_json::json!({
             "task_id": task.id,
             "system_prompt": final_system,
-            "user_prompt": final_user
+            "user_prompt": final_user,
+            "task_management": task_management_instructions
         });
         println!("{}", serde_json::to_string_pretty(&output).unwrap());
     } else {
         println!(
-            "## System Prompt\n\n{}\n\n## User Prompt\n\n{}",
-            final_system, final_user
+            "## System Prompt\n\n{}\n\n## User Prompt\n\n{}\n\n{}",
+            final_system, final_user, task_management_instructions
         );
     }
 

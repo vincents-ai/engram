@@ -43,53 +43,37 @@ pub struct ReviewInput {
 /// Escalation commands
 #[derive(Subcommand)]
 pub enum EscalationCommands {
-    /// Create a new escalation request
     Create {
-        /// Agent ID requesting escalation
         #[arg(long, short)]
-        agent_id: Option<String>,
+        agent: Option<String>,
 
-        /// Type of operation (filesystem, network, command, privilege, quality_gate, workflow, resource_limit)
         #[arg(long, short)]
         operation_type: Option<String>,
 
-        /// Specific operation being requested
         #[arg(long)]
         operation: Option<String>,
 
-        /// Reason the operation was blocked
         #[arg(long)]
         block_reason: Option<String>,
 
-        /// Justification for the escalation
         #[arg(long, short)]
         justification: Option<String>,
 
-        /// Priority level (low, normal, high, critical)
         #[arg(long, short, default_value = "normal")]
         priority: String,
 
-        /// Expected impact if request is denied
         #[arg(long)]
         impact: Option<String>,
 
-        /// Suggested reviewer
         #[arg(long)]
         reviewer: Option<String>,
 
-        /// Agent name
-        #[arg(long)]
-        agent: Option<String>,
-
-        /// Read input from stdin as JSON
-        #[arg(long, conflicts_with_all = ["agent_id"])]
+        #[arg(long, conflicts_with_all = ["agent"])]
         stdin: bool,
 
-        /// Read input from file as JSON
-        #[arg(long, conflicts_with_all = ["agent_id", "stdin"])]
+        #[arg(long, conflicts_with_all = ["agent", "stdin"])]
         file: Option<String>,
 
-        /// Output in JSON format
         #[arg(long)]
         json: bool,
     },
@@ -230,7 +214,7 @@ pub enum EscalationCommands {
 /// Create a new escalation request
 pub fn create_escalation<S: Storage>(
     storage: &mut S,
-    agent_id: Option<String>,
+    agent: Option<String>,
     operation_type: Option<String>,
     operation: Option<String>,
     block_reason: Option<String>,
@@ -238,7 +222,6 @@ pub fn create_escalation<S: Storage>(
     priority: String,
     impact: Option<String>,
     reviewer: Option<String>,
-    agent: Option<String>,
     stdin: bool,
     file: Option<String>,
     json: bool,
@@ -248,8 +231,9 @@ pub fn create_escalation<S: Storage>(
     } else if let Some(file_path) = file {
         read_escalation_input_from_file(&file_path)?
     } else {
-        let agent_id =
-            agent_id.ok_or_else(|| EngramError::Validation("Agent ID is required".to_string()))?;
+        let agent_id = agent
+            .clone()
+            .ok_or_else(|| EngramError::Validation("Agent is required".to_string()))?;
         let operation_type = operation_type
             .ok_or_else(|| EngramError::Validation("Operation type is required".to_string()))?;
         let operation = operation

@@ -132,6 +132,7 @@ pub trait Entity: Serialize + for<'de> Deserialize<'de> + Send + Sync {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GenericEntity {
     pub id: String,
+    #[serde(alias = "type")]
     pub entity_type: String,
     pub agent: String,
     pub timestamp: chrono::DateTime<chrono::Utc>,
@@ -143,6 +144,27 @@ impl GenericEntity {
     pub fn from_value(value: serde_json::Value) -> Result<Self> {
         serde_json::from_value(value)
             .map_err(|e| format!("Failed to deserialize GenericEntity: {}", e))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_generic_entity_with_type_alias() {
+        let json = r#"{"id":"test","type":"task","agent":"sisyphus","timestamp":"2026-01-08T23:24:57.759355781+01:00","data":{}}"#;
+        let entity: GenericEntity =
+            serde_json::from_str(json).expect("Should deserialize with 'type' field");
+        assert_eq!(entity.entity_type, "task");
+    }
+
+    #[test]
+    fn test_generic_entity_with_entity_type() {
+        let json = r#"{"id":"test","entity_type":"task","agent":"sisyphus","timestamp":"2026-01-08T23:24:57.759355781+01:00","data":{}}"#;
+        let entity: GenericEntity =
+            serde_json::from_str(json).expect("Should deserialize with 'entity_type' field");
+        assert_eq!(entity.entity_type, "task");
     }
 }
 

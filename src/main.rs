@@ -101,8 +101,55 @@ async fn run() -> Result<(), EngramError> {
             let mut storage = GitRefsStorage::new(".", "default")?;
             engram::cli::next::handle_next_command(&mut storage, id, format)?;
         }
+        cli::Commands::Info => {
+            let storage = GitRefsStorage::new(".", "default")?;
+            cli::info::info(&storage)?;
+        }
         cli::Commands::Migration => handle_migration_command()?,
         cli::Commands::Guide { command } => handle_help_command(command)?,
+        cli::Commands::Perkeep { command } => {
+            use engram::cli::perkeep::{
+                perkeep_backup, perkeep_health, perkeep_list, perkeep_restore,
+            };
+            let mut storage = GitRefsStorage::new(".", "default")?;
+            match command {
+                cli::PerkeepCommands::Backup {
+                    entity_type,
+                    include_relationships,
+                    description,
+                } => {
+                    perkeep_backup(&storage, entity_type, include_relationships, description)
+                        .await?;
+                }
+                cli::PerkeepCommands::Restore {
+                    blobref,
+                    agent,
+                    dry_run,
+                } => {
+                    perkeep_restore(&mut storage, blobref, agent, dry_run).await?;
+                }
+                cli::PerkeepCommands::List { detailed } => {
+                    perkeep_list(detailed).await?;
+                }
+                cli::PerkeepCommands::Health => {
+                    perkeep_health().await?;
+                }
+                cli::PerkeepCommands::Config {
+                    server,
+                    auth_token,
+                    save: _,
+                } => {
+                    println!("Perkeep configuration");
+                    if let Some(server) = server {
+                        println!("   Server: {}", server);
+                    }
+                    if let Some(_auth_token) = auth_token {
+                        println!("   Auth token: [REDACTED]");
+                    }
+                    println!("Note: Configuration via environment variables PERKEEP_SERVER and PERKEEP_AUTH_TOKEN");
+                }
+            }
+        }
     }
 
     Ok(())
@@ -162,7 +209,7 @@ fn handle_test_command() -> Result<(), EngramError> {
 }
 
 /// Handle task commands
-fn handle_task_command<S: engram::storage::Storage>(
+fn handle_task_command<S: engram::storage::Storage + 'static>(
     command: cli::TaskCommands,
     storage: &mut S,
 ) -> Result<(), EngramError> {
@@ -904,17 +951,14 @@ fn handle_sandbox_command<S: engram::storage::Storage>(
 
     match command {
         engram::cli::SandboxCommands::Create {
-            agent_id,
+            agent,
             level,
             created_by,
-            agent,
             stdin,
             file,
             json,
         } => {
-            create_sandbox(
-                storage, agent_id, level, created_by, agent, stdin, file, json,
-            )?;
+            create_sandbox(storage, agent, level, created_by, stdin, file, json)?;
         }
         engram::cli::SandboxCommands::List {
             agent_id,
@@ -981,7 +1025,7 @@ fn handle_escalation_command<S: engram::storage::Storage>(
 
     match command {
         engram::cli::EscalationCommands::Create {
-            agent_id,
+            agent,
             operation_type,
             operation,
             block_reason,
@@ -989,14 +1033,13 @@ fn handle_escalation_command<S: engram::storage::Storage>(
             priority,
             impact,
             reviewer,
-            agent,
             stdin,
             file,
             json,
         } => {
             create_escalation(
                 storage,
-                agent_id,
+                agent,
                 operation_type,
                 operation,
                 block_reason,
@@ -1004,7 +1047,6 @@ fn handle_escalation_command<S: engram::storage::Storage>(
                 priority,
                 impact,
                 reviewer,
-                agent,
                 stdin,
                 file,
                 json,

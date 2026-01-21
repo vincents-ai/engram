@@ -1,4 +1,48 @@
 //! Standard entity implementation
+//!
+//! Standards define team guidelines, coding conventions, and process requirements.
+//! They represent the "理想状態" (ideal state) that the team strives to maintain.
+//!
+//! ## Standard Categories
+//!
+//! - **Coding**: Language-specific conventions, style guides, best practices
+//! - **Testing**: Coverage requirements, test naming, frameworks
+//! - **Documentation**: Readme requirements, code comments, API docs
+//! - **Security**: Authentication, encryption, access control patterns
+//! - **Performance**: Latency budgets, resource limits, optimization targets
+//! - **Process**: Review requirements, commit conventions, workflow steps
+//! - **Architecture**: Design patterns, module boundaries, integration patterns
+//!
+//! ## Relationship to Rules and Compliance
+//!
+//! Standards define **what** should be done (the requirements).
+//! Rules define **how** to enforce it automatically.
+//! Compliance tracks **whether** the team is meeting the standards.
+//!
+//! ```text
+//! Standard (What) → Rule (How to enforce) → Compliance (Are we meeting it?)
+//! ```
+//!
+//! ## Versioning
+//!
+//! Standards are versioned using semantic versioning. When a Standard is updated,
+//! the `version` field should be incremented. Use `superseded_by` to link to newer
+//! versions and `supersedes` to link to older versions that this one replaces.
+//!
+//! ## Example
+//!
+//! ```json
+//! {
+//!   "title": "Rust Coding Standards",
+//!   "category": "coding",
+//!   "version": "1.2.0",
+//!   "requirements": [
+//!     "Use Result type for fallible operations",
+//!     "Follow clippy suggestions",
+//!     "Document public APIs"
+//!   ]
+//! }
+//! ```
 
 use super::{Entity, GenericEntity, Result};
 use chrono::{DateTime, Utc};

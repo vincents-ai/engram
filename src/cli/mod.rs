@@ -9,7 +9,9 @@ pub mod context;
 pub mod convert;
 pub mod escalation;
 pub mod help;
+pub mod info;
 pub mod knowledge;
+pub mod perkeep;
 pub mod reasoning;
 pub mod relationship;
 pub mod rule;
@@ -29,7 +31,9 @@ pub use context::*;
 pub use convert::*;
 pub use escalation::*;
 pub use help::*;
+pub use info::*;
 pub use knowledge::*;
+pub use perkeep::*;
 pub use reasoning::*;
 pub use relationship::*;
 pub use rule::*;
@@ -174,8 +178,15 @@ pub enum Commands {
         #[arg(long, default_value = "markdown")]
         format: String,
     },
+    /// Display workspace and storage information
+    Info,
     /// Migrate from dual-repository to Git refs storage
     Migration,
+    /// Perkeep backup and restore operations
+    Perkeep {
+        #[command(subcommand)]
+        command: PerkeepCommands,
+    },
     #[command(name = "guide")]
     Guide {
         #[command(subcommand)]
