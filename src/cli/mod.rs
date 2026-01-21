@@ -17,6 +17,7 @@ pub mod relationship;
 pub mod rule;
 #[cfg(feature = "sandbox")]
 pub mod sandbox;
+pub mod search;
 pub mod session;
 pub mod setup;
 pub mod standard;
@@ -39,6 +40,7 @@ pub use relationship::*;
 pub use rule::*;
 #[cfg(feature = "sandbox")]
 pub use sandbox::*;
+pub use search::*;
 pub use session::*;
 pub use setup::*;
 pub use standard::*;
@@ -101,6 +103,11 @@ pub enum Commands {
     Ask {
         #[command(subcommand)]
         command: AskCommands,
+    },
+    /// Vector semantic search
+    Search {
+        #[command(subcommand)]
+        command: search::VectorSearchCommands,
     },
     /// Decision chains and rationale (required for task validation)
     Reasoning {

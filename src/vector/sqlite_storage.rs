@@ -239,6 +239,14 @@ impl SqliteVectorStorage {
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM embeddings", [], |row| row.get(0))?;
         Ok(count as usize)
     }
+
+    pub fn list_models(&self) -> Result<Vec<String>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare("SELECT name FROM models")?;
+        let models: Result<Vec<String>, rusqlite::Error> =
+            stmt.query_map([], |row| row.get(0))?.collect();
+        models.map_err(|e| anyhow::anyhow!("Failed to list models: {}", e).into())
+    }
 }
 
 #[cfg(test)]

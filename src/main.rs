@@ -45,6 +45,11 @@ async fn run() -> Result<(), EngramError> {
         cli::Commands::Ask { command } => {
             handle_ask_command(command).await?;
         }
+        cli::Commands::Search { command } => {
+            use engram::cli::search::handle_vector_search_commands;
+            let storage_path = std::path::Path::new(".engram");
+            handle_vector_search_commands(storage_path, command).await?;
+        }
         cli::Commands::Reasoning { command } => {
             let mut storage = GitRefsStorage::new(".", "default")?;
             handle_reasoning_command(command, &mut storage)?;

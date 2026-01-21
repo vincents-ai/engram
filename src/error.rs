@@ -45,6 +45,12 @@ impl From<git2::Error> for EngramError {
     }
 }
 
+impl From<anyhow::Error> for EngramError {
+    fn from(error: anyhow::Error) -> Self {
+        EngramError::InvalidOperation(error.to_string())
+    }
+}
+
 /// Storage-specific errors
 #[derive(Error, Debug)]
 pub enum StorageError {
