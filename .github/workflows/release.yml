@@ -1,0 +1,141 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/pkg/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-release-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-release-
+
+      - name: Build release binary
+        run: cargo build --release --all-features
+
+      - name: Build Nix package
+        uses: cachix/install-nix-action@v26
+        with:
+          nix_path: nixpkgs=channel:nixpkgs-unstable
+        run: nix-build .#engram --out-link engram-nix
+
+      - name: Create checksum
+        run: |
+          sha256sum target/release/engram > engram-linux-amd64.sha256
+          sha256sum engram-nix > engram-nix.sha256
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            target/release/engram
+            engram-linux-amd64.sha256
+            engram-nix
+            engram-nix.sha256
+          name: Engram v${{ steps.version.outputs.VERSION }}
+          tag_name: v${{ steps.version.outputs.VERSION }}
+          draft: false
+          prerelease: false
+          body: |
+            ## Changes
+            See [CHANGELOG.md](./CHANGELOG.md) for detailed release notes.
+
+            ## Installation
+
+            ### From Binary
+            ```bash
+            curl -L https://github.com/vincents-ai/engram/releases/download/v${{ steps.version.outputs.VERSION }}/engram-linux-amd64 -o engram
+            chmod +x engram
+            ./engram --help
+            ```
+
+            ### From Nix
+            ```bash
+            nix run github:vincents-ai/engram:v${{ steps.version.outputs.VERSION }} -- --help
+            ```
+
+            ### From Source
+            ```bash
+            cargo install engram
+            ```
+
+            ## Verification
+            Verify the release using checksums:
+            ```bash
+            sha256sum -c engram-linux-amd64.sha256
+            sha256sum -c engram-nix.sha256
+            ```
+
+      - name: Update Homebrew formula
+        if: steps.version.outputs.VERSION == '0.1.0' || startsWith(steps.version.outputs.VERSION, '0.1.')
+        uses: dawidd6/action-homebrew-bump-formula@v3
+        with:
+          token: ${{ secrets.HOMEBREW_TOKEN }}
+          formula: engram
+          args: --build-from-source
+        env:
+          HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.HOMEBREW_TOKEN }}
+
+  release-brew:
+    name: Update Homebrew
+    runs-on: macOS-latest
+    needs: release
+    steps:
+      - name: Checkout Homebrew tap
+        uses: actions/checkout@v4
+        with:
+          repository: vincents-ai/homebrew-engram
+          token: ${{ secrets.HOMEBREW_TOKEN }}
+
+      - name: Get version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Update formula
+        run: |
+          sed -i '' "s/version \".*\"/version \"${{ steps.version.outputs.VERSION }}\"/" Formula/engram.rb
+          sed -i '' "s/sha256 \".*\"/sha256 \"$(shasum -a 256 ../engram/engram-macos-amd64 | cut -d' ' -f1)\"/" Formula/engram.rb
+        working-directory: /tmp/homebrew
+
+  notify:
+    name: Notify
+    runs-on: ubuntu-latest
+    needs: release
+    steps:
+      - name: Send notification
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+            --data '{"text":"New Engram release v${{ steps.version.outputs.VERSION }} is now available!"}' \
+            ${{ secrets.SLACK_WEBHOOK_URL }}
+        if: ${{ secrets.SLACK_WEBHOOK_URL != '' }}
