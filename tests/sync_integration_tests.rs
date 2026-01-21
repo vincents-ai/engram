@@ -58,7 +58,7 @@ impl SyncTestFixture {
         )
         .map_err(|e| EngramError::Git(e.to_string()))?;
 
-        let storage = GitStorage::new("test-agent", &repo_path.to_string_lossy())?;
+        let storage = GitStorage::new(&repo_path.to_string_lossy(), "test-agent")?;
 
         Ok(SyncTestFixture {
             temp_dir,
