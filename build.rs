@@ -39,7 +39,7 @@ fn extract_git_info() -> GitInfo {
 
 fn get_git_tag() -> String {
     match Command::new("git")
-        .args(&["describe", "--tags", "--abbrev=0", "--exact-match", "v*"])
+        .args(["describe", "--tags", "--abbrev=0", "--exact-match", "v*"])
         .output()
     {
         Ok(output) if output.status.success() => {
@@ -57,7 +57,7 @@ fn get_git_tag() -> String {
 
 fn get_git_commit() -> CommitInfo {
     match Command::new("git")
-        .args(&["log", "-1", "--format=%H %ci %s"])
+        .args(["log", "-1", "--format=%H %ci %s"])
         .output()
     {
         Ok(output) if output.status.success() => {
