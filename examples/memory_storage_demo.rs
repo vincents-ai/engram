@@ -53,9 +53,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "📋 Task: {} [{}] - {}",
             task.id,
             task.entity_type,
-            task.data.get("title").and_then(|v| v.as_str()).unwrap_or("Untitled")
+            task.data
+                .get("title")
+                .and_then(|v| v.as_str())
+                .unwrap_or("Untitled")
         );
-    }
     }
 
     // Show commit history
