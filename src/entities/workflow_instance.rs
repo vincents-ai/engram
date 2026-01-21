@@ -1,6 +1,6 @@
 //! Workflow Instance entity implementation
 
-use super::{Entity, GenericEntity, Result};
+use super::{Entity, EntityResult, GenericEntity};
 use crate::engines::workflow_engine::{
     WorkflowExecutionContext, WorkflowExecutionEvent, WorkflowStatus,
 };
@@ -64,7 +64,7 @@ impl Entity for WorkflowInstance {
         self.updated_at
     }
 
-    fn validate_entity(&self) -> Result<()> {
+    fn validate_entity(&self) -> EntityResult<()> {
         if self.id.is_empty() {
             return Err("Workflow instance ID cannot be empty".to_string());
         }
@@ -90,7 +90,7 @@ impl Entity for WorkflowInstance {
         }
     }
 
-    fn from_generic(entity: GenericEntity) -> Result<Self> {
+    fn from_generic(entity: GenericEntity) -> EntityResult<Self> {
         serde_json::from_value(entity.data)
             .map_err(|e| format!("Failed to deserialize workflow instance: {}", e))
     }

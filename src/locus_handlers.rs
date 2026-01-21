@@ -3,9 +3,10 @@
 //! Handles loading configuration and setting up integration layer
 
 use crate::config::Config;
+use crate::entities::TaskStatus;
 use crate::error::EngramError;
 use crate::locus_integration::LocusIntegration;
-use crate::storage::{GitStorage, RelationshipStorage};
+use crate::storage::{GitStorage, RelationshipStorage, Storage};
 use clap::Subcommand;
 use std::io;
 
@@ -38,7 +39,7 @@ async fn handle_workflow_integration<S: Storage + RelationshipStorage>(
 ) -> io::Result<()> {
     match command {
         crate::locus_cli::workflow::WorkflowCommands::List {
-            workflow_type,
+            workflow_type: _,
             format,
         } => {
             println!("📋 Loading workflows from Engram...");
@@ -48,21 +49,15 @@ async fn handle_workflow_integration<S: Storage + RelationshipStorage>(
                     println!("Found {} workflows", workflows.len());
 
                     for workflow in workflows {
-                        if let Some(wf_type) = &workflow_type {
-                            if workflow.workflow_type != *wf_type {
-                                continue;
-                            }
-                        }
-
                         match format.as_str() {
                             "json" => {
                                 println!("{}", serde_json::to_string_pretty(&workflow).unwrap())
                             }
                             "yaml" => println!("{}", serde_yaml::to_string(&workflow).unwrap()),
                             _ => {
-                                println!("🏗️  {}", workflow.name);
+                                println!("🏗️  {}", workflow.title);
                                 println!("   {}", workflow.description);
-                                println!("   Type: {}", workflow.workflow_type);
+                                println!("   Status: {:?}", workflow.status);
                             }
                         }
                     }
@@ -77,19 +72,21 @@ async fn handle_workflow_integration<S: Storage + RelationshipStorage>(
             println!("📄 Loading workflow details...");
 
             match integration.get_workflow(&name) {
-                Some(workflow) => {
-                    println!("🏗️  {}", workflow.name);
+                Ok(Some(workflow)) => {
+                    println!("🏗️  {}", workflow.title);
                     println!("   {}", workflow.description);
-                    println!("   Type: {}", workflow.workflow_type);
+                    println!("   Status: {:?}", workflow.status);
 
                     if with_history {
                         println!("📊 Loading execution history...");
-                        // TODO: Load execution results
                         println!("🚧 Execution history not yet implemented");
                     }
                 }
-                None => {
+                Ok(None) => {
                     eprintln!("❌ Workflow '{}' not found", name);
+                }
+                Err(e) => {
+                    eprintln!("❌ Error loading workflow: {}", e);
                 }
             }
         }
@@ -123,10 +120,16 @@ async fn handle_visualize_integration<S: Storage + RelationshipStorage>(
                     println!("📊 Dashboard Overview:");
                     println!("   Total Tasks: {}", tasks.len());
 
-                    let active_tasks = tasks.iter().filter(|t| t.status == "inprogress").count();
+                    let active_tasks = tasks
+                        .iter()
+                        .filter(|t| t.status == TaskStatus::InProgress)
+                        .count();
                     println!("   Active Tasks: {}", active_tasks);
 
-                    let completed_tasks = tasks.iter().filter(|t| t.status == "done").count();
+                    let completed_tasks = tasks
+                        .iter()
+                        .filter(|t| t.status == TaskStatus::Done)
+                        .count();
                     println!("   Completed Tasks: {}", completed_tasks);
 
                     if let Some(agent_name) = agent {

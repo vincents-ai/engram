@@ -39,9 +39,10 @@ impl CommitMessageParser {
                 if let Some(task_id_match) = captures.get(1) {
                     let task_id = task_id_match.as_str().to_string();
                     let format = match pattern_index {
-                        0 => TaskIdFormat::Brackets,
-                        1 => TaskIdFormat::Colon,
-                        2 => TaskIdFormat::Refs,
+                        0 => TaskIdFormat::Custom("UUID format".to_string()),
+                        1 => TaskIdFormat::Brackets,
+                        2 => TaskIdFormat::Colon,
+                        3 => TaskIdFormat::Refs,
                         _ => TaskIdFormat::Custom(
                             self.config.task_id_patterns[pattern_index].name.clone(),
                         ),
@@ -81,9 +82,10 @@ impl CommitMessageParser {
 
                     let task_id = task_id_match.as_str().to_string();
                     let format = match pattern_index {
-                        0 => TaskIdFormat::Brackets,
-                        1 => TaskIdFormat::Colon,
-                        2 => TaskIdFormat::Refs,
+                        0 => TaskIdFormat::Custom("UUID format".to_string()),
+                        1 => TaskIdFormat::Brackets,
+                        2 => TaskIdFormat::Colon,
+                        3 => TaskIdFormat::Refs,
                         _ => TaskIdFormat::Custom(
                             self.config.task_id_patterns[pattern_index].name.clone(),
                         ),

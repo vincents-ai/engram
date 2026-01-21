@@ -346,7 +346,7 @@ impl Entity for ProgressiveGateConfig {
         self.created_at
     }
 
-    fn validate_entity(&self) -> super::Result<()> {
+    fn validate_entity(&self) -> super::EntityResult<()> {
         if let Err(errors) = <ProgressiveGateConfig as validator::Validate>::validate(self) {
             let error_messages: Vec<String> = errors
                 .field_errors()
@@ -384,7 +384,7 @@ impl Entity for ProgressiveGateConfig {
         }
     }
 
-    fn from_generic(generic: GenericEntity) -> super::Result<Self>
+    fn from_generic(generic: GenericEntity) -> super::EntityResult<Self>
     where
         Self: Sized,
     {

@@ -1,6 +1,6 @@
 //! Escalation Request entity for sandbox permission escalations
 
-use super::{Entity, GenericEntity, Result};
+use super::{Entity, EntityResult, GenericEntity};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -346,7 +346,7 @@ impl Entity for EscalationRequest {
         self.updated_at
     }
 
-    fn validate_entity(&self) -> Result<()> {
+    fn validate_entity(&self) -> EntityResult<()> {
         validator::Validate::validate(self).map_err(|e| format!("Validation failed: {}", e))
     }
 
@@ -360,7 +360,7 @@ impl Entity for EscalationRequest {
         }
     }
 
-    fn from_generic(entity: GenericEntity) -> Result<Self> {
+    fn from_generic(entity: GenericEntity) -> EntityResult<Self> {
         if entity.entity_type != Self::entity_type() {
             return Err(format!(
                 "Expected entity type '{}', got '{}'",

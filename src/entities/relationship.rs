@@ -7,7 +7,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use super::{Entity, GenericEntity, Result};
+use super::{Entity, EntityResult, GenericEntity};
 
 /// Direction of a relationship between entities
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -236,7 +236,7 @@ impl EntityRelationship {
     }
 
     /// Validate relationship constraints
-    pub fn validate_constraints(&self) -> Result<()> {
+    pub fn validate_constraints(&self) -> EntityResult<()> {
         // Check entity type constraints
         if let Some(ref source_types) = self.constraints.source_types {
             if !source_types.contains(&self.source_type) {
@@ -277,7 +277,7 @@ impl Entity for EntityRelationship {
         self.timestamp
     }
 
-    fn validate_entity(&self) -> Result<()> {
+    fn validate_entity(&self) -> EntityResult<()> {
         if self.id.trim().is_empty() {
             return Err("Relationship ID cannot be empty".to_string());
         }
@@ -321,7 +321,7 @@ impl Entity for EntityRelationship {
         }
     }
 
-    fn from_generic(entity: GenericEntity) -> Result<Self> {
+    fn from_generic(entity: GenericEntity) -> EntityResult<Self> {
         if entity.entity_type != Self::entity_type() {
             return Err(format!(
                 "Expected entity type '{}', got '{}'",

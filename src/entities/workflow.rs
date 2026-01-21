@@ -1,6 +1,6 @@
 //! Workflow entity implementation
 
-use super::{Entity, GenericEntity, Result};
+use super::{Entity, EntityResult, GenericEntity};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -418,7 +418,7 @@ impl Entity for Workflow {
         self.created_at
     }
 
-    fn validate_entity(&self) -> super::Result<()> {
+    fn validate_entity(&self) -> super::EntityResult<()> {
         if let Err(errors) = <Workflow as validator::Validate>::validate(self) {
             let error_messages: Vec<String> = errors
                 .field_errors()
@@ -460,7 +460,7 @@ impl Entity for Workflow {
         }
     }
 
-    fn from_generic(entity: GenericEntity) -> Result<Self> {
+    fn from_generic(entity: GenericEntity) -> EntityResult<Self> {
         serde_json::from_value(entity.data)
             .map_err(|e| format!("Failed to deserialize Workflow: {}", e))
     }

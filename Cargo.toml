@@ -71,6 +71,10 @@ fastembed = { version = "5.8", optional = true }
 ndarray = { version = "0.17", optional = true }
 bytemuck = { version = "1.24", optional = true }
 
+# TUI dependencies
+crossterm = { version = "0.27", optional = true }
+ratatui = { version = "0.26", optional = true }
+
 [build-dependencies]
 chrono = { version = "0.4", features = ["serde"] }
 
@@ -97,6 +101,7 @@ name = "engram"
 path = "src/lib.rs"
 
 [features]
-default = ["sandbox"]
+default = ["sandbox", "tui"]
 sandbox = []
+tui = ["crossterm", "ratatui"]
 vector-search = ["rusqlite", "sqlite-vec", "fastembed", "ndarray", "bytemuck"]

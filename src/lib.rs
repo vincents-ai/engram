@@ -13,6 +13,10 @@ pub mod engines;
 pub mod entities;
 pub mod error;
 pub mod locus_cli;
+pub mod locus_handlers;
+pub mod locus_integration;
+#[cfg(feature = "tui")]
+pub mod locus_tui;
 pub mod migration;
 pub mod nlq;
 pub mod perkeep;

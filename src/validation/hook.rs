@@ -35,7 +35,7 @@ impl HookManager {
     fn generate_hook_script(&self) -> String {
         format!(
             r#"#!/usr/bin/env bash
-# ENGRAM_COMMIT_MSG_HOOK
+# ENGRAM_PRE_COMMIT_HOOK
 
 set -e
 
@@ -104,7 +104,7 @@ exit 0
 
         let content = fs::read_to_string(&hook_path).map_err(EngramError::Io)?;
 
-        Ok(content.contains("ENGRAM_COMMIT_MSG_HOOK"))
+        Ok(content.contains("ENGRAM_PRE_COMMIT_HOOK"))
     }
 
     /// Get hook script content
@@ -152,11 +152,11 @@ exit 0
         if hook_path.exists() {
             let content = fs::read_to_string(&hook_path).map_err(EngramError::Io)?;
 
-            if content.contains("ENGRAM_COMMIT_MSG_HOOK") {
+            if content.contains("ENGRAM_PRE_COMMIT_HOOK") {
                 fs::remove_file(&hook_path).map_err(EngramError::Io)?;
             } else {
                 return Err(EngramError::Validation(
-                    "Commit-msg hook exists but was not installed by Engram".to_string(),
+                    "Pre-commit hook exists but was not installed by Engram".to_string(),
                 ));
             }
         }

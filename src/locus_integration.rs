@@ -54,13 +54,12 @@ impl<S: Storage + RelationshipStorage> LocusIntegration<S> {
         let workflow_id = workflow.id.clone();
 
         // Convert to generic entity
-        let entity = crate::entities::Entity {
+        let entity = GenericEntity {
             id: workflow_id.clone(),
             entity_type: "workflow".to_string(),
-            created_at: workflow.created_at.unwrap_or_else(|| chrono::Utc::now()),
-            updated_at: chrono::Utc::now(),
+            agent: workflow.agent.clone(),
+            timestamp: workflow.created_at,
             data: serde_json::to_value(workflow)?,
-            metadata: HashMap::new(),
         };
 
         self.storage.store(&entity)?;
@@ -76,7 +75,7 @@ impl<S: Storage + RelationshipStorage> LocusIntegration<S> {
         for entity in entities {
             if let Ok(task) = serde_json::from_value::<Task>(entity.data) {
                 if let Some(agent) = agent_filter {
-                    if task.agent.as_ref().map_or(false, |a| a == agent) {
+                    if task.agent.as_str() == agent {
                         tasks.push(task);
                     }
                 } else {
@@ -128,7 +127,9 @@ impl<S: Storage + RelationshipStorage> LocusIntegration<S> {
             .storage
             .get_all("execution_result")?
             .iter()
-            .filter_map(|entity| serde_json::from_value::<ExecutionResult>(entity.data).ok())
+            .filter_map(|entity| {
+                serde_json::from_value::<ExecutionResult>(entity.data.clone()).ok()
+            })
             .filter(|result| {
                 matches!(
                     result.validation_status,
@@ -155,11 +156,11 @@ impl<S: Storage + RelationshipStorage> LocusIntegration<S> {
         let override_id = uuid::Uuid::new_v4().to_string();
 
         // Create override entity
-        let override_entity = crate::entities::Entity {
+        let override_entity = GenericEntity {
             id: override_id.clone(),
             entity_type: "emergency_override".to_string(),
-            created_at: chrono::Utc::now(),
-            updated_at: chrono::Utc::now(),
+            agent: "locus".to_string(),
+            timestamp: chrono::Utc::now(),
             data: serde_json::json!({
                 "task_id": task_id,
                 "reason": reason,
@@ -167,21 +168,21 @@ impl<S: Storage + RelationshipStorage> LocusIntegration<S> {
                 "status": "active",
                 "created_by": "locus"
             }),
-            metadata: HashMap::new(),
         };
 
-        self.storage.store(Box::new(override_entity))?;
+        self.storage.store(&override_entity)?;
 
         // Create relationship to task
-        crate::cli::relationship::create_relationship(
-            &mut self.storage,
-            &override_id,
-            "emergency_override",
-            task_id,
-            "task",
-            "overrides",
-            "locus",
-        )?;
+        let relationship = EntityRelationship::new(
+            format!("rel-{}", uuid::Uuid::new_v4().to_string().split_at(8).0),
+            "locus".to_string(),
+            override_id.clone(),
+            "emergency_override".to_string(),
+            task_id.to_string(),
+            "task".to_string(),
+            EntityRelationType::Custom("overrides".to_string()),
+        );
+        self.storage.store_relationship(&relationship)?;
 
         Ok(override_id)
     }

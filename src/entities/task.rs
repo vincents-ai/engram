@@ -1,6 +1,6 @@
 //! Task entity implementation
 
-use super::{Entity, GenericEntity, Result};
+use super::{Entity, EntityResult, GenericEntity};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -187,7 +187,7 @@ impl Entity for Task {
         self.start_time
     }
 
-    fn validate_entity(&self) -> super::Result<()> {
+    fn validate_entity(&self) -> super::EntityResult<()> {
         if self.title.is_empty() {
             return Err("Task title cannot be empty".to_string());
         }
@@ -209,7 +209,7 @@ impl Entity for Task {
         }
     }
 
-    fn from_generic(entity: GenericEntity) -> Result<Self> {
+    fn from_generic(entity: GenericEntity) -> EntityResult<Self> {
         serde_json::from_value(entity.data)
             .map_err(|e| format!("Failed to deserialize Task: {}", e))
     }
