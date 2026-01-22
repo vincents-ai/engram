@@ -1,0 +1,42 @@
+version: 1.0.0
+title: Kernel Parameter Tuning
+description: Optimise sysctl settings for performance.
+instructions: 'Tune Linux kernel parameters (sysctl) to optimise system performance for specific workloads.
+
+
+  1. Analyse current system performance and bottlenecks using The Performance Tuner.
+
+  2. Research optimal sysctl settings for the target workload (e.g., high network throughput, low latency) using The Performance Tuner (acting as The Kernel).
+
+  3. Apply the settings temporarily and verify stability using The DevOps Engineer.
+
+  4. Persist the changes to `/etc/sysctl.conf` or NixOS config using The DevOps Engineer.
+
+  '
+parameters:
+- key: workload_type
+  input_type: string
+  requirement: required
+  description: The type of workload to optimise for (e.g., database, web_server, real_time).
+sub_recipes:
+- name: agent_19_the_performance_tuner
+  path: ./agents/19-the-performance-tuner.yaml
+- name: agent_45_the_devops_engineer
+  path: ./agents/45-the-devops-engineer.yaml
+extensions:
+- type: builtin
+  name: developer
+  timeout: 300
+  bundled: true
+prompt: 'Tune kernel parameters for a {{ workload_type }} workload.
+
+
+  1. ''agent_19_the_performance_tuner'': Identify the relevant subsystems (TCP stack, VM swappiness, file descriptors).
+
+  2. ''agent_19_the_performance_tuner'': Calculate the optimal values based on available RAM and CPU.
+
+  3. ''agent_45_the_devops_engineer'': Apply the changes using `sysctl -w`.
+
+  4. ''agent_45_the_devops_engineer'': Verify stability. If stable, bake the settings into the NixOS configuration.
+
+  '

@@ -1,0 +1,44 @@
+version: 1.0.0
+title: Dependency Audit Update
+description: Update dependencies and verify supply chain security.
+instructions: 'Audit project dependencies, update them to stable versions, and verify supply chain integrity.
+
+
+  1. Identify outdated dependencies using The Dependency Manager.
+
+  2. Check for breaking changes and changelogs using The Dependency Manager.
+
+  3. Update lockfiles (package-lock.json, Cargo.lock, flake.lock) using The DevOps Engineer (acting as The Snowflake).
+
+  4. Run regression tests to ensure stability using The Tester.
+
+  '
+parameters:
+- key: project_path
+  input_type: string
+  requirement: required
+  description: Path to the project root containing dependency files.
+sub_recipes:
+- name: agent_40_the_dependency_manager
+  path: ./agents/40-the-dependency-manager.yaml
+- name: agent_45_the_devops_engineer
+  path: ./agents/45-the-devops-engineer.yaml
+- name: agent_15_the_tester
+  path: ./agents/15-the-tester.yaml
+extensions:
+- type: builtin
+  name: developer
+  timeout: 300
+  bundled: true
+prompt: 'Update dependencies for the project at {{ project_path }}.
+
+
+  1. ''agent_40_the_dependency_manager'': List all outdated packages. Filter for security updates first.
+
+  2. ''agent_40_the_dependency_manager'': Review changelogs for potential breaking changes.
+
+  3. ''agent_45_the_devops_engineer'': Apply the updates. Regenerate the lockfiles.
+
+  4. ''agent_15_the_tester'': Run the full test suite. If tests fail, rollback and identify the specific package causing the issue.
+
+  '

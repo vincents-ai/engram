@@ -33,6 +33,9 @@ async fn run() -> Result<(), EngramError> {
     match args.command {
         cli::Commands::Setup { command } => handle_setup_command(command)?,
         cli::Commands::Convert { from, file } => handle_convert_command(&from, &file)?,
+        cli::Commands::Import { command } => {
+            cli::handle_import_command(command)?;
+        }
         cli::Commands::Test => handle_test_command()?,
         cli::Commands::Task { command } => {
             let mut storage = GitRefsStorage::new(".", "default")?;
@@ -107,6 +110,26 @@ async fn run() -> Result<(), EngramError> {
         }
         cli::Commands::Migration => handle_migration_command()?,
         cli::Commands::Guide { command } => handle_help_command(command)?,
+        cli::Commands::Skills { command } => {
+            match command {
+                cli::SkillsCommands::List { format } => {
+                    cli::list_skills(&format)?;
+                }
+                cli::SkillsCommands::Show { name } => {
+                    cli::show_skill(&name)?;
+                }
+            }
+        }
+        cli::Commands::Prompts { command } => {
+            match command {
+                cli::PromptsCommands::List { category, format } => {
+                    cli::list_prompts(category.as_deref(), &format)?;
+                }
+                cli::PromptsCommands::Show { name } => {
+                    cli::show_prompt(&name)?;
+                }
+            }
+        }
         cli::Commands::Perkeep { command } => {
             use engram::cli::perkeep::{
                 perkeep_backup, perkeep_health, perkeep_list, perkeep_restore,
@@ -261,8 +284,8 @@ fn handle_task_command<S: engram::storage::Storage + 'static>(
         } => {
             cli::update_task(storage, &id, &status, outcome.as_deref())?;
         }
-        cli::TaskCommands::Delete { id } => {
-            cli::delete_task(storage, &id)?;
+        cli::TaskCommands::Archive { id, reason } => {
+            cli::archive_task(storage, &id, reason.as_deref())?;
         }
     }
     Ok(())

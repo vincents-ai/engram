@@ -1,0 +1,38 @@
+version: "1.0.0"
+title: "Localisation Rollout"
+description: "Translate UI and verify layout integrity."
+instructions: |
+  Deploy a new language or locale across the application.
+  1. Extract text strings and manage translation keys using Agent 16 (acting as legacy refactorer).
+  2. Implement the new locale in the frontend using Agent 10.
+  3. Verify layout integrity and text expansion using Agent 10.
+    
+parameters:
+  - key: locale_code
+    input_type: string
+    requirement: required
+    description: "The ISO code for the target locale (e.g., fr-FR, ja-JP)."
+  - key: component_scope
+    input_type: string
+    requirement: required
+    description: "The UI components to update."
+
+sub_recipes:
+  - name: "agent_16_the_16_bit"
+    path: "./agents/16-the-16-bit.yaml"
+  - name: "agent_10_the_perfect_10"
+    path: "./agents/10-the-perfect-10.yaml"
+  # TODO: Switch to Agent 72 (The Type-Safe) for i18n type safety if needed.
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Roll out the {{ locale_code }} localisation for {{ component_scope }}.
+    
+  1. 'agent_16_the_16_bit': Identify hardcoded strings in {{ component_scope }} and move them to the translation file.
+  2. 'agent_10_the_perfect_10': Apply the new locale strings to the UI components.
+  3. 'agent_10_the_perfect_10': Check for UI breakage caused by longer text strings in {{ locale_code }}.

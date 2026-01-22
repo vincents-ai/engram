@@ -1,0 +1,38 @@
+version: "1.0.0"
+title: "Digital Forensic Recovery"
+description: "Recover deleted files from disk image."
+instructions: |
+  Recover lost data from a disk image.
+  1. Create a read-only image of the drive using Agent 52 (acting as disk imager).
+  2. Scan the file system structures for deleted entries using Agent 109 (acting as forensic expert).
+  3. Carve files based on magic headers using Agent 109.
+    
+parameters:
+  - key: disk_image
+    input_type: string
+    requirement: required
+    description: "Path to the raw disk image (dd)."
+  - key: file_type
+    input_type: string
+    requirement: required
+    description: "Target file extension to recover (e.g., jpg, docx)."
+
+sub_recipes:
+  # TODO: Switch to Agent 109 (The Forensic) - Missing.
+  - name: "agent_52_the_iso"
+    path: "./agents/52-the-iso.yaml"
+  - name: "agent_13_the_gremlin"
+    path: "./agents/13-the-gremlin.yaml"
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Recover {{ file_type }} files from {{ disk_image }}.
+    
+  1. 'agent_52_the_iso': Mount the image as read-only loop device.
+  2. 'agent_13_the_gremlin': Run `photorec` or `scalpel` on the image targeting {{ file_type }}.
+  3. 'agent_13_the_gremlin': Verify the integrity of recovered files by checking file headers.

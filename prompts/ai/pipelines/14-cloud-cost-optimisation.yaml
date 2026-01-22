@@ -1,0 +1,44 @@
+version: 1.0.0
+title: Cloud Cost Optimisation
+description: Analyse resource usage and suggest downsizing.
+instructions: 'Audit cloud infrastructure and resource usage to identify waste and reduce costs.
+
+
+  1. Analyse current billing and usage data using The Prospector.
+
+  2. Identify underutilised resources and potential downsizing opportunities using The Prospector.
+
+  3. Recommend reserved instances or spot instances where applicable using The Monetiser.
+
+  4. Implement approved changes using The DevOps Engineer.
+
+  '
+parameters:
+- key: provider_scope
+  input_type: string
+  requirement: required
+  description: Cloud provider or account scope (e.g., AWS, GCP, specific region).
+sub_recipes:
+- name: agent_49_the_prospector
+  path: ./agents/49-the-prospector.yaml
+- name: agent_04_the_monetiser
+  path: ./agents/04-the-monetiser.yaml
+- name: agent_45_the_devops_engineer
+  path: ./agents/45-the-devops-engineer.yaml
+extensions:
+- type: builtin
+  name: developer
+  timeout: 300
+  bundled: true
+prompt: 'Perform a cost optimisation audit for {{ provider_scope }}.
+
+
+  1. ''agent_49_the_prospector'': Dig through the usage reports. Find idle instances, unattached volumes, and over-provisioned databases.
+
+  2. ''agent_04_the_monetiser'': Calculate the ROI of purchasing reserved instances vs. on-demand. Look for savings plans.
+
+  3. ''agent_49_the_prospector'': Generate a prioritized list of actions to reduce the monthly bill.
+
+  4. ''agent_45_the_devops_engineer'': Draft the Terraform/OpenTofu changes needed to apply the downsizing (e.g., changing instance types).
+
+  '

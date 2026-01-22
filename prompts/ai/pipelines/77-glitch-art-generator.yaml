@@ -1,0 +1,38 @@
+version: "1.0.0"
+title: "Glitch Art Generator"
+description: "Create art via data corruption."
+instructions: |
+  Generate visuals by intentionally corrupting image data.
+  1. Load the image and convert to raw bytes using Agent 10.
+  2. Randomly flip bits or inject noise using Agent 77 (acting as chaos artist).
+  3. Attempt to render the corrupted file using Agent 10.
+    
+parameters:
+  - key: source_image
+    input_type: string
+    requirement: required
+    description: "Path to the input image."
+  - key: intensity
+    input_type: string
+    requirement: required
+    description: "Level of corruption (Low, Medium, High)."
+
+sub_recipes:
+  - name: "agent_10_the_perfect_10"
+    path: "./agents/10-the-perfect-10.yaml"
+  # TODO: Switch to Agent 77 (The Punk) - Missing.
+  - name: "agent_13_the_gremlin"
+    path: "./agents/13-the-gremlin.yaml"
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Glitch {{ source_image }} with {{ intensity }} intensity.
+    
+  1. 'agent_10_the_perfect_10': Convert the image to a raw bitmap or JPEG format.
+  2. 'agent_13_the_gremlin': Apply random byte manipulation (databending) to the file header and body.
+  3. 'agent_10_the_perfect_10': Save the result, retrying if the file is completely unreadable.

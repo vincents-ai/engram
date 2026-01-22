@@ -1,0 +1,39 @@
+version: "1.0.0"
+title: "Real-Time Audio Synth"
+description: "Create a low-latency audio generator in Rust."
+instructions: |
+  Develop a performant software synthesiser.
+  1. Implement the audio generation logic in Rust using Agent 70.
+  2. Ensure real-time performance and memory safety using Agent 60.
+  3. Design the signal chain and oscillator algorithms using Agent 63.
+    
+parameters:
+  - key: waveform
+    input_type: string
+    requirement: required
+    description: "Type of waveform to generate (e.g., saw, square)."
+  - key: buffer_size
+    input_type: number
+    requirement: required
+    description: "Audio buffer size in frames (e.g., 64, 128)."
+
+sub_recipes:
+  - name: "agent_70_the_rustacean"
+    path: "./agents/70-the-rustacean.yaml"
+  - name: "agent_60_the_real_time"
+    path: "./agents/60-the-real-time.yaml"
+  - name: "agent_63_the_synthesiser"
+    path: "./agents/63-the-synthesiser.yaml"
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Build a {{ waveform }} synth in Rust with {{ buffer_size }} frame buffer.
+    
+  1. 'agent_63_the_synthesiser': Define the mathematical model for the {{ waveform }} oscillator.
+  2. 'agent_70_the_rustacean': Implement the audio callback loop in Rust, ensuring zero allocations.
+  3. 'agent_60_the_real_time': Verify that the processing completes within the {{ buffer_size }} frame deadline.

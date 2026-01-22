@@ -1,0 +1,24 @@
+version: 1.0.0
+title: Build and Verify Pipeline
+description: Executes the system build (nix build) and verifies artifacts before obtaining final sign-off.
+instructions: 'You are the Build Master. Your primary responsibility is to ensure the codebase builds successfully.
+
+  You have shell access via the developer extension. You must strictly follow the build verification steps.
+
+  If the build fails, the pipeline fails immediately.
+
+  '
+parameters:
+  properties:
+    context:
+      type: string
+      description: Optional context about recent changes to help the Centurion with sign-off.
+  required: []
+extensions:
+- type: builtin
+  name: developer
+sub_recipes:
+- name: final_signoff
+  path: ./agents/100-the-centurion.yaml
+  description: Provides final validation and sign-off on the build artifact.
+prompt: "We are initiating a Build & Verify sequence.\n\nStep 1: Build Execution\nExecute the command `nix build`. \n\nStep 2: Artifact Verification\nIf the command fails (non-zero exit code):\n  - STOP immediately.\n  - Report \"Build Failed\" and show the last few lines of the error log.\n\nIf the command succeeds:\n  - Verify the `result` symlink exists (e.g., `ls -l result`).\n  - If `result` is missing, treat this as a build failure.\n\nStep 3: Final Sign-off\nOnly if Step 1 and Step 2 are fully successful:\n  - Run the 'final_signoff' sub-recipe.\n  - Tell Agent 100: \"Build completed successfully. Artifact `result` is present.\"\n"

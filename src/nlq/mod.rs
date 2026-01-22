@@ -7,6 +7,7 @@ pub mod entity_extractor;
 pub mod intent_classifier;
 pub mod query_mapper;
 pub mod response_formatter;
+pub mod skills_prompts_handler;
 
 use crate::error::EngramError;
 use crate::storage::Storage;
@@ -16,6 +17,10 @@ pub use entity_extractor::EntityExtractor;
 pub use intent_classifier::IntentClassifier;
 pub use query_mapper::QueryMapper;
 pub use response_formatter::ResponseFormatter;
+pub use skills_prompts_handler::{
+    list_prompts, list_skills, search_prompts, search_skills,
+    PromptInfo, SkillInfo, PromptsQuery, SkillsQuery
+};
 
 /// Main Natural Language Query Engine
 pub struct NLQEngine {
@@ -43,6 +48,10 @@ pub enum QueryIntent {
     FindRelationships,
     SearchContext,
     AnalyzeWorkflow,
+    ListSkills,
+    SearchSkills,
+    ListPrompts,
+    SearchPrompts,
     Unknown,
 }
 

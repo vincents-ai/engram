@@ -1,0 +1,40 @@
+version: "1.0.0"
+title: "Red Team Exercise"
+description: "Simulate attacks to test defences."
+instructions: |
+  Conduct a simulated cyberattack on the infrastructure.
+  1. Plan the attack vectors and scope using Agent 44.
+  2. Execute the penetration tests using Agent 13 (acting as adversary).
+  3. Analyse the defensive response and gaps using Agent 07.
+    
+parameters:
+  - key: target_system
+    input_type: string
+    requirement: required
+    description: "The system or endpoint to attack."
+  - key: attack_type
+    input_type: string
+    requirement: required
+    description: "Method of attack (e.g., SQL Injection, Phishing, DDoS)."
+
+sub_recipes:
+  - name: "agent_44_the_critic"
+    path: "./agents/44-the-critic.yaml"
+  - name: "agent_13_the_gremlin"
+    path: "./agents/13-the-gremlin.yaml"
+  - name: "agent_07_the_double_o"
+    path: "./agents/07-the-double-o.yaml"
+  # TODO: Switch to Agent 116 (The Fuzzer) for automated attacks.
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Conduct a Red Team exercise on {{ target_system }} using {{ attack_type }}.
+    
+  1. 'agent_44_the_critic': devise a strategy to exploit weaknesses in {{ target_system }} via {{ attack_type }}.
+  2. 'agent_13_the_gremlin': Execute the simulated attack, logging all successful breaches.
+  3. 'agent_07_the_double_o': Review the system logs to see if the attack was detected and blocked.

@@ -1,0 +1,38 @@
+version: "1.0.0"
+title: "Multi-Layer PCB Design"
+description: "Design 4+ layer boards with signal integrity."
+instructions: |
+  Design complex multi-layer printed circuit boards.
+  1. Define the layer stackup and materials using Agent 57.
+  2. Route high-speed signals with impedance control using Agent 57.
+  3. Perform a Design Rule Check (DRC) for manufacturing using Agent 75.
+    
+parameters:
+  - key: layer_count
+    input_type: number
+    requirement: required
+    description: "Number of layers (e.g., 4, 6, 8)."
+  - key: signal_speed
+    input_type: string
+    requirement: required
+    description: "Highest frequency signal (e.g., 1GHz, PCIe Gen3)."
+
+sub_recipes:
+  - name: "agent_57_the_router"
+    path: "./agents/57-the-router.yaml"
+  - name: "agent_75_the_solder"
+    path: "./agents/75-the-solder.yaml"
+  # TODO: Switch to Agent 89 (The Scope) for signal integrity simulation.
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Design a {{ layer_count }}-layer PCB for {{ signal_speed }} signals.
+    
+  1. 'agent_57_the_router': Define the stackup (dielectric constant, copper thickness) to support controlled impedance.
+  2. 'agent_57_the_router': Route critical nets with length matching and differential pairs.
+  3. 'agent_75_the_solder': Verify that the design meets the fab house's min track/space capabilities.

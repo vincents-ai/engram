@@ -1,0 +1,41 @@
+version: "1.0.0"
+title: "VFX Compositing"
+description: "Composite 3D assets into video."
+instructions: |
+  Combine CGI elements with live-action footage.
+  1. Track camera motion and solve the scene using Agent 29 (acting as matchmover).
+  2. Render the 3D elements with matching lighting using Agent 10.
+  3. Composite layers and match grain using Agent 67.
+    
+parameters:
+  - key: background_plate
+    input_type: string
+    requirement: required
+    description: "Path to the live-action video."
+  - key: cgi_asset
+    input_type: string
+    requirement: required
+    description: "Path to the 3D model/render."
+
+sub_recipes:
+  - name: "agent_29_the_visualisation_expert"
+    path: "./agents/29-the-visualisation-expert.yaml"
+  - name: "agent_10_the_perfect_10"
+    path: "./agents/10-the-perfect-10.yaml"
+  - name: "agent_67_the_colourist"
+    path: "./agents/67-the-colourist.yaml"
+  # TODO: Switch to Agent 138 (The Compositor) for Nuke/Fusion workflows.
+  # TODO: Switch to Agent 139 (The Raytracer) for rendering.
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Composite {{ cgi_asset }} into {{ background_plate }}.
+    
+  1. 'agent_29_the_visualisation_expert': Generate a 3D camera track from {{ background_plate }}.
+  2. 'agent_10_the_perfect_10': Position {{ cgi_asset }} in the scene and match the lighting direction.
+  3. 'agent_67_the_colourist': Blend the layers, matching black levels and adding film grain.

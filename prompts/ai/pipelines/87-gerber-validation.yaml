@@ -1,0 +1,38 @@
+version: "1.0.0"
+title: "Gerber Validation"
+description: "Check PCB production files."
+instructions: |
+  Ensure Gerber files match the design intent.
+  1. Parse the Gerber files using Agent 75.
+  2. Compare the layer alignment and drill hits using Agent 75.
+  3. Render the board for visual inspection using Agent 56.
+    
+parameters:
+  - key: gerber_path
+    input_type: string
+    requirement: required
+    description: "Path to the folder containing Gerbers."
+  - key: layer_count
+    input_type: number
+    requirement: required
+    description: "Expected number of copper layers."
+
+sub_recipes:
+  # TODO: Switch to Agent 87 (The Gerber) - Missing.
+  - name: "agent_75_the_solder"
+    path: "./agents/75-the-solder.yaml"
+  - name: "agent_56_the_schematic"
+    path: "./agents/56-the-schematic.yaml"
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Validate Gerbers in {{ gerber_path }} ({{ layer_count }} layers).
+    
+  1. 'agent_75_the_solder': Load the Gerber files and verify all {{ layer_count }} layers are present.
+  2. 'agent_75_the_solder': Check for zero-width lines or missing drill apertures.
+  3. 'agent_56_the_schematic': Generate a 3D preview to confirm the stackup order is correct.

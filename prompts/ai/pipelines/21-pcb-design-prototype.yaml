@@ -1,0 +1,40 @@
+version: "1.0.0"
+title: "PCB Design Prototype"
+description: "From schematic to Gerber generation."
+instructions: |
+  Create a functional PCB prototype from requirements to manufacturing files.
+  1. Design the electrical schematic and component selection using Agent 56.
+  2. Route the PCB traces and manage stackup using Agent 57.
+  3. Validate manufacturability and export production files using Agent 75.
+    
+parameters:
+  - key: project_name
+    input_type: string
+    requirement: required
+    description: "Name of the PCB project."
+  - key: layers
+    input_type: number
+    requirement: required
+    description: "Number of PCB layers (e.g., 2, 4, 6)."
+
+sub_recipes:
+  - name: "agent_56_the_schematic"
+    path: "./agents/56-the-schematic.yaml"
+  - name: "agent_57_the_router"
+    path: "./agents/57-the-router.yaml"
+  - name: "agent_75_the_solder"
+    path: "./agents/75-the-solder.yaml"
+  # TODO: Switch to Agent 87 (The Gerber) for final file generation when available.
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Initiate the PCB design process for {{ project_name }}.
+    
+  1. 'agent_56_the_schematic': Create the initial schematic for {{ project_name }}, ensuring all components are selected for availability.
+  2. 'agent_57_the_router': Route the {{ layers }}-layer board, paying attention to critical signal paths.
+  3. 'agent_75_the_solder': Perform a DFM check and prepare the fabrication outputs.

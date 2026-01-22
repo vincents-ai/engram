@@ -1,0 +1,37 @@
+version: "1.0.0"
+title: "SEO Content Generator"
+description: "Create high-ranking technical content."
+instructions: |
+  Produce content optimised for search engines.
+  1. Research keywords and search intent using Agent 26.
+  2. Draft the content structure and headings using Agent 41.
+  3. Optimise the final copy for readability and keyword density using Agent 26.
+    
+parameters:
+  - key: topic
+    input_type: string
+    requirement: required
+    description: "Main subject of the article."
+  - key: target_keyword
+    input_type: string
+    requirement: required
+    description: "Primary keyword to rank for."
+
+sub_recipes:
+  - name: "agent_26_the_alphabet"
+    path: "./agents/26-the-alphabet.yaml"
+  - name: "agent_41_the_technical_writer"
+    path: "./agents/41-the-technical-writer.yaml"
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Generate an article on "{{ topic }}" targeting "{{ target_keyword }}".
+    
+  1. 'agent_26_the_alphabet': Analyze the top 5 ranking pages for "{{ target_keyword }}" to find content gaps.
+  2. 'agent_41_the_technical_writer': Create a detailed outline with H2/H3 tags that covers the technical depth required.
+  3. 'agent_26_the_alphabet': Review the draft to ensure meta tags, alt text, and keyword placement are optimal.

@@ -1,0 +1,39 @@
+version: "1.0.0"
+title: "Feature Request Triage"
+description: "Analyse community sentiment and ROI."
+instructions: |
+  Evaluate and prioritise incoming feature requests.
+  1. Analyse the market demand and competitor landscape using Agent 09.
+  2. Estimate the technical effort and complexity using Agent 25.
+  3. Make a decisive call on whether to proceed using Agent 08.
+    
+parameters:
+  - key: feature_description
+    input_type: string
+    requirement: required
+    description: "Summary of the requested feature."
+  - key: request_volume
+    input_type: number
+    requirement: required
+    description: "Number of users requesting this feature."
+
+sub_recipes:
+  - name: "agent_09_the_market_researcher"
+    path: "./agents/09-the-market-researcher.yaml"
+  - name: "agent_25_the_quartermaster"
+    path: "./agents/25-the-quartermaster.yaml"
+  - name: "agent_08_the_magic_8_ball"
+    path: "./agents/08-the-magic-8-ball.yaml"
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Triage the request for: "{{ feature_description }}" ({{ request_volume }} votes).
+    
+  1. 'agent_09_the_market_researcher': Assess if this feature gives us a competitive advantage.
+  2. 'agent_25_the_quartermaster': Provide a rough estimate of the resources required to build this.
+  3. 'agent_08_the_magic_8_ball': Output a final decision: "Yes", "No", or "Later".

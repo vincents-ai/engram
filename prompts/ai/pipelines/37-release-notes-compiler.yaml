@@ -1,0 +1,39 @@
+version: "1.0.0"
+title: "Release Notes Compiler"
+description: "Compile readable changelogs from git history."
+instructions: |
+  Generate clear and engaging release notes.
+  1. Analyse the git log and identify key changes using Agent 88 (acting as git historian).
+  2. Draft the technical changelog using Agent 24.
+  3. Polish the copy to be exciting and readable using Agent 11.
+    
+parameters:
+  - key: version_tag
+    input_type: string
+    requirement: required
+    description: "The git tag for the release (e.g., v2.0.0)."
+  - key: prev_tag
+    input_type: string
+    requirement: required
+    description: "The previous git tag to compare against."
+
+sub_recipes:
+  - name: "agent_88_the_flux"
+    path: "./agents/88-the-flux.yaml"
+  - name: "agent_24_the_bauer"
+    path: "./agents/24-the-bauer.yaml"
+  - name: "agent_11_the_amplifier"
+    path: "./agents/11-the-amplifier.yaml"
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Compile release notes for {{ version_tag }} (since {{ prev_tag }}).
+    
+  1. 'agent_88_the_flux': List all commits between {{ prev_tag }} and {{ version_tag }}, filtering out noise.
+  2. 'agent_24_the_bauer': Group the changes into "Features", "Fixes", and "Breaking Changes".
+  3. 'agent_11_the_amplifier': Rewrite the "Features" section to highlight user benefits and excitement.

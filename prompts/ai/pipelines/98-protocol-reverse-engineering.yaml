@@ -1,0 +1,45 @@
+version: "1.0.0"
+title: "Protocol Reverse Engineering"
+description: "Decode unknown binary protocols."
+instructions: |
+  Understand how a proprietary device communicates.
+  1. Capture the binary stream using Agent 110.
+  2. Identify patterns and fields using Agent 98 (acting as reverse engineer).
+  3. Write a parser/dissector using Agent 98.
+    
+parameters:
+  - key: pcap_file
+    input_type: string
+    requirement: required
+    description: "Path to the capture file."
+  - key: protocol_name
+    input_type: string
+    requirement: required
+    description: "Name to assign to the new protocol."
+
+sub_recipes:
+  # TODO: Switch to Agent 98 (The Protocol) - Wait, mapped agents list. Agent 98 is "The Rolling".
+  # Checking Context...
+  # Line 166: | **98** | **The Rolling** | Focuses on managing rolling release cycles...
+  # Wait, the Workflow Description for ID 98 says "Protocol Reverse Engineering".
+  # BUT Agent 98 is "The Rolling" (Release Manager).
+  # Workflow 98 description: "Decode unknown binary protocols."
+  # Agent 13 (Gremlin) or Agent 16 (16-Bit) or Agent 109 (Forensic) or Agent 07 (Double-O) might be better substitutes.
+  # I will use Agent 16 (The 16-Bit) as the closest existing "decoder" proxy.
+  - name: "agent_16_the_16_bit"
+    path: "./agents/16-the-16-bit.yaml"
+  - name: "agent_13_the_gremlin"
+    path: "./agents/13-the-gremlin.yaml"
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Reverse engineer protocol in {{ pcap_file }}.
+    
+  1. 'agent_13_the_gremlin': Hex-dump the payloads and look for repeating headers or checksums.
+  2. 'agent_16_the_16_bit': Map the byte offsets to potential data types (uint8, float32).
+  3. 'agent_16_the_16_bit': Generate a Wireshark dissector script (Lua) to parse the stream.

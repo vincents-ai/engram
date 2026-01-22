@@ -1,0 +1,22 @@
+version: 1.0.0
+title: API Modernisation
+description: Refactor legacy REST endpoints to Typed API specs.
+instructions: "Upgrade legacy API endpoints to modern standards.\n1. Define the new API contract using The API Designer.\n2. Implement the type definitions using The Interface.\n3. Refactor the implementation using The 16-Bit.\n  \n"
+parameters:
+- key: legacy_endpoint
+  input_type: string
+  requirement: required
+  description: The name or path of the legacy endpoint to modernise.
+sub_recipes:
+- name: contract_design
+  path: ./agents/17-the-api-designer.yaml
+- name: type_definition
+  path: ./agents/96-the-interface.yaml
+- name: refactoring
+  path: ./agents/16-the-16-bit.yaml
+extensions:
+- type: builtin
+  name: developer
+  timeout: 300
+  bundled: true
+prompt: "We are modernising the legacy endpoint: \"{{ legacy_endpoint }}\"\n  \n1. 'contract_design': Design a modern REST/GraphQL spec for this endpoint.\n2. 'type_definition': Generate strict TypeScript/Interface definitions for the new contract.\n3. 'refactoring': Refactor the existing code to match the new design and types.\n"

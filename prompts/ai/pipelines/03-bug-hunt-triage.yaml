@@ -1,0 +1,24 @@
+version: 1.0.0
+title: Bug Hunt Triage
+description: Analyse bug reports, reproduce issues, and create hotfixes.
+instructions: "Manage the lifecycle of a reported bug from analysis to fix.\n1. Identify the root cause of the issue using The Troubleshooter.\n2. Create a reliable reproduction case using The Tester.\n3. Create a hotfix using The Patch.\n4. Hunt for edge cases or side effects using The Gremlin.\n  \n"
+parameters:
+- key: bug_report
+  input_type: string
+  requirement: required
+  description: The raw text or link to the bug report to be triaged.
+sub_recipes:
+- name: root_cause_analysis
+  path: ./agents/34-the-troubleshooter.yaml
+- name: repro_creation
+  path: ./agents/15-the-tester.yaml
+- name: patch_creation
+  path: ./agents/117-the-patch.yaml
+- name: side_effect_check
+  path: ./agents/13-the-gremlin.yaml
+extensions:
+- type: builtin
+  name: developer
+  timeout: 300
+  bundled: true
+prompt: "We have a new bug report to process: \"{{ bug_report }}\"\n  \n1. 'root_cause_analysis': Analyse the report to determine the underlying technical cause.\n2. 'repro_creation': Create a definitive test case that reproduces the issue.\n3. 'patch_creation': Generate a hotfix or patch to resolve the issue.\n4. 'side_effect_check': Verify the patch doesn't introduce regressions or break edge cases.\n"

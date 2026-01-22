@@ -1,0 +1,38 @@
+version: "1.0.0"
+title: "Nginx Tuning"
+description: "Optimise Nginx for concurrency."
+instructions: |
+  Tune the web server for high traffic.
+  1. Analyse current traffic patterns and bottlenecks using Agent 80 (acting as web server expert).
+  2. Adjust worker processes and connection limits using Agent 19.
+  3. Verify the new throughput using Agent 20.
+    
+parameters:
+  - key: nginx_conf
+    input_type: string
+    requirement: required
+    description: "Path to the nginx.conf file."
+  - key: expected_connections
+    input_type: number
+    requirement: required
+    description: "Anticipated concurrent connections."
+
+sub_recipes:
+  # TODO: Switch to Agent 80 (The Web Head) - Missing.
+  - name: "agent_19_the_performance_tuner"
+    path: "./agents/19-the-performance-tuner.yaml"
+  - name: "agent_20_the_critical_roller"
+    path: "./agents/20-the-critical-roller.yaml"
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Tune {{ nginx_conf }} for {{ expected_connections }} connections.
+    
+  1. 'agent_19_the_performance_tuner': Calculate the optimal `worker_processes` and `worker_connections`.
+  2. 'agent_19_the_performance_tuner': Enable `epoll`, `sendfile`, and `tcp_nopush` in the configuration.
+  3. 'agent_20_the_critical_roller': Run `wrk` or `ab` to stress test the new configuration.

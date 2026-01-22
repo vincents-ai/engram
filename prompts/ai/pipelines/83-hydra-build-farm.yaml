@@ -1,0 +1,40 @@
+version: "1.0.0"
+title: "Hydra Build Farm"
+description: "Setup distributed Nix builds."
+instructions: |
+  Configure a continuous integration farm for Nix.
+  1. Define the jobsets and inputs using Agent 54.
+  2. Configure the build machines and SSH keys using Agent 53.
+  3. Verify that builds are distributing correctly using Agent 52.
+    
+parameters:
+  - key: hydra_url
+    input_type: string
+    requirement: required
+    description: "URL of the Hydra instance."
+  - key: project_repo
+    input_type: string
+    requirement: required
+    description: "Git URL of the project to build."
+
+sub_recipes:
+  # TODO: Switch to Agent 83 (The Hydrant) - Missing.
+  - name: "agent_54_the_snowflake"
+    path: "./agents/54-the-snowflake.yaml"
+  - name: "agent_53_the_hermit"
+    path: "./agents/53-the-hermit.yaml"
+  - name: "agent_52_the_iso"
+    path: "./agents/52-the-iso.yaml"
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Configure Hydra at {{ hydra_url }} for {{ project_repo }}.
+    
+  1. 'agent_54_the_snowflake': Create the `release.nix` or `flake.nix` that defines the build jobs.
+  2. 'agent_53_the_hermit': Set up the `nix-machines` configuration file for remote builders.
+  3. 'agent_52_the_iso': Trigger a test build to ensure the queue delegates jobs to the build farm.

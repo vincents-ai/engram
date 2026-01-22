@@ -1,0 +1,37 @@
+version: "1.0.0"
+title: "Dashboard Optimisation"
+description: "Remove vanity metrics and focus on actionable data."
+instructions: |
+  Refine analytics dashboards to show what matters.
+  1. Audit existing widgets for utility and relevance using Agent 29.
+  2. Redesign the layout for clarity using Agent 10.
+  3. Implement the updated queries using Agent 29.
+    
+parameters:
+  - key: dashboard_name
+    input_type: string
+    requirement: required
+    description: "Name of the dashboard to improve."
+  - key: user_role
+    input_type: string
+    requirement: required
+    description: "The primary user of this dashboard (e.g., Executive, Dev)."
+
+sub_recipes:
+  - name: "agent_29_the_visualisation_expert"
+    path: "./agents/29-the-visualisation-expert.yaml"
+  - name: "agent_10_the_perfect_10"
+    path: "./agents/10-the-perfect-10.yaml"
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Optimise the {{ dashboard_name }} dashboard for {{ user_role }}.
+    
+  1. 'agent_29_the_visualisation_expert': Identify "vanity metrics" that do not drive action and mark them for removal.
+  2. 'agent_10_the_perfect_10': Propose a cleaner layout that highlights the Key Performance Indicators (KPIs).
+  3. 'agent_29_the_visualisation_expert': Write the efficient SQL/PromQL queries to power the new widgets.

@@ -1,0 +1,38 @@
+version: "1.0.0"
+title: "Data Privacy Audit"
+description: "Map PII and ensure GDPR compliance."
+instructions: |
+  Locate and secure Personally Identifiable Information (PII).
+  1. Scan database schemas and logs for PII using Agent 22.
+  2. Verify encryption and access controls for sensitive data using Agent 07.
+  3. Generate a compliance report using Agent 22.
+    
+parameters:
+  - key: data_source
+    input_type: string
+    requirement: required
+    description: "Database or service to audit."
+  - key: regulation
+    input_type: string
+    requirement: required
+    description: "Standard to comply with (e.g., GDPR, CCPA)."
+
+sub_recipes:
+  - name: "agent_22_the_catch"
+    path: "./agents/22-the-catch.yaml"
+  - name: "agent_07_the_double_o"
+    path: "./agents/07-the-double-o.yaml"
+  # TODO: Switch to Agent 109 (The Forensic) for deep data scanning if needed.
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Audit {{ data_source }} for {{ regulation }} compliance.
+    
+  1. 'agent_22_the_catch': Identify fields in {{ data_source }} that constitute PII under {{ regulation }}.
+  2. 'agent_07_the_double_o': Check if these fields are encrypted at rest and if access logs are enabled.
+  3. 'agent_22_the_catch': Produce a gap analysis report listing required remediation steps.

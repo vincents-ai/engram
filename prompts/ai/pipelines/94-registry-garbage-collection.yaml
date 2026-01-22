@@ -1,0 +1,38 @@
+version: "1.0.0"
+title: "Registry Garbage Collection"
+description: "Clean up container registries."
+instructions: |
+  Free up storage space in the Docker registry.
+  1. List all repositories and tags using Agent 115 (acting as registry admin).
+  2. Identify old tags not deployed in production using Agent 47.
+  3. Delete the manifests and run garbage collection using Agent 47.
+    
+parameters:
+  - key: registry_url
+    input_type: string
+    requirement: required
+    description: "URL of the container registry."
+  - key: keep_last
+    input_type: number
+    requirement: required
+    description: "Number of recent tags to keep per repo."
+
+sub_recipes:
+  # TODO: Switch to Agent 115 (The Registry) - Missing.
+  - name: "agent_47_the_silent_assassin"
+    path: "./agents/47-the-silent-assassin.yaml"
+  - name: "agent_24_the_bauer"
+    path: "./agents/24-the-bauer.yaml"
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Clean {{ registry_url }}, keeping last {{ keep_last }} tags.
+    
+  1. 'agent_24_the_bauer': Fetch the list of images currently running in the cluster (to prevent deleting active images).
+  2. 'agent_47_the_silent_assassin': Mark tags older than the {{ keep_last }} limit for deletion.
+  3. 'agent_47_the_silent_assassin': Trigger the registry's GC command to reclaim disk space.

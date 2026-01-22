@@ -1,0 +1,50 @@
+version: 1.0.0
+title: K8s Cluster Upgrade
+description: Plan and execute a rolling upgrade of Kubernetes nodes.
+instructions: 'Perform a safe, rolling upgrade of a Kubernetes cluster to a newer version.
+
+
+  1. Review release notes and compatibility using The Architect.
+
+  2. Plan the upgrade strategy (Blue/Green or Rolling) using The DevOps Engineer.
+
+  3. Cordon and drain nodes one by one using The DevOps Engineer.
+
+  4. Upgrade control plane and worker nodes using The DevOps Engineer.
+
+  5. Validate cluster health using The Survivor.
+
+  '
+parameters:
+- key: target_version
+  input_type: string
+  requirement: required
+  description: The target Kubernetes version (e.g., 1.30.0).
+- key: cluster_name
+  input_type: string
+  requirement: required
+  description: The name of the cluster to upgrade.
+sub_recipes:
+- name: agent_03_the_architect
+  path: ./agents/03-the-architect.yaml
+- name: agent_45_the_devops_engineer
+  path: ./agents/45-the-devops-engineer.yaml
+- name: agent_28_the_survivor
+  path: ./agents/28-the-survivor.yaml
+extensions:
+- type: builtin
+  name: developer
+  timeout: 300
+  bundled: true
+prompt: 'Upgrade cluster {{ cluster_name }} to Kubernetes version {{ target_version }}.
+
+
+  1. ''agent_03_the_architect'': Check for deprecated APIs in {{ target_version }}. Ensure our manifests are compatible.
+
+  2. ''agent_45_the_devops_engineer'': Start the rolling upgrade. Upgrade the Control Plane first.
+
+  3. ''agent_45_the_devops_engineer'': Cycle the worker nodes: Cordon -> Drain -> Upgrade/Replace -> Uncordon.
+
+  4. ''agent_28_the_survivor'': Continuously monitor pod health and restarts. Halt the process if error rates spike.
+
+  '

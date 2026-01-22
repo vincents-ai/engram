@@ -1,0 +1,39 @@
+version: "1.0.0"
+title: "ML Inference Optimisation"
+description: "Convert and quantise ML models."
+instructions: |
+  Optimise machine learning models for edge devices.
+  1. Load the trained model (PyTorch/TensorFlow) using Agent 107 (acting as ML trainer).
+  2. Convert to ONNX or TensorRT format using Agent 108 (acting as inference expert).
+  3. Apply quantisation (FP16/INT8) to reduce size using Agent 108.
+    
+parameters:
+  - key: model_path
+    input_type: string
+    requirement: required
+    description: "Path to the source model."
+  - key: target_device
+    input_type: string
+    requirement: required
+    description: "Target hardware (e.g., Jetson, CPU)."
+
+sub_recipes:
+  # TODO: Switch to Agent 107 (The Trainer) - Missing.
+  # TODO: Switch to Agent 108 (The Inferencer) - Missing.
+  - name: "agent_29_the_visualisation_expert"
+    path: "./agents/29-the-visualisation-expert.yaml"
+  - name: "agent_73_the_prime"
+    path: "./agents/73-the-prime.yaml"
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Optimise {{ model_path }} for {{ target_device }}.
+    
+  1. 'agent_29_the_visualisation_expert': Inspect the model graph and layer operations.
+  2. 'agent_73_the_prime': Perform weight quantisation from Float32 to Int8 to speed up inference.
+  3. 'agent_73_the_prime': Benchmark the inference speed (FPS) before and after optimisation.

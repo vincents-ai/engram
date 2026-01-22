@@ -1,0 +1,36 @@
+version: "1.0.0"
+title: "DFM Check"
+description: "Verify PCB manufacturability."
+instructions: |
+  Ensure the PCB can be produced by the fab house.
+  1. Load the manufacturer's capabilities (DRC rules) using Agent 75.
+  2. Run the DFM analysis on the layout using Agent 75.
+  3. Generate a report of violations using Agent 75.
+    
+parameters:
+  - key: gerber_files
+    input_type: string
+    requirement: required
+    description: "Path to the Gerber ZIP file."
+  - key: fab_house
+    input_type: string
+    requirement: required
+    description: "Name of the manufacturer (e.g., JLCPCB, PCBWay)."
+
+sub_recipes:
+  - name: "agent_75_the_solder"
+    path: "./agents/75-the-solder.yaml"
+  # TODO: Switch to Agent 87 (The Gerber) for file parsing.
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Perform DFM check on {{ gerber_files }} for {{ fab_house }}.
+    
+  1. 'agent_75_the_solder': Import the constraints (min track, min hole, clearance) for {{ fab_house }}.
+  2. 'agent_75_the_solder': Analyse the copper layers and drill files for violations.
+  3. 'agent_75_the_solder': Output a "Go/No-Go" decision and a list of locations to fix.

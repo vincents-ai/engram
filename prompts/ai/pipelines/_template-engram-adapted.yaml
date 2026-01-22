@@ -1,0 +1,122 @@
+---
+# ENGRAM-ADAPTED PIPELINE TEMPLATE
+# This template adapts Goose pipelines for engram workflow
+
+version: "1.0.0"
+title: "[Original Title] (Engram-Adapted)"
+description: "[Original Description] - Adapted for engram workflow integration"
+instructions: |
+  You are the Pipeline Manager. Your job is to orchestrate work using engram.
+
+  ENGRAM WORKFLOW PATTERN:
+
+  1. CREATE WORKFLOW:
+     ```bash
+     WORKFLOW_ID=$(engram workflow create \
+       --title "[Workflow Name]" \
+       --description "[Description]" \
+       --json | jq -r '.id')
+     ```
+
+  2. ADD STATES:
+     ```bash
+     engram workflow add-state --name "stage1" --workflow-id $WORKFLOW_ID
+     engram workflow add-state --name "stage2" --workflow-id $WORKFLOW_ID
+     engram workflow add-state --name "stage3" --workflow-id $WORKFLOW_ID
+     ```
+
+  3. ADD TRANSITIONS:
+     ```bash
+     engram workflow add-transition \
+       --from "stage1" --to "stage2" \
+       --workflow-id $WORKFLOW_ID
+     engram workflow add-transition \
+       --from "stage2" --to "stage3" \
+       --workflow-id $WORKFLOW_ID
+     ```
+
+  4. START WORKFLOW:
+     ```bash
+     engram workflow start \
+       --agent pipeline-manager \
+       --entity-id [PARENT_TASK_ID] \
+       --entity-type task \
+       $WORKFLOW_ID
+     ```
+
+  5. TRACK PROGRESS:
+     ```bash
+     engram workflow status [INSTANCE_ID]
+     ```
+
+parameters:
+  properties:
+    feature_idea:
+      type: string
+      description: "The work to be done"
+    parent_task_id:
+      type: string
+      description: "The engram parent task ID"
+  required:
+    - feature_idea
+    - parent_task_id
+
+sub_recipes:
+- name: [stage1_name]
+  path: ./agents/[agent-name-engram-adapted].yaml
+  description: [Description]
+- name: [stage2_name]
+  path: ./agents/[agent-name-engram-adapted].yaml
+  description: [Description]
+
+prompt: |
+  Orchestrating: "{{ feature_idea }}"
+
+  PARENT TASK: {{parent_task_id}}
+
+  ENGRAM WORKFLOW STEPS:
+
+  STEP 1: Create workflow structure
+  ```bash
+  WORKFLOW_ID=$(engram workflow create \
+    --title "[Feature] Workflow" \
+    --description "Orchestrating: {{feature_idea}}" \
+    --json | jq -r '.id')
+
+  engram workflow add-state --name "planning" --workflow-id $WORKFLOW_ID
+  engram workflow add-state --name "execution" --workflow-id $WORKFLOW_ID
+  engram workflow add-state --name "verification" --workflow-id $WORKFLOW_ID
+  engram workflow add-state --name "complete" --workflow-id $WORKFLOW_ID
+
+  engram workflow add-transition --from "planning" --to "execution" --workflow-id $WORKFLOW_ID
+  engram workflow add-transition --from "execution" --to "verification" --workflow-id $WORKFLOW_ID
+  engram workflow add-transition --from "verification" --to "complete" --workflow-id $WORKFLOW_ID
+  ```
+
+  STEP 2: Start workflow
+  ```bash
+  engram workflow start \
+    --agent pipeline \
+    --entity-id {{parent_task_id}} \
+    --entity-type task \
+    $WORKFLOW_ID
+  ```
+
+  STEP 3: Execute stages (each calls engram-adapted agent)
+
+  STEP 4: Track completion
+  ```bash
+  engram workflow status [INSTANCE_ID]
+  ```
+
+  Return JSON:
+  ```json
+  {
+    "parent_task_id": "{{parent_task_id}}",
+    "workflow_id": "$WORKFLOW_ID",
+    "status": "workflow_created",
+    "stages": ["planning", "execution", "verification", "complete"]
+  }
+  ```
+
+extensions: []

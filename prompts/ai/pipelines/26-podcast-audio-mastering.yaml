@@ -1,0 +1,38 @@
+version: "1.0.0"
+title: "Podcast Audio Mastering"
+description: "Mix and master audio tracks for broadcast."
+instructions: |
+  Produce professional-quality audio for podcasts.
+  1. Balance levels and mix tracks using Agent 62.
+  2. Process audio for clarity and loudness using Agent 61.
+  3. Finalise the master for distribution using Agent 62.
+    
+parameters:
+  - key: input_files
+    input_type: string
+    requirement: required
+    description: "List of raw audio tracks."
+  - key: target_lufs
+    input_type: string
+    requirement: required
+    description: "Target loudness level (e.g., -16 LUFS)."
+
+sub_recipes:
+  - name: "agent_62_the_gain_stager"
+    path: "./agents/62-the-gain-stager.yaml"
+  - name: "agent_61_the_dsp"
+    path: "./agents/61-the-dsp.yaml"
+  # TODO: Switch to Agent 61 (The DSP) for noise reduction if needed.
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Master the podcast tracks: {{ input_files }} to {{ target_lufs }}.
+    
+  1. 'agent_62_the_gain_stager': Level the voices and apply compression to ensure consistent volume.
+  2. 'agent_61_the_dsp': Apply EQ and noise reduction to clean up the signal.
+  3. 'agent_62_the_gain_stager': Limit the final bus to hit the {{ target_lufs }} standard.

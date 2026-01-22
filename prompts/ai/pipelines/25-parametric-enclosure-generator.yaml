@@ -1,0 +1,41 @@
+version: "1.0.0"
+title: "Parametric Enclosure Generator"
+description: "Generate a 3D printable case using OpenSCAD."
+instructions: |
+  Create a customisable enclosure for electronics.
+  1. Define the geometric parameters and constraints using Agent 03.
+  2. Generate the logical structure for the case using Agent 01 (acting as designer).
+  3. Validate the design for assembly using Agent 75.
+    
+parameters:
+  - key: pcb_dimensions
+    input_type: string
+    requirement: required
+    description: "Dimensions of the PCB (e.g., 100x50x1.6mm)."
+  - key: wall_thickness
+    input_type: string
+    requirement: required
+    description: "Thickness of the enclosure walls (e.g., 2mm)."
+
+sub_recipes:
+  - name: "agent_03_the_architect"
+    path: "./agents/03-the-architect.yaml"
+  - name: "agent_01_the_one"
+    path: "./agents/01-the-one.yaml"
+  - name: "agent_75_the_solder"
+    path: "./agents/75-the-solder.yaml"
+  # TODO: Switch to Agent 151 (The Parametric) for OpenSCAD scripting.
+  # TODO: Switch to Agent 152 (The Boolean) for geometry operations.
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Design an enclosure for a {{ pcb_dimensions }} PCB with {{ wall_thickness }} walls.
+    
+  1. 'agent_03_the_architect': Define the parameters and structural requirements for the case.
+  2. 'agent_01_the_one': Create the high-level design concept and features (ports, vents).
+  3. 'agent_75_the_solder': Verify the design ensures the PCB fits and can be manufactured.

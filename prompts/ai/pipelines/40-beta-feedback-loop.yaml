@@ -1,0 +1,39 @@
+version: "1.0.0"
+title: "Beta Feedback Loop"
+description: "Collect and synthesise feedback from beta users."
+instructions: |
+  Turn beta user feedback into actionable product improvements.
+  1. Aggregate feedback from various channels using Agent 31.
+  2. Identify trends and high-impact issues using Agent 50.
+  3. Create tickets for the development team using Agent 05.
+    
+parameters:
+  - key: beta_program_id
+    input_type: string
+    requirement: required
+    description: "ID of the beta program."
+  - key: feedback_source
+    input_type: string
+    requirement: required
+    description: "Source of feedback (e.g., Discord, Email, Survey)."
+
+sub_recipes:
+  - name: "agent_31_the_flavour"
+    path: "./agents/31-the-flavour.yaml"
+  - name: "agent_50_the_closer"
+    path: "./agents/50-the-closer.yaml"
+  - name: "agent_05_the_deconstructor"
+    path: "./agents/05-the-deconstructor.yaml"
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Process beta feedback from {{ feedback_source }} for program {{ beta_program_id }}.
+    
+  1. 'agent_31_the_flavour': Sort raw feedback into "Bugs", "UX Issues", and "Feature Requests".
+  2. 'agent_50_the_closer': Synthesise the qualitative data to find the top 3 pain points.
+  3. 'agent_05_the_deconstructor': Break down the top 3 pain points into actionable user stories for Jira.

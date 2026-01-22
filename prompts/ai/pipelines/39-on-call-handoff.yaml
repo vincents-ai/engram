@@ -1,0 +1,39 @@
+version: "1.0.0"
+title: "On-Call Handoff"
+description: "Summarise incidents for the next shift."
+instructions: |
+  Ensure a smooth transition between on-call shifts.
+  1. Aggregate alerts and incidents from the shift using Agent 34.
+  2. Summarise the status of open issues using Agent 39.
+  3. Generate the handoff report using Agent 12 (acting as team lead).
+    
+parameters:
+  - key: shift_date
+    input_type: string
+    requirement: required
+    description: "Date of the shift ending."
+  - key: engineer_name
+    input_type: string
+    requirement: required
+    description: "Name of the engineer handing off."
+
+sub_recipes:
+  - name: "agent_34_the_troubleshooter"
+    path: "./agents/34-the-troubleshooter.yaml"
+  - name: "agent_39_the_39_steps"
+    path: "./agents/39-the-39-steps.yaml"
+  - name: "agent_12_the_dozen"
+    path: "./agents/12-the-dozen.yaml"
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Prepare handoff for {{ engineer_name }} on {{ shift_date }}.
+    
+  1. 'agent_34_the_troubleshooter': List all triggered alerts and their resolution status.
+  2. 'agent_39_the_39_steps': Outline any complex investigations that are still in progress.
+  3. 'agent_12_the_dozen': Compile the final report, highlighting items requiring immediate attention from the next shift.

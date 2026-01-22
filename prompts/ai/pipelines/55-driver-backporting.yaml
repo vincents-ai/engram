@@ -1,0 +1,38 @@
+version: "1.0.0"
+title: "Driver Backporting"
+description: "Port modern drivers to legacy kernels."
+instructions: |
+  Make new hardware work on old systems.
+  1. Analyse the API differences between kernel versions using Agent 16.
+  2. Modify the driver code to use legacy APIs using Agent 59.
+  3. Compile and test the backported module using Agent 59.
+    
+parameters:
+  - key: driver_source
+    input_type: string
+    requirement: required
+    description: "Source code of the modern driver."
+  - key: target_kernel
+    input_type: string
+    requirement: required
+    description: "Legacy kernel version (e.g., 4.14)."
+
+sub_recipes:
+  - name: "agent_16_the_16_bit"
+    path: "./agents/16-the-16-bit.yaml"
+  - name: "agent_59_the_driver"
+    path: "./agents/59-the-driver.yaml"
+  # TODO: Switch to Agent 82 (The Kernel) for header analysis.
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Backport {{ driver_source }} to kernel {{ target_kernel }}.
+    
+  1. 'agent_16_the_16_bit': Identify modern kernel functions in the driver that don't exist in {{ target_kernel }}.
+  2. 'agent_59_the_driver': Rewrite the function calls using the equivalent legacy APIs or shims.
+  3. 'agent_59_the_driver': Attempt to build against the {{ target_kernel }} headers and fix compilation errors.

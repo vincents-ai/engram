@@ -1,0 +1,40 @@
+version: "1.0.0"
+title: "Noise Floor Reduction"
+description: "Clean up audio using spectral subtraction."
+instructions: |
+  Remove unwanted background noise from audio recordings.
+  1. Analyse the noise profile from a silent section using Agent 61.
+  2. Apply spectral subtraction to the entire track using Agent 90 (acting as spectral analyst).
+  3. Verify that the voice signal remains preserved using Agent 62.
+    
+parameters:
+  - key: audio_file
+    input_type: string
+    requirement: required
+    description: "Path to the noisy audio file."
+  - key: noise_threshold
+    input_type: number
+    requirement: required
+    description: "Threshold in dB for noise gate (e.g., -60)."
+
+sub_recipes:
+  - name: "agent_61_the_dsp"
+    path: "./agents/61-the-dsp.yaml"
+  - name: "agent_90_the_spectrum"
+    path: "./agents/90-the-spectrum.yaml"
+  - name: "agent_62_the_gain_stager"
+    path: "./agents/62-the-gain-stager.yaml"
+  # TODO: Switch to Agent 90 (The Spectrum) for FFT processing.
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Reduce noise in {{ audio_file }} with threshold {{ noise_threshold }}dB.
+    
+  1. 'agent_90_the_spectrum': Capture the noise footprint from the first 5 seconds of silence.
+  2. 'agent_61_the_dsp': Subtract this footprint from the main signal to clean the audio.
+  3. 'agent_62_the_gain_stager': A/B test the result to ensure no "underwater" artifacts were introduced.

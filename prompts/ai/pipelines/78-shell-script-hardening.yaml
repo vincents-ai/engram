@@ -1,0 +1,38 @@
+version: "1.0.0"
+title: "Shell Script Hardening"
+description: "Lint and harden shell scripts."
+instructions: |
+  Make shell scripts robust and secure.
+  1. Lint the code for common errors using Agent 78 (acting as shell expert).
+  2. Refactor to use strict modes (`set -euo pipefail`) using Agent 16.
+  3. Verify POSIX compliance using Agent 78.
+    
+parameters:
+  - key: script_path
+    input_type: string
+    requirement: required
+    description: "Path to the .sh file."
+  - key: shell_type
+    input_type: string
+    requirement: required
+    description: "Target shell (Bash, Zsh, Sh)."
+
+sub_recipes:
+  # TODO: Switch to Agent 78 (The Shell) - Missing.
+  - name: "agent_16_the_16_bit"
+    path: "./agents/16-the-16-bit.yaml"
+  - name: "agent_47_the_silent_assassin"
+    path: "./agents/47-the-silent-assassin.yaml"
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Harden {{ script_path }} for {{ shell_type }}.
+    
+  1. 'agent_47_the_silent_assassin': Run `shellcheck` (simulated) to find unsafe quoting and logic errors.
+  2. 'agent_16_the_16_bit': Rewrite the script header to include `set -euo pipefail`.
+  3. 'agent_16_the_16_bit': Replace deprecated backticks with `$()` and ensure variables are quoted.

@@ -1,0 +1,38 @@
+version: "1.0.0"
+title: "Sudo Privilege Audit"
+description: "Audit and lock down sudo access."
+instructions: |
+  Review and restrict root privileges.
+  1. Scan the sudoers file for dangerous configurations using Agent 79 (acting as root admin).
+  2. Identify users with excessive permissions using Agent 07.
+  3. Generate a hardened configuration using Agent 79.
+    
+parameters:
+  - key: sudoers_path
+    input_type: string
+    requirement: required
+    description: "Path to the sudoers file."
+  - key: policy_strictness
+    input_type: string
+    requirement: required
+    description: "Level of restriction (Standard, High, Paranoia)."
+
+sub_recipes:
+  # TODO: Switch to Agent 79 (The Root) - Missing.
+  - name: "agent_07_the_double_o"
+    path: "./agents/07-the-double-o.yaml"
+  - name: "agent_47_the_silent_assassin"
+    path: "./agents/47-the-silent-assassin.yaml"
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Audit {{ sudoers_path }} with {{ policy_strictness }} strictness.
+    
+  1. 'agent_07_the_double_o': Check for `NOPASSWD` entries and wildcard commands.
+  2. 'agent_47_the_silent_assassin': Remove users who haven't logged in recently from the sudo group.
+  3. 'agent_07_the_double_o': Write a new configuration that explicitly lists allowed commands for each group.

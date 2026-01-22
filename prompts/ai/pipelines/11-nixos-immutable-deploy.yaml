@@ -1,0 +1,40 @@
+version: 1.0.0
+title: NixOS Immutable Deploy
+description: Create a reproducible NixOS configuration and ISO.
+instructions: 'Create a reproducible, immutable NixOS system configuration and build a deployable ISO image.
+
+
+  1. Define the system configuration and flake inputs using The DevOps Engineer (acting as The Snowflake).
+
+  2. Build the ISO image and verify closure size using The DevOps Engineer (acting as The Iso).
+
+  3. Validate the build reproducibility and lock dependencies using The Architect.
+
+  '
+parameters:
+- key: target_architecture
+  input_type: string
+  requirement: required
+  description: Target CPU architecture (e.g., x86_64-linux, aarch64-linux).
+- key: hostname
+  input_type: string
+  requirement: required
+  description: Hostname for the deployed system.
+sub_recipes:
+- name: agent_45_the_devops_engineer
+  path: ./agents/45-the-devops-engineer.yaml
+- name: agent_03_the_architect
+  path: ./agents/03-the-architect.yaml
+extensions:
+- type: builtin
+  name: developer
+  timeout: 300
+  bundled: true
+prompt: 'We need to build an immutable NixOS ISO for {{ hostname }} on {{ target_architecture }}.
+
+
+  1. ''agent_45_the_devops_engineer'': Draft the `flake.nix` and `configuration.nix`. Ensure all inputs are pinned. Build the ISO image using `nix build`.
+
+  2. ''agent_03_the_architect'': Review the configuration for structural soundness and ensure it adheres to immutable infrastructure principles. Verify that no mutable state is leaked outside of persisted volumes.
+
+  '

@@ -1,0 +1,44 @@
+version: 1.0.0
+title: Security Penetration Test
+description: Audit code for common vulnerabilities (OWASP).
+instructions: 'Perform a comprehensive security audit and penetration test on the application code and infrastructure.
+
+
+  1. Scan the codebase for static vulnerabilities using The Double-O.
+
+  2. Attempt to exploit identified weaknesses using The Critic (Red Teaming).
+
+  3. Verify dependencies for known CVEs using The Dependency Manager.
+
+  4. Generate a remediation report using The Double-O.
+
+  '
+parameters:
+- key: target_scope
+  input_type: string
+  requirement: required
+  description: Scope of the test (e.g., repository URL, specific module, or endpoint).
+sub_recipes:
+- name: agent_07_the_double_o
+  path: ./agents/07-the-double-o.yaml
+- name: agent_44_the_critic
+  path: ./agents/44-the-critic.yaml
+- name: agent_40_the_dependency_manager
+  path: ./agents/40-the-dependency-manager.yaml
+extensions:
+- type: builtin
+  name: developer
+  timeout: 300
+  bundled: true
+prompt: 'Conduct a security penetration test on {{ target_scope }}.
+
+
+  1. ''agent_07_the_double_o'': Run static analysis (SAST) and check against the OWASP Top 10.
+
+  2. ''agent_40_the_dependency_manager'': Audit the dependency tree for known vulnerabilities.
+
+  3. ''agent_44_the_critic'': Adopt an adversarial mindset. Try to find logical flaws that automated tools miss.
+
+  4. ''agent_07_the_double_o'': Compile the findings into a report with risk levels and fix recommendations.
+
+  '

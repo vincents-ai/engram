@@ -1,0 +1,37 @@
+version: "1.0.0"
+title: "Podcast Transcription"
+description: "Generate transcripts and SEO notes."
+instructions: |
+  Convert spoken audio to text for publishing.
+  1. Transcribe the audio file using Agent 26 (acting as speech-to-text).
+  2. Format the text and identify speakers using Agent 41.
+  3. Generate show notes and SEO keywords using Agent 26.
+    
+parameters:
+  - key: audio_file
+    input_type: string
+    requirement: required
+    description: "Path to the podcast episode."
+  - key: speakers
+    input_type: number
+    requirement: required
+    description: "Number of speakers."
+
+sub_recipes:
+  - name: "agent_26_the_alphabet"
+    path: "./agents/26-the-alphabet.yaml"
+  - name: "agent_41_the_technical_writer"
+    path: "./agents/41-the-technical-writer.yaml"
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Transcribe {{ audio_file }} ({{ speakers }} speakers).
+    
+  1. 'agent_26_the_alphabet': Run the speech-to-text model to generate a raw transcript.
+  2. 'agent_41_the_technical_writer': Clean up the text, correct punctuation, and label speakers.
+  3. 'agent_26_the_alphabet': Extract key topics and generate an SEO-friendly summary.

@@ -1,0 +1,39 @@
+version: "1.0.0"
+title: "3D Print Failure Recovery"
+description: "Diagnose adhesion issues and print failures."
+instructions: |
+  Analyse and fix failed 3D prints.
+  1. Inspect the failure mode and symptoms using Agent 13 (acting as failure detective).
+  2. Adjust print settings and parameters using Agent 15 (acting as tester).
+  3. Validate the fix with a test print logic using Agent 15.
+    
+parameters:
+  - key: material
+    input_type: string
+    requirement: required
+    description: "Filament material (e.g., PLA, PETG, ABS)."
+  - key: failure_description
+    input_type: string
+    requirement: required
+    description: "Description of the failure (e.g., layer shift, spaghetti)."
+
+sub_recipes:
+  - name: "agent_13_the_gremlin"
+    path: "./agents/13-the-gremlin.yaml"
+  - name: "agent_15_the_tester"
+    path: "./agents/15-the-tester.yaml"
+  # TODO: Switch to Agent 155 (The Spaghetti) for failure detection.
+  # TODO: Switch to Agent 160 (The Bed) for adhesion issues.
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Diagnose the {{ failure_description }} issue with {{ material }}.
+    
+  1. 'agent_13_the_gremlin': Analyse the symptoms of {{ failure_description }} and identify potential root causes.
+  2. 'agent_15_the_tester': Suggest modified print settings to mitigate the error.
+  3. 'agent_15_the_tester': Outline a test print procedure to confirm the fix.

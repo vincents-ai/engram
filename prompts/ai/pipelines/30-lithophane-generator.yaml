@@ -1,0 +1,40 @@
+version: "1.0.0"
+title: "Lithophane Generator"
+description: "Convert images to 3D printable heightmaps."
+instructions: |
+  Create lithophanes from standard images.
+  1. Process the input image for contrast and inversion using Agent 10.
+  2. Generate the heightmap and 3D mesh using Agent 73.
+  3. Validate the STL for printing using Agent 75.
+    
+parameters:
+  - key: image_path
+    input_type: string
+    requirement: required
+    description: "Path to the source image."
+  - key: shape
+    input_type: string
+    requirement: required
+    description: "Shape of the lithophane (e.g., flat, curved)."
+
+sub_recipes:
+  - name: "agent_10_the_perfect_10"
+    path: "./agents/10-the-perfect-10.yaml"
+  - name: "agent_73_the_prime"
+    path: "./agents/73-the-prime.yaml"
+  - name: "agent_75_the_solder"
+    path: "./agents/75-the-solder.yaml"
+  # TODO: Switch to Agent 164 (The Lithophane) for specialised generation.
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Create a {{ shape }} lithophane from {{ image_path }}.
+    
+  1. 'agent_10_the_perfect_10': Convert the image to greyscale and optimise contrast for backlighting.
+  2. 'agent_73_the_prime': Calculate the z-heights based on pixel luminosity and generate the mesh points.
+  3. 'agent_75_the_solder': Export the final STL and check for non-manifold geometry.

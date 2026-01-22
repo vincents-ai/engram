@@ -1,0 +1,39 @@
+version: "1.0.0"
+title: "Rust Rewrite Protocol"
+description: "Port legacy C++ to Safe Rust."
+instructions: |
+  Safely migrate unsafe code to Rust.
+  1. Analyse the C++ codebase and dependencies using Agent 16.
+  2. Rewrite the logic in idiomatic Rust using Agent 70.
+  3. Verify memory safety and performance using Agent 15.
+    
+parameters:
+  - key: cpp_source_path
+    input_type: string
+    requirement: required
+    description: "Path to the legacy C++ code."
+  - key: module_name
+    input_type: string
+    requirement: required
+    description: "Name of the new Rust crate."
+
+sub_recipes:
+  - name: "agent_16_the_16_bit"
+    path: "./agents/16-the-16-bit.yaml"
+  - name: "agent_70_the_rustacean"
+    path: "./agents/70-the-rustacean.yaml"
+  - name: "agent_15_the_tester"
+    path: "./agents/15-the-tester.yaml"
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Rewrite {{ cpp_source_path }} into Rust crate {{ module_name }}.
+    
+  1. 'agent_16_the_16_bit': Map the C++ classes and memory management patterns to Rust equivalents.
+  2. 'agent_70_the_rustacean': Implement the code, replacing raw pointers with References, Box, or Rc/Arc.
+  3. 'agent_15_the_tester': Run the test suite against both versions to ensure parity.

@@ -1,0 +1,111 @@
+version: "1.0.0"
+title: "New Feature Development Pipeline (Engram-Adapted)"
+description: "Engram workflow for taking a raw feature idea through strategy, architecture, and task breakdown."
+instructions: |
+  You are the Pipeline Manager. Your job is to orchestrate feature development using engram workflow.
+
+  ENGRAM WORKFLOW PATTERN:
+
+  1. Create engram workflow with stages
+  2. Create engram tasks for each stage
+  3. Call engram-adapted agents for each stage
+  4. Track progress via engram workflow status
+  5. Store all outputs in engram entities
+
+  AGENTS USED:
+  - 01-the-one (Engram-Adapted): Strategic alignment
+  - 03-the-architect (Engram-Adapted): Architecture design
+  - 05-the-deconstructor (Engram-Adapted): Task breakdown
+
+parameters:
+  properties:
+    feature_idea:
+      type: string
+      description: "The raw description of the feature to be developed"
+    parent_task_id:
+      type: string
+      description: "The engram parent task ID for this feature"
+  required:
+    - feature_idea
+    - parent_task_id
+
+sub_recipes:
+- name: strategy_check
+  path: ./agents/01-the-one.yaml
+  description: "Validates strategic alignment using engram"
+- name: architecture_design
+  path: ./agents/03-the-architect.yaml
+  description: "Creates high-level system design in engram"
+- name: task_breakdown
+  path: ./agents/05-the-deconstructor.yaml
+  description: "Breaks design into engram subtasks"
+
+prompt: |
+  Orchestrating new feature development: "{{ feature_idea }}"
+
+  PARENT TASK ID: {{parent_task_id}}
+
+  ENGRAM WORKFLOW STEPS:
+
+  STEP 1: Create workflow structure
+  ```bash
+  WORKFLOW_ID=$(engram workflow create \
+    --title "Feature: {{feature_idea}}" \
+    --description "Pipeline for developing {{feature_idea}}" \
+    --json | jq -r '.id')
+
+  engram workflow add-state --name "strategy" --workflow-id $WORKFLOW_ID
+  engram workflow add-state --name "architecture" --workflow-id $WORKFLOW_ID
+  engram workflow add-state --name "breakdown" --workflow-id $WORKFLOW_ID
+  engram workflow add-state --name "complete" --workflow-id $WORKFLOW_ID
+
+  engram workflow add-transition --from "strategy" --to "architecture" --workflow-id $WORKFLOW_ID
+  engram workflow add-transition --from "architecture" --to "breakdown" --workflow-id $WORKFLOW_ID
+  engram workflow add-transition --from "breakdown" --to "complete" --workflow-id $WORKFLOW_ID
+  ```
+
+  STEP 2: Start workflow
+  ```bash
+  engram workflow start \
+    --agent pipeline \
+    --entity-id {{parent_task_id}} \
+    --entity-type task \
+    $WORKFLOW_ID
+  ```
+
+  STEP 3: Execute stages (in order)
+
+  a) Strategy Check (01-the-one)
+  - Call with parent_task_id = {{parent_task_id}}
+  - Agent creates subtasks and stores delegation plan
+
+  b) Architecture Design (03-the-architect)
+  - Call with parent_task_id = architecture_subtask_id
+  - Agent stores architecture in engram context
+
+  c) Task Breakdown (05-the-deconstructor)
+  - Call with parent_task_id = breakdown_subtask_id
+  - Agent creates atomic subtasks in engram
+
+  STEP 4: Complete workflow
+  ```bash
+  engram workflow status [INSTANCE_ID]
+  engram task update {{parent_task_id}} --status done --outcome "Feature planned via pipeline"
+  ```
+
+  Return JSON:
+  ```json
+  {
+    "parent_task_id": "{{parent_task_id}}",
+    "workflow_id": "$WORKFLOW_ID",
+    "status": "pipeline_complete",
+    "outputs": {
+      "strategy": "[strategy_context_id]",
+      "architecture": "[architecture_context_id]",
+      "breakdown": "[breakdown_context_id]",
+      "subtasks": ["[subtask1_id]", "[subtask2_id]", ...]
+    }
+  }
+  ```
+
+extensions: []

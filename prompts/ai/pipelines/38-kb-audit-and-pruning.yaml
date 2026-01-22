@@ -1,0 +1,39 @@
+version: "1.0.0"
+title: "KB Audit and Pruning"
+description: "Identify and remove low-value documentation."
+instructions: |
+  Keep the knowledge base fresh and relevant.
+  1. Identify outdated or low-traffic articles using Agent 32.
+  2. Verify if the content is truly obsolete using Agent 41.
+  3. Archive or delete the content using Agent 47.
+    
+parameters:
+  - key: min_views
+    input_type: number
+    requirement: required
+    description: "Threshold for minimum views to keep an article."
+  - key: last_updated_days
+    input_type: number
+    requirement: required
+    description: "Days since last update to flag for review."
+
+sub_recipes:
+  - name: "agent_32_the_knowledge_base_curator"
+    path: "./agents/32-the-knowledge-base-curator.yaml"
+  - name: "agent_41_the_technical_writer"
+    path: "./agents/41-the-technical-writer.yaml"
+  - name: "agent_47_the_silent_assassin"
+    path: "./agents/47-the-silent-assassin.yaml"
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Audit KB articles with < {{ min_views }} views or older than {{ last_updated_days }} days.
+    
+  1. 'agent_32_the_knowledge_base_curator': List all articles meeting the criteria.
+  2. 'agent_41_the_technical_writer': Review the list and mark items as "Update", "Merge", or "Delete".
+  3. 'agent_47_the_silent_assassin': execute the "Delete" contracts, ensuring no broken links remain.

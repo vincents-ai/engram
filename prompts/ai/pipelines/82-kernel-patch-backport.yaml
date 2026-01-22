@@ -1,0 +1,39 @@
+version: "1.0.0"
+title: "Kernel Patch Backport"
+description: "Apply security patch to older kernel."
+instructions: |
+  Fix vulnerabilities in legacy kernels.
+  1. Fetch the upstream patch for the CVE using Agent 13 (acting as vulnerability researcher).
+  2. Attempt to apply the patch to the source tree using Agent 59.
+  3. Resolve conflicts and rebuild using Agent 59.
+    
+parameters:
+  - key: cve_id
+    input_type: string
+    requirement: required
+    description: "The CVE identifier (e.g., CVE-2024-1234)."
+  - key: kernel_version
+    input_type: string
+    requirement: required
+    description: "The target legacy kernel version."
+
+sub_recipes:
+  # TODO: Switch to Agent 82 (The Kernel) - Missing.
+  # TODO: Switch to Agent 117 (The Patch) - Missing.
+  - name: "agent_13_the_gremlin"
+    path: "./agents/13-the-gremlin.yaml"
+  - name: "agent_59_the_driver"
+    path: "./agents/59-the-driver.yaml"
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Backport {{ cve_id }} to kernel {{ kernel_version }}.
+    
+  1. 'agent_13_the_gremlin': Download the fix for {{ cve_id }} from the mainline kernel git.
+  2. 'agent_59_the_driver': Run `patch -p1` and identify any rejected hunks.
+  3. 'agent_59_the_driver': Manually resolve the conflicts by understanding the code drift.

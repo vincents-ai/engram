@@ -1,0 +1,22 @@
+version: 1.0.0
+title: Database Migration
+description: Design schema migration and ETL scripts.
+instructions: "Plan and execute a safe database migration.\n1. Design the new schema changes using The Database Specialist.\n2. Create the raw data ingestion/transform logic using The Enigma.\n3. Validate the migration plan using The Double-O (Security/Safety).\n  \n"
+parameters:
+- key: migration_goal
+  input_type: string
+  requirement: required
+  description: The objective of the database change (e.g., 'Split Users table', 'Add 2FA columns').
+sub_recipes:
+- name: schema_design
+  path: ./agents/21-the-database-specialist.yaml
+- name: etl_scripting
+  path: ./agents/23-the-enigma.yaml
+- name: safety_check
+  path: ./agents/07-the-double-o.yaml
+extensions:
+- type: builtin
+  name: developer
+  timeout: 300
+  bundled: true
+prompt: "We need to perform a database migration: \"{{ migration_goal }}\"\n  \n1. 'schema_design': Design the optimised schema changes required.\n2. 'etl_scripting': Write the scripts to migrate and transform existing data.\n3. 'safety_check': Audit the migration plan for data loss risks or security vulnerabilities.\n"

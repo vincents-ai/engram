@@ -1,0 +1,37 @@
+version: "1.0.0"
+title: "Load Balance Shift"
+description: "Adjust traffic weights during high load."
+instructions: |
+  Dynamically manage traffic distribution.
+  1. Monitor server health and latency using Agent 69.
+  2. Adjust the weight of backend servers using Agent 69.
+  3. Verify traffic flow changes using Agent 19.
+    
+parameters:
+  - key: cluster_id
+    input_type: string
+    requirement: required
+    description: "ID of the load balancer cluster."
+  - key: strategy
+    input_type: string
+    requirement: required
+    description: "Balancing strategy (e.g., Round Robin, Least Connections)."
+
+sub_recipes:
+  - name: "agent_69_the_balancer"
+    path: "./agents/69-the-balancer.yaml"
+  - name: "agent_19_the_performance_tuner"
+    path: "./agents/19-the-performance-tuner.yaml"
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Apply {{ strategy }} to cluster {{ cluster_id }}.
+    
+  1. 'agent_69_the_balancer': Check the current load and health status of all nodes.
+  2. 'agent_69_the_balancer': Update the configuration to implement the {{ strategy }} algorithm.
+  3. 'agent_19_the_performance_tuner': Simulate traffic to confirm the new distribution logic works.

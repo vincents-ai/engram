@@ -1,0 +1,41 @@
+version: "1.0.0"
+title: "Mesh Network Setup"
+description: "Setup WireGuard mesh network."
+instructions: |
+  Create a secure peer-to-peer network mesh.
+  1. Generate WireGuard keypairs for all nodes using Agent 07.
+  2. Create the mesh configuration topology using Agent 03.
+  3. Deploy and verify connectivity using Agent 19 (acting as network tuner).
+    
+parameters:
+  - key: nodes
+    input_type: number
+    requirement: required
+    description: "Number of nodes in the mesh."
+  - key: subnet
+    input_type: string
+    requirement: required
+    description: "Internal IP subnet (e.g., 10.0.0.0/24)."
+
+sub_recipes:
+  # TODO: Switch to Agent 81 (The Proxy) - Missing.
+  # TODO: Switch to Agent 102 (The Mesh) - Missing.
+  - name: "agent_07_the_double_o"
+    path: "./agents/07-the-double-o.yaml"
+  - name: "agent_03_the_architect"
+    path: "./agents/03-the-architect.yaml"
+  - name: "agent_19_the_performance_tuner"
+    path: "./agents/19-the-performance-tuner.yaml"
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Setup a {{ nodes }}-node WireGuard mesh on {{ subnet }}.
+    
+  1. 'agent_07_the_double_o': Generate private/public keys for all {{ nodes }} participants.
+  2. 'agent_03_the_architect': Design the `wg0.conf` for each peer to ensure full mesh connectivity.
+  3. 'agent_19_the_performance_tuner': Verify that the MTU is correctly set to avoid fragmentation.

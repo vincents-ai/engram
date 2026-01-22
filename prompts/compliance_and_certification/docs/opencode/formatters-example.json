@@ -1,0 +1,104 @@
+{
+	"$schema": "https://opencode.ai/config.json",
+	"lsp": {
+		"typescript": {
+			"command": ["typescript-language-server", "--stdio"],
+			"extensions": [".ts", ".tsx", ".js", ".jsx"],
+			"initialization": {
+				"preferences": {
+					"includeInlayParameterNameHints": "all",
+					"includeInlayVariableTypeHints": true,
+					"includeInlayFunctionParameterTypeHints": true
+				}
+			}
+		},
+		"python": {
+			"command": ["pylsp"],
+			"extensions": [".py"],
+			"initialization": {
+				"settings": {
+					"pylsp": {
+						"plugins": {
+							"pycodestyle": {"enabled": true},
+							"pyflakes": {"enabled": true},
+							"pylint": {"enabled": true}
+						}
+					}
+				}
+			}
+		},
+		"go": {
+			"command": ["gopls"],
+			"extensions": [".go"],
+			"initialization": {
+				"settings": {
+					"gopls": {
+						"analyses": {
+							"unusedparams": true,
+							"shadow": true
+						},
+						"staticcheck": true
+					}
+				}
+			}
+		},
+		"rust": {
+			"command": ["rust-analyzer", "--stdio"],
+			"extensions": [".rs"],
+			"initialization": {
+				"settings": {
+					"rust-analyzer": {
+						"checkOnSave": {
+							"command": "clippy"
+						}
+					}
+				}
+			}
+		},
+		"nix": {
+			"command": ["nil"],
+			"extensions": [".nix"],
+			"initialization": {
+				"settings": {
+					"nil": {
+						"formatting": {
+							"command": ["nixpkgs-fmt"]
+						}
+					}
+				}
+			}
+		}
+	},
+	"formatter": {
+		"prettier": {
+			"disabled": false,
+			"command": ["npx", "prettier", "--write", "$FILE"],
+			"extensions": [".js", ".ts", ".jsx", ".tsx", ".json", ".md", ".css", ".html"]
+		},
+		"black": {
+			"disabled": false,
+			"command": ["black", "$FILE"],
+			"extensions": [".py"]
+		},
+		"gofmt": {
+			"disabled": false,
+			"command": ["gofmt", "-w", "$FILE"],
+			"extensions": [".go"]
+		},
+		"rustfmt": {
+			"disabled": false,
+			"command": ["rustfmt", "$FILE"],
+			"extensions": [".rs"]
+		},
+		"clang-format": {
+			"disabled": false,
+			"command": ["clang-format", "-i", "$FILE"],
+			"extensions": [".c", ".cpp", ".h", ".hpp"]
+		},
+		"nixpkgs-fmt": {
+			"disabled": false,
+			"command": ["nixpkgs-fmt", "$FILE"],
+			"extensions": [".nix"]
+		}
+	}
+}

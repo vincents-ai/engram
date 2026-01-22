@@ -1,0 +1,39 @@
+version: "1.0.0"
+title: "Docs as Code Pipeline"
+description: "Lint, build, and publish documentation."
+instructions: |
+  Treat documentation like software with a robust CI pipeline.
+  1. Write and structure the documentation using Agent 41.
+  2. Optimise the content for SEO and discoverability using Agent 26.
+  3. Verify strict type definitions in code examples using Agent 72.
+    
+parameters:
+  - key: doc_path
+    input_type: string
+    requirement: required
+    description: "Path to the documentation directory."
+  - key: target_audience
+    input_type: string
+    requirement: required
+    description: "Primary reader persona (e.g., API Consumer, End User)."
+
+sub_recipes:
+  - name: "agent_41_the_technical_writer"
+    path: "./agents/41-the-technical-writer.yaml"
+  - name: "agent_26_the_alphabet"
+    path: "./agents/26-the-alphabet.yaml"
+  - name: "agent_72_the_type_safe"
+    path: "./agents/72-the-type-safe.yaml"
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Process documentation at {{ doc_path }} for {{ target_audience }}.
+    
+  1. 'agent_41_the_technical_writer': Lint the markdown files and ensure clarity and consistency.
+  2. 'agent_72_the_type_safe': Validate that all code snippets in the docs are syntactically correct and typed.
+  3. 'agent_26_the_alphabet': Audit the headers and metadata for maximum search engine visibility.

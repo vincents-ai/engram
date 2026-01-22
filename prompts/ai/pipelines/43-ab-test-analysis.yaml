@@ -1,0 +1,39 @@
+version: "1.0.0"
+title: "A/B Test Analysis"
+description: "Analyse experiment results and decide rollout."
+instructions: |
+  Statistically evaluate the results of an A/B test.
+  1. Calculate the statistical significance of the results using Agent 20.
+  2. Visualise the performance difference using Agent 29.
+  3. Make a rollout decision based on the data using Agent 08.
+    
+parameters:
+  - key: experiment_id
+    input_type: string
+    requirement: required
+    description: "ID of the experiment."
+  - key: metric
+    input_type: string
+    requirement: required
+    description: "Primary metric to evaluate (e.g., Conversion Rate)."
+
+sub_recipes:
+  - name: "agent_20_the_critical_roller"
+    path: "./agents/20-the-critical-roller.yaml"
+  - name: "agent_29_the_visualisation_expert"
+    path: "./agents/29-the-visualisation-expert.yaml"
+  - name: "agent_08_the_magic_8_ball"
+    path: "./agents/08-the-magic-8-ball.yaml"
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Analyse experiment {{ experiment_id }} for {{ metric }}.
+    
+  1. 'agent_20_the_critical_roller': Calculate the p-value and confidence interval for the {{ metric }} delta.
+  2. 'agent_29_the_visualisation_expert': Generate a chart showing the performance of Control vs. Variant.
+  3. 'agent_08_the_magic_8_ball': Output the final decision: "Rollout Variant", "Keep Control", or "More Data Needed".

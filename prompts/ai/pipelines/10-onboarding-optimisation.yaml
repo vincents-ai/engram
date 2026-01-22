@@ -1,0 +1,22 @@
+version: 1.0.0
+title: Onboarding Optimisation
+description: Redesign onboarding to reduce churn.
+instructions: "Optimise the user's first experience to improve retention.\n1. Analyse the current drop-off points using The Behaviourist.\n2. Design a smoother, multi-step flow using The 39 Steps.\n3. Refine the copy and instructions using The Primer.\n  \n"
+parameters:
+- key: current_flow
+  input_type: string
+  requirement: required
+  description: Description or path to the current onboarding process.
+sub_recipes:
+- name: behaviour_analysis
+  path: ./agents/30-the-behaviourist.yaml
+- name: flow_design
+  path: ./agents/39-the-39-steps.yaml
+- name: content_refinement
+  path: ./agents/101-the-primer.yaml
+extensions:
+- type: builtin
+  name: developer
+  timeout: 300
+  bundled: true
+prompt: "We need to optimise the onboarding flow: \"{{ current_flow }}\"\n  \n1. 'behaviour_analysis': Identify where users are churning and why.\n2. 'flow_design': Create a new, step-by-step onboarding journey to address these issues.\n3. 'content_refinement': Write clear, encouraging instructions for the new flow.\n"

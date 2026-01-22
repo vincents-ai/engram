@@ -1,0 +1,50 @@
+version: 1.0.0
+title: VPN Proxy Setup
+description: Configure WireGuard or Nginx Reverse Proxy.
+instructions: 'Establish secure remote access or traffic routing using VPNs or Reverse Proxies.
+
+
+  1. Design the network topology and access controls using The Architect (acting as The Proxy).
+
+  2. Generate WireGuard keys or SSL certificates using The Double-O.
+
+  3. Configure the interface (WireGuard) or server block (Nginx) using The DevOps Engineer.
+
+  4. Verify connectivity and leakage using The Tester (acting as The Sniffer).
+
+  '
+parameters:
+- key: service_type
+  input_type: string
+  requirement: required
+  description: 'Type of setup: ''wireguard'' or ''nginx''.'
+- key: endpoint
+  input_type: string
+  requirement: required
+  description: Public endpoint address (IP or Domain).
+sub_recipes:
+- name: agent_03_the_architect
+  path: ./agents/03-the-architect.yaml
+- name: agent_07_the_double_o
+  path: ./agents/07-the-double-o.yaml
+- name: agent_45_the_devops_engineer
+  path: ./agents/45-the-devops-engineer.yaml
+- name: agent_15_the_tester
+  path: ./agents/15-the-tester.yaml
+extensions:
+- type: builtin
+  name: developer
+  timeout: 300
+  bundled: true
+prompt: 'Set up a {{ service_type }} at {{ endpoint }}.
+
+
+  1. ''agent_03_the_architect'': Define the allowed IPs and routing table.
+
+  2. ''agent_07_the_double_o'': If WireGuard: Generate private/public key pairs. If Nginx: Generate Let''s Encrypt certs.
+
+  3. ''agent_45_the_devops_engineer'': Apply the configuration to the server. Ensure the firewall allows the specific UDP/TCP ports.
+
+  4. ''agent_15_the_tester'': Test the connection from an external network. Verify that traffic is correctly encrypted and routed.
+
+  '

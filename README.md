@@ -88,6 +88,62 @@ engram adr create --title "Database choice" --number 001
 # Workflows
 engram workflow create --title "Development pipeline"
 
+### Skills Integration
+engram ships with specialized skills for common workflows:
+```bash
+# Use skills from ./engram/skills/
+cat ./engram/skills/meta/use-engram-memory.md      # Core memory skill
+cat ./engram/skills/meta/delegate-to-agents.md     # Agent delegation
+cat ./engram/skills/workflow/plan-feature.md       # Feature planning
+cat ./engram/skills/compliance/check-compliance.md # Compliance checking
+```
+
+### Prompts Library
+engram includes a comprehensive prompt library for agent orchestration:
+```bash
+# Agent prompts (170+)
+ls ./engram/prompts/agents/
+
+# Pipeline templates (100+)
+ls ./engram/prompts/ai/pipelines/
+
+# Compliance prompts (250+)
+ls ./engram/prompts/compliance_and_certification/prompts/audit_checkpoints/
+```
+
+### Engram-Adapted Prompts
+Core agents and pipelines are adapted for engram integration:
+- `01-the-one.yaml` - Orchestrator with engram task creation
+- `03-the-architect.yaml` - Architecture with engram context storage
+- `05-the-deconstructor.yaml` - Task breakdown with engram subtasks
+- `01-greenfield-feature-launch.yaml` - Engram workflow orchestration
+
+All adapted prompts include:
+- `task_id` parameter for engram tracking
+- `engram reasoning create` for progress storage
+- `engram context create` for result storage
+- `engram relationship create` for entity linking
+- JSON response with engram entity IDs
+
+### Using Skills and Prompts
+```bash
+# Check available skills
+ls ./engram/skills/
+
+# Use a skill
+cat ./engram/skills/meta/use-engram-memory.md
+
+# Use an adapted agent prompt
+cat ./engram/prompts/agents/01-the-one.yaml
+
+# Use a pipeline template
+cat ./engram/prompts/ai/pipelines/01-greenfield-feature-launch.yaml
+```
+
+### Documentation
+- [Using Engram](docs/engram/skills/using-engram.md) - Core workflow protocol
+- [Prompt Engineering Guide](docs/engram/skills/prompt_guide.md) - Prompt construction patterns
+
 # Relationship Management
 engram relationship create --source-id task1 --source-type task --target-id task2 --target-type task --relationship-type depends-on --agent alice
 engram relationship list --agent alice

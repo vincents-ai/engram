@@ -1,0 +1,37 @@
+version: "1.0.0"
+title: "Pinout Verification"
+description: "Verify schematic symbols against datasheets."
+instructions: |
+  Ensure hardware design accuracy before manufacturing.
+  1. Extract pin definitions from the datasheet using Agent 74.
+  2. Compare against the schematic symbol using Agent 56.
+  3. Flag any discrepancies using Agent 74.
+    
+parameters:
+  - key: component_part_number
+    input_type: string
+    requirement: required
+    description: "Part number of the component (e.g., STM32F405)."
+  - key: schematic_symbol_name
+    input_type: string
+    requirement: required
+    description: "Name of the symbol in the EDA tool."
+
+sub_recipes:
+  - name: "agent_74_the_pinout"
+    path: "./agents/74-the-pinout.yaml"
+  - name: "agent_56_the_schematic"
+    path: "./agents/56-the-schematic.yaml"
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Verify pinout for {{ component_part_number }} (Symbol: {{ schematic_symbol_name }}).
+    
+  1. 'agent_74_the_pinout': Parse the pin table from the PDF datasheet of {{ component_part_number }}.
+  2. 'agent_56_the_schematic': Export the netlist/pin list from the schematic symbol.
+  3. 'agent_74_the_pinout': Cross-reference every pin number and name, reporting any mismatches.

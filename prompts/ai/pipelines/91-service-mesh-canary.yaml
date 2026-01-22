@@ -1,0 +1,38 @@
+version: "1.0.0"
+title: "Service Mesh Canary"
+description: "Orchestrate traffic shifting for new deploy."
+instructions: |
+  Safely release a new version to a subset of users.
+  1. Deploy the new version alongside the stable one using Agent 102 (acting as mesh operator).
+  2. Configure the traffic split (e.g., 5% to canary) using Agent 69.
+  3. Monitor error rates and automatically rollback if needed using Agent 69.
+    
+parameters:
+  - key: service_name
+    input_type: string
+    requirement: required
+    description: "Name of the service to deploy."
+  - key: canary_percent
+    input_type: number
+    requirement: required
+    description: "Percentage of traffic to route to new version."
+
+sub_recipes:
+  # TODO: Switch to Agent 102 (The Mesh) - Missing.
+  - name: "agent_69_the_balancer"
+    path: "./agents/69-the-balancer.yaml"
+  - name: "agent_03_the_architect"
+    path: "./agents/03-the-architect.yaml"
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Deploy {{ service_name }} canary with {{ canary_percent }}% traffic.
+    
+  1. 'agent_03_the_architect': Update the Kubernetes manifest to include the canary deployment.
+  2. 'agent_69_the_balancer': Update the VirtualService or Ingress to split traffic {{ canary_percent }}/{{ 100 - canary_percent }}.
+  3. 'agent_69_the_balancer': Watch the HTTP 500 error rate on the canary subset.

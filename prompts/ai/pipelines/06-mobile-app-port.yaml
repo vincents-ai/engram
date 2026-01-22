@@ -1,0 +1,22 @@
+version: 1.0.0
+title: Mobile App Port
+description: Adapt web components for React Native.
+instructions: "Port existing web functionality to a mobile context.\n1. Identify mobile constraints and touch targets using The Mobile Specialist.\n2. Adapt the web component logic using The Type-Safe agent.\n3. Validate accessibility on mobile using The Accessibility Advocate.\n  \n"
+parameters:
+- key: web_component
+  input_type: string
+  requirement: required
+  description: The web component or feature to be ported to mobile.
+sub_recipes:
+- name: mobile_constraints
+  path: ./agents/35-the-mobile-specialist.yaml
+- name: code_port
+  path: ./agents/72-the-type-safe.yaml
+- name: accessibility_check
+  path: ./agents/38-the-accessibility-advocate.yaml
+extensions:
+- type: builtin
+  name: developer
+  timeout: 300
+  bundled: true
+prompt: "We are porting this web component to mobile: \"{{ web_component }}\"\n  \n1. 'mobile_constraints': Outline the specific constraints (iOS/Android) and touch targets needed.\n2. 'code_port': Rewrite the component logic for React Native, ensuring type safety.\n3. 'accessibility_check': Verify the new mobile component meets WCAG and platform accessibility standards.\n"

@@ -1,0 +1,22 @@
+version: 1.0.0
+title: Accessibility Audit
+description: Scan code for WCAG violations and fix them.
+instructions: "Audit and improve the accessibility of the codebase.\n1. Identify violations and compliance gaps using The Accessibility Advocate.\n2. Implement fixes for identified issues using The Perfect 10 (Design) or The Type-Safe (Code).\n3. Verify the fixes using The Tester.\n  \n"
+parameters:
+- key: scope_path
+  input_type: string
+  requirement: required
+  description: The file path or URL to audit for accessibility issues.
+sub_recipes:
+- name: audit
+  path: ./agents/38-the-accessibility-advocate.yaml
+- name: fix_implementation
+  path: ./agents/10-the-perfect-10.yaml
+- name: verification
+  path: ./agents/15-the-tester.yaml
+extensions:
+- type: builtin
+  name: developer
+  timeout: 300
+  bundled: true
+prompt: "Perform an accessibility audit on: \"{{ scope_path }}\"\n  \n1. 'audit': Scan for WCAG violations and report specific issues (contrast, aria-labels, etc.).\n2. 'fix_implementation': Update the code/design to resolve these violations.\n3. 'verification': Verify that the fixes work and do not break existing functionality.\n"

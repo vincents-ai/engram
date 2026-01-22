@@ -1,0 +1,40 @@
+version: "1.0.0"
+title: "DDoS Mitigation"
+description: "Filter malicious traffic at edge."
+instructions: |
+  Protect infrastructure from denial of service.
+  1. Analyse traffic patterns to identify the attack signature using Agent 13 (acting as traffic analyst).
+  2. Configure firewall rules (iptables/nftables) using Agent 07.
+  3. Implement rate limiting using Agent 03.
+    
+parameters:
+  - key: interface
+    input_type: string
+    requirement: required
+    description: "Network interface to protect (e.g., eth0)."
+  - key: attack_type
+    input_type: string
+    requirement: required
+    description: "Type of DDoS (e.g., UDP Flood, SYN Flood)."
+
+sub_recipes:
+  # TODO: Switch to Agent 86 (The Bouncer) - Missing.
+  - name: "agent_13_the_gremlin"
+    path: "./agents/13-the-gremlin.yaml"
+  - name: "agent_07_the_double_o"
+    path: "./agents/07-the-double-o.yaml"
+  - name: "agent_03_the_architect"
+    path: "./agents/03-the-architect.yaml"
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Mitigate {{ attack_type }} on {{ interface }}.
+    
+  1. 'agent_13_the_gremlin': Capture a sample of traffic to isolate the malicious IP ranges or payloads.
+  2. 'agent_07_the_double_o': Apply a drop rule for the identified signature in `nftables`.
+  3. 'agent_03_the_architect': Update the Nginx or HAProxy config to limit requests per second.

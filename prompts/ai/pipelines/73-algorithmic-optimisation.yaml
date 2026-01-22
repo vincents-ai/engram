@@ -1,0 +1,37 @@
+version: "1.0.0"
+title: "Algorithmic Optimisation"
+description: "Optimise code complexity."
+instructions: |
+  Improve the Big O performance of critical functions.
+  1. Analyse the current time and space complexity using Agent 73.
+  2. Benchmark the existing solution using Agent 19.
+  3. Implement a more efficient algorithm using Agent 73.
+    
+parameters:
+  - key: function_name
+    input_type: string
+    requirement: required
+    description: "The function to optimise."
+  - key: file_path
+    input_type: string
+    requirement: required
+    description: "Path to the source file."
+
+sub_recipes:
+  - name: "agent_73_the_prime"
+    path: "./agents/73-the-prime.yaml"
+  - name: "agent_19_the_performance_tuner"
+    path: "./agents/19-the-performance-tuner.yaml"
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Optimise {{ function_name }} in {{ file_path }}.
+    
+  1. 'agent_73_the_prime': Determine the Big O complexity of the current implementation.
+  2. 'agent_19_the_performance_tuner': Create a benchmark test with large inputs to establish a baseline.
+  3. 'agent_73_the_prime': Rewrite {{ function_name }} using a more optimal data structure or algorithm.

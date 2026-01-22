@@ -1,0 +1,38 @@
+version: "1.0.0"
+title: "Network Traffic Analysis"
+description: "Capture and analyse packets."
+instructions: |
+  Inspect network traffic for anomalies.
+  1. Capture packets using Agent 110 (acting as sniffer).
+  2. Filter by protocol and visualise flows using Agent 110.
+  3. Identify suspicious patterns using Agent 07.
+    
+parameters:
+  - key: interface
+    input_type: string
+    requirement: required
+    description: "Network interface to sniff."
+  - key: capture_filter
+    input_type: string
+    requirement: required
+    description: "BPF filter (e.g., 'port 80')."
+
+sub_recipes:
+  # TODO: Switch to Agent 110 (The Sniffer) - Missing.
+  - name: "agent_07_the_double_o"
+    path: "./agents/07-the-double-o.yaml"
+  - name: "agent_13_the_gremlin"
+    path: "./agents/13-the-gremlin.yaml"
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Capture and analyse traffic on {{ interface }} (Filter: {{ capture_filter }}).
+    
+  1. 'agent_13_the_gremlin': Run `tcpdump` or `tshark` to capture the pcap file.
+  2. 'agent_07_the_double_o': Analyse the pcap for cleartext credentials or known malware signatures.
+  3. 'agent_07_the_double_o': Summarise the top talkers and connection durations.

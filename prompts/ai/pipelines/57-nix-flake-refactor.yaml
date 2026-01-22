@@ -1,0 +1,38 @@
+version: "1.0.0"
+title: "Nix Flake Refactor"
+description: "Break monolithic flakes into reusable modules."
+instructions: |
+  Clean up and modularise Nix configuration.
+  1. Analyse the current flake structure for duplication using Agent 54.
+  2. Extract reusable components into separate files using Agent 54.
+  3. Verify that the output derivation remains identical using Agent 53.
+    
+parameters:
+  - key: flake_path
+    input_type: string
+    requirement: required
+    description: "Path to the flake.nix file."
+  - key: output_structure
+    input_type: string
+    requirement: required
+    description: "Desired module structure (e.g., ./modules, ./overlay)."
+
+sub_recipes:
+  - name: "agent_54_the_snowflake"
+    path: "./agents/54-the-snowflake.yaml"
+  - name: "agent_53_the_hermit"
+    path: "./agents/53-the-hermit.yaml"
+  # TODO: Switch to Agent 84 (The Derivation) for package extraction.
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Refactor {{ flake_path }} into {{ output_structure }}.
+    
+  1. 'agent_54_the_snowflake': Identify repeated patterns and inline modules in the flake.
+  2. 'agent_54_the_snowflake': Move these blocks into dedicated files in {{ output_structure }} and import them.
+  3. 'agent_53_the_hermit': Run `nix build` before and after to ensure the hash is unchanged.

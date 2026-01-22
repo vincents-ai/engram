@@ -1,0 +1,36 @@
+version: "1.0.0"
+title: "Git Rebase Rescue"
+description: "Clean up divergent git history."
+instructions: |
+  Fix a messy git branch history.
+  1. Analyse the commit graph using Agent 47.
+  2. Perform an interactive rebase to squash and fixup using Agent 47.
+  3. Force push the clean history using Agent 47.
+    
+parameters:
+  - key: branch_name
+    input_type: string
+    requirement: required
+    description: "The branch to clean up."
+  - key: base_branch
+    input_type: string
+    requirement: required
+    description: "The upstream branch (e.g., main)."
+
+sub_recipes:
+  # TODO: Switch to Agent 88 (The Flux) - Missing.
+  - name: "agent_47_the_silent_assassin"
+    path: "./agents/47-the-silent-assassin.yaml"
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Rebase {{ branch_name }} onto {{ base_branch }}.
+    
+  1. 'agent_47_the_silent_assassin': List the commits that are ahead of {{ base_branch }}.
+  2. 'agent_47_the_silent_assassin': Squash "wip" and "fix" commits into atomic units.
+  3. 'agent_47_the_silent_assassin': Verify the tests pass after rebase before force pushing.

@@ -1,0 +1,39 @@
+version: "1.0.0"
+title: "Viral Loop Design"
+description: "Engineer referral mechanisms to drive growth."
+instructions: |
+  Design and implement features that encourage users to invite others.
+  1. Analyse user incentives and psychology using Agent 30.
+  2. Design the viral mechanism and sharing flow using Agent 27.
+  3. Define the metrics to track the K-factor using Agent 20.
+    
+parameters:
+  - key: product_feature
+    input_type: string
+    requirement: required
+    description: "The feature to attach the viral loop to."
+  - key: incentive_type
+    input_type: string
+    requirement: required
+    description: "Reward for the user (e.g., Credit, Unlocks, Status)."
+
+sub_recipes:
+  - name: "agent_30_the_behaviourist"
+    path: "./agents/30-the-behaviourist.yaml"
+  - name: "agent_27_the_rock_star"
+    path: "./agents/27-the-rock-star.yaml"
+  - name: "agent_20_the_critical_roller"
+    path: "./agents/20-the-critical-roller.yaml"
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Design a viral loop for {{ product_feature }} with {{ incentive_type }} rewards.
+    
+  1. 'agent_30_the_behaviourist': Analyse why a user would want to share this and how {{ incentive_type }} motivates them.
+  2. 'agent_27_the_rock_star': Create a "noisy" and exciting sharing flow that maximises social visibility.
+  3. 'agent_20_the_critical_roller': Define the tracking events needed to calculate the Viral Coefficient (K-factor).

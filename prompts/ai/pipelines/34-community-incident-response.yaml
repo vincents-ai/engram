@@ -1,0 +1,39 @@
+version: "1.0.0"
+title: "Community Incident Response"
+description: "Draft and review outage communications."
+instructions: |
+  Manage public communication during a system incident.
+  1. Analyse the root cause and impact using Agent 34.
+  2. Draft the public statement and updates using Agent 33.
+  3. Ensure the tone is empathetic and on-brand using Agent 11.
+    
+parameters:
+  - key: incident_id
+    input_type: string
+    requirement: required
+    description: "The internal ID of the active incident."
+  - key: impact_level
+    input_type: string
+    requirement: required
+    description: "Severity of the incident (e.g., Critical, Major, Minor)."
+
+sub_recipes:
+  - name: "agent_34_the_troubleshooter"
+    path: "./agents/34-the-troubleshooter.yaml"
+  - name: "agent_33_the_rpm"
+    path: "./agents/33-the-rpm.yaml"
+  - name: "agent_11_the_amplifier"
+    path: "./agents/11-the-amplifier.yaml"
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Manage comms for incident {{ incident_id }} (Severity: {{ impact_level }}).
+    
+  1. 'agent_34_the_troubleshooter': Provide a technical summary of the current status and estimated fix time.
+  2. 'agent_33_the_rpm': Draft the initial public announcement and subsequent update tweets.
+  3. 'agent_11_the_amplifier': Review the drafts to ensure they reassure users without overpromising.

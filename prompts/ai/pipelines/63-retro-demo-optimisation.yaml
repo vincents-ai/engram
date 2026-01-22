@@ -1,0 +1,40 @@
+version: "1.0.0"
+title: "Retro Demo Optimisation"
+description: "Optimise graphics code for size limits."
+instructions: |
+  Squeeze impressive graphics into tiny binaries.
+  1. Write the core visual effect code using Agent 73 (acting as algo expert).
+  2. Optimise the assembly/shader code for size using Agent 63 (acting as demo coder).
+  3. Pack the executable using Agent 55 (acting as compression expert).
+    
+parameters:
+  - key: effect_type
+    input_type: string
+    requirement: required
+    description: "Type of effect (e.g., Raymarcher, Plasma)."
+  - key: size_limit_bytes
+    input_type: number
+    requirement: required
+    description: "Maximum binary size (e.g., 4096, 65536)."
+
+sub_recipes:
+  - name: "agent_73_the_prime"
+    path: "./agents/73-the-prime.yaml"
+  - name: "agent_63_the_synthesiser"
+    path: "./agents/63-the-synthesiser.yaml"
+  - name: "agent_55_the_speedster"
+    path: "./agents/55-the-speedster.yaml"
+  # TODO: Switch to Agent 105 (The Shader) for GLSL work.
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Create a {{ effect_type }} demo under {{ size_limit_bytes }} bytes.
+    
+  1. 'agent_73_the_prime': Implement the {{ effect_type }} algorithm mathematically.
+  2. 'agent_63_the_synthesiser': Convert the logic to compact shader code or assembly.
+  3. 'agent_55_the_speedster': Strip headers and compress the binary to fit the limit.

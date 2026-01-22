@@ -1,0 +1,37 @@
+version: "1.0.0"
+title: "Bootloader Hardening"
+description: "Secure Boot, TPM sealing, and Password protection."
+instructions: |
+  Secure the boot chain of the device.
+  1. Configure Secure Boot keys and signatures using Agent 07.
+  2. Set up the bootloader password and configuration using Agent 07.
+  3. Seal secrets to the TPM PCRs using Agent 07.
+    
+parameters:
+  - key: bootloader_type
+    input_type: string
+    requirement: required
+    description: "GRUB, systemd-boot, or U-Boot."
+  - key: tpm_version
+    input_type: string
+    requirement: required
+    description: "TPM version (1.2 or 2.0)."
+
+sub_recipes:
+  - name: "agent_07_the_double_o"
+    path: "./agents/07-the-double-o.yaml"
+  # TODO: Switch to Agent 76 (The Bootstrapper) for boot config.
+  # TODO: Switch to Agent 112 (The Bootloader) for low-level init.
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Harden {{ bootloader_type }} with Secure Boot and TPM {{ tpm_version }}.
+    
+  1. 'agent_07_the_double_o': Generate custom Secure Boot keys and sign the kernel and bootloader.
+  2. 'agent_07_the_double_o': Configure {{ bootloader_type }} to require a password for editing entries.
+  3. 'agent_07_the_double_o': Enrol the platform configuration in the TPM to prevent tampering.

@@ -1,0 +1,38 @@
+version: "1.0.0"
+title: "FFT Analysis"
+description: "Analyse signal frequency components."
+instructions: |
+  Perform Fast Fourier Transform on data.
+  1. Load the time-domain data using Agent 29 (acting as data loader).
+  2. Compute the FFT spectrum using Agent 73 (acting as math expert).
+  3. Visualise the frequency domain using Agent 29.
+    
+parameters:
+  - key: data_file
+    input_type: string
+    requirement: required
+    description: "CSV or binary file with time-series data."
+  - key: sampling_rate
+    input_type: number
+    requirement: required
+    description: "Sample rate in Hz."
+
+sub_recipes:
+  # TODO: Switch to Agent 90 (The Spectrum) - Missing.
+  - name: "agent_29_the_visualisation_expert"
+    path: "./agents/29-the-visualisation-expert.yaml"
+  - name: "agent_73_the_prime"
+    path: "./agents/73-the-prime.yaml"
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Perform FFT on {{ data_file }} (Fs={{ sampling_rate }}Hz).
+    
+  1. 'agent_29_the_visualisation_expert': Read the raw signal data.
+  2. 'agent_73_the_prime': Apply a window function (e.g., Hamming) and calculate the FFT.
+  3. 'agent_29_the_visualisation_expert': Plot the Power Spectral Density (PSD) to identify dominant frequencies.

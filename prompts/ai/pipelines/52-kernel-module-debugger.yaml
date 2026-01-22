@@ -1,0 +1,39 @@
+version: "1.0.0"
+title: "Kernel Module Debugger"
+description: "Diagnose and fix kernel panics in drivers."
+instructions: |
+  Debug low-level kernel issues.
+  1. Analyse the panic log and stack trace using Agent 59.
+  2. Isolate the faulty driver code using Agent 64 (acting as memory expert).
+  3. Apply a patch and rebuild the module using Agent 59.
+    
+parameters:
+  - key: module_name
+    input_type: string
+    requirement: required
+    description: "Name of the kernel module."
+  - key: panic_log_path
+    input_type: string
+    requirement: required
+    description: "Path to the dmesg or crash dump."
+
+sub_recipes:
+  - name: "agent_59_the_driver"
+    path: "./agents/59-the-driver.yaml"
+  - name: "agent_64_the_commodore"
+    path: "./agents/64-the-commodore.yaml"
+  # TODO: Switch to Agent 82 (The Kernel) for core kernel analysis.
+  # TODO: Switch to Agent 117 (The Patch) for applying the fix.
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Debug the kernel panic in {{ module_name }} from {{ panic_log_path }}.
+    
+  1. 'agent_59_the_driver': Parse the stack trace to identify the function causing the crash.
+  2. 'agent_64_the_commodore': Analyse the memory registers to check for null pointer dereferences or buffer overflows.
+  3. 'agent_59_the_driver': Generate a patch to fix the logic error and recompile the module.

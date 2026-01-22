@@ -1,0 +1,40 @@
+version: "1.0.0"
+title: "Customer Journey Mapping"
+description: "Map the user lifecycle from discovery to power user."
+instructions: |
+  Visualise and optimise the user's path through the product.
+  1. Define the key stages and touchpoints using Agent 39.
+  2. Map user sentiment and pain points at each stage using Agent 30.
+  3. Create a visual map and action plan using Agent 29.
+    
+parameters:
+  - key: user_persona
+    input_type: string
+    requirement: required
+    description: "The specific user type to map."
+  - key: journey_goal
+    input_type: string
+    requirement: required
+    description: "The end goal of the journey (e.g., Purchase, Activation)."
+
+sub_recipes:
+  - name: "agent_39_the_39_steps"
+    path: "./agents/39-the-39-steps.yaml"
+  - name: "agent_30_the_behaviourist"
+    path: "./agents/30-the-behaviourist.yaml"
+  - name: "agent_29_the_visualisation_expert"
+    path: "./agents/29-the-visualisation-expert.yaml"
+  # TODO: Switch to Agent 111 (The Hobbit) for complex, long-tail journeys.
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Map the journey for {{ user_persona }} to achieve {{ journey_goal }}.
+    
+  1. 'agent_39_the_39_steps': Outline the sequential steps the user takes from first contact to {{ journey_goal }}.
+  2. 'agent_30_the_behaviourist': Annotate each step with the user's likely emotional state and friction points.
+  3. 'agent_29_the_visualisation_expert': Generate a flowchart representation of this journey.

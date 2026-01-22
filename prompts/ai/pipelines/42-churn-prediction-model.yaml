@@ -1,0 +1,40 @@
+version: "1.0.0"
+title: "Churn Prediction Model"
+description: "Train ML model to identify at-risk users."
+instructions: |
+  Predict which users are likely to leave the platform.
+  1. Prepare the historical user data for training using Agent 23.
+  2. Train the prediction model using Agent 29 (acting as data scientist).
+  3. Analyse the behavioural triggers for churn using Agent 30.
+    
+parameters:
+  - key: dataset_path
+    input_type: string
+    requirement: required
+    description: "Location of the user activity dataset."
+  - key: lookback_period
+    input_type: number
+    requirement: required
+    description: "Days of history to analyse (e.g., 30, 90)."
+
+sub_recipes:
+  - name: "agent_23_the_enigma"
+    path: "./agents/23-the-enigma.yaml"
+  - name: "agent_29_the_visualisation_expert"
+    path: "./agents/29-the-visualisation-expert.yaml"
+  - name: "agent_30_the_behaviourist"
+    path: "./agents/30-the-behaviourist.yaml"
+  # TODO: Switch to Agent 107 (The Trainer) for ML model training.
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Build a churn model using {{ dataset_path }} ({{ lookback_period }} days).
+    
+  1. 'agent_23_the_enigma': Clean and normalise the data, handling missing values.
+  2. 'agent_30_the_behaviourist': Identify key behavioural features (e.g., "days since last login", "ticket volume") to feed the model.
+  3. 'agent_29_the_visualisation_expert': Visualise the correlation between these features and user churn.

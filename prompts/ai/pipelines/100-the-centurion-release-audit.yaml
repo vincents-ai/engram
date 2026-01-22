@@ -1,0 +1,40 @@
+version: "1.0.0"
+title: "The Centurion Release Audit"
+description: "Comprehensive validation before Gold Master."
+instructions: |
+  The final sign-off before a major release.
+  1. Verify all CI checks and test suites using Agent 100.
+  2. Review the changelog and documentation using Agent 100.
+  3. Authorise the deployment using Agent 100.
+    
+parameters:
+  - key: release_version
+    input_type: string
+    requirement: required
+    description: "The version candidate (e.g., v1.0.0-RC1)."
+  - key: signoff_checklist
+    input_type: string
+    requirement: required
+    description: "Path to the compliance checklist."
+
+sub_recipes:
+  # TODO: Switch to Agent 100 (The Centurion) - Missing.
+  - name: "agent_01_the_one"
+    path: "./agents/01-the-one.yaml"
+  - name: "agent_12_the_dozen"
+    path: "./agents/12-the-dozen.yaml"
+  - name: "agent_15_the_tester"
+    path: "./agents/15-the-tester.yaml"
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Audit release {{ release_version }} against {{ signoff_checklist }}.
+    
+  1. 'agent_15_the_tester': Confirm that the "Green Build" status is valid and recent.
+  2. 'agent_12_the_dozen': Ensure all blocking tickets for {{ release_version }} are closed.
+  3. 'agent_01_the_one': Provide the final "GO/NO-GO" decision for the Gold Master.

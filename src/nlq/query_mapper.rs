@@ -1,6 +1,6 @@
 use crate::entities::Entity;
 use crate::error::EngramError;
-use crate::nlq::{ExtractedEntity, ProcessedQuery, QueryIntent};
+use crate::nlq::{ExtractedEntity, ProcessedQuery, QueryIntent, list_skills, list_prompts, search_skills, search_prompts, SkillsQuery, PromptsQuery};
 use crate::storage::{GitStorage, RelationshipStorage, Storage};
 use serde_json::{json, Value};
 
@@ -31,11 +31,106 @@ impl QueryMapper {
                 self.handle_workflow_analysis(processed_query, storage)
                     .await
             }
+            QueryIntent::ListSkills => self.handle_list_skills(processed_query).await,
+            QueryIntent::SearchSkills => self.handle_search_skills(processed_query).await,
+            QueryIntent::ListPrompts => self.handle_list_prompts(processed_query).await,
+            QueryIntent::SearchPrompts => self.handle_search_prompts(processed_query).await,
             QueryIntent::Unknown => Ok(json!({
                 "error": "Unable to understand the query",
-                "suggestion": "Try queries like 'show my tasks' or 'what tasks depend on task-123'"
+                "suggestion": "Try queries like 'show my tasks' or 'what skills are available for planning?'"
             })),
         }
+    }
+
+    // Skills/Prompts handlers
+    async fn handle_list_skills(&self, processed_query: &ProcessedQuery) -> Result<Value, EngramError> {
+        let skills = list_skills(&SkillsQuery {
+            category: None,
+            search_term: None,
+            format: "full".to_string(),
+        })?;
+
+        let skill_list: Vec<Value> = skills.iter()
+            .map(|s| json!({
+                "name": s.name,
+                "description": s.description,
+                "category": s.category,
+            }))
+            .collect();
+
+        Ok(json!({
+            "success": true,
+            "type": "skills_list",
+            "count": skills.len(),
+            "skills": skill_list,
+        }))
+    }
+
+    async fn handle_search_skills(&self, processed_query: &ProcessedQuery) -> Result<Value, EngramError> {
+        let query = &processed_query.original_query;
+        let skills = search_skills(query)?;
+
+        let skill_list: Vec<Value> = skills.iter()
+            .map(|s| json!({
+                "name": s.name,
+                "description": s.description,
+                "category": s.category,
+            }))
+            .collect();
+
+        Ok(json!({
+            "success": true,
+            "type": "skills_search",
+            "query": query,
+            "count": skills.len(),
+            "skills": skill_list,
+        }))
+    }
+
+    async fn handle_list_prompts(&self, processed_query: &ProcessedQuery) -> Result<Value, EngramError> {
+        let prompts = list_prompts(&PromptsQuery {
+            category: None,
+            search_term: None,
+            format: "full".to_string(),
+        })?;
+
+        let prompt_list: Vec<Value> = prompts.iter()
+            .map(|p| json!({
+                "name": p.name,
+                "title": p.title,
+                "description": p.description,
+                "category": p.category,
+            }))
+            .collect();
+
+        Ok(json!({
+            "success": true,
+            "type": "prompts_list",
+            "count": prompts.len(),
+            "prompts": prompt_list,
+        }))
+    }
+
+    async fn handle_search_prompts(&self, processed_query: &ProcessedQuery) -> Result<Value, EngramError> {
+        let query = &processed_query.original_query;
+        let prompts = search_prompts(query)?;
+
+        let prompt_list: Vec<Value> = prompts.iter()
+            .map(|p| json!({
+                "name": p.name,
+                "title": p.title,
+                "description": p.description,
+                "category": p.category,
+            }))
+            .collect();
+
+        Ok(json!({
+            "success": true,
+            "type": "prompts_search",
+            "query": query,
+            "count": prompts.len(),
+            "prompts": prompt_list,
+        }))
     }
 
     async fn handle_list_tasks(

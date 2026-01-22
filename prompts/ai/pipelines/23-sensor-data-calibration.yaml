@@ -1,0 +1,40 @@
+version: "1.0.0"
+title: "Sensor Data Calibration"
+description: "Apply DSP filtering to noisy sensor inputs."
+instructions: |
+  Clean and calibrate raw sensor data for accuracy.
+  1. Filter noise and process signals using Agent 61.
+  2. Analyse the statistical properties of the data using Agent 20.
+  3. Generate visualisation of the calibrated data using Agent 29.
+    
+parameters:
+  - key: sensor_type
+    input_type: string
+    requirement: required
+    description: "Type of sensor (e.g., accelerometer, temp, lidar)."
+  - key: filter_method
+    input_type: string
+    requirement: required
+    description: "Filtering algorithm to apply (e.g., Kalman, Low-pass)."
+
+sub_recipes:
+  - name: "agent_61_the_dsp"
+    path: "./agents/61-the-dsp.yaml"
+  - name: "agent_20_the_critical_roller"
+    path: "./agents/20-the-critical-roller.yaml"
+  - name: "agent_29_the_visualisation_expert"
+    path: "./agents/29-the-visualisation-expert.yaml"
+  # TODO: Switch to Agent 146 (The Sensor) for hardware integration.
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Calibrate the input from the {{ sensor_type }} sensor.
+    
+  1. 'agent_61_the_dsp': Apply the {{ filter_method }} to the raw dataset to reduce noise.
+  2. 'agent_20_the_critical_roller': Verify the variance and standard deviation of the filtered output.
+  3. 'agent_29_the_visualisation_expert': Plot the pre- and post-calibration data for comparison.

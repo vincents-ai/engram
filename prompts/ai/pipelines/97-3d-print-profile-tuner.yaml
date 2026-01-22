@@ -1,0 +1,39 @@
+version: "1.0.0"
+title: "3D Print Profile Tuner"
+description: "Tune material settings."
+instructions: |
+  Calibrate slicer settings for a new filament.
+  1. Generate calibration models (temp tower, retraction test) using Agent 151.
+  2. Analyse the print results using Agent 103 (acting as slicer expert).
+  3. Update the slicer profile using Agent 103.
+    
+parameters:
+  - key: material
+    input_type: string
+    requirement: required
+    description: "Filament type (e.g., PLA+)."
+  - key: printer_model
+    input_type: string
+    requirement: required
+    description: "3D Printer model."
+
+sub_recipes:
+  # TODO: Switch to Agent 103 (The Slicer) - Missing.
+  # TODO: Switch to Agent 151 (The Parametric) - Missing.
+  - name: "agent_03_the_architect"
+    path: "./agents/03-the-architect.yaml"
+  - name: "agent_15_the_tester"
+    path: "./agents/15-the-tester.yaml"
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Tune profile for {{ material }} on {{ printer_model }}.
+    
+  1. 'agent_03_the_architect': Create G-code for a temperature tower ranging from 190C to 230C.
+  2. 'agent_15_the_tester': Inspect the printed tower for stringing and bridging quality.
+  3. 'agent_15_the_tester': Recommend the optimal temperature and retraction distance.

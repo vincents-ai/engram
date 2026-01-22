@@ -1,0 +1,36 @@
+version: "1.0.0"
+title: "FPGA Bitstream Pipeline"
+description: "Synthesise Verilog and flash FPGA."
+instructions: |
+  End-to-end FPGA development workflow.
+  1. Synthesise the HDL design to a netlist using Agent 58.
+  2. Perform place-and-route to generate the bitstream using Agent 58.
+  3. Upload the bitstream to the device via JTAG using Agent 58.
+    
+parameters:
+  - key: project_path
+    input_type: string
+    requirement: required
+    description: "Path to the FPGA project."
+  - key: device_id
+    input_type: string
+    requirement: required
+    description: "Target FPGA part number."
+
+sub_recipes:
+  - name: "agent_58_the_silicon"
+    path: "./agents/58-the-silicon.yaml"
+  # TODO: Switch to Agent 74 (The Pinout) for constraints file generation.
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Build and flash the FPGA project at {{ project_path }} for {{ device_id }}.
+    
+  1. 'agent_58_the_silicon': Run synthesis and implementation tools (e.g., Vivado/Quartus/Yosys).
+  2. 'agent_58_the_silicon': Generate the final .bit or .bin file.
+  3. 'agent_58_the_silicon': Execute the openocd or vendor command to program the device.

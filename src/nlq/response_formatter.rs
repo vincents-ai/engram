@@ -16,8 +16,87 @@ impl ResponseFormatter {
             QueryIntent::FindRelationships => self.format_relationships(data),
             QueryIntent::SearchContext => self.format_context_results(data),
             QueryIntent::AnalyzeWorkflow => self.format_workflow_status(data),
+            QueryIntent::ListSkills => self.format_skills_list(data),
+            QueryIntent::SearchSkills => self.format_skills_search(data),
+            QueryIntent::ListPrompts => self.format_prompts_list(data),
+            QueryIntent::SearchPrompts => self.format_prompts_search(data),
             QueryIntent::Unknown => self.format_unknown(data),
         }
+    }
+
+    // Skills/Prompts formatters
+    fn format_skills_list(&self, data: &Value) -> Result<String, EngramError> {
+        if let Some(skills) = data.get("skills").and_then(|v| v.as_array()) {
+            let count = skills.len();
+            if count == 0 {
+                return Ok("No skills found. Set ENGRAM_SKILLS_PATH to enable skills.".to_string());
+            }
+
+            let mut output = format!("Found {} skill(s):\n\n", count);
+            for skill in skills {
+                let name = skill.get("name").and_then(|v| v.as_str()).unwrap_or("unknown");
+                let desc = skill.get("description").and_then(|v| v.as_str()).unwrap_or("(no description)");
+                output.push_str(&format!("[{}]\n  {}\n\n", name, desc));
+            }
+            return Ok(output);
+        }
+        Ok("Skills data not available".to_string())
+    }
+
+    fn format_skills_search(&self, data: &Value) -> Result<String, EngramError> {
+        let query = data.get("query").and_then(|v| v.as_str()).unwrap_or("");
+        if let Some(skills) = data.get("skills").and_then(|v| v.as_array()) {
+            let count = skills.len();
+            if count == 0 {
+                return Ok(format!("No skills found for query: '{}'", query));
+            }
+
+            let mut output = format!("Found {} skill(s) matching '{}':\n\n", count, query);
+            for skill in skills {
+                let name = skill.get("name").and_then(|v| v.as_str()).unwrap_or("unknown");
+                let desc = skill.get("description").and_then(|v| v.as_str()).unwrap_or("(no description)");
+                output.push_str(&format!("[{}]\n  {}\n\n", name, desc));
+            }
+            return Ok(output);
+        }
+        Ok("Skills search data not available".to_string())
+    }
+
+    fn format_prompts_list(&self, data: &Value) -> Result<String, EngramError> {
+        if let Some(prompts) = data.get("prompts").and_then(|v| v.as_array()) {
+            let count = prompts.len();
+            if count == 0 {
+                return Ok("No prompts found. Set ENGRAM_PROMPTS_PATH to enable prompts.".to_string());
+            }
+
+            let mut output = format!("Found {} prompt(s):\n\n", count);
+            for prompt in prompts {
+                let name = prompt.get("name").and_then(|v| v.as_str()).unwrap_or("unknown");
+                let title = prompt.get("title").and_then(|v| v.as_str()).unwrap_or("(no title)");
+                output.push_str(&format!("[{}]\n  {}\n\n", name, title));
+            }
+            return Ok(output);
+        }
+        Ok("Prompts data not available".to_string())
+    }
+
+    fn format_prompts_search(&self, data: &Value) -> Result<String, EngramError> {
+        let query = data.get("query").and_then(|v| v.as_str()).unwrap_or("");
+        if let Some(prompts) = data.get("prompts").and_then(|v| v.as_array()) {
+            let count = prompts.len();
+            if count == 0 {
+                return Ok(format!("No prompts found for query: '{}'", query));
+            }
+
+            let mut output = format!("Found {} prompt(s) matching '{}':\n\n", count, query);
+            for prompt in prompts {
+                let name = prompt.get("name").and_then(|v| v.as_str()).unwrap_or("unknown");
+                let title = prompt.get("title").and_then(|v| v.as_str()).unwrap_or("(no title)");
+                output.push_str(&format!("[{}]\n  {}\n\n", name, title));
+            }
+            return Ok(output);
+        }
+        Ok("Prompts search data not available".to_string())
     }
 
     fn format_task_list(&self, data: &Value) -> Result<String, EngramError> {

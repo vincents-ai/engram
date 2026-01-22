@@ -1,0 +1,38 @@
+version: "1.0.0"
+title: "Nix Overlay Injection"
+description: "Override packages in Nixpkgs."
+instructions: |
+  Customise software versions in the Nix store.
+  1. Write the overlay function using Agent 54.
+  2. Apply it to the package configuration using Agent 54.
+  3. Verify the new package version using Agent 15.
+    
+parameters:
+  - key: package_name
+    input_type: string
+    requirement: required
+    description: "The package to override."
+  - key: custom_version
+    input_type: string
+    requirement: required
+    description: "The new version or commit hash."
+
+sub_recipes:
+  # TODO: Switch to Agent 84 (The Derivation) - Missing.
+  - name: "agent_54_the_snowflake"
+    path: "./agents/54-the-snowflake.yaml"
+  - name: "agent_15_the_tester"
+    path: "./agents/15-the-tester.yaml"
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Overlay {{ package_name }} with version {{ custom_version }}.
+    
+  1. 'agent_54_the_snowflake': Define a Nix overlay function that uses `overrideAttrs` or `override`.
+  2. 'agent_54_the_snowflake': Update `flake.nix` to include this overlay in `pkgs` instantiation.
+  3. 'agent_15_the_tester': Run `nix run .#{{ package_name }} --version` to confirm the change.

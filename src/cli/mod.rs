@@ -9,9 +9,11 @@ pub mod context;
 pub mod convert;
 pub mod escalation;
 pub mod help;
+pub mod import;
 pub mod info;
 pub mod knowledge;
 pub mod perkeep;
+pub mod prompts;
 pub mod reasoning;
 pub mod relationship;
 pub mod rule;
@@ -19,6 +21,7 @@ pub mod rule;
 pub mod sandbox;
 pub mod session;
 pub mod setup;
+pub mod skills;
 pub mod standard;
 pub mod sync;
 pub mod task;
@@ -31,9 +34,11 @@ pub use context::*;
 pub use convert::*;
 pub use escalation::*;
 pub use help::*;
+pub use import::*;
 pub use info::*;
 pub use knowledge::*;
 pub use perkeep::*;
+pub use prompts::*;
 pub use reasoning::*;
 pub use relationship::*;
 pub use rule::*;
@@ -41,6 +46,7 @@ pub use rule::*;
 pub use sandbox::*;
 pub use session::*;
 pub use setup::*;
+pub use skills::*;
 pub use standard::*;
 pub use sync::*;
 pub use task::*;
@@ -84,6 +90,11 @@ pub enum Commands {
         /// Source file path
         #[arg(long, short = 'f')]
         file: String,
+    },
+    /// Import entities from structured markdown files
+    Import {
+        #[command(subcommand)]
+        command: import::ImportCommands,
     },
     /// Run test suite
     Test,
@@ -191,6 +202,16 @@ pub enum Commands {
     Guide {
         #[command(subcommand)]
         command: Option<HelpCommands>,
+    },
+    /// List and manage skills from ENGRAM_SKILLS_PATH
+    Skills {
+        #[command(subcommand)]
+        command: SkillsCommands,
+    },
+    /// List and manage prompts from ENGRAM_PROMPTS_PATH
+    Prompts {
+        #[command(subcommand)]
+        command: PromptsCommands,
     },
 }
 

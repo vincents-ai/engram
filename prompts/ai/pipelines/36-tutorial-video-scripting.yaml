@@ -1,0 +1,39 @@
+version: "1.0.0"
+title: "Tutorial Video Scripting"
+description: "Create assets for video tutorials."
+instructions: |
+  Produce educational video content for users.
+  1. Draft the script and learning objectives using Agent 33.
+  2. Plan the visual sequence and keyframes using Agent 68 (acting as editor).
+  3. Ensure the content is accurate and easy to follow using Agent 101.
+    
+parameters:
+  - key: topic
+    input_type: string
+    requirement: required
+    description: "The subject of the tutorial."
+  - key: difficulty
+    input_type: string
+    requirement: required
+    description: "Target skill level (Beginner, Intermediate, Advanced)."
+
+sub_recipes:
+  - name: "agent_33_the_rpm"
+    path: "./agents/33-the-rpm.yaml"
+  - name: "agent_68_the_timeline"
+    path: "./agents/68-the-timeline.yaml"
+  - name: "agent_101_the_primer"
+    path: "./agents/101-the-primer.yaml"
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Create a script for a {{ difficulty }} tutorial on "{{ topic }}".
+    
+  1. 'agent_101_the_primer': Define the key learning outcomes for a {{ difficulty }} user.
+  2. 'agent_33_the_rpm': Write an engaging script that covers these outcomes.
+  3. 'agent_68_the_timeline': Create a shot list and storyboard description for the video editor.

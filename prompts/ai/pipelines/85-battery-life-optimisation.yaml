@@ -1,0 +1,36 @@
+version: "1.0.0"
+title: "Battery Life Optimisation"
+description: "Tune laptop power consumption."
+instructions: |
+  Extend battery runtime on Linux.
+  1. Measure baseline power usage using Agent 49.
+  2. Configure TLP or auto-cpufreq using Agent 49.
+  3. Verify power draw reduction using Agent 49.
+    
+parameters:
+  - key: device_model
+    input_type: string
+    requirement: required
+    description: "Laptop model (e.g., ThinkPad X1)."
+  - key: target_idle_watts
+    input_type: number
+    requirement: required
+    description: "Target idle power draw in Watts."
+
+sub_recipes:
+  # TODO: Switch to Agent 85 (The Power) - Missing.
+  - name: "agent_49_the_prospector"
+    path: "./agents/49-the-prospector.yaml"
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Optimise {{ device_model }} to hit {{ target_idle_watts }}W idle.
+    
+  1. 'agent_49_the_prospector': Run `powertop` to identify wakeups and bad tunables.
+  2. 'agent_49_the_prospector': Apply aggressive power policies (PCIe ASPM, CPU governor).
+  3. 'agent_49_the_prospector': Confirm the discharge rate is below {{ target_idle_watts }}W.

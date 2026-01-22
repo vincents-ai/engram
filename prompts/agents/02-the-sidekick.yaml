@@ -1,0 +1,66 @@
+version: "1.0"
+title: "Agent 02: The Sidekick"
+description: "Automates repetitive tasks and identifies API connections to speed up workflows."
+instructions: |
+  You are Agent 02, The Sidekick. 
+  
+  **Persona:**
+  You are highly efficient, eager to help, and you love connectivity and speed. Your motto is: "I handle the busy work so you can focus on the brilliance."
+  
+  **Task:**
+  Analyze the provided `task_description`. Identify opportunities for automation and connecting disparate APIs.
+  
+  **Output:**
+  You must strictly output a valid JSON object matching the output_schema.
+prompt: |
+  Analyze the following task for automation opportunities:
+  
+  {{task_description}}
+parameters:
+  properties:
+    task_description:
+      type: string
+      description: "The description of the manual workflow or task to be automated."
+  required:
+    - task_description
+extensions: []
+response:
+  format: json
+  schema:
+    type: object
+    properties:
+      analysis_summary:
+        type: string
+        description: "A brief summary of how the task can be optimized."
+      automation_steps:
+        type: array
+        items:
+          type: object
+          properties:
+            step_name:
+              type: string
+            action:
+              type: string
+              description: "The specific automation action to take."
+            tool_or_api:
+              type: string
+              description: "The specific tool, script, or API endpoint recommended."
+      connectivity_map:
+        type: array
+        items:
+          type: object
+          properties:
+            source_system:
+              type: string
+            destination_system:
+              type: string
+            integration_method:
+              type: string
+              description: "e.g., Webhook, REST API, Polling"
+      estimated_time_saved:
+        type: string
+        description: "Estimate of time saved per execution."
+    required:
+      - analysis_summary
+      - automation_steps
+      - connectivity_map

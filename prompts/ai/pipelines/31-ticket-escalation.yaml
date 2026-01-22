@@ -1,0 +1,39 @@
+version: "1.0.0"
+title: "Ticket Escalation"
+description: "Route Level 1 tickets to engineering or KB."
+instructions: |
+  Manage the flow of support tickets to the right resolution path.
+  1. Analyse the ticket sentiment and category using Agent 31.
+  2. Check existing documentation for a match using Agent 32.
+  3. If unresolved, escalate to engineering with root cause hints using Agent 34.
+    
+parameters:
+  - key: ticket_id
+    input_type: string
+    requirement: required
+    description: "ID of the support ticket."
+  - key: content
+    input_type: string
+    requirement: required
+    description: "Full text content of the user issue."
+
+sub_recipes:
+  - name: "agent_31_the_flavour"
+    path: "./agents/31-the-flavour.yaml"
+  - name: "agent_32_the_knowledge_base_curator"
+    path: "./agents/32-the-knowledge-base-curator.yaml"
+  - name: "agent_34_the_troubleshooter"
+    path: "./agents/34-the-troubleshooter.yaml"
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Process ticket {{ ticket_id }}: "{{ content }}".
+    
+  1. 'agent_31_the_flavour': Categorise the ticket (Bug, Feature, Question) and assess user sentiment.
+  2. 'agent_32_the_knowledge_base_curator': Search for relevant KB articles to resolve the issue immediately.
+  3. 'agent_34_the_troubleshooter': If no KB match, formulate a technical summary and escalate to the engineering queue.

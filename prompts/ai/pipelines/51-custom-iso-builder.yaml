@@ -1,0 +1,39 @@
+version: "1.0.0"
+title: "Custom ISO Builder"
+description: "Build a minimal, self-contained Linux ISO."
+instructions: |
+  Create a custom Linux distribution image.
+  1. Define the package set and configuration using Agent 54.
+  2. Build the ISO image using Agent 52.
+  3. Verify the image boot process using Agent 15.
+    
+parameters:
+  - key: iso_name
+    input_type: string
+    requirement: required
+    description: "Name of the custom ISO."
+  - key: desktop_environment
+    input_type: string
+    requirement: required
+    description: "Desktop environment to include (e.g., GNOME, None)."
+
+sub_recipes:
+  - name: "agent_54_the_snowflake"
+    path: "./agents/54-the-snowflake.yaml"
+  - name: "agent_52_the_iso"
+    path: "./agents/52-the-iso.yaml"
+  - name: "agent_15_the_tester"
+    path: "./agents/15-the-tester.yaml"
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Build the {{ iso_name }} ISO with {{ desktop_environment }}.
+    
+  1. 'agent_54_the_snowflake': Create the flake.nix or build configuration defining the system packages.
+  2. 'agent_52_the_iso': Execute the build process to generate the raw ISO file.
+  3. 'agent_15_the_tester': Test the ISO in a VM to ensure it reaches the login screen.

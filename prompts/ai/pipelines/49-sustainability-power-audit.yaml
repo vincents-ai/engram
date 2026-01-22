@@ -1,0 +1,38 @@
+version: "1.0.0"
+title: "Sustainability Power Audit"
+description: "Optimise energy usage of infrastructure."
+instructions: |
+  Reduce the carbon footprint and energy cost of the system.
+  1. Measure current power consumption and resource waste using Agent 49.
+  2. Identify idle resources and inefficient code using Agent 47.
+  3. Propose energy-saving configurations using Agent 49.
+    
+parameters:
+  - key: infrastructure_scope
+    input_type: string
+    requirement: required
+    description: "Scope of audit (e.g., AWS Region, On-prem Data Centre)."
+  - key: target_reduction
+    input_type: string
+    requirement: required
+    description: "Target percentage for reduction (e.g., 10%)."
+
+sub_recipes:
+  - name: "agent_49_the_prospector"
+    path: "./agents/49-the-prospector.yaml"
+  - name: "agent_47_the_silent_assassin"
+    path: "./agents/47-the-silent-assassin.yaml"
+  # TODO: Switch to Agent 85 (The Power) or 121 (The Gigawatt) for hardware-level tuning.
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Audit {{ infrastructure_scope }} to reduce energy by {{ target_reduction }}.
+    
+  1. 'agent_49_the_prospector': Analyse the billing and usage data to find the biggest energy consumers.
+  2. 'agent_47_the_silent_assassin': Identify "zombie" instances and unattached volumes for termination.
+  3. 'agent_49_the_prospector': Recommend instance rightsizing and spot instance strategies.

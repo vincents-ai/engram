@@ -70,6 +70,53 @@ impl IntentClassifier {
             ],
         );
 
+        // List skills patterns
+        patterns.insert(
+            QueryIntent::ListSkills,
+            vec![
+                Regex::new(r"(?i)^(list|show|get)\s+(all\s+)?skills").unwrap(),
+                Regex::new(r"(?i)what\s+skills?\s+(do\s+i\s+have|are\s+available|exist)").unwrap(),
+                Regex::new(r"(?i)show\s+me\s+(the\s+)?skills").unwrap(),
+                Regex::new(r"(?i)available\s+skills").unwrap(),
+            ],
+        );
+
+        // Search skills patterns
+        patterns.insert(
+            QueryIntent::SearchSkills,
+            vec![
+                Regex::new(r"(?i)skills?\s+(for|related\s+to|about)\s+").unwrap(),
+                Regex::new(r"(?i)find\s+(me\s+)?(a\s+)?skill").unwrap(),
+                Regex::new(r"(?i)what\s+(skill|ability|capability)").unwrap(),
+                Regex::new(r"(?i)skill\s+(to|for)\s+").unwrap(),
+            ],
+        );
+
+        // List prompts patterns
+        patterns.insert(
+            QueryIntent::ListPrompts,
+            vec![
+                Regex::new(r"(?i)^(list|show|get)\s+(all\s+)?prompts?").unwrap(),
+                Regex::new(r"(?i)what\s+prompts?\s+(do\s+i\s+have|are\s+available|exist)").unwrap(),
+                Regex::new(r"(?i)show\s+me\s+(the\s+)?prompts?").unwrap(),
+                Regex::new(r"(?i)available\s+prompts?").unwrap(),
+                Regex::new(r"(?i)agent\s+prompts?").unwrap(),
+                Regex::new(r"(?i)pipeline\s+prompts?").unwrap(),
+            ],
+        );
+
+        // Search prompts patterns
+        patterns.insert(
+            QueryIntent::SearchPrompts,
+            vec![
+                Regex::new(r"(?i)prompts?\s+(for|related\s+to|about)\s+").unwrap(),
+                Regex::new(r"(?i)find\s+(me\s+)?(a\s+)?prompt").unwrap(),
+                Regex::new(r"(?i)what\s+(prompt|agent|pipeline)").unwrap(),
+                Regex::new(r"(?i)prompt\s+(to|for)\s+").unwrap(),
+                Regex::new(r"(?i)agent\s+(to|for)\s+").unwrap(),
+            ],
+        );
+
         Self { patterns }
     }
 
@@ -83,6 +130,10 @@ impl IntentClassifier {
             QueryIntent::FindRelationships,
             QueryIntent::SearchContext,
             QueryIntent::AnalyzeWorkflow,
+            QueryIntent::SearchSkills,
+            QueryIntent::ListSkills,
+            QueryIntent::SearchPrompts,
+            QueryIntent::ListPrompts,
             QueryIntent::ListTasks, // More general, check last
         ];
 

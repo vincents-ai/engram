@@ -1,0 +1,88 @@
+---
+title: Import Test Document
+doc_type: review
+date: 2026-01-22
+author: sisyphus
+tags: [test, import, demo]
+---
+
+# Test Document for Import Functionality
+
+This document demonstrates the Engram Markdown (EMD) format for importing entities.
+
+## Findings
+
+### Finding: Test Finding One
+[Finding: 3ecbee2c-aedc-4f74-ab7e-49491dda201e]
+
+This is a test finding with a UUID reference embedded.
+
+### Finding: Test Finding Two
+[Finding: e4d56a1c-ced7-400b-928d-d5685d3cf050]
+
+Another test finding with content and description.
+
+## Tasks
+
+- [P0: da23ec54-04c8-4679-81e4-d90c09642d4c] Fix 5 failing tests
+- [P1: 58339da6-71e3-41df-a6af-93d6b4f861eb] Add --file to reasoning
+- [P2: d807065d-3c6c-40cb-9baa-b42f59966299] Markdown batch import
+
+## Reasoning
+
+### Analysis: Test Reliability
+[Reasoning: 85d49be1-f62c-4bf3-847f-4e4f65ff1052]
+[Task: da23ec54-04c8-4679-81e4-d90c09642d4c]
+
+This reasoning section documents analysis of test reliability issues.
+
+### Design: Import Pipeline
+[Reasoning: 0b887d5d-ff81-45a8-b57a-1fbd785f65f5]
+[Task: d807065d-3c6c-40cb-9baa-b42f59966299]
+
+Design reasoning for the import pipeline feature.
+
+## Code Example
+
+```rust
+pub fn handle_import_command(
+    command: ImportCommands,
+) -> Result<(), EngramError> {
+    match command {
+        ImportCommands::Import { file, verbose, dry_run, force, json } => {
+            let result = import_file(&file, verbose, dry_run)?;
+            // Handle result...
+            Ok(())
+        }
+    }
+}
+```
+
+## Table Example
+
+| Pattern | Meaning | Creates |
+|---------|---------|---------|
+| `[UUID]` | Direct reference | Link to entity |
+| `[Finding: UUID]` | Finding reference | Context entity |
+| `[Task: UUID]` | Task reference | Task relationship |
+
+## Diagram
+
+```mermaid
+graph TD
+    A[Markdown File] --> B[Parse Frontmatter]
+    A --> C[Extract Sections]
+    B --> D[Create Entities]
+    C --> D
+    D --> E[Auto-Link Relationships]
+```
+
+## Summary
+
+This test document contains:
+- 2 findings
+- 3 task references  
+- 2 reasoning sections
+- 1 code block
+- 1 table
+- 1 diagram

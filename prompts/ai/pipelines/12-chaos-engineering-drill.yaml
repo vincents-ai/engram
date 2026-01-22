@@ -1,0 +1,50 @@
+version: 1.0.0
+title: Chaos Engineering Drill
+description: Simulate failures to test system recovery.
+instructions: 'Conduct a controlled chaos engineering experiment to validate system resilience and recovery procedures.
+
+
+  1. Design the failure scenario and blast radius using The Gremlin (acting as The Punk).
+
+  2. Execute the failure simulation in a controlled environment using The DevOps Engineer.
+
+  3. Monitor system response and recovery metrics using The Survivor.
+
+  4. Conduct a post-mortem and identify improvements using The Troubleshooter.
+
+  '
+parameters:
+- key: service_name
+  input_type: string
+  requirement: required
+  description: The name of the service or component to target.
+- key: failure_type
+  input_type: string
+  requirement: required
+  description: Type of failure to simulate (e.g., latency, packet loss, pod kill).
+sub_recipes:
+- name: agent_13_the_gremlin
+  path: ./agents/13-the-gremlin.yaml
+- name: agent_45_the_devops_engineer
+  path: ./agents/45-the-devops-engineer.yaml
+- name: agent_28_the_survivor
+  path: ./agents/28-the-survivor.yaml
+- name: agent_34_the_troubleshooter
+  path: ./agents/34-the-troubleshooter.yaml
+extensions:
+- type: builtin
+  name: developer
+  timeout: 300
+  bundled: true
+prompt: 'Initiate a chaos engineering drill on {{ service_name }} simulating {{ failure_type }}.
+
+
+  1. ''agent_13_the_gremlin'': Design the experiment. Define the hypothesis: "If {{ service_name }} experiences {{ failure_type }}, the system will..."
+
+  2. ''agent_45_the_devops_engineer'': Execute the drill. Introduce the fault.
+
+  3. ''agent_28_the_survivor'': Monitor the system''s vital signs. Did backups trigger? Did failover happen?
+
+  4. ''agent_34_the_troubleshooter'': Analyse the logs and root cause. Why did it recover (or fail to)?
+
+  '

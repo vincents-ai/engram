@@ -1,0 +1,22 @@
+version: 1.0.0
+title: Monetisation Implementation
+description: Implement payment gateways and subscription logic.
+instructions: "Integrate revenue-generating features into the system.\n1. Design the pricing model and flows using The Monetiser.\n2. Implement the secure payment integration using The Integration Specialist.\n3. Validate the security of the transaction flow using The Double-O.\n  \n"
+parameters:
+- key: revenue_feature
+  input_type: string
+  requirement: required
+  description: The specific monetisation feature (e.g., 'Stripe Subscription', 'One-time Unlock').
+sub_recipes:
+- name: model_design
+  path: ./agents/04-the-monetiser.yaml
+- name: integration
+  path: ./agents/18-the-integration-specialist.yaml
+- name: security_audit
+  path: ./agents/07-the-double-o.yaml
+extensions:
+- type: builtin
+  name: developer
+  timeout: 300
+  bundled: true
+prompt: "We are implementing a new monetisation feature: \"{{ revenue_feature }}\"\n  \n1. 'model_design': Define the pricing tiers, logic, and user flow.\n2. 'integration': Write the code to integrate the payment provider/gateway.\n3. 'security_audit': rigorousl check the implementation for financial security vulnerabilities.\n"

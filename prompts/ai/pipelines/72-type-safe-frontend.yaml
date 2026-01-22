@@ -1,0 +1,38 @@
+version: "1.0.0"
+title: "Type-Safe Frontend"
+description: "Refactor JS to strict TypeScript."
+instructions: |
+  Migrate loose JavaScript to strict TypeScript.
+  1. Audit the codebase for `any` types and missing interfaces using Agent 72.
+  2. Define the strict type definitions and interfaces using Agent 72.
+  3. Refactor the components to satisfy the compiler using Agent 16.
+    
+parameters:
+  - key: src_dir
+    input_type: string
+    requirement: required
+    description: "Directory containing the JS code."
+  - key: strictness_level
+    input_type: string
+    requirement: required
+    description: "Target strictness (Basic, Strict, Pedantic)."
+
+sub_recipes:
+  - name: "agent_72_the_type_safe"
+    path: "./agents/72-the-type-safe.yaml"
+  - name: "agent_16_the_16_bit"
+    path: "./agents/16-the-16-bit.yaml"
+  # TODO: Switch to Agent 96 (The Interface) for API contracts.
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Migrate {{ src_dir }} to TypeScript ({{ strictness_level }}).
+    
+  1. 'agent_72_the_type_safe': Generate `interface` and `type` definitions for all data structures.
+  2. 'agent_16_the_16_bit': Rename files to .ts/.tsx and fix the immediate syntax errors.
+  3. 'agent_72_the_type_safe': Systematically replace `any` with specific types until `tsc` passes.

@@ -98,19 +98,23 @@ pub enum TaskCommands {
         #[arg(help = "Task ID to update")]
         id: String,
 
-        /// New status
-        #[arg(long, short)]
+        /// New status (todo, in_progress, done, blocked, cancelled)
+        #[arg(long, short, help = "New status: todo, in_progress, done, blocked, cancelled")]
         status: String,
 
         /// Outcome (when completing task)
         #[arg(long)]
         outcome: Option<String>,
     },
-    /// Delete a task
-    Delete {
+    /// Archive a task (soft delete)
+    Archive {
         /// Task ID
-        #[arg(help = "Task ID to delete")]
+        #[arg(help = "Task ID to archive")]
         id: String,
+
+        /// Reason for archiving
+        #[arg(long)]
+        reason: Option<String>,
     },
 }
 
@@ -369,19 +373,33 @@ pub fn update_task<S: Storage>(
         let mut updated_task = task;
 
         match status.to_lowercase().as_str() {
-            "in_progress" | "in-progress" => updated_task.start(),
-            "done" | "completed" => {
+            // Handle "todo" - reset task to initial state
+            "todo" | "backlog" => {
+                updated_task.status = crate::entities::TaskStatus::Todo;
+            }
+            // Handle various forms of in_progress
+            "in_progress" | "in-progress" | "inprogress" | "progress" | "started" => {
+                updated_task.start();
+            }
+            // Handle done/completed
+            "done" | "completed" | "complete" | "finish" | "finished" => {
                 if let Some(outcome_text) = outcome {
                     updated_task.complete(outcome_text.to_string());
                 } else {
                     updated_task.complete("Task completed".to_string());
                 }
             }
-            "blocked" => updated_task.status = crate::entities::TaskStatus::Blocked,
-            "cancelled" => updated_task.status = crate::entities::TaskStatus::Cancelled,
+            // Handle blocked
+            "blocked" | "block" | "waiting" | "on_hold" | "on-hold" | "onhold" => {
+                updated_task.status = crate::entities::TaskStatus::Blocked;
+            }
+            // Handle cancelled
+            "cancelled" | "canceled" | "cancel" | "abandoned" | "dropped" => {
+                updated_task.status = crate::entities::TaskStatus::Cancelled;
+            }
             _ => {
                 return Err(EngramError::Validation(format!(
-                    "Invalid status: {}",
+                    "Invalid status: '{}'. Valid values: todo, in_progress, done, blocked, cancelled",
                     status
                 )))
             }
@@ -399,11 +417,37 @@ pub fn update_task<S: Storage>(
     }
 }
 
-/// Delete task command
-pub fn delete_task<S: Storage>(storage: &mut S, id: &str) -> Result<(), EngramError> {
-    storage.delete(id, "task")?;
-    println!("✅ Task '{}' deleted", id);
-    Ok(())
+/// Archive task command (soft delete - preserves data but marks as archived)
+pub fn archive_task<S: Storage>(
+    storage: &mut S,
+    id: &str,
+    reason: Option<&str>,
+) -> Result<(), EngramError> {
+    let existing_generic = storage
+        .get(id, "task")?
+        .ok_or_else(|| EngramError::NotFound(format!("Task '{}' not found", id)))?;
+
+    if let Ok(task) = Task::from_generic(existing_generic) {
+        let mut updated_task = task;
+        updated_task.status = crate::entities::TaskStatus::Cancelled;
+        if let Some(reason_text) = reason {
+            let archive_note = format!("Archived: {}", reason_text);
+            if updated_task.outcome.is_none() {
+                updated_task.outcome = Some(archive_note);
+            }
+        }
+
+        let updated_generic = updated_task.to_generic();
+        storage.store(&updated_generic)?;
+
+        println!("✅ Task '{}' archived (soft deleted)", id);
+        println!("  Reason: {}", reason.unwrap_or("No reason provided"));
+        println!("  Use 'engram task update {} --status todo' to restore", id);
+
+        Ok(())
+    } else {
+        Err(EngramError::Validation("Invalid task type".to_string()))
+    }
 }
 
 /// Display task information

@@ -1,0 +1,48 @@
+version: 1.0.0
+title: Log Aggregation Setup
+description: Configure log shipping to a centralised instance.
+instructions: 'Set up a centralised log aggregation pipeline to collect, store, and analyse system logs.
+
+
+  1. Design the log schema and retention policy using The Architect.
+
+  2. Configure log shippers (Promtail, Fluentd, Vector) on client nodes using The DevOps Engineer.
+
+  3. Deploy the central aggregator (Loki, Elasticsearch) using The DevOps Engineer.
+
+  4. Create basic dashboards for visualization using The Visualisation Expert.
+
+  '
+parameters:
+- key: retention_days
+  input_type: string
+  requirement: required
+  description: Number of days to retain logs.
+- key: destination_url
+  input_type: string
+  requirement: required
+  description: URL of the central log storage service.
+sub_recipes:
+- name: agent_03_the_architect
+  path: ./agents/03-the-architect.yaml
+- name: agent_45_the_devops_engineer
+  path: ./agents/45-the-devops-engineer.yaml
+- name: agent_29_the_visualisation_expert
+  path: ./agents/29-the-visualisation-expert.yaml
+extensions:
+- type: builtin
+  name: developer
+  timeout: 300
+  bundled: true
+prompt: 'Configure log aggregation sending to {{ destination_url }} with a retention of {{ retention_days }} days.
+
+
+  1. ''agent_03_the_architect'': Define the standard log format (JSON preferred). Determine the storage requirements based on volume.
+
+  2. ''agent_45_the_devops_engineer'': Deploy the log shipping agents to all nodes. Configure them to scrub sensitive data before sending.
+
+  3. ''agent_45_the_devops_engineer'': Ensure the receiving end (Loki/ELK) is configured with the correct retention policy.
+
+  4. ''agent_29_the_visualisation_expert'': Set up a "Mission Control" dashboard showing error rates and log volume over time.
+
+  '

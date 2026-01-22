@@ -1,0 +1,37 @@
+version: "1.0.0"
+title: "Process Killer Automation"
+description: "Detect and kill hung processes."
+instructions: |
+  Monitor and terminate unresponsive applications.
+  1. Scan the process list for high CPU/Memory outliers using Agent 66.
+  2. Verify if the process is unresponsive using Agent 47.
+  3. Terminate the process safely using Agent 66.
+    
+parameters:
+  - key: target_process_name
+    input_type: string
+    requirement: required
+    description: "Name or pattern of the process to monitor."
+  - key: timeout_sec
+    input_type: number
+    requirement: required
+    description: "Duration of unresponsiveness before killing."
+
+sub_recipes:
+  - name: "agent_66_the_executioner"
+    path: "./agents/66-the-executioner.yaml"
+  - name: "agent_47_the_silent_assassin"
+    path: "./agents/47-the-silent-assassin.yaml"
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Watch {{ target_process_name }} and kill if hung for {{ timeout_sec }}s.
+    
+  1. 'agent_66_the_executioner': Monitor the PID of {{ target_process_name }}.
+  2. 'agent_47_the_silent_assassin': Check if the process state is 'D' (Uninterruptible Sleep) or 'Z' (Zombie).
+  3. 'agent_66_the_executioner': Send SIGTERM, wait {{ timeout_sec }}s, then send SIGKILL if needed.

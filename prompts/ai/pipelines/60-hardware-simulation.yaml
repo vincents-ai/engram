@@ -1,0 +1,39 @@
+version: "1.0.0"
+title: "Hardware Simulation"
+description: "Simulate firmware logic using QEMU/Renode."
+instructions: |
+  Test firmware without physical hardware.
+  1. Configure the emulation environment (QEMU/Renode) using Agent 60.
+  2. Load the firmware binary and start execution using Agent 59.
+  3. Inspect registers and memory during the run using Agent 64.
+    
+parameters:
+  - key: firmware_binary
+    input_type: string
+    requirement: required
+    description: "Path to the compiled firmware."
+  - key: platform_config
+    input_type: string
+    requirement: required
+    description: "Machine definition file (e.g., .repl for Renode)."
+
+sub_recipes:
+  - name: "agent_60_the_real_time"
+    path: "./agents/60-the-real-time.yaml"
+  - name: "agent_59_the_driver"
+    path: "./agents/59-the-driver.yaml"
+  - name: "agent_64_the_commodore"
+    path: "./agents/64-the-commodore.yaml"
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Simulate {{ firmware_binary }} using {{ platform_config }}.
+    
+  1. 'agent_60_the_real_time': Set up the virtual machine with the peripherals defined in {{ platform_config }}.
+  2. 'agent_59_the_driver': Boot the firmware and monitor the serial output.
+  3. 'agent_64_the_commodore': Pause execution at a breakpoint to verify register states.

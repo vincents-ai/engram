@@ -1,0 +1,37 @@
+version: "1.0.0"
+title: "Impedance Matching"
+description: "Tune trace width for 50/90 ohm impedance."
+instructions: |
+  Calculate and verify PCB trace impedance.
+  1. Calculate required trace width based on stackup using Agent 73.
+  2. Adjust the PCB layout design using Agent 57.
+  3. Verify the calculations against standard models using Agent 73.
+    
+parameters:
+  - key: target_impedance
+    input_type: number
+    requirement: required
+    description: "Target impedance in Ohms (e.g., 50, 90, 100)."
+  - key: dielectric_height
+    input_type: string
+    requirement: required
+    description: "Height of the dielectric layer (e.g., 0.1mm)."
+
+sub_recipes:
+  - name: "agent_73_the_prime"
+    path: "./agents/73-the-prime.yaml"
+  - name: "agent_57_the_router"
+    path: "./agents/57-the-router.yaml"
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Match traces to {{ target_impedance }} Ohms with {{ dielectric_height }} stackup.
+    
+  1. 'agent_73_the_prime': Use standard formulas (Microstrip/Stripline) to solve for trace width.
+  2. 'agent_57_the_router': Update the PCB design rules to enforce this width for relevant net classes.
+  3. 'agent_73_the_prime': Double-check the calculation assuming standard FR4 dielectric constant (4.2).

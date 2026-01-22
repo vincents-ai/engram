@@ -1,0 +1,40 @@
+version: "1.0.0"
+title: "Procedural Audio Generator"
+description: "Generate sound effects using code."
+instructions: |
+  Create audio assets programmatically.
+  1. Define the synthesis parameters and randomization ranges using Agent 63.
+  2. Generate the audio samples using Agent 61.
+  3. Export and catalogue the assets using Agent 25.
+    
+parameters:
+  - key: sfx_type
+    input_type: string
+    requirement: required
+    description: "Type of sound (e.g., Explosion, UI Click, Laser)."
+  - key: quantity
+    input_type: number
+    requirement: required
+    description: "Number of variations to generate."
+
+sub_recipes:
+  - name: "agent_63_the_synthesiser"
+    path: "./agents/63-the-synthesiser.yaml"
+  - name: "agent_61_the_dsp"
+    path: "./agents/61-the-dsp.yaml"
+  - name: "agent_25_the_quartermaster"
+    path: "./agents/25-the-quartermaster.yaml"
+  # TODO: Switch to Agent 136 (The Granular) for texture generation.
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Generate {{ quantity }} variations of {{ sfx_type }}.
+    
+  1. 'agent_63_the_synthesiser': Write the patch definition for a {{ sfx_type }} sound.
+  2. 'agent_61_the_dsp': Render the audio, applying random pitch and envelope modulation for variety.
+  3. 'agent_25_the_quartermaster': Save the files with proper naming conventions and metadata.

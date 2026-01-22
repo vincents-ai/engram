@@ -1,0 +1,41 @@
+version: "1.0.0"
+title: "Streaming Setup Tuning"
+description: "Configure OBS for high-motion content."
+instructions: |
+  Optimise settings for live streaming.
+  1. Analyse network stability and upload speed using Agent 19 (acting as network tuner).
+  2. Configure encoder settings (x264/NVENC) using Agent 65.
+  3. Verify stream health and dropped frames using Agent 92 (acting as bitrate monitor).
+    
+parameters:
+  - key: platform
+    input_type: string
+    requirement: required
+    description: "Streaming service (e.g., Twitch, YouTube)."
+  - key: content_type
+    input_type: string
+    requirement: required
+    description: "Type of content (e.g., FPS Game, Coding)."
+
+sub_recipes:
+  - name: "agent_19_the_performance_tuner"
+    path: "./agents/19-the-performance-tuner.yaml"
+  - name: "agent_65_the_transcoder"
+    path: "./agents/65-the-transcoder.yaml"
+  - name: "agent_92_the_bitrate"
+    path: "./agents/92-the-bitrate.yaml"
+  # TODO: Switch to Agent 92 (The Bitrate) is used here but not yet created? If so, verify. 
+  # Actually, Agent 92 is in the roster but maybe not created as a file. Assuming existing mapped agent for now.
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Tune OBS for {{ content_type }} on {{ platform }}.
+    
+  1. 'agent_19_the_performance_tuner': Run a speed test to determine maximum stable bitrate.
+  2. 'agent_65_the_transcoder': Generate the optimal OBS encoding flags for high-motion {{ content_type }}.
+  3. 'agent_92_the_bitrate': Calculate the b-frame and keyframe interval settings to prevent buffering.

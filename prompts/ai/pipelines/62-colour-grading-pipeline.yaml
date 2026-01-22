@@ -1,0 +1,37 @@
+version: "1.0.0"
+title: "Colour Grading Pipeline"
+description: "Match and grade multi-camera footage."
+instructions: |
+  Create a consistent look across video clips.
+  1. Balance exposure and white balance using Agent 67.
+  2. Apply Look Up Tables (LUTs) and creative grading using Agent 67.
+  3. Verify colour consistency across the timeline using Agent 10.
+    
+parameters:
+  - key: project_file
+    input_type: string
+    requirement: required
+    description: "Path to the NLE project file."
+  - key: target_look
+    input_type: string
+    requirement: required
+    description: "Desired aesthetic (e.g., Cinematic, Broadcast, Sepia)."
+
+sub_recipes:
+  - name: "agent_67_the_colourist"
+    path: "./agents/67-the-colourist.yaml"
+  - name: "agent_10_the_perfect_10"
+    path: "./agents/10-the-perfect-10.yaml"
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Grade the project {{ project_file }} with a {{ target_look }} style.
+    
+  1. 'agent_67_the_colourist': Analyse the scopes (waveform/vectorscope) to neutralise the footage.
+  2. 'agent_67_the_colourist': Apply the primary grade and the {{ target_look }} LUT.
+  3. 'agent_10_the_perfect_10': Scan the timeline to ensure skin tones are natural and shots match.

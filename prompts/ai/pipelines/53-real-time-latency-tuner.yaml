@@ -1,0 +1,38 @@
+version: "1.0.0"
+title: "Real-Time Latency Tuner"
+description: "Optimise system for hard real-time constraints."
+instructions: |
+  Tune the OS for deterministic performance.
+  1. Profile the system latency and interrupts using Agent 60.
+  2. Isolate CPU cores and tune kernel parameters using Agent 60.
+  3. Verify the worst-case execution time (WCET) using Agent 20.
+    
+parameters:
+  - key: target_latency_us
+    input_type: number
+    requirement: required
+    description: "Maximum acceptable latency in microseconds."
+  - key: application_process
+    input_type: string
+    requirement: required
+    description: "The name of the real-time process."
+
+sub_recipes:
+  - name: "agent_60_the_real_time"
+    path: "./agents/60-the-real-time.yaml"
+  - name: "agent_20_the_critical_roller"
+    path: "./agents/20-the-critical-roller.yaml"
+  # TODO: Switch to Agent 82 (The Kernel) for PREEMPT_RT patching.
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Tune system for {{ target_latency_us }}us latency for {{ application_process }}.
+    
+  1. 'agent_60_the_real_time': Run cyclictest to establish a baseline latency.
+  2. 'agent_60_the_real_time': Apply CPU shielding and IRQ affinity settings to isolate {{ application_process }}.
+  3. 'agent_20_the_critical_roller': Re-run tests to confirm the p99 latency is below {{ target_latency_us }}us.

@@ -1,0 +1,22 @@
+version: 1.0.0
+title: Competitor Reconnaissance
+description: Analyse competitors and suggest strategic features.
+instructions: "Gather intelligence on competitors and propose counter-strategies.\n1. Analyse the market landscape using The Market Researcher.\n2. Deconstruct competitor features using The Deconstructor.\n3. Formulate a strategic response using The One.\n  \n"
+parameters:
+- key: competitor_name
+  input_type: string
+  requirement: required
+  description: The name of the competitor or product to analyse.
+sub_recipes:
+- name: market_analysis
+  path: ./agents/09-the-market-researcher.yaml
+- name: feature_breakdown
+  path: ./agents/05-the-deconstructor.yaml
+- name: strategy_formulation
+  path: ./agents/01-the-one.yaml
+extensions:
+- type: builtin
+  name: developer
+  timeout: 300
+  bundled: true
+prompt: "We need to perform reconnaissance on: \"{{ competitor_name }}\"\n  \n1. 'market_analysis': Analyse their market position, strengths, and weaknesses.\n2. 'feature_breakdown': Break down their key features into understandable components.\n3. 'strategy_formulation': Propose a feature or strategy to outperform them.\n"

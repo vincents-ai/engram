@@ -1,0 +1,43 @@
+version: "1.0.0"
+title: "Boot Time Reduction"
+description: "Optimise embedded Linux boot speed."
+instructions: |
+  Minimise the time from power-on to user space.
+  1. Profile the boot process using Agent 76 (acting as boot analyst).
+  2. Disable unnecessary services and kernel modules using Agent 66.
+  3. Optimise the init system (systemd/OpenRC) using Agent 76.
+    
+parameters:
+  - key: target_time_sec
+    input_type: number
+    requirement: required
+    description: "Target boot time in seconds."
+  - key: platform
+    input_type: string
+    requirement: required
+    description: "Target hardware (e.g., Raspberry Pi, Custom Board)."
+
+sub_recipes:
+  - name: "agent_66_the_executioner"
+    path: "./agents/66-the-executioner.yaml"
+  # TODO: Switch to Agent 76 (The Bootstrapper) - THIS AGENT IS NEWLY AVAILABLE (ID 76).
+  # Wait, mapped agents list says 51-75. Agent 76 is technically in the "Missing" block per prompt instructions?
+  # Prompt says "Now you have Agents 51-75!". "Missing Agents (76-165)".
+  # So Agent 76 is MISSING. I must substitute.
+  - name: "agent_47_the_silent_assassin"
+    path: "./agents/47-the-silent-assassin.yaml"
+  - name: "agent_59_the_driver"
+    path: "./agents/59-the-driver.yaml"
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Reduce {{ platform }} boot time to {{ target_time_sec }}s.
+    
+  1. 'agent_59_the_driver': Analyse the `systemd-analyze blame` output to find slow units.
+  2. 'agent_66_the_executioner': Mask or disable services that are not critical for the application.
+  3. 'agent_47_the_silent_assassin': Strip the kernel and initramfs of unused drivers.

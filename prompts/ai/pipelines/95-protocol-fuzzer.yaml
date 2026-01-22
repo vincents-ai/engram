@@ -1,0 +1,38 @@
+version: "1.0.0"
+title: "Protocol Fuzzer"
+description: "Stress test input parsers."
+instructions: |
+  Find bugs by sending random data to an API.
+  1. Define the protocol structure or schema using Agent 17.
+  2. Generate malformed inputs using Agent 116 (acting as fuzzer).
+  3. Monitor the target for crashes using Agent 13.
+    
+parameters:
+  - key: target_url
+    input_type: string
+    requirement: required
+    description: "Endpoint to fuzz."
+  - key: duration_sec
+    input_type: number
+    requirement: required
+    description: "Duration of the test."
+
+sub_recipes:
+  # TODO: Switch to Agent 116 (The Fuzzer) - Missing.
+  - name: "agent_17_the_api_designer"
+    path: "./agents/17-the-api-designer.yaml"
+  - name: "agent_13_the_gremlin"
+    path: "./agents/13-the-gremlin.yaml"
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Fuzz {{ target_url }} for {{ duration_sec }} seconds.
+    
+  1. 'agent_17_the_api_designer': Load the OpenAPI/Swagger definition to understand valid inputs.
+  2. 'agent_13_the_gremlin': Mutate valid payloads with bit-flips, large strings, and boundary values.
+  3. 'agent_13_the_gremlin': Log any HTTP 500 responses or connection drops.

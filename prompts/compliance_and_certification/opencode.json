@@ -1,0 +1,63 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "github-copilot/claude-3.5-sonnet",
+  "small_model": "anthropic/claude-3-haiku",
+  "agent": {
+    "compliance-calculator": {
+      "mode": "subagent",
+      "prompt": "{file:./prompts/compliance-calculator.md}",
+      "description": "Multi-framework scoring, maturity assessment, ROI analysis"
+    },
+    "cybersecurity-auditor": {
+      "mode": "subagent",
+      "prompt": "{file:./prompts/auditors/cybersecurity-auditor.md}",
+      "description": "ISO 27001/27002, NIST CSF, CIS Controls, zero trust, incident response auditing"
+    },
+    "data-protection-auditor": {
+      "mode": "subagent",
+      "prompt": "{file:./prompts/auditors/data-protection-auditor.md}",
+      "description": "GDPR, CCPA, PIPEDA data protection compliance auditing"
+    },
+    "eu-regulations-auditor": {
+      "mode": "subagent",
+      "prompt": "{file:./prompts/auditors/eu-regulations-auditor.md}",
+      "description": "EU AI Act, DSA, DMA, NIS2, DORA, CSRD, CSDDD compliance auditing"
+    },
+    "gaming-compliance-auditor": {
+      "mode": "subagent",
+      "prompt": "{file:./prompts/auditors/gaming-compliance-auditor.md}",
+      "description": "GLI, MGA, UKGC, G4, RNG/RTP fairness, eCOGRA auditing"
+    },
+    "it-saas-auditor": {
+      "mode": "subagent",
+      "prompt": "{file:./prompts/auditors/it-saas-auditor.md}",
+      "description": "SOC 2, ISO 27001, PCI DSS compliance auditing for IT/SaaS"
+    },
+    "software-development-auditor": {
+      "mode": "subagent",
+      "prompt": "{file:./prompts/auditors/software-development-auditor.md}",
+      "description": "OWASP, SDL, ISO 12207, IEC 62304 software development lifecycle auditing"
+    },
+    "financial-compliance-auditor": {
+      "mode": "subagent",
+      "prompt": "{file:./prompts/auditors/financial-compliance-auditor.md}",
+      "description": "SOX, AML/KYC, Gibraltar financial services compliance auditing"
+    },
+    "german-compliance-auditor": {
+      "mode": "subagent",
+      "prompt": "{file:./prompts/auditors/german-compliance-auditor.md}",
+      "description": "GoBD, DSGVO, BSI cybersecurity framework compliance auditing"
+    },
+    "integrated-compliance-auditor": {
+      "mode": "subagent",
+      "prompt": "{file:./prompts/auditors/integrated-compliance-auditor.md}",
+      "description": "Cross-framework integrated compliance auditing and gap analysis"
+    }
+  },
+  "mcp": {
+    "github": {
+      "type": "remote",
+      "url": "https://api.githubcopilot.com/mcp/"
+    }
+  }
+}

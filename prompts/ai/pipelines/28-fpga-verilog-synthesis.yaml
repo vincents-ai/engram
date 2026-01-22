@@ -1,0 +1,38 @@
+version: "1.0.0"
+title: "FPGA Verilog Synthesis"
+description: "Synthesise logic for FPGA hardware."
+instructions: |
+  Convert HDL code into a bitstream for FPGAs.
+  1. Write or validate the Verilog/VHDL code using Agent 58.
+  2. Synthesise the design and map to hardware using Agent 58.
+  3. Verify timing constraints using Agent 60.
+    
+parameters:
+  - key: top_module
+    input_type: string
+    requirement: required
+    description: "Name of the top-level Verilog module."
+  - key: fpga_family
+    input_type: string
+    requirement: required
+    description: "Target FPGA family (e.g., Artix-7, Cyclone V)."
+
+sub_recipes:
+  - name: "agent_58_the_silicon"
+    path: "./agents/58-the-silicon.yaml"
+  - name: "agent_60_the_real_time"
+    path: "./agents/60-the-real-time.yaml"
+  # TODO: Switch to Agent 54 (The FPGA Bitstream Pipeline) workflow if available.
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Synthesise {{ top_module }} for {{ fpga_family }}.
+    
+  1. 'agent_58_the_silicon': Check the Verilog code for syntax errors and synthesise the netlist.
+  2. 'agent_58_the_silicon': Map the design to the {{ fpga_family }} resources (LUTs, DSPs).
+  3. 'agent_60_the_real_time': Check the timing reports to ensure the design meets frequency requirements.

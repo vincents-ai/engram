@@ -1,0 +1,38 @@
+version: "1.0.0"
+title: "4K Video Transcode"
+description: "Optimise high-res video for streaming."
+instructions: |
+  Convert raw video footage into streaming-ready formats.
+  1. Analyse the source file and select codecs using Agent 65.
+  2. Perform the transcoding process using Agent 65.
+  3. Verify the output quality using Agent 10 (acting as visual inspector).
+    
+parameters:
+  - key: input_file
+    input_type: string
+    requirement: required
+    description: "Path to the 4K source video."
+  - key: target_bitrate
+    input_type: string
+    requirement: required
+    description: "Target video bitrate (e.g., 15Mbps)."
+
+sub_recipes:
+  - name: "agent_65_the_transcoder"
+    path: "./agents/65-the-transcoder.yaml"
+  - name: "agent_10_the_perfect_10"
+    path: "./agents/10-the-perfect-10.yaml"
+  # TODO: Switch to Agent 92 (The Bitrate) for detailed bandwidth analysis.
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Transcode {{ input_file }} to 4K HEVC at {{ target_bitrate }}.
+    
+  1. 'agent_65_the_transcoder': Generate the FFmpeg command string for the target spec.
+  2. 'agent_65_the_transcoder': Execute the encoding process (simulated).
+  3. 'agent_10_the_perfect_10': Verify that the output maintains visual fidelity and colour accuracy.

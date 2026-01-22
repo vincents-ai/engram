@@ -1,0 +1,22 @@
+version: 1.0.0
+title: UI Overhaul Refresh
+description: Modernise UI components based on market trends.
+instructions: "Orchestrate a UI refresh to align with modern design standards.\n1. Analyse current market trends using The Market Researcher.\n2. Create new component designs using The Perfect 10.\n3. Implement the designs using The Type-Safe agent.\n  \n"
+parameters:
+- key: component_scope
+  input_type: string
+  requirement: required
+  description: The specific UI components or screens to be refreshed (e.g., 'Login Screen', 'Dashboard Widgets').
+sub_recipes:
+- name: trend_analysis
+  path: ./agents/09-the-market-researcher.yaml
+- name: visual_design
+  path: ./agents/10-the-perfect-10.yaml
+- name: implementation
+  path: ./agents/72-the-type-safe.yaml
+extensions:
+- type: builtin
+  name: developer
+  timeout: 300
+  bundled: true
+prompt: "We are initiating a UI overhaul for: \"{{ component_scope }}\"\n  \n1. 'trend_analysis': Research current design trends relevant to {{ component_scope }}.\n2. 'visual_design': Based on the research, create updated design specifications and visual assets.\n3. 'implementation': Implement the new designs in strict TypeScript, ensuring type safety.\n"

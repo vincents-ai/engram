@@ -1,0 +1,38 @@
+version: "1.0.0"
+title: "Signal Integrity Debug"
+description: "Diagnose high-speed bus failures."
+instructions: |
+  Fix issues with digital signals.
+  1. Capture the waveform using Agent 64 (acting as logic analyser).
+  2. Analyse rise times and ringing using Agent 57.
+  3. Recommend termination or layout changes using Agent 57.
+    
+parameters:
+  - key: net_name
+    input_type: string
+    requirement: required
+    description: "The name of the failing signal net."
+  - key: protocol
+    input_type: string
+    requirement: required
+    description: "The communication protocol (e.g., SPI, I2C, DDR)."
+
+sub_recipes:
+  # TODO: Switch to Agent 89 (The Scope) - Missing.
+  - name: "agent_64_the_commodore"
+    path: "./agents/64-the-commodore.yaml"
+  - name: "agent_57_the_router"
+    path: "./agents/57-the-router.yaml"
+
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+
+prompt: |
+  Debug signal integrity on {{ net_name }} ({{ protocol }}).
+    
+  1. 'agent_64_the_commodore': Analyse the captured trace for setup/hold time violations.
+  2. 'agent_57_the_router': Check the impedance of the trace on the PCB layout.
+  3. 'agent_57_the_router': Suggest adding series resistors or adjusting the trace length.
