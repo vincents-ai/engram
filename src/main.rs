@@ -34,7 +34,8 @@ async fn run() -> Result<(), EngramError> {
         cli::Commands::Setup { command } => handle_setup_command(command)?,
         cli::Commands::Convert { from, file } => handle_convert_command(&from, &file)?,
         cli::Commands::Import { command } => {
-            cli::handle_import_command(command)?;
+            let mut storage = GitRefsStorage::new(".", "default")?;
+            cli::handle_import_command(command, &mut storage)?;
         }
         cli::Commands::Test => handle_test_command()?,
         cli::Commands::Task { command } => {
