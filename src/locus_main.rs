@@ -4,8 +4,6 @@ use engram::locus_handlers::handle_locus_command;
 use engram::locus_integration::LocusIntegration;
 use engram::locus_tui::LocusTuiApp;
 use engram::storage::GitRefsStorage;
-use engram::Config;
-use std::io;
 
 mod locus_cli;
 
