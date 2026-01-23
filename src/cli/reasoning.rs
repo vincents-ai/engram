@@ -38,6 +38,10 @@ pub enum ReasoningCommands {
         #[arg(long, short)]
         confidence: Option<f64>,
 
+        /// Initial content/conclusion
+        #[arg(long, conflicts_with_all = ["content_stdin", "content_file"])]
+        content: Option<String>,
+
         /// Tags (comma-separated)
         #[arg(long)]
         tags: Option<String>,
@@ -49,6 +53,14 @@ pub enum ReasoningCommands {
         /// Read title from file
         #[arg(long, conflicts_with_all = ["title", "title_stdin"])]
         title_file: Option<String>,
+
+        /// Read content from stdin
+        #[arg(long, conflicts_with_all = ["content", "content_file"])]
+        content_stdin: bool,
+
+        /// Read content from file
+        #[arg(long, conflicts_with_all = ["content", "content_stdin"])]
+        content_file: Option<String>,
 
         /// Create reasoning from JSON input (stdin or file)
         #[arg(long, conflicts_with_all = ["title", "title_stdin", "title_file"])]
@@ -178,9 +190,12 @@ pub fn create_reasoning<S: Storage>(
     task_id: Option<String>,
     agent: Option<String>,
     confidence: Option<f64>,
+    content: Option<String>,
     _tags: Option<String>,
     title_stdin: bool,
     title_file: Option<String>,
+    content_stdin: bool,
+    content_file: Option<String>,
     json: bool,
     json_file: Option<String>,
 ) -> Result<(), EngramError> {
@@ -219,6 +234,15 @@ pub fn create_reasoning<S: Storage>(
     // Set initial confidence if provided
     if let Some(conf) = confidence {
         reasoning.confidence = conf;
+    }
+
+    // Set initial content/conclusion if provided
+    if content_stdin {
+        reasoning.conclusion = read_stdin()?;
+    } else if let Some(ref file_path) = content_file {
+        reasoning.conclusion = read_file(file_path)?;
+    } else if let Some(ref c) = content {
+        reasoning.conclusion = c.clone();
     }
 
     let generic_entity = reasoning.to_generic();
