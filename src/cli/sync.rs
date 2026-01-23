@@ -955,7 +955,11 @@ pub fn create_credentials(auth: &RemoteAuth) -> Result<Option<RemoteCallbacks<'_
             });
             Ok(Some(callbacks))
         }
-        "none" | _ => Ok(None),
+        "none" => Ok(None),
+        _ => Err(EngramError::Validation(format!(
+            "Invalid authentication type: '{}'. Valid options: ssh, http, https, none",
+            auth.auth_type
+        ))),
     }
 }
 
@@ -1204,6 +1208,39 @@ pub fn switch_branch(branch_name: &str, create_if_missing: bool) -> Result<(), E
     if !branch_exists {
         if create_if_missing {
             create_branch(branch_name, None, None)?;
+            // Reopen repository to ensure new branch is visible
+            let repo = Repository::open(&repo_path)
+                .map_err(|e| EngramError::Git(format!("Failed to reopen repository: {}", e)))?;
+            let branch_ref = repo
+                .find_reference(&format!("refs/heads/{}", branch_name))
+                .map_err(|e| {
+                    EngramError::Git(format!("Failed to find branch '{}': {}", branch_name, e))
+                })?;
+            let commit = branch_ref.peel_to_commit().map_err(|e| {
+                EngramError::Git(format!(
+                    "Failed to get commit for branch '{}': {}",
+                    branch_name, e
+                ))
+            })?;
+            repo.set_head(&format!("refs/heads/{}", branch_name))
+                .map_err(|e| {
+                    EngramError::Git(format!(
+                        "Failed to switch to branch '{}': {}",
+                        branch_name, e
+                    ))
+                })?;
+            repo.checkout_tree(
+                commit.tree().unwrap().as_object(),
+                Some(git2::build::CheckoutBuilder::new().force()),
+            )
+            .map_err(|e| {
+                EngramError::Git(format!(
+                    "Failed to checkout branch '{}': {}",
+                    branch_name, e
+                ))
+            })?;
+            println!("🌿 Switched to branch '{}'", branch_name);
+            return Ok(());
         } else {
             return Err(EngramError::Git(format!(
                 "Branch '{}' does not exist. Use --create to create it.",

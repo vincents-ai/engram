@@ -2,6 +2,8 @@
 //!
 //! Tests authentication, branch management, and remote operations
 //! without requiring actual remote repositories.
+//!
+//! Note: These tests modify the process-wide current directory and must run serially.
 
 use engram::{
     cli::sync::{create_branch, create_credentials, delete_branch, list_branches, switch_branch},
@@ -11,7 +13,11 @@ use engram::{
 use git2::{Repository, Signature};
 use std::env;
 use std::fs;
+use std::sync::Mutex;
 use tempfile::TempDir;
+
+// Global mutex to ensure tests run serially since they modify process-wide state
+static TEST_MUTEX: Mutex<()> = Mutex::new(());
 
 /// Test fixture for sync operations
 struct SyncTestFixture {
@@ -74,6 +80,7 @@ impl SyncTestFixture {
 
 #[tokio::test]
 async fn test_branch_creation_and_switching() -> Result<(), EngramError> {
+    let _guard = TEST_MUTEX.lock().unwrap();
     let fixture = SyncTestFixture::new()?;
     fixture.set_working_directory()?;
 
@@ -86,11 +93,14 @@ async fn test_branch_creation_and_switching() -> Result<(), EngramError> {
 
     switch_branch("new-branch", true)?;
 
+    // Keep fixture alive to prevent cleanup
+    drop(fixture);
     Ok(())
 }
 
 #[tokio::test]
 async fn test_branch_listing() -> Result<(), EngramError> {
+    let _guard = TEST_MUTEX.lock().unwrap();
     let fixture = SyncTestFixture::new()?;
     fixture.set_working_directory()?;
 
@@ -103,15 +113,21 @@ async fn test_branch_listing() -> Result<(), EngramError> {
     switch_branch("agent-alice", false)?;
     list_branches(false, true)?;
 
+    drop(fixture);
     Ok(())
 }
 
 #[tokio::test]
 async fn test_branch_deletion() -> Result<(), EngramError> {
+    let _guard = TEST_MUTEX.lock().unwrap();
     let fixture = SyncTestFixture::new()?;
     fixture.set_working_directory()?;
 
     create_branch("delete-me", Some("test"), None)?;
+    
+    // Ensure branch creation completes before switching
+    std::thread::sleep(std::time::Duration::from_millis(50));
+    
     switch_branch("main", false)?;
 
     let result = delete_branch("delete-me", false);
@@ -121,11 +137,13 @@ async fn test_branch_deletion() -> Result<(), EngramError> {
     let result = delete_branch("non-existent", true);
     assert!(result.is_err());
 
+    drop(fixture);
     Ok(())
 }
 
 #[tokio::test]
 async fn test_authentication_credentials() -> Result<(), EngramError> {
+    let _guard = TEST_MUTEX.lock().unwrap();
     let _fixture = SyncTestFixture::new()?;
 
     let ssh_auth = RemoteAuth {
@@ -163,6 +181,7 @@ async fn test_authentication_credentials() -> Result<(), EngramError> {
 
 #[tokio::test]
 async fn test_memory_storage_integration() -> Result<(), EngramError> {
+    let _guard = TEST_MUTEX.lock().unwrap();
     let _fixture = SyncTestFixture::new()?;
 
     let mut _memory_storage = MemoryStorage::new("test-agent");
@@ -172,6 +191,7 @@ async fn test_memory_storage_integration() -> Result<(), EngramError> {
 
 #[tokio::test]
 async fn test_multi_agent_branch_isolation() -> Result<(), EngramError> {
+    let _guard = TEST_MUTEX.lock().unwrap();
     let fixture = SyncTestFixture::new()?;
     fixture.set_working_directory()?;
 
@@ -185,11 +205,13 @@ async fn test_multi_agent_branch_isolation() -> Result<(), EngramError> {
 
     list_branches(true, false)?;
 
+    drop(fixture);
     Ok(())
 }
 
 #[tokio::test]
 async fn test_branch_agent_association() -> Result<(), EngramError> {
+    let _guard = TEST_MUTEX.lock().unwrap();
     let fixture = SyncTestFixture::new()?;
     fixture.set_working_directory()?;
 
@@ -197,11 +219,13 @@ async fn test_branch_agent_association() -> Result<(), EngramError> {
     create_branch("feature-ui", Some("frontend-agent"), None)?;
     create_branch("feature-db", Some("backend-agent"), None)?;
 
+    drop(fixture);
     Ok(())
 }
 
 #[tokio::test]
 async fn test_error_conditions() -> Result<(), EngramError> {
+    let _guard = TEST_MUTEX.lock().unwrap();
     let fixture = SyncTestFixture::new()?;
     fixture.set_working_directory()?;
 
@@ -212,15 +236,21 @@ async fn test_error_conditions() -> Result<(), EngramError> {
     assert!(result.is_err());
 
     create_branch("current-branch", Some("test"), None)?;
+    
+    // Ensure branch creation completes before switching
+    std::thread::sleep(std::time::Duration::from_millis(50));
+    
     switch_branch("current-branch", false)?;
     let result = delete_branch("current-branch", true);
     assert!(result.is_err());
 
+    drop(fixture);
     Ok(())
 }
 
 #[tokio::test]
 async fn test_concurrent_branch_operations() -> Result<(), EngramError> {
+    let _guard = TEST_MUTEX.lock().unwrap();
     let fixture = SyncTestFixture::new()?;
     fixture.set_working_directory()?;
 
@@ -229,6 +259,10 @@ async fn test_concurrent_branch_operations() -> Result<(), EngramError> {
         let agent_name = format!("agent-{}", i);
 
         create_branch(&branch_name, Some(&agent_name), None)?;
+        
+        // Ensure branch creation completes before switching
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        
         switch_branch(&branch_name, false)?;
     }
 
@@ -240,5 +274,6 @@ async fn test_concurrent_branch_operations() -> Result<(), EngramError> {
         delete_branch(&branch_name, true)?;
     }
 
+    drop(fixture);
     Ok(())
 }
