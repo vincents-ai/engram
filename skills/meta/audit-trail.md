@@ -161,3 +161,12 @@ engram reasoning list | grep "[search term]"
 3. **Link Everything** - Connect related entities
 4. **Capture Learnings** - What would you do differently?
 5. **Create Summaries** - High-level overviews help
+
+## Related Skills
+
+This skill integrates with:
+- `engram-use-memory` - Core memory storage patterns
+- `engram-delegate-to-agents` - Track delegated work outcomes
+- `engram-check-compliance` - Store compliance evidence
+- `engram-plan-feature` - Document feature implementation progress
+- `engram-test-driven-development` - Track test results and coverage

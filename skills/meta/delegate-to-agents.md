@@ -137,3 +137,12 @@ engram reasoning list | grep "Delegation Result"
 | Prompt Engineering | 37-the-prompt-engineer |
 
 See full catalog: `ls ~/code/prompts/goose/agents/`
+
+## Related Skills
+
+This skill integrates with:
+- `engram-use-memory` - Store delegation context and outcomes
+- `engram-plan-feature` - Break features into delegable tasks
+- `engram-audit-trail` - Track delegation outcomes and artifacts
+- `engram-dispatching-parallel-agents` - Execute parallel delegation patterns
+- `engram-subagent-driven-development` - Systematic multi-agent development workflow

@@ -143,3 +143,12 @@ engram relationship connected --entity-id [TASK] --relationship-type fulfills
 | Gaming | MGA | igaming/mga.yaml |
 
 See full catalog: `ls ~/code/prompts/compliance_and_certification/prompts/audit_checkpoints/`
+
+## Related Skills
+
+This skill integrates with:
+- `engram-use-memory` - Store compliance findings and evidence
+- `engram-audit-trail` - Complete audit trail for compliance work
+- `engram-test-driven-development` - Tests provide compliance evidence
+- `engram-requesting-code-review` - Code review for security compliance
+- `engram-plan-feature` - Ensure compliance from planning stage

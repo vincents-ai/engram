@@ -151,3 +151,12 @@ engram relationship connected --entity-id [PARENT_ID] --relationship-type contai
 | CI/CD | build-verify.yaml |
 
 See full catalog: `ls ~/code/prompts/goose/ai/pipelines/`
+
+## Related Skills
+
+This skill integrates with:
+- `engram-use-memory` - Store plans as persistent context
+- `engram-delegate-to-agents` - Delegate pipeline stages to specialized agents
+- `engram-brainstorming` - Design features before planning implementation
+- `engram-writing-plans` - Alternative planning approach for simpler features
+- `engram-audit-trail` - Track plan execution progress
