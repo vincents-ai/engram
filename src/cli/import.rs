@@ -3,9 +3,9 @@
 //! This module provides the `engram import` command which parses Engram Markdown
 //! (EMD) files and auto-creates entities with relationships based on pattern matching.
 
-use crate::entities::GenericEntity;
+use crate::entities::{Context, Entity, Reasoning, Task};
 use crate::error::EngramError;
-use crate::storage::Storage;
+use crate::storage::{RelationshipStorage, Storage};
 use clap::Subcommand;
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -125,8 +125,9 @@ pub enum ImportError {
 }
 
 /// Handle import command
-pub fn handle_import_command(
+pub fn handle_import_command<S: Storage + RelationshipStorage>(
     command: ImportCommands,
+    storage: &mut S,
 ) -> Result<(), EngramError> {
     match command {
         ImportCommands::Import {
@@ -136,7 +137,7 @@ pub fn handle_import_command(
             force: _,
             json,
         } => {
-            let result = import_file(&file, verbose, dry_run)?;
+            let result = import_file(&file, verbose, dry_run, storage)?;
 
             if json {
                 let json_output = serde_json::json!({
@@ -149,9 +150,9 @@ pub fn handle_import_command(
                 });
                 println!("{}", serde_json::to_string_pretty(&json_output)?);
             } else {
-                println!("Import complete: {} entities, {} relationships",
-                    result.entities_created,
-                    result.relationships_created
+                println!(
+                    "Import complete: {} entities, {} relationships",
+                    result.entities_created, result.relationships_created
                 );
 
                 if !result.warnings.is_empty() && verbose {
@@ -167,7 +168,7 @@ pub fn handle_import_command(
                         println!("  - {}", error);
                     }
                     return Err(EngramError::Validation(
-                        "Import completed with errors".to_string()
+                        "Import completed with errors".to_string(),
                     ));
                 }
             }
@@ -178,10 +179,11 @@ pub fn handle_import_command(
 }
 
 /// Main import function
-fn import_file(
+fn import_file<S: Storage + RelationshipStorage>(
     file: &PathBuf,
     verbose: bool,
     dry_run: bool,
+    storage: &mut S,
 ) -> Result<ImportResult, EngramError> {
     let mut result = ImportResult {
         entities_created: 0,
@@ -196,16 +198,15 @@ fn import_file(
         println!("Reading file: {:?}", file);
     }
 
-    let content = fs::read_to_string(file)
-        .map_err(|e| EngramError::Io(e))?;
+    let content = fs::read_to_string(file).map_err(|e| EngramError::Io(e))?;
 
     // Parse frontmatter
     if verbose {
         println!("Parsing frontmatter...");
     }
 
-    let frontmatter = parse_frontmatter(&content)
-        .map_err(|e| EngramError::Validation(e.to_string()))?;
+    let frontmatter =
+        parse_frontmatter(&content).map_err(|e| EngramError::Validation(e.to_string()))?;
 
     if verbose {
         println!("  Title: {}", frontmatter.title);
@@ -273,10 +274,82 @@ fn import_file(
         }
     }
 
-    // TODO: Actual storage operations
-    // - Create Context entities for findings
-    // - Create Reasoning entities for reasoning sections
-    // - Create relationships from UUID patterns
+    if matches!(frontmatter.doc_type, DocType::Task) {
+        let entity_id = Uuid::new_v4();
+
+        let task = Task::new(
+            frontmatter.title.clone(),
+            "Imported from markdown".to_string(),
+            frontmatter
+                .author
+                .clone()
+                .unwrap_or_else(|| "import".to_string()),
+            crate::entities::TaskPriority::Medium,
+            None,
+        );
+
+        let generic = task.to_generic();
+        storage.store(&generic)?;
+
+        result.entities_created += 1;
+        result.entity_ids.push(entity_id.to_string());
+
+        if verbose {
+            println!("  Created task: {}", frontmatter.title);
+        }
+    }
+
+    for finding in &findings {
+        let entity_id = finding.uuid.unwrap_or_else(Uuid::new_v4);
+
+        let context = Context::new(
+            finding.title.clone(),
+            finding.content.clone(),
+            frontmatter
+                .author
+                .clone()
+                .unwrap_or_else(|| "import".to_string()),
+            crate::entities::ContextRelevance::Medium,
+            "import".to_string(),
+        );
+
+        let generic = context.to_generic();
+        storage.store(&generic)?;
+
+        result.entities_created += 1;
+        result.entity_ids.push(entity_id.to_string());
+
+        if verbose {
+            println!("  Created context: {}", finding.title);
+        }
+    }
+
+    for reasoning in &reasoning_sections {
+        let entity_id = reasoning.uuid.unwrap_or_else(Uuid::new_v4);
+
+        let mut reasoning_entity = Reasoning::new(
+            reasoning.title.clone(),
+            reasoning
+                .task_id
+                .map(|t| t.to_string())
+                .unwrap_or_else(|| "default".to_string()),
+            "import".to_string(),
+        );
+
+        if !reasoning.content.is_empty() {
+            reasoning_entity.add_step(reasoning.content.clone(), reasoning.title.clone(), 0.5);
+        }
+
+        let generic = reasoning_entity.to_generic();
+        storage.store(&generic)?;
+
+        result.entities_created += 1;
+        result.entity_ids.push(entity_id.to_string());
+
+        if verbose {
+            println!("  Created reasoning: {}", reasoning.title);
+        }
+    }
 
     Ok(result)
 }
@@ -286,7 +359,8 @@ fn parse_frontmatter(content: &str) -> Result<Frontmatter, ImportError> {
     // Check for frontmatter markers
     if !content.starts_with("---") {
         // No frontmatter - extract title from first line
-        let first_line = content.lines()
+        let first_line = content
+            .lines()
             .next()
             .unwrap_or("")
             .trim_start_matches('#')
@@ -306,9 +380,11 @@ fn parse_frontmatter(content: &str) -> Result<Frontmatter, ImportError> {
     let start = 3; // Skip opening ---
     let end = match content[3..].find("---") {
         Some(pos) => pos + 3,
-        None => return Err(ImportError::InvalidFrontmatter(
-            "Missing closing ---".to_string()
-        )),
+        None => {
+            return Err(ImportError::InvalidFrontmatter(
+                "Missing closing ---".to_string(),
+            ))
+        }
     };
 
     let frontmatter_str = &content[start..end].trim();
@@ -320,7 +396,7 @@ fn parse_frontmatter(content: &str) -> Result<Frontmatter, ImportError> {
     // Validate required fields
     if frontmatter.title.is_empty() {
         return Err(ImportError::InvalidFrontmatter(
-            "title is required".to_string()
+            "title is required".to_string(),
         ));
     }
 
@@ -469,10 +545,12 @@ fn extract_uuid_patterns(content: &str) -> Vec<(Uuid, String)> {
     let mut patterns = Vec::new();
 
     // Pattern: [UUID] or [type: UUID]
-    let re = regex::RegexBuilder::new(r"\[([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})\]")
-        .case_insensitive(true)
-        .build()
-        .unwrap();
+    let re = regex::RegexBuilder::new(
+        r"\[([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})\]",
+    )
+    .case_insensitive(true)
+    .build()
+    .unwrap();
 
     for cap in re.captures_iter(content) {
         let uuid_str = cap[1].to_string();
@@ -487,8 +565,9 @@ fn extract_uuid_patterns(content: &str) -> Vec<(Uuid, String)> {
 
 /// Extract UUID from a pattern like [Finding: UUID]
 fn extract_uuid_from_pattern(text: &str) -> Option<Uuid> {
-    let re = regex::Regex::new(r"\[([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})\]")
-        .ok()?;
+    let re =
+        regex::Regex::new(r"\[([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})\]")
+            .ok()?;
 
     for cap in re.captures_iter(text) {
         let uuid_str = cap[1].to_string();
