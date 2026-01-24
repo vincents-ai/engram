@@ -752,7 +752,106 @@ mod tests {
     #[test]
     fn test_delete_knowledge_not_found() {
         let mut storage = create_test_storage();
+        // MemoryStorage delete usually returns Ok even if not found, but delete_knowledge wraps it.
+        // Actually storage.delete signature: fn delete(&mut self, id: &str, entity_type: &str) -> Result<(), EngramError>
+        // MemoryStorage implementation: returns Ok(()) regardless or NotFound?
+        // Let's assume it might return NotFound. If it returns Ok, the test will fail if we assert Error.
+        // Let's check other tests. test_delete_reasoning_not_found asserted Err(NotFound).
+        // So MemoryStorage probably returns NotFound.
         let result = delete_knowledge(&mut storage, "missing-id");
+        // Adjust expectation based on storage implementation if needed.
+        // If storage.delete returns NotFound error, then this is correct.
+        // If storage.delete returns Ok, then we should assert Ok.
+        // Based on previous files, let's assume NotFound.
+        // But wait, the MemoryStorage delete implementation:
+        //      if self.data.remove(key).is_none() { return Err(EngramError::NotFound(...)); }
+        // Yes, it returns NotFound.
         assert!(matches!(result, Err(EngramError::NotFound(_))));
+    }
+
+    #[test]
+    fn test_update_knowledge_invalid_type() {
+        let mut storage = create_test_storage();
+        create_knowledge(
+            &mut storage,
+            Some("Test Fact".to_string()),
+            None,
+            "fact".to_string(),
+            0.8,
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+        )
+        .unwrap();
+
+        let ids = storage.list_ids("knowledge").unwrap();
+        let id = &ids[0];
+
+        let result = update_knowledge(&mut storage, id, "type", "invalid_type");
+        assert!(matches!(result, Err(EngramError::Validation(_))));
+    }
+
+    #[test]
+    fn test_update_knowledge_source() {
+        let mut storage = create_test_storage();
+        create_knowledge(
+            &mut storage,
+            Some("Test Fact".to_string()),
+            None,
+            "fact".to_string(),
+            0.8,
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+        )
+        .unwrap();
+
+        let ids = storage.list_ids("knowledge").unwrap();
+        let id = &ids[0];
+
+        update_knowledge(&mut storage, id, "source", "New Source").unwrap();
+        let entity = storage.get(id, "knowledge").unwrap().unwrap();
+        let knowledge = Knowledge::from_generic(entity).unwrap();
+        assert_eq!(knowledge.source, Some("New Source".to_string()));
+    }
+
+    #[test]
+    fn test_update_knowledge_confidence_nan() {
+        let mut storage = create_test_storage();
+        create_knowledge(
+            &mut storage,
+            Some("Test Fact".to_string()),
+            None,
+            "fact".to_string(),
+            0.8,
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+        )
+        .unwrap();
+
+        let ids = storage.list_ids("knowledge").unwrap();
+        let id = &ids[0];
+
+        let result = update_knowledge(&mut storage, id, "confidence", "not_a_number");
+        assert!(matches!(result, Err(EngramError::Validation(_))));
     }
 }
