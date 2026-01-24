@@ -296,11 +296,15 @@ fn handle_task_command<S: engram::storage::Storage + 'static>(
             id,
             status,
             outcome,
+            reason,
         } => {
-            cli::update_task(storage, &id, &status, outcome.as_deref())?;
+            cli::update_task(storage, &id, &status, outcome.as_deref(), reason.as_deref())?;
         }
         cli::TaskCommands::Archive { id, reason } => {
             cli::archive_task(storage, &id, reason.as_deref())?;
+        }
+        cli::TaskCommands::Resolve { id, message } => {
+            cli::resolve_task(storage, &id, message.as_deref())?;
         }
     }
     Ok(())

@@ -6,7 +6,7 @@ use crate::storage::Storage;
 use clap::Subcommand;
 use serde::Deserialize;
 use std::fs;
-use std::io::{self, Read};
+use std::io::{self, Read, Write};
 
 /// Task input structure for JSON
 #[derive(Debug, Deserialize)]
@@ -109,6 +109,10 @@ pub enum TaskCommands {
         /// Outcome (when completing task)
         #[arg(long)]
         outcome: Option<String>,
+
+        /// Reason (when blocking task)
+        #[arg(long)]
+        reason: Option<String>,
     },
     /// Archive a task (soft delete)
     Archive {
@@ -120,6 +124,28 @@ pub enum TaskCommands {
         #[arg(long)]
         reason: Option<String>,
     },
+    /// Resolve a blocked task
+    Resolve {
+        /// Task ID
+        #[arg(help = "Task ID to resolve")]
+        id: String,
+
+        /// Resolution message (optional, will prompt if not provided)
+        #[arg(long, short)]
+        message: Option<String>,
+    },
+}
+
+/// Read content from stdin with a prompt
+fn read_line_with_prompt(prompt: &str) -> Result<String, EngramError> {
+    print!("{}", prompt);
+    io::stdout().flush().map_err(EngramError::Io)?;
+
+    let mut buffer = String::new();
+    io::stdin()
+        .read_line(&mut buffer)
+        .map_err(EngramError::Io)?;
+    Ok(buffer.trim().to_string())
 }
 
 /// Read content from stdin
@@ -368,6 +394,7 @@ pub fn update_task<S: Storage>(
     id: &str,
     status: &str,
     outcome: Option<&str>,
+    reason: Option<&str>,
 ) -> Result<(), EngramError> {
     let existing_generic = storage
         .get(id, "task")?
@@ -395,7 +422,8 @@ pub fn update_task<S: Storage>(
             }
             // Handle blocked
             "blocked" | "block" | "waiting" | "on_hold" | "on-hold" | "onhold" => {
-                updated_task.status = crate::entities::TaskStatus::Blocked;
+                let reason_text = reason.unwrap_or("Task blocked");
+                updated_task.block(reason_text.to_string());
             }
             // Handle cancelled
             "cancelled" | "canceled" | "cancel" | "abandoned" | "dropped" => {
@@ -454,12 +482,105 @@ pub fn archive_task<S: Storage>(
     }
 }
 
+/// Resolve a blocked task
+pub fn resolve_task<S: Storage>(
+    storage: &mut S,
+    id: &str,
+    message: Option<&str>,
+) -> Result<(), EngramError> {
+    let existing_generic = storage
+        .get(id, "task")?
+        .ok_or_else(|| EngramError::NotFound(format!("Task '{}' not found", id)))?;
+
+    if let Ok(mut task) = Task::from_generic(existing_generic) {
+        if task.status != crate::entities::TaskStatus::Blocked {
+            println!("Task '{}' is not currently blocked.", id);
+            return Ok(());
+        }
+
+        println!("🔒 Task is blocked.");
+        if let Some(reason) = &task.block_reason {
+            println!("   Reason: {}", reason);
+        }
+
+        let resolution = if let Some(msg) = message {
+            msg.to_string()
+        } else {
+            // Interactive prompt
+            read_line_with_prompt("\n📝 Enter resolution (how was this resolved?): ")?
+        };
+
+        if resolution.trim().is_empty() {
+            return Err(EngramError::Validation(
+                "Resolution message cannot be empty.".to_string(),
+            ));
+        }
+
+        // Capture previous block reason before it gets cleared by start()
+        let previous_block_reason = task.block_reason.clone().unwrap_or_default();
+
+        // Unblock and set status to InProgress
+        task.start();
+
+        // Optionally, we could append the resolution to metadata or outcome history
+        // For now, we'll log it in the outcome temporarily if it was previously empty,
+        // or just consider the unblocking itself sufficient state change.
+        // A better approach for history tracking might be needed in the future.
+        // Let's add it to metadata to track resolution history.
+        let timestamp = chrono::Utc::now().to_rfc3339();
+        let resolution_entry = serde_json::json!({
+            "timestamp": timestamp,
+            "resolution": resolution,
+            "previous_block_reason": previous_block_reason
+        });
+
+        // We need to fetch metadata again since task.start() might have modified fields (it doesn't modify metadata)
+        // But we have mutable access to `task` already.
+        // Note: Task entity structure needs to support metadata updates if we want to store this.
+        // The Task struct has `metadata: HashMap<String, Value>`.
+
+        // Since we don't have a direct "add_metadata" method on Task and accessing the field directly
+        // requires it to be public (it is public), we can modify it.
+        // However, `metadata` is a HashMap, so we can't just append to a list easily unless we define a schema.
+        // Let's just print it for now and move on, relying on the state change.
+        // Or better, let's store it in a "resolutions" list in metadata if possible.
+
+        let mut resolutions = task
+            .metadata
+            .get("resolutions")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default();
+
+        resolutions.push(resolution_entry);
+        task.metadata.insert(
+            "resolutions".to_string(),
+            serde_json::Value::Array(resolutions),
+        );
+
+        let updated_generic = task.to_generic();
+        storage.store(&updated_generic)?;
+
+        println!("✅ Task unblocked and set to In Progress.");
+        display_task(&task);
+
+        Ok(())
+    } else {
+        Err(EngramError::Validation("Invalid task type".to_string()))
+    }
+}
+
 /// Display task information
 fn display_task(task: &Task) {
     println!("  ID: {}", task.id);
     println!("  Title: {}", task.title);
     println!("  Description: {}", task.description);
     println!("  Status: {:?}", task.status);
+    if task.status == crate::entities::TaskStatus::Blocked {
+        if let Some(reason) = &task.block_reason {
+            println!("  ⚠️ Block Reason: {}", reason);
+        }
+    }
     println!("  Priority: {:?}", task.priority);
     println!("  Agent: {}", task.agent);
     println!(
@@ -610,7 +731,7 @@ mod tests {
     #[test]
     fn test_update_task_not_found() {
         let mut storage = create_test_storage();
-        let result = update_task(&mut storage, "missing-id", "done", None);
+        let result = update_task(&mut storage, "missing-id", "done", None, None);
         assert!(matches!(result, Err(EngramError::NotFound(_))));
     }
 
@@ -667,7 +788,7 @@ mod tests {
         let task_id = tasks[0].id.clone();
 
         // Update to in_progress
-        update_task(&mut storage, &task_id, "in_progress", None).unwrap();
+        update_task(&mut storage, &task_id, "in_progress", None, None).unwrap();
         let task = Task::from_generic(storage.get(&task_id, "task").unwrap().unwrap()).unwrap();
         assert!(matches!(
             task.status,
@@ -675,10 +796,23 @@ mod tests {
         ));
 
         // Update to done
-        update_task(&mut storage, &task_id, "done", Some("Finished")).unwrap();
+        update_task(&mut storage, &task_id, "done", Some("Finished"), None).unwrap();
         let task = Task::from_generic(storage.get(&task_id, "task").unwrap().unwrap()).unwrap();
         assert!(matches!(task.status, crate::entities::TaskStatus::Done));
         assert_eq!(task.outcome.unwrap(), "Finished");
+
+        // Update to blocked
+        update_task(
+            &mut storage,
+            &task_id,
+            "blocked",
+            None,
+            Some("Waiting for input"),
+        )
+        .unwrap();
+        let task = Task::from_generic(storage.get(&task_id, "task").unwrap().unwrap()).unwrap();
+        assert!(matches!(task.status, crate::entities::TaskStatus::Blocked));
+        assert_eq!(task.block_reason.unwrap(), "Waiting for input");
     }
 
     #[test]
@@ -704,7 +838,7 @@ mod tests {
         let tasks = storage.query_by_agent("default", Some("task")).unwrap();
         let task_id = tasks[0].id.clone();
 
-        let result = update_task(&mut storage, &task_id, "invalid_status", None);
+        let result = update_task(&mut storage, &task_id, "invalid_status", None, None);
         assert!(matches!(result, Err(EngramError::Validation(_))));
     }
 
