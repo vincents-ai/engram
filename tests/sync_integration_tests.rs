@@ -54,15 +54,31 @@ impl SyncTestFixture {
             .find_tree(tree_id)
             .map_err(|e| EngramError::Git(e.to_string()))?;
 
-        repo.commit(
-            Some("HEAD"),
-            &signature,
-            &signature,
-            "Initial commit",
-            &tree,
-            &[],
-        )
-        .map_err(|e| EngramError::Git(e.to_string()))?;
+        let commit_oid = repo
+            .commit(
+                Some("HEAD"),
+                &signature,
+                &signature,
+                "Initial commit",
+                &tree,
+                &[],
+            )
+            .map_err(|e| EngramError::Git(e.to_string()))?;
+
+        // Ensure 'main' branch exists and points to the initial commit
+        let commit = repo
+            .find_commit(commit_oid)
+            .map_err(|e| EngramError::Git(e.to_string()))?;
+
+        // Try to create main branch, or update it if it already exists
+        if repo.find_branch("main", git2::BranchType::Local).is_err() {
+            repo.branch("main", &commit, false)
+                .map_err(|e| EngramError::Git(e.to_string()))?;
+        }
+
+        // Set HEAD to point to main branch
+        repo.set_head("refs/heads/main")
+            .map_err(|e| EngramError::Git(e.to_string()))?;
 
         let storage = GitStorage::new(&repo_path.to_string_lossy(), "test-agent")?;
 
