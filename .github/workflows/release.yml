@@ -147,7 +147,7 @@ jobs:
             ${{ runner.os }}-${{ matrix.platform.target }}-cargo-
 
       - name: Build release binary
-        run: cargo build --release --target ${{ matrix.platform.target }} --all-features
+        run: cargo build --release --target ${{ matrix.platform.target }}
 
       - name: Strip binary (Unix)
         if: matrix.platform.os != 'windows-latest'
