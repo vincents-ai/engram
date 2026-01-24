@@ -401,10 +401,12 @@ pub fn update_task<S: Storage>(
             "cancelled" | "canceled" | "cancel" | "abandoned" | "dropped" => {
                 updated_task.status = crate::entities::TaskStatus::Cancelled;
             }
-            _ => return Err(EngramError::Validation(format!(
+            _ => {
+                return Err(EngramError::Validation(format!(
                 "Invalid status: '{}'. Valid values: todo, in_progress, done, blocked, cancelled",
                 status
-            ))),
+            )))
+            }
         }
 
         let updated_generic = updated_task.to_generic();
