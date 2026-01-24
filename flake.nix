@@ -19,6 +19,10 @@
       
       craneLib = crane.mkLib pkgs;
       
+      # Extract version from Cargo.toml
+      cargoToml = builtins.fromTOML (builtins.readFile ./Cargo.toml);
+      version = cargoToml.package.version;
+      
       # Custom source filter to include skill_templates
       sourceFilter = path: type:
         (craneLib.filterCargoSources path type) ||
@@ -26,7 +30,7 @@
       
       engramPackage = craneLib.buildPackage {
         pname = "engram";
-        version = "0.1.0";
+        inherit version;
         src = pkgs.lib.cleanSourceWith {
           src = ./.;
           filter = sourceFilter;
@@ -70,7 +74,7 @@
 
       checks.x86_64-linux.default = pkgs.rustPlatform.buildRustPackage {
         pname = "engram-check";
-        version = "0.1.0";
+        inherit version;
         src = ./.;
         
         cargoLock = {
