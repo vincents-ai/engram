@@ -584,4 +584,98 @@ mod tests {
         let result = show_context(&storage, "non-existent-id");
         assert!(matches!(result, Err(EngramError::NotFound(_))));
     }
+
+    #[test]
+    fn test_list_contexts() {
+        let mut storage = create_test_storage();
+        create_context(
+            &mut storage,
+            Some("C1".to_string()),
+            None,
+            None,
+            "medium",
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+        )
+        .unwrap();
+        create_context(
+            &mut storage,
+            Some("C2".to_string()),
+            None,
+            None,
+            "high",
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+        )
+        .unwrap();
+
+        // Test listing all
+        list_contexts(&storage, None, None, None).unwrap();
+
+        // Test filtering by relevance
+        list_contexts(&storage, None, Some("high"), None).unwrap();
+    }
+
+    #[test]
+    fn test_show_context_success() {
+        let mut storage = create_test_storage();
+        create_context(
+            &mut storage,
+            Some("Show Me".to_string()),
+            Some("Content".to_string()),
+            None,
+            "medium",
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+        )
+        .unwrap();
+
+        let contexts = storage.query_by_agent("default", Some("context")).unwrap();
+        let id = &contexts[0].id;
+
+        assert!(show_context(&storage, id).is_ok());
+    }
+
+    #[test]
+    fn test_create_context_from_json_struct() {
+        let mut storage = create_test_storage();
+        let input = ContextInput {
+            title: "JSON Context".to_string(),
+            content: Some("JSON Content".to_string()),
+            source: Some("api".to_string()),
+            relevance: Some("high".to_string()),
+            source_id: Some("123".to_string()),
+            agent: Some("bot".to_string()),
+            tags: None,
+        };
+
+        create_context_from_input(&mut storage, input).unwrap();
+
+        let contexts = storage.query_by_agent("bot", Some("context")).unwrap();
+        assert_eq!(contexts.len(), 1);
+        let ctx = Context::from_generic(contexts[0].clone()).unwrap();
+        assert_eq!(ctx.title, "JSON Context");
+        assert_eq!(ctx.relevance, ContextRelevance::High);
+    }
 }
