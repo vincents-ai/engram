@@ -54,5 +54,27 @@ pub fn handle_git_command(args: Vec<String>) -> Result<(), EngramError> {
         )));
     }
 
+    // specific post-command logic
+    if let Some(subcmd) = args.first() {
+        if subcmd == "add" || subcmd == "commit" {
+            // Check status to remind user of remaining changes
+            let status_output = Command::new("git")
+                .args(&["status", "-s"])
+                .output()
+                .map_err(EngramError::Io)?;
+
+            if !status_output.stdout.is_empty() {
+                println!("\n📦 Remaining unstaged/untracked files:");
+                let output_str = String::from_utf8_lossy(&status_output.stdout);
+                for line in output_str.lines() {
+                    println!("  {}", line);
+                }
+                println!(
+                    "\n💡 Tip: Don't forget to commit all changes before ending your session."
+                );
+            }
+        }
+    }
+
     Ok(())
 }
