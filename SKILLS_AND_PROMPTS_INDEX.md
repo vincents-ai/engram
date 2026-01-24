@@ -1,261 +1,162 @@
 # Engram Skills and Prompts Index
 
-This index provides quick access to all skills, prompts, and workflows available in engram.
+This index provides quick access to all skills, prompts, and workflows available in engram, categorized by user goal.
 
 ## Quick Start
 
 1. **New to engram?** Start with [Using Engram](docs/engram/skills/using-engram.md)
 2. **Creating prompts?** See the [Prompt Engineering Guide](docs/engram/skills/prompt_guide.md)
-3. **Need a skill?** Check the Skills section below
+3. **Need a skill?** Browse the categories below
 
-## Skills
+## 1. Core Capabilities
+Essential skills for memory, task management, and agent orchestration.
 
-Skills are documented workflows that guide agents through common patterns.
-
-### Location
-```
-./engram/skills/
-```
-
-### Available Skills
+### Skills
+Location: `./skills/meta/`
 
 | Skill | File | Purpose |
 |-------|------|---------|
 | Use Engram Memory | `meta/use-engram-memory.md` | Core skill for using engram as persistent memory |
 | Delegate to Agents | `meta/delegate-to-agents.md` | Delegation using engram-adapted agents |
 | Audit Trail | `meta/audit-trail.md` | Complete audit documentation |
-| Plan Feature | `workflow/plan-feature.md` | Feature planning with engram tasks |
-| Check Compliance | `compliance/check-compliance.md` | Compliance checking with engram storage |
+| Dispatch Parallel | `meta/dispatching-parallel-agents.md` | Patterns for parallel agent execution |
 
-### Using Skills
+### Key Prompts
+Location: `./prompts/agents/`
 
-```bash
-# List available skills
-ls ./engram/skills/
+| Agent | File | Purpose |
+|-------|------|---------|
+| The One | `01-the-one.yaml` | Primary orchestrator - creates tasks and delegates |
+| The Sidekick | `02-the-sidekick.yaml` | General assistance and quick tasks |
+| The Deconstructor | `05-the-deconstructor.yaml` | Breaks complex tasks into atomic units |
+| The Task Manager | `166-the-task-manager.yaml` | Manages task lifecycle and state |
 
-# Read a skill
-cat ./engram/skills/meta/use-engram-memory.md
-```
+## 2. Planning & Architecture
+Resources for system design, requirements gathering, and technical planning.
 
-## Prompts
+### Skills
+Location: `./skills/architecture/` & `./skills/planning/`
 
-Prompts are YAML templates for agent orchestration.
+| Category | Skill | File | Purpose |
+|----------|-------|------|---------|
+| **Architecture** | System Design | `architecture/system-design.md` | High-level system architecture patterns |
+| | API Design | `architecture/api-design.md` | REST/GraphQL/gRPC interface design |
+| | Data Modeling | `architecture/data-modeling.md` | Database schema and entity design |
+| **Planning** | Roadmap | `planning/roadmap-planning.md` | Strategic timeline planning |
+| | Risk Assessment | `planning/risk-assessment.md` | Identifying and mitigating technical risks |
+| | Brainstorming | `workflow/brainstorming.md` | Ideation and option generation |
 
-### Location
-```
-./engram/prompts/
-```
+### Key Prompts
+Location: `./prompts/agents/`
 
-### Agent Prompts (170+)
+| Agent | File | Purpose |
+|-------|------|---------|
+| The Architect | `03-the-architect.yaml` | System design and technical decision making |
+| API Designer | `17-the-api-designer.yaml` | Interface specification and contract definition |
+| The Visualiser | `29-the-visualisation-expert.yaml` | Creating diagrams and visual models |
+| Project Kickoff | `../ai/pipelines/00-project-kickoff.yaml` | Initial project setup pipeline |
 
-```
-./engram/prompts/agents/
-```
+## 3. Development & Implementation
+Resources for coding, debugging, infrastructure, and feature delivery.
 
-| Category | Count | Key Files |
-|----------|-------|-----------|
-| Core Orchestration | 3 | `01-the-one.yaml`, `02-the-sidekick.yaml`, `05-the-deconstructor.yaml` |
-| Architecture | 5 | `03-the-architect.yaml`, `17-the-api-designer.yaml` |
-| Development | 50+ | `70-the-rustacean.yaml`, `71-the-gopher.yaml`, `72-the-type-safe.yaml` |
-| Testing | 10+ | `15-the-tester.yaml`, `48-the-qa-strategist.yaml` |
-| Infrastructure | 30+ | `45-the-devops-engineer.yaml`, `77-the-shell.yaml` |
-| Security | 10+ | `20-the-critical-roller.yaml`, `14-the-ethics-auditor.yaml` |
-| Documentation | 5 | `41-the-technical-writer.yaml`, `32-the-knowledge-base-curator.yaml` |
-| Specialization | 60+ | See full list below |
+### Skills
+Location: `./skills/development/` & `./skills/debugging/`
 
-#### Core Agents (Engram-Adapted)
+| Skill | File | Purpose |
+|-------|------|---------|
+| Plan Feature | `workflow/plan-feature.md` | Step-by-step feature implementation guide |
+| Systematic Debugging | `debugging/systematic-debugging.md` | Rigorous bug isolation and fixing |
+| TDD | `development/test-driven-development.md` | Test-first development workflow |
+| Technical Writing | `documentation/technical-writing.md` | Creating clear technical documentation |
 
-| File | Purpose | Engram Integration |
-|------|---------|-------------------|
-| `01-the-one.yaml` | Orchestrator - creates engram tasks and delegates | Creates tasks, stores delegation plans in context |
-| `03-the-architect.yaml` | System design and architecture | Stores design in context, decisions in reasoning |
-| `05-the-deconstructor.yaml` | Task breakdown into atomic units | Creates engram subtasks with hierarchy |
+### Development Agents
+Location: `./prompts/agents/`
 
-#### Development Agents
+| Specialty | Agent | File |
+|-----------|-------|------|
+| **Rust** | The Rustacean | `70-the-rustacean.yaml` |
+| **Go** | The Gopher | `71-the-gopher.yaml` |
+| **JS/TS** | The Type Safe | `72-the-type-safe.yaml` |
+| **DevOps** | DevOps Engineer | `45-the-devops-engineer.yaml` |
+| **Shell** | The Shell | `77-the-shell.yaml` |
+| **Database** | DB Specialist | `21-the-database-specialist.yaml` |
 
-| File | Language/Specialty |
-|------|-------------------|
-| `70-the-rustacean.yaml` | Rust development |
-| `71-the-gopher.yaml` | Go development |
-| `72-the-type-safe.yaml` | TypeScript/JavaScript |
-| `17-the-api-designer.yaml` | API design |
-| `18-the-integration-specialist.yaml` | Integration |
-| `19-the-performance-tuner.yaml` | Performance |
-| `21-the-database-specialist.yaml` | Database |
-| `37-the-prompt-engineer.yaml` | Prompt engineering |
+### Pipeline Templates
+Location: `./prompts/ai/pipelines/`
 
-#### Quality Agents
+| Pipeline | File | Use Case |
+|----------|------|----------|
+| Feature Launch | `01-greenfield-feature-launch.yaml` | End-to-end new feature delivery |
+| Bug Triage | `03-bug-hunt-triage.yaml` | Systematic bug fixing |
+| API Modernisation | `04-api-modernisation.yaml` | Updating legacy APIs |
+| Infrastructure | `11-nixos-immutable-deploy.yaml` | Immutable infrastructure deployment |
 
-| File | Purpose |
-|------|---------|
-| `15-the-tester.yaml` | Testing |
-| `48-the-qa-strategist.yaml` | QA strategy |
-| `34-the-troubleshooter.yaml` | Debugging |
-| `20-the-critical-roller.yaml` | Critical systems |
+## 4. Quality & Compliance
+Resources for testing, auditing, security, and regulatory compliance.
 
-### Pipeline Templates (100+)
+### Skills
+Location: `./skills/compliance/` & `./skills/quality/`
 
-```
-./engram/prompts/ai/pipelines/
-```
+| Skill | File | Purpose |
+|-------|------|---------|
+| Check Compliance | `compliance/check-compliance.md` | Validating against regulatory frameworks |
+| Code Quality | `review/code-quality.md` | Code review standards and patterns |
+| Security Review | `review/security-review.md` | Security auditing checklist |
+| Accessibility | `quality/accessibility.md` | WCAG and inclusive design checks |
 
-| Category | Count | Examples |
-|----------|-------|----------|
-| Feature Development | 10+ | `01-greenfield-feature-launch.yaml`, `02-ui-overhaul-refresh.yaml` |
-| Bug Fixing | 5+ | `03-bug-hunt-triage.yaml` |
-| API/Backend | 10+ | `04-api-modernisation.yaml`, `05-database-migration.yaml` |
-| DevOps/Infrastructure | 20+ | `11-nixos-immutable-deploy.yaml`, `16-k8s-cluster-upgrade.yaml` |
-| Security | 10+ | `13-security-penetration-test.yaml`, `48-red-team-exercise.yaml` |
-| Compliance | 15+ | Various compliance check pipelines |
+### Quality Agents
+Location: `./prompts/agents/`
 
-#### Core Pipelines (Engram-Adapted)
+| Agent | File | Purpose |
+|-------|------|---------|
+| The Tester | `15-the-tester.yaml` | Writing and running tests |
+| QA Strategist | `48-the-qa-strategist.yaml` | Test planning and coverage analysis |
+| Ethics Auditor | `14-the-ethics-auditor.yaml` | AI ethics and bias checking |
+| Critical Roller | `20-the-critical-roller.yaml` | Critical system verification |
 
-| File | Purpose | Engram Integration |
-|------|---------|-------------------|
-| `01-greenfield-feature-launch.yaml` | New feature from idea to task breakdown | Creates engram workflow with stages |
+### Compliance Frameworks
+Location: `./prompts/compliance_and_certification/prompts/audit_checkpoints/`
 
-### Compliance Prompts (250+)
-
-```
-./engram/prompts/compliance_and_certification/prompts/audit_checkpoints/
-```
-
-| Framework | Location | Coverage |
-|-----------|----------|----------|
+| Framework | Directory | Coverage |
+|-----------|-----------|----------|
 | **iGaming** | `igaming/` | GLI-11, GLI-19, GLI-33, MGA, UKGC, G4 |
 | **SaaS/IT** | `saas_it/` | SOC2, ISO27001, PCI DSS |
 | **Data Protection** | `data_protection/` | GDPR, CCPA, PIPEDA |
-| **EU Regulations** | `eu_regulations/` | DSA, DMA, AI Act, NIS2, DORA, CSRD, CSDDD |
-| **Gaming Certification** | `gaming_certification/` | RNG, RTP, Fairness |
-| **Software Development** | `software_development/` | OWASP, Microsoft SDL, ISO 12207 |
-| **German Compliance** | `german_compliance/` | GoBD, DSGVO, BSI IT-Grundschutz |
-| **Medical Device** | `medical_device/` | IEC 62304 |
-| **Cybersecurity** | `cybersecurity_policies/` | NIST CSF, RMF, ISO 27002, CIS Controls |
-| **Cross-Compliance** | `cross_compliance/` | Multi-framework integration |
+| **EU Regulations** | `eu_regulations/` | DSA, DMA, AI Act, NIS2, DORA |
+| **Cybersecurity** | `cybersecurity_policies/` | NIST CSF, RMF, ISO 27002 |
+| **Medical** | `medical_device/` | IEC 62304 |
 
-#### Compliance Categories
-
-| Area | Frameworks |
-|------|------------|
-| Security | SOC2, ISO27001, PCI DSS, NIST CSF, CIS Controls |
-| Privacy | GDPR, CCPA, PIPEDA, DSGVO |
-| EU Digital | DSA, DMA, AI Act, Data Act |
-| EU Cyber | NIS2, DORA |
-| Gaming | GLI, MGA, UKGC, G4, RNG, RTP |
-| Development | OWASP, SDL, ISO 12207 |
-| Medical | IEC 62304 |
-
-## Templates
-
-Use these templates to create new engram-adapted prompts:
-
-| Template | Location | Purpose |
-|----------|----------|---------|
-| Agent Template | `agents/_template-engram-adapted.yaml` | Adapt any agent for engram |
-| Pipeline Template | `ai/pipelines/_template-engram-adapted.yaml` | Adapt any pipeline for engram |
-
-### Using Templates
-
-```bash
-# Copy agent template
-cp ./engram/prompts/agents/_template-engram-adapted.yaml ./engram/prompts/agents/XX-my-new-agent.yaml
-
-# Copy pipeline template
-cp ./engram/prompts/ai/pipelines/_template-engram-adapted.yaml ./engram/prompts/ai/pipelines/XX-my-new-pipeline.yaml
-```
-
-## Documentation
-
-| Document | Location | Purpose |
-|----------|----------|---------|
-| Using Engram | `docs/engram/skills/using-engram.md` | Core workflow protocol |
-| Prompt Engineering Guide | `docs/engram/skills/prompt_guide.md` | Prompt construction patterns |
-| Validation | `docs/validation.md` | Commit validation rules |
-
-## Workflow Examples
-
-### Basic Feature Development
-
-1. **Plan**: Use `01-greenfield-feature-launch.yaml` pipeline
-2. **Design**: Use `03-the-architect.yaml` for architecture
-3. **Breakdown**: Use `05-the-deconstructor.yaml` for tasks
-4. **Implement**: Use appropriate language agent (e.g., `70-the-rustacean.yaml`)
-5. **Test**: Use `15-the-tester.yaml`
-6. **Document**: Use `41-the-technical-writer.yaml`
-
-### Security Compliance Check
-
-1. **Identify Framework**: Choose from `compliance_and_certification/prompts/audit_checkpoints/`
-2. **Run Check**: Use relevant compliance prompts
-3. **Store Results**: Use `check-compliance.md` skill
-4. **Verify**: `engram validate check`
-
-### Delegation Workflow
-
-1. **Analyze**: Use `01-the-one.yaml` to create tasks
-2. **Delegate**: Use `delegate-to-agents.md` skill
-3. **Track**: Monitor via `engram relationship connected`
-4. **Review**: Check results with `engram context list`
-
-## File Structure
+## Reference: File Structure
 
 ```
-./engram/
+./
 ├── skills/                    # Skills documentation
-│   ├── meta/
-│   │   ├── use-engram-memory.md
-│   │   ├── delegate-to-agents.md
-│   │   └── audit-trail.md
-│   ├── workflow/
-│   │   └── plan-feature.md
-│   └── compliance/
-│       └── check-compliance.md
+│   ├── meta/                  # Core capabilities (memory, delegation)
+│   ├── architecture/          # System design skills
+│   ├── planning/              # Project planning skills
+│   ├── development/           # Coding & implementation skills
+│   ├── quality/               # QA & accessibility skills
+│   ├── compliance/            # Regulatory skills
+│   └── workflow/              # Process guides
 │
 ├── prompts/                   # Prompt templates
-│   ├── agents/               # 170+ agent prompts
-│   │   ├── 01-the-one.yaml (adapted)
-│   │   ├── 03-the-architect.yaml (adapted)
-│   │   ├── 05-the-deconstructor.yaml (adapted)
-│   │   ├── _template-engram-adapted.yaml
-│   │   └── [160+ more agents]
+│   ├── agents/                # 170+ agent prompts
+│   │   ├── 01-the-one.yaml
+│   │   └── ...
 │   │
 │   ├── ai/
-│   │   └── pipelines/        # 100+ pipeline templates
-│   │       ├── 01-greenfield-feature-launch.yaml (adapted)
-│   │       ├── _template-engram-adapted.yaml
-│   │       └── [100+ more pipelines]
+│   │   └── pipelines/         # 100+ workflow pipelines
 │   │
-│   └── compliance_and_certification/  # 250+ compliance prompts
-│       └── prompts/audit_checkpoints/
-│           ├── igaming/
-│           ├── saas_it/
-│           ├── data_protection/
-│           ├── eu_regulations/
-│           ├── gaming_certification/
-│           ├── software_development/
-│           ├── german_compliance/
-│           ├── medical_device/
-│           ├── cross_compliance/
-│           └── cybersecurity_policies/
+│   └── compliance_and_certification/
+│       └── prompts/
+│           └── audit_checkpoints/ # 250+ compliance checks
 │
-├── docs/
-│   └── engram/
-│       └── skills/
-│           ├── using-engram.md
-│           └── prompt_guide.md
-│
-└── README.md                  # This file
+└── docs/
+    └── engram/
+        └── skills/
+            ├── using-engram.md
+            └── prompt_guide.md
 ```
-
-## Statistics
-
-| Category | Count |
-|----------|-------|
-| Skills | 5 |
-| Agent Prompts | 170+ |
-| Pipeline Templates | 100+ |
-| Compliance Prompts | 160+ (Markdown) |
-| Documentation Files | 4 |
 
 ## Getting Help
 

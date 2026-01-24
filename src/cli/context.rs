@@ -719,4 +719,21 @@ mod tests {
         assert_eq!(ctx.title, "JSON Context");
         assert_eq!(ctx.relevance, ContextRelevance::High);
     }
+
+    #[test]
+    fn test_create_context_json_invalid_relevance() {
+        let mut storage = create_test_storage();
+        let input = ContextInput {
+            title: "JSON Context".to_string(),
+            content: None,
+            source: None,
+            relevance: Some("invalid".to_string()),
+            source_id: None,
+            agent: None,
+            tags: None,
+        };
+
+        let result = create_context_from_input(&mut storage, input);
+        assert!(matches!(result, Err(EngramError::Validation(_))));
+    }
 }
