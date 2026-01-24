@@ -439,3 +439,216 @@ pub fn delete_knowledge<S: Storage>(storage: &mut S, id: &str) -> Result<(), Eng
     println!("Knowledge deleted successfully: {}", id);
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::storage::MemoryStorage;
+
+    fn create_test_storage() -> MemoryStorage {
+        MemoryStorage::new("default")
+    }
+
+    #[test]
+    fn test_create_knowledge_basic() {
+        let mut storage = create_test_storage();
+        let result = create_knowledge(
+            &mut storage,
+            Some("Test Fact".to_string()),
+            Some("Water is wet".to_string()),
+            "fact".to_string(),
+            0.9,
+            Some("Observation".to_string()),
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+        );
+        assert!(result.is_ok());
+
+        let ids = storage.list_ids("knowledge").unwrap();
+        assert_eq!(ids.len(), 1);
+
+        let entity = storage.get(&ids[0], "knowledge").unwrap().unwrap();
+        let knowledge = Knowledge::from_generic(entity).unwrap();
+        assert_eq!(knowledge.title, "Test Fact");
+        assert_eq!(knowledge.content, "Water is wet");
+        assert!(matches!(knowledge.knowledge_type, KnowledgeType::Fact));
+    }
+
+    #[test]
+    fn test_create_knowledge_validation() {
+        let mut storage = create_test_storage();
+
+        // Missing title
+        let result = create_knowledge(
+            &mut storage,
+            None,
+            None,
+            "fact".to_string(),
+            0.8,
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+        );
+        assert!(matches!(result, Err(EngramError::Validation(_))));
+
+        // Invalid type
+        let result = create_knowledge(
+            &mut storage,
+            Some("Title".to_string()),
+            None,
+            "invalid_type".to_string(),
+            0.8,
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+        );
+        assert!(matches!(result, Err(EngramError::Validation(_))));
+
+        // Invalid confidence
+        let result = create_knowledge(
+            &mut storage,
+            Some("Title".to_string()),
+            None,
+            "fact".to_string(),
+            1.5,
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+        );
+        assert!(matches!(result, Err(EngramError::Validation(_))));
+    }
+
+    #[test]
+    fn test_update_knowledge() {
+        let mut storage = create_test_storage();
+        create_knowledge(
+            &mut storage,
+            Some("Test Fact".to_string()),
+            None,
+            "fact".to_string(),
+            0.8,
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+        )
+        .unwrap();
+
+        let ids = storage.list_ids("knowledge").unwrap();
+        let id = &ids[0];
+
+        // Update content
+        update_knowledge(&mut storage, id, "content", "New content").unwrap();
+        let entity = storage.get(id, "knowledge").unwrap().unwrap();
+        let knowledge = Knowledge::from_generic(entity).unwrap();
+        assert_eq!(knowledge.content, "New content");
+
+        // Update confidence
+        update_knowledge(&mut storage, id, "confidence", "0.95").unwrap();
+        let entity = storage.get(id, "knowledge").unwrap().unwrap();
+        let knowledge = Knowledge::from_generic(entity).unwrap();
+        assert_eq!(knowledge.confidence, 0.95);
+    }
+
+    #[test]
+    fn test_delete_knowledge() {
+        let mut storage = create_test_storage();
+        create_knowledge(
+            &mut storage,
+            Some("Delete Me".to_string()),
+            None,
+            "fact".to_string(),
+            0.8,
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+        )
+        .unwrap();
+
+        let ids = storage.list_ids("knowledge").unwrap();
+        let id = &ids[0];
+
+        delete_knowledge(&mut storage, id).unwrap();
+
+        let result = storage.get(id, "knowledge").unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_list_knowledge() {
+        let mut storage = create_test_storage();
+        create_knowledge(
+            &mut storage,
+            Some("Fact 1".to_string()),
+            None,
+            "fact".to_string(),
+            0.8,
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+        )
+        .unwrap();
+
+        create_knowledge(
+            &mut storage,
+            Some("Rule 1".to_string()),
+            None,
+            "rule".to_string(),
+            0.8,
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+        )
+        .unwrap();
+
+        // Just verify it runs without error (output is to stdout)
+        assert!(list_knowledge(&storage, None, Some("fact".to_string()), None).is_ok());
+    }
+}
