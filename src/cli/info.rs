@@ -73,3 +73,17 @@ pub fn info<S: Storage>(storage: &S) -> Result<(), EngramError> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::storage::MemoryStorage;
+
+    #[test]
+    fn test_info_execution() {
+        // Just verify that the info function runs without panicking on an empty storage
+        let storage = MemoryStorage::new("test-agent");
+        let result = info(&storage);
+        assert!(result.is_ok());
+    }
+}
