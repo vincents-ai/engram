@@ -494,3 +494,247 @@ fn display_task_summary(task: &Task) {
         println!("    Outcome: {}", outcome);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::storage::MemoryStorage;
+
+    fn create_test_storage() -> MemoryStorage {
+        MemoryStorage::new("default")
+    }
+
+    #[test]
+    fn test_create_task_basic() {
+        let mut storage = create_test_storage();
+        let result = create_task(
+            &mut storage,
+            Some("Test Task".to_string()),
+            Some("Description".to_string()),
+            "medium",
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+        );
+        assert!(result.is_ok());
+
+        let tasks = storage.query_by_agent("default", Some("task")).unwrap();
+        assert_eq!(tasks.len(), 1);
+
+        let task = Task::from_generic(tasks[0].clone()).unwrap();
+        assert_eq!(task.title, "Test Task");
+        assert_eq!(task.description, "Description");
+        assert_eq!(task.priority, TaskPriority::Medium);
+    }
+
+    #[test]
+    fn test_create_task_with_priority() {
+        let mut storage = create_test_storage();
+
+        let priorities = vec![
+            ("low", TaskPriority::Low),
+            ("medium", TaskPriority::Medium),
+            ("high", TaskPriority::High),
+            ("critical", TaskPriority::Critical),
+        ];
+
+        for (p_str, p_enum) in priorities {
+            create_task(
+                &mut storage,
+                Some(format!("Task {}", p_str)),
+                None,
+                p_str,
+                None,
+                None,
+                None,
+                false,
+                None,
+                false,
+                None,
+                false,
+                None,
+            )
+            .unwrap();
+
+            let tasks = storage.query_by_agent("default", Some("task")).unwrap();
+            let task = Task::from_generic(tasks.last().unwrap().clone()).unwrap();
+            assert_eq!(task.priority, p_enum);
+        }
+    }
+
+    #[test]
+    fn test_create_task_validation() {
+        let mut storage = create_test_storage();
+
+        // Missing title
+        let result = create_task(
+            &mut storage,
+            None,
+            None,
+            "medium",
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+        );
+        assert!(matches!(result, Err(EngramError::Validation(_))));
+    }
+
+    #[test]
+    fn test_update_task_status() {
+        let mut storage = create_test_storage();
+        create_task(
+            &mut storage,
+            Some("Test Task".to_string()),
+            None,
+            "medium",
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+        )
+        .unwrap();
+
+        let tasks = storage.query_by_agent("default", Some("task")).unwrap();
+        let task_id = tasks[0].id.clone();
+
+        // Update to in_progress
+        update_task(&mut storage, &task_id, "in_progress", None).unwrap();
+        let task = Task::from_generic(storage.get(&task_id, "task").unwrap().unwrap()).unwrap();
+        assert!(matches!(
+            task.status,
+            crate::entities::TaskStatus::InProgress
+        ));
+
+        // Update to done
+        update_task(&mut storage, &task_id, "done", Some("Finished")).unwrap();
+        let task = Task::from_generic(storage.get(&task_id, "task").unwrap().unwrap()).unwrap();
+        assert!(matches!(
+            task.status,
+            crate::entities::TaskStatus::Done
+        ));
+        assert_eq!(task.outcome.unwrap(), "Finished");
+    }
+
+    #[test]
+    fn test_update_task_invalid_status() {
+        let mut storage = create_test_storage();
+        create_task(
+            &mut storage,
+            Some("Test Task".to_string()),
+            None,
+            "medium",
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+        )
+        .unwrap();
+
+        let tasks = storage.query_by_agent("default", Some("task")).unwrap();
+        let task_id = tasks[0].id.clone();
+
+        let result = update_task(&mut storage, &task_id, "invalid_status", None);
+        assert!(matches!(result, Err(EngramError::Validation(_))));
+    }
+
+    #[test]
+    fn test_archive_task() {
+        let mut storage = create_test_storage();
+        create_task(
+            &mut storage,
+            Some("Test Task".to_string()),
+            None,
+            "medium",
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+        )
+        .unwrap();
+
+        let tasks = storage.query_by_agent("default", Some("task")).unwrap();
+        let task_id = tasks[0].id.clone();
+
+        archive_task(&mut storage, &task_id, Some("Not needed")).unwrap();
+
+        let task = Task::from_generic(storage.get(&task_id, "task").unwrap().unwrap()).unwrap();
+        assert!(matches!(
+            task.status,
+            crate::entities::TaskStatus::Cancelled
+        ));
+        assert!(task.outcome.unwrap().contains("Not needed"));
+    }
+
+    #[test]
+    fn test_list_tasks_filter() {
+        let mut storage = create_test_storage();
+
+        // Create mixed tasks
+        create_task(
+            &mut storage,
+            Some("Task 1".to_string()),
+            None,
+            "medium",
+            Some("agent1".to_string()),
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+        )
+        .unwrap();
+
+        create_task(
+            &mut storage,
+            Some("Task 2".to_string()),
+            None,
+            "medium",
+            Some("agent2".to_string()),
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+        )
+        .unwrap();
+
+        // Filter by agent
+        let result = list_tasks(&storage, Some("agent1"), None, None);
+        assert!(result.is_ok());
+        // Note: list_tasks prints to stdout, so we can't easily verify output content here
+        // but we verify the function runs without error
+    }
+}
