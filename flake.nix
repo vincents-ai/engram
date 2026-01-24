@@ -23,10 +23,10 @@
       cargoToml = builtins.fromTOML (builtins.readFile ./Cargo.toml);
       version = cargoToml.package.version;
       
-      # Custom source filter to include skill_templates
+      # Custom source filter to include skills directory
       sourceFilter = path: type:
         (craneLib.filterCargoSources path type) ||
-        (builtins.match ".*skill_templates.*" path != null);
+        (builtins.match ".*skills.*" path != null);
       
       engramPackage = craneLib.buildPackage {
         pname = "engram";

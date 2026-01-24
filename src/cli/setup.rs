@@ -134,25 +134,61 @@ pub fn setup_skills() -> Result<(), EngramError> {
     let skills_dir = opencode_dir.join("skills");
     fs::create_dir_all(&skills_dir).map_err(EngramError::Io)?;
 
-    // List of built-in Engram skills to install
-    let skills = [
-        "engram-use-engram-memory",
-        "engram-delegate-to-agents",
-        "engram-audit-trail",
-        "engram-brainstorming",
-        "engram-writing-plans",
-        "engram-plan-feature",
-        "engram-requesting-code-review",
-        "engram-check-compliance",
-        "engram-test-driven-development",
-        "engram-systematic-debugging",
-        "engram-subagent-driven-development",
-        "engram-dispatching-parallel-agents",
+    // List of built-in Engram skills to install with their content
+    let skills: &[(&str, &str)] = &[
+        (
+            "engram-use-engram-memory",
+            include_str!("../../skills/meta/use-engram-memory.md"),
+        ),
+        (
+            "engram-delegate-to-agents",
+            include_str!("../../skills/meta/delegate-to-agents.md"),
+        ),
+        (
+            "engram-audit-trail",
+            include_str!("../../skills/meta/audit-trail.md"),
+        ),
+        (
+            "engram-brainstorming",
+            include_str!("../../skills/workflow/brainstorming.md"),
+        ),
+        (
+            "engram-writing-plans",
+            include_str!("../../skills/workflow/writing-plans.md"),
+        ),
+        (
+            "engram-plan-feature",
+            include_str!("../../skills/workflow/plan-feature.md"),
+        ),
+        (
+            "engram-requesting-code-review",
+            include_str!("../../skills/workflow/requesting-code-review.md"),
+        ),
+        (
+            "engram-check-compliance",
+            include_str!("../../skills/compliance/check-compliance.md"),
+        ),
+        (
+            "engram-test-driven-development",
+            include_str!("../../skills/development/test-driven-development.md"),
+        ),
+        (
+            "engram-systematic-debugging",
+            include_str!("../../skills/debugging/systematic-debugging.md"),
+        ),
+        (
+            "engram-subagent-driven-development",
+            include_str!("../../skills/development/subagent-driven-development.md"),
+        ),
+        (
+            "engram-dispatching-parallel-agents",
+            include_str!("../../skills/meta/dispatching-parallel-agents.md"),
+        ),
     ];
 
     let mut installed_count = 0;
 
-    for skill_name in skills {
+    for (skill_name, skill_content) in skills {
         let skill_dir = skills_dir.join(skill_name);
 
         // Skip if skill already exists (user skill takes precedence)
@@ -166,11 +202,7 @@ pub fn setup_skills() -> Result<(), EngramError> {
 
         fs::create_dir_all(&skill_dir).map_err(EngramError::Io)?;
 
-        // Create a basic SKILL.md file for each skill
-        let skill_content = format!(
-            include_str!("../skill_templates/basic_skill.md"),
-            skill_name, skill_name
-        );
+        // Create SKILL.md file with embedded content
         let skill_file = skill_dir.join("SKILL.md");
         fs::write(&skill_file, skill_content).map_err(EngramError::Io)?;
 
