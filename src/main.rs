@@ -129,10 +129,10 @@ async fn run() -> Result<(), EngramError> {
         },
         cli::Commands::Prompts { command } => match command {
             cli::PromptsCommands::List { category, format } => {
-                cli::list_prompts(category.as_deref(), &format)?;
+                cli::list_prompts(category.as_deref(), &format, None)?;
             }
             cli::PromptsCommands::Show { name } => {
-                cli::show_prompt(&name)?;
+                cli::show_prompt(&name, None)?;
             }
         },
         cli::Commands::Schema { command } => {

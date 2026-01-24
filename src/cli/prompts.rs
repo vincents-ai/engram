@@ -35,8 +35,12 @@ pub fn get_prompts_path() -> PathBuf {
 }
 
 /// List all prompts in the prompts directory
-pub fn list_prompts(category: Option<&str>, format: &str) -> Result<(), std::io::Error> {
-    let prompts_path = get_prompts_path();
+pub fn list_prompts(
+    category: Option<&str>,
+    format: &str,
+    root: Option<PathBuf>,
+) -> Result<(), std::io::Error> {
+    let prompts_path = root.unwrap_or_else(get_prompts_path);
 
     if !prompts_path.exists() {
         println!("Prompts directory not found: {:?}", prompts_path);
@@ -106,8 +110,8 @@ pub fn list_prompts(category: Option<&str>, format: &str) -> Result<(), std::io:
 }
 
 /// Show a specific prompt
-pub fn show_prompt(name: &str) -> Result<(), std::io::Error> {
-    let prompts_path = get_prompts_path();
+pub fn show_prompt(name: &str, root: Option<PathBuf>) -> Result<(), std::io::Error> {
+    let prompts_path = root.unwrap_or_else(get_prompts_path);
 
     // Try to find the prompt file
     let prompt_path = prompts_path.join(name);
@@ -192,21 +196,39 @@ mod tests {
     #[test]
     fn test_list_prompts_empty() {
         let temp_dir = TempDir::new().unwrap();
-        // Override the environment variable for this test
-        // Note: This might be flaky if tests run in parallel and share env vars.
-        // A better approach for unit testing file system operations is to inject the path,
-        // but the current implementation uses a global function.
-        // For now, we'll rely on the fact that the function uses `get_prompts_path`.
-        // However, since `get_prompts_path` reads the env var directly, we can't easily mock it
-        // without refactoring.
-        // So we will just test that the function handles a non-existent directory gracefully
-        // by setting a bogus path in the env var, capturing stdout is hard here.
-
-        // Refactoring suggestion: list_prompts should take an optional path argument.
-        // For now, let's just test that it runs without panicking.
-        let result = list_prompts(None, "short");
-        // It might fail if the default path doesn't exist, which is fine, or succeed if it does.
-        // The key is it doesn't panic.
+        // Now we can properly test with a custom root
+        let result = list_prompts(None, "short", Some(temp_dir.path().to_path_buf()));
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_show_prompt_not_found() {
+        let temp_dir = TempDir::new().unwrap();
+        // Should not panic or error, just prints "Prompt not found"
+        let result = show_prompt("nonexistent", Some(temp_dir.path().to_path_buf()));
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_list_prompts_with_files() {
+        let temp_dir = TempDir::new().unwrap();
+        let cat_dir = temp_dir.path().join("category1");
+        fs::create_dir(&cat_dir).unwrap();
+
+        let file_path = cat_dir.join("prompt1.txt");
+        let mut file = File::create(file_path).unwrap();
+        writeln!(file, "content").unwrap();
+
+        // Capture stdout would be ideal but for now we just check no error
+        let result = list_prompts(None, "short", Some(temp_dir.path().to_path_buf()));
+        assert!(result.is_ok());
+
+        // Test filtering
+        let result_cat = list_prompts(
+            Some("category1"),
+            "short",
+            Some(temp_dir.path().to_path_buf()),
+        );
+        assert!(result_cat.is_ok());
     }
 }
