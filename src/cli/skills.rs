@@ -329,4 +329,28 @@ mod tests {
         let result = show_skill("missing-skill", Some(root));
         assert!(result.is_ok()); // Returns Ok but prints error message
     }
+
+    #[test]
+    fn test_list_skills_missing_dir() {
+        let temp_dir = TempDir::new().unwrap();
+        let root = temp_dir.path().to_path_buf();
+
+        // Don't create directory
+
+        // Should handle gracefully (print message and return Ok)
+        let result = list_skills("short", Some(root));
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_list_skills_invalid_format() {
+        let temp_dir = TempDir::new().unwrap();
+        let root = temp_dir.path().to_path_buf();
+        let skills_dir = root.join("engram/skills");
+        fs::create_dir_all(&skills_dir).unwrap();
+
+        // Should print unknown format message and return Ok
+        let result = list_skills("invalid", Some(root));
+        assert!(result.is_ok());
+    }
 }
