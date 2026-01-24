@@ -692,4 +692,53 @@ mod tests {
         let rels_after = storage.get_all("relationship").unwrap();
         assert_eq!(rels_after.len(), 0);
     }
+
+    #[test]
+    fn test_create_relationship_invalid_input() {
+        let mut storage = MemoryStorage::new("default");
+
+        // Invalid direction
+        let result = create_relationship(
+            &mut storage,
+            "s1".to_string(),
+            "t1".to_string(),
+            "t1".to_string(),
+            "t2".to_string(),
+            EntityRelationType::DependsOn,
+            "invalid_direction".to_string(),
+            "medium".to_string(),
+            None,
+            "agent".to_string(),
+        );
+        assert!(result.is_err());
+
+        // Invalid strength
+        let result = create_relationship(
+            &mut storage,
+            "s1".to_string(),
+            "t1".to_string(),
+            "t1".to_string(),
+            "t2".to_string(),
+            EntityRelationType::DependsOn,
+            "uni".to_string(),
+            "invalid_strength".to_string(),
+            None,
+            "agent".to_string(),
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_show_relationship_not_found() {
+        let storage = MemoryStorage::new("default");
+        let result = show_relationship(&storage, "non-existent");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_delete_relationship_not_found() {
+        let mut storage = MemoryStorage::new("default");
+        let result = delete_relationship(&mut storage, "non-existent", "agent");
+        assert!(result.is_err());
+    }
 }
