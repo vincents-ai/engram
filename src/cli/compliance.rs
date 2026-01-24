@@ -462,10 +462,34 @@ mod tests {
         // Let's assume it returns Ok or Err. If it returns Err, we catch it.
         // In this specific implementation: storage.delete(id, "compliance")?
         // If MemoryStorage::delete returns NotFound, then this returns Err.
+        assert!(result.is_err());
+    }
 
-        // Checking MemoryStorage behavior for delete: Usually returns Ok(()) even if key doesn't exist or Err(NotFound).
-        // Let's run it and see. If it fails, we adjust.
-        // The implementation of delete_compliance just propagates the error.
-        assert!(result.is_ok() || matches!(result, Err(EngramError::NotFound(_))));
+    #[test]
+    fn test_list_compliance_limit() {
+        let mut storage = create_test_storage();
+        create_compliance(
+            &mut storage,
+            "R1".to_string(),
+            "Desc".to_string(),
+            "cat1".to_string(),
+            Some("agent1".to_string()),
+        )
+        .unwrap();
+        create_compliance(
+            &mut storage,
+            "R2".to_string(),
+            "Desc".to_string(),
+            "cat2".to_string(),
+            Some("agent1".to_string()),
+        )
+        .unwrap();
+
+        // Limit 1
+        // Since we can't easily capture output of list_compliance (it prints),
+        // we can't verify what was printed, but we can verify it runs without error.
+        // A better test would refactor list_compliance to return items, but for now:
+        let result = list_compliance(&storage, Some("agent1"), None, Some(1));
+        assert!(result.is_ok());
     }
 }
