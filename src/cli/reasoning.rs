@@ -717,4 +717,163 @@ mod tests {
         let result = storage.get(id, "reasoning").unwrap();
         assert!(result.is_none());
     }
+
+    #[test]
+    fn test_add_reasoning_step_not_found() {
+        let mut storage = create_test_storage();
+        let result = add_reasoning_step(
+            &mut storage,
+            "non-existent-id",
+            Some("Step 1".to_string()),
+            Some("Conclusion".to_string()),
+            0.5,
+            false,
+            None,
+            false,
+            None,
+        );
+        assert!(matches!(result, Err(EngramError::NotFound(_))));
+    }
+
+    #[test]
+    fn test_add_reasoning_step_invalid_confidence() {
+        let mut storage = create_test_storage();
+        create_reasoning(
+            &mut storage,
+            Some("Test Reasoning".to_string()),
+            Some("task-123".to_string()),
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+        )
+        .unwrap();
+
+        let chains = storage
+            .query_by_agent("default", Some("reasoning"))
+            .unwrap();
+        let id = &chains[0].id;
+
+        let result = add_reasoning_step(
+            &mut storage,
+            id,
+            Some("Step 1".to_string()),
+            Some("Conclusion".to_string()),
+            1.5, // Invalid confidence
+            false,
+            None,
+            false,
+            None,
+        );
+        assert!(matches!(result, Err(EngramError::Validation(_))));
+    }
+
+    #[test]
+    fn test_add_reasoning_step_missing_description() {
+        let mut storage = create_test_storage();
+        create_reasoning(
+            &mut storage,
+            Some("Test Reasoning".to_string()),
+            Some("task-123".to_string()),
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+        )
+        .unwrap();
+
+        let chains = storage
+            .query_by_agent("default", Some("reasoning"))
+            .unwrap();
+        let id = &chains[0].id;
+
+        let result = add_reasoning_step(
+            &mut storage,
+            id,
+            None, // Missing description
+            Some("Conclusion".to_string()),
+            0.5,
+            false,
+            None,
+            false,
+            None,
+        );
+        assert!(matches!(result, Err(EngramError::Validation(_))));
+    }
+
+    #[test]
+    fn test_conclude_reasoning_not_found() {
+        let mut storage = create_test_storage();
+        let result = conclude_reasoning(
+            &mut storage,
+            "non-existent-id",
+            Some("Final conclusion".to_string()),
+            0.9,
+            false,
+            None,
+        );
+        assert!(matches!(result, Err(EngramError::NotFound(_))));
+    }
+
+    #[test]
+    fn test_conclude_reasoning_invalid_confidence() {
+        let mut storage = create_test_storage();
+        create_reasoning(
+            &mut storage,
+            Some("Test Reasoning".to_string()),
+            Some("task-123".to_string()),
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+        )
+        .unwrap();
+
+        let chains = storage
+            .query_by_agent("default", Some("reasoning"))
+            .unwrap();
+        let id = &chains[0].id;
+
+        let result = conclude_reasoning(
+            &mut storage,
+            id,
+            Some("Final conclusion".to_string()),
+            -0.1, // Invalid confidence
+            false,
+            None,
+        );
+        assert!(matches!(result, Err(EngramError::Validation(_))));
+    }
+
+    #[test]
+    fn test_delete_reasoning_not_found() {
+        let mut storage = create_test_storage();
+        let result = delete_reasoning(&mut storage, "non-existent-id");
+        assert!(matches!(result, Err(EngramError::NotFound(_))));
+    }
+
+    #[test]
+    fn test_show_reasoning_not_found() {
+        let storage = create_test_storage();
+        let result = show_reasoning(&storage, "non-existent-id");
+        assert!(matches!(result, Err(EngramError::NotFound(_))));
+    }
 }
