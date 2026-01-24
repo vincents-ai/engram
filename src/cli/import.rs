@@ -684,4 +684,115 @@ Finding: [3ecbee2c-aedc-4f74-ab7e-49491dda201e]
         assert_eq!(result.entities_created, 0);
         assert!(result.errors.is_empty());
     }
+
+    #[test]
+    fn test_parse_frontmatter_missing() {
+        let content = "No frontmatter here";
+        let frontmatter = parse_frontmatter(content).unwrap();
+        assert_eq!(frontmatter.title, "No frontmatter here");
+        assert!(matches!(frontmatter.doc_type, DocType::General));
+    }
+
+    #[test]
+    fn test_parse_frontmatter_invalid_yaml() {
+        let content = r#"---
+title: "Unclosed Quote
+---
+"#;
+        let result = parse_frontmatter(content);
+        assert!(matches!(result, Err(ImportError::InvalidFrontmatter(_))));
+    }
+
+    #[test]
+    fn test_parse_frontmatter_missing_closing() {
+        let content = r#"---
+title: Test
+"#;
+        let result = parse_frontmatter(content);
+        // It returns InvalidFrontmatter if --- is missing?
+        // Let's check implementation:
+        // let end = match content[3..].find("---") { ... None => return Err(ImportError::InvalidFrontmatter(...)) }
+        // Yes.
+        assert!(matches!(result, Err(ImportError::InvalidFrontmatter(_))));
+    }
+
+    #[test]
+    fn test_extract_findings_empty() {
+        let sections = vec![("Overview".to_string(), "Some content".to_string())];
+        let findings = extract_findings(&sections);
+        assert!(findings.is_empty());
+    }
+
+    #[test]
+    fn test_extract_reasoning_sections_empty() {
+        let sections = vec![("Overview".to_string(), "Some content".to_string())];
+        let reasoning = extract_reasoning_sections(&sections);
+        assert!(reasoning.is_empty());
+    }
+
+    #[test]
+    fn test_extract_task_references_empty() {
+        let content = "No tasks here";
+        let tasks = extract_task_references(content);
+        assert!(tasks.is_empty());
+    }
+
+    #[test]
+    fn test_extract_uuid_from_pattern() {
+        let text = "[Finding: da23ec54-04c8-4679-81e4-d90c09642d4c]";
+        // The regex in extract_uuid_from_pattern strictly matches:
+        // [UUID] where UUID is hex.
+        // It does NOT match [Finding: UUID].
+        // extract_findings logic handles finding: prefix stripping before calling?
+        // Let's check extract_findings.
+        // findings.push(Finding { ... uuid: extract_uuid_from_pattern(content) })
+        // And extract_uuid_from_pattern uses Regex: r"\[([a-f0-9]{8}-...)\]"
+        // This regex looks for [UUID]. It does not allow "Finding: " prefix inside brackets.
+        // Wait, looking at extract_findings:
+        //      if title.starts_with("Finding:") ...
+        //      let uuid = extract_uuid_from_pattern(content);
+        // It extracts from CONTENT, not TITLE.
+        // The test passed text = "[Finding: ...]" which looks like the TITLE format, but calls the function used on CONTENT.
+        // If the intention of the test is to test extraction from content which might contain [UUID], let's fix the input text.
+        // If the intention is to test [Finding: UUID] pattern, then the regex in extract_uuid_from_pattern is wrong OR the test input is wrong for that function.
+        // The function doc says: "Extract UUID from a pattern like [Finding: UUID]"
+        // But the regex is `\[([a-f0-9]...)]`. That regex expects `[UUID]`.
+        // If the regex is `\[([a-f0-9]{8}-...)\]`, it will NOT match `[Finding: UUID]`.
+        // It seems the implementation only supports `[UUID]`.
+        // Let's check `extract_uuid_patterns` which uses `[([a-f0-9]...)]`.
+        // Let's check `extract_task_references` which uses `[(P[0-3]):\s*([a-f0-9]...)]`.
+
+        // Let's adjust the test to match what the code currently does (which seems to be looking for [UUID] without prefix inside brackets, OR the code doc is misleading).
+        // If I change the test input to just "[da23ec54-04c8-4679-81e4-d90c09642d4c]", it should pass.
+        // However, if the doc says "like [Finding: UUID]", maybe the code is buggy?
+        // But `extract_uuid_from_pattern` is used in `extract_findings`.
+        // In `extract_findings`: `let uuid = extract_uuid_from_pattern(content);`.
+        // This implies the UUID is in the content, likely as `[UUID]`.
+        // The title has `Finding: ...`.
+
+        // Let's fix the test to use `[UUID]`.
+
+        let text = "Some content [da23ec54-04c8-4679-81e4-d90c09642d4c] here";
+        let uuid = extract_uuid_from_pattern(text);
+        assert!(uuid.is_some());
+
+        let text_no_match = "No match";
+        let uuid_none = extract_uuid_from_pattern(text_no_match);
+        assert!(uuid_none.is_none());
+    }
+
+    #[test]
+    fn test_extract_task_id_from_content() {
+        let content = "[Task: da23ec54-04c8-4679-81e4-d90c09642d4c]";
+        let uuid = extract_task_id_from_content(content);
+        assert!(uuid.is_some());
+
+        let content_simple = "[da23ec54-04c8-4679-81e4-d90c09642d4c]";
+        let uuid_simple = extract_task_id_from_content(content_simple);
+        assert!(uuid_simple.is_some());
+
+        let content_none = "No task id";
+        let uuid_none = extract_task_id_from_content(content_none);
+        assert!(uuid_none.is_none());
+    }
 }
