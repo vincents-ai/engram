@@ -1,6 +1,6 @@
 [package]
 name = "engram"
-version = "0.2.6"
+version = "0.2.7"
 edition = "2021"
 authors = ["Vincent Palmer <shift@someone.section.me>"]
 description = "Distributed memory system for AI agents - Rust implementation"
