@@ -113,6 +113,9 @@ async fn run() -> Result<(), EngramError> {
         cli::Commands::Guide { command } => handle_help_command(command)?,
         cli::Commands::Skills { command } => {
             match command {
+                cli::SkillsCommands::Setup => {
+                    cli::handle_skills_command(cli::SkillsCommands::Setup)?;
+                }
                 cli::SkillsCommands::List { format } => {
                     cli::list_skills(&format)?;
                 }
@@ -195,6 +198,12 @@ fn handle_setup_command(command: cli::SetupCommands) -> Result<(), EngramError> 
                 specialization.as_deref(),
                 email.as_deref(),
             )?;
+        }
+        cli::SetupCommands::Skills => {
+            cli::setup_skills()?;
+        }
+        cli::SetupCommands::Prompts { path } => {
+            cli::setup_prompts(path.as_deref())?;
         }
     }
     Ok(())

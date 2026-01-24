@@ -43,7 +43,7 @@ impl QueryMapper {
     }
 
     // Skills/Prompts handlers
-    async fn handle_list_skills(&self, processed_query: &ProcessedQuery) -> Result<Value, EngramError> {
+    async fn handle_list_skills(&self, _processed_query: &ProcessedQuery) -> Result<Value, EngramError> {
         let skills = list_skills(&SkillsQuery {
             category: None,
             search_term: None,
@@ -87,7 +87,7 @@ impl QueryMapper {
         }))
     }
 
-    async fn handle_list_prompts(&self, processed_query: &ProcessedQuery) -> Result<Value, EngramError> {
+    async fn handle_list_prompts(&self, _processed_query: &ProcessedQuery) -> Result<Value, EngramError> {
         let prompts = list_prompts(&PromptsQuery {
             category: None,
             search_term: None,

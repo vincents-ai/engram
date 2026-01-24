@@ -2,6 +2,7 @@
 
 use crate::error::EngramError;
 use serde::Serialize;
+use std::env;
 use std::fs;
 use std::path::PathBuf;
 
@@ -117,6 +118,167 @@ pub fn setup_agent(
 
     println!("✅ Agent '{}' ({}) profile created", name, agent_type);
     println!("📝 Profile saved to: {:?}", agent_file);
+
+    Ok(())
+}
+
+/// Setup OpenCode skills command
+pub fn setup_skills() -> Result<(), EngramError> {
+    use std::env;
+
+    // Get OpenCode config directory
+    let opencode_dir = env::var("HOME")
+        .map(|home| PathBuf::from(home).join(".config").join("opencode"))
+        .map_err(|_| EngramError::Validation("HOME environment variable not set".to_string()))?;
+
+    let skills_dir = opencode_dir.join("skills");
+    fs::create_dir_all(&skills_dir).map_err(EngramError::Io)?;
+
+    // List of built-in Engram skills to install
+    let skills = [
+        "engram-use-engram-memory",
+        "engram-delegate-to-agents",
+        "engram-audit-trail",
+        "engram-brainstorming",
+        "engram-writing-plans",
+        "engram-plan-feature",
+        "engram-requesting-code-review",
+        "engram-check-compliance",
+        "engram-test-driven-development",
+        "engram-systematic-debugging",
+        "engram-subagent-driven-development",
+        "engram-dispatching-parallel-agents",
+    ];
+
+    let mut installed_count = 0;
+
+    for skill_name in skills {
+        let skill_dir = skills_dir.join(skill_name);
+
+        // Skip if skill already exists (user skill takes precedence)
+        if skill_dir.exists() {
+            println!(
+                "⚠️  Skill '{}' already exists, skipping (user skill preserved)",
+                skill_name
+            );
+            continue;
+        }
+
+        fs::create_dir_all(&skill_dir).map_err(EngramError::Io)?;
+
+        // Create a basic SKILL.md file for each skill
+        let skill_content = format!(
+            include_str!("../skill_templates/basic_skill.md"),
+            skill_name, skill_name
+        );
+        let skill_file = skill_dir.join("SKILL.md");
+        fs::write(&skill_file, skill_content).map_err(EngramError::Io)?;
+
+        println!("✅ Installed skill: {}", skill_name);
+        installed_count += 1;
+    }
+
+    println!();
+    println!("🎉 OpenCode skills setup complete!");
+    println!("📁 Skills installed to: {:?}", skills_dir);
+    println!("📊 Total skills installed: {}", installed_count);
+    println!();
+    println!("💡 Skills are now available in OpenCode with 'engram:' prefix");
+    println!("   Example: @general can now use 'engram:use-engram-memory'");
+    println!();
+    println!("📖 To use skills:");
+    println!("   1. Restart OpenCode to reload skills");
+    println!("   2. Use @mention with skill name");
+    println!("   3. Or call skill() tool with skill name");
+
+    Ok(())
+}
+
+/// Setup OpenCode prompts command
+pub fn setup_prompts(prompts_path: Option<&str>) -> Result<(), EngramError> {
+    let prompts_source = prompts_path.unwrap_or("./prompts");
+    let prompts_source_path = PathBuf::from(prompts_source);
+
+    // Get OpenCode config directory
+    let opencode_dir = env::var("HOME")
+        .map(|home| PathBuf::from(home).join(".config").join("opencode"))
+        .map_err(|_| EngramError::Validation("HOME environment variable not set".to_string()))?;
+
+    let opencode_prompts_dir = opencode_dir.join("prompts");
+    fs::create_dir_all(&opencode_prompts_dir).map_err(EngramError::Io)?;
+
+    // Check if source prompts directory exists
+    if !prompts_source_path.exists() {
+        return Err(EngramError::Validation(format!(
+            "Prompts source directory does not exist: {:?}",
+            prompts_source_path
+        )));
+    }
+
+    // Categories to install
+    let categories = [
+        (
+            "agents",
+            "Specialized subagents like Researcher, Coder, Reviewer",
+        ),
+        (
+            "pipelines",
+            "AI workflows for Bug Triage, Feature Dev, Refactoring",
+        ),
+        (
+            "compliance",
+            "Prompts for Security, GDPR, and Audit standards",
+        ),
+    ];
+
+    let mut installed_count = 0;
+
+    for (category, description) in categories {
+        let source_dir = prompts_source_path.join(category);
+        let target_dir = opencode_prompts_dir.join(category);
+
+        if source_dir.exists() {
+            // Copy entire category directory
+            copy_dir_recursive(&source_dir, &target_dir)?;
+            println!(
+                "✅ Installed prompts category: {} ({})",
+                category, description
+            );
+            installed_count += 1;
+        } else {
+            println!("⚠️  Prompts category '{}' not found in source", category);
+        }
+    }
+
+    println!();
+    println!("🎉 OpenCode prompts setup complete!");
+    println!("📁 Prompts installed to: {:?}", opencode_prompts_dir);
+    println!("📊 Total categories installed: {}", installed_count);
+    println!();
+    println!("💡 Prompts are now available in OpenCode");
+    println!("   Skills: Guides like Git Workflow, Testing Guidelines");
+    println!("   Agents: Specialized subagents like Researcher, Coder, Reviewer");
+    println!("   Pipelines: AI workflows for Bug Triage, Feature Dev, Refactoring");
+    println!("   Compliance: Prompts for Security, GDPR, and Audit standards");
+
+    Ok(())
+}
+
+/// Helper function to recursively copy directories
+fn copy_dir_recursive(source: &PathBuf, target: &PathBuf) -> Result<(), EngramError> {
+    fs::create_dir_all(target).map_err(EngramError::Io)?;
+
+    for entry in fs::read_dir(source).map_err(EngramError::Io)? {
+        let entry = entry.map_err(EngramError::Io)?;
+        let source_path = entry.path();
+        let target_path = target.join(entry.file_name().to_str().unwrap());
+
+        if source_path.is_dir() {
+            copy_dir_recursive(&source_path, &target_path)?;
+        } else {
+            fs::copy(&source_path, &target_path).map_err(EngramError::Io)?;
+        }
+    }
 
     Ok(())
 }

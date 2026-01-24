@@ -203,7 +203,7 @@ pub enum Commands {
         #[command(subcommand)]
         command: Option<HelpCommands>,
     },
-    /// List and manage skills from ENGRAM_SKILLS_PATH
+    /// List and manage skills
     Skills {
         #[command(subcommand)]
         command: SkillsCommands,
@@ -237,6 +237,14 @@ pub enum SetupCommands {
         /// Agent email
         #[arg(long)]
         email: Option<String>,
+    },
+    /// Install OpenCode skills
+    Skills,
+    /// Install OpenCode prompts
+    Prompts {
+        /// Path to prompts directory (default: ./prompts)
+        #[arg(long, short)]
+        path: Option<String>,
     },
 }
 pub mod next;
