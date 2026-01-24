@@ -508,3 +508,231 @@ fn display_adr(adr: &ADR) {
         println!("📋 Supersedes: {:?}", adr.supersedes);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::entities::{AdrStatus, Entity, ADR};
+    use crate::storage::MemoryStorage;
+    use crate::storage::Storage;
+
+    #[test]
+    fn test_create_adr() {
+        let mut storage = MemoryStorage::new("test-agent");
+        let title = "Use Rust for CLI".to_string();
+        let number = 1;
+        let context = "We need a performant CLI tool.".to_string();
+        let agent = Some("test-agent".to_string());
+
+        let result = create_adr(&mut storage, title, number, context, agent);
+        assert!(result.is_ok());
+
+        let query_result = storage.query_by_type("adr", None, None, None).unwrap();
+        assert_eq!(query_result.total_count, 1);
+
+        let entity = &query_result.entities[0];
+        assert_eq!(entity.data.get("title").unwrap(), "Use Rust for CLI");
+        assert_eq!(entity.data.get("number").unwrap(), 1);
+    }
+
+    #[test]
+    fn test_get_adr() {
+        let mut storage = MemoryStorage::new("test-agent");
+
+        create_adr(
+            &mut storage,
+            "Test ADR".to_string(),
+            1,
+            "Context".to_string(),
+            None,
+        )
+        .unwrap();
+
+        let query_result = storage.query_by_type("adr", None, None, None).unwrap();
+        let id = &query_result.entities[0].id;
+
+        let result = get_adr(&storage, id);
+        assert!(result.is_ok());
+
+        let result = get_adr(&storage, "non-existent");
+        assert!(result.is_ok()); // Should assume not found message printed
+    }
+
+    #[test]
+    fn test_update_adr() {
+        let mut storage = MemoryStorage::new("test-agent");
+
+        create_adr(
+            &mut storage,
+            "Old Title".to_string(),
+            1,
+            "Context".to_string(),
+            None,
+        )
+        .unwrap();
+
+        let query_result = storage.query_by_type("adr", None, None, None).unwrap();
+        let id = &query_result.entities[0].id;
+
+        let result = update_adr(
+            &mut storage,
+            id,
+            Some("New Title".to_string()),
+            Some("accepted".to_string()),
+            Some("New Context".to_string()),
+            Some("Decision".to_string()),
+            Some("Consequences".to_string()),
+            Some("Implementation".to_string()),
+            None,
+        );
+        assert!(result.is_ok());
+
+        let generic = storage.get(id, "adr").unwrap().unwrap();
+        let adr = ADR::from_generic(generic).unwrap();
+
+        assert_eq!(adr.title, "New Title");
+        assert!(matches!(adr.status, AdrStatus::Accepted));
+        assert_eq!(adr.context, "New Context");
+        assert_eq!(adr.decision, "Decision");
+        assert_eq!(adr.consequences, "Consequences");
+        assert_eq!(adr.implementation.unwrap(), "Implementation");
+    }
+
+    #[test]
+    fn test_delete_adr() {
+        let mut storage = MemoryStorage::new("test-agent");
+
+        create_adr(
+            &mut storage,
+            "To Delete".to_string(),
+            1,
+            "Context".to_string(),
+            None,
+        )
+        .unwrap();
+
+        let query_result = storage.query_by_type("adr", None, None, None).unwrap();
+        let id = &query_result.entities[0].id;
+
+        let result = delete_adr(&mut storage, id);
+        assert!(result.is_ok());
+
+        let generic = storage.get(id, "adr").unwrap().unwrap();
+        let adr = ADR::from_generic(generic).unwrap();
+        assert!(matches!(adr.status, AdrStatus::Deprecated));
+    }
+
+    #[test]
+    fn test_accept_adr() {
+        let mut storage = MemoryStorage::new("test-agent");
+
+        create_adr(
+            &mut storage,
+            "To Accept".to_string(),
+            1,
+            "Context".to_string(),
+            None,
+        )
+        .unwrap();
+
+        let query_result = storage.query_by_type("adr", None, None, None).unwrap();
+        let id = &query_result.entities[0].id;
+
+        let result = accept_adr(
+            &mut storage,
+            id,
+            "We decide to do X".to_string(),
+            "X will happen".to_string(),
+        );
+        assert!(result.is_ok());
+
+        let generic = storage.get(id, "adr").unwrap().unwrap();
+        let adr = ADR::from_generic(generic).unwrap();
+
+        assert!(matches!(adr.status, AdrStatus::Accepted));
+        assert_eq!(adr.decision, "We decide to do X");
+        assert_eq!(adr.consequences, "X will happen");
+        assert!(adr.decision_date.is_some());
+    }
+
+    #[test]
+    fn test_add_alternative() {
+        let mut storage = MemoryStorage::new("test-agent");
+
+        create_adr(
+            &mut storage,
+            "With Alternatives".to_string(),
+            1,
+            "Context".to_string(),
+            None,
+        )
+        .unwrap();
+
+        let query_result = storage.query_by_type("adr", None, None, None).unwrap();
+        let id = &query_result.entities[0].id;
+
+        let result = add_alternative(&mut storage, id, "Option A".to_string());
+        assert!(result.is_ok());
+
+        let generic = storage.get(id, "adr").unwrap().unwrap();
+        let adr = ADR::from_generic(generic).unwrap();
+
+        assert_eq!(adr.alternatives.len(), 1);
+        assert_eq!(adr.alternatives[0].description, "Option A");
+    }
+
+    #[test]
+    fn test_add_stakeholder() {
+        let mut storage = MemoryStorage::new("test-agent");
+
+        create_adr(
+            &mut storage,
+            "With Stakeholders".to_string(),
+            1,
+            "Context".to_string(),
+            None,
+        )
+        .unwrap();
+
+        let query_result = storage.query_by_type("adr", None, None, None).unwrap();
+        let id = &query_result.entities[0].id;
+
+        let result = add_stakeholder(&mut storage, id, "Dev Team".to_string());
+        assert!(result.is_ok());
+
+        let generic = storage.get(id, "adr").unwrap().unwrap();
+        let adr = ADR::from_generic(generic).unwrap();
+
+        assert_eq!(adr.stakeholders.len(), 1);
+        assert_eq!(adr.stakeholders[0], "Dev Team");
+    }
+
+    #[test]
+    fn test_list_adrs() {
+        let mut storage = MemoryStorage::new("test-agent");
+
+        create_adr(
+            &mut storage,
+            "ADR 1".to_string(),
+            1,
+            "Context".to_string(),
+            None,
+        )
+        .unwrap();
+
+        create_adr(
+            &mut storage,
+            "ADR 2".to_string(),
+            2,
+            "Context".to_string(),
+            None,
+        )
+        .unwrap();
+
+        let result = list_adrs(&storage, None, None, 10, 0);
+        assert!(result.is_ok());
+
+        let result = list_adrs(&storage, Some("proposed".to_string()), None, 10, 0);
+        assert!(result.is_ok());
+    }
+}
