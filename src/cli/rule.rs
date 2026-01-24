@@ -546,8 +546,8 @@ fn display_rule(rule: &Rule) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::entities::{Rule, RulePriority, RuleStatus, RuleType};
     use crate::storage::{MemoryStorage, Storage};
-    use crate::entities::{Rule, RuleStatus, RuleType, RulePriority};
 
     fn create_test_storage() -> MemoryStorage {
         MemoryStorage::new("default")
@@ -566,7 +566,8 @@ mod tests {
             r#"{"field": "status", "operator": "eq", "value": "done"}"#.to_string(),
             r#"{"type": "notify", "message": "Task done"}"#.to_string(),
             Some("agent1".to_string()),
-        ).unwrap();
+        )
+        .unwrap();
 
         let rules = storage.query_by_agent("agent1", Some("rule")).unwrap();
         assert_eq!(rules.len(), 1);
@@ -588,7 +589,8 @@ mod tests {
             "{}".to_string(),
             "{}".to_string(),
             Some("agent1".to_string()),
-        ).unwrap();
+        )
+        .unwrap();
 
         let rules = storage.query_by_agent("agent1", Some("rule")).unwrap();
         let id = &rules[0].id;
@@ -604,11 +606,12 @@ mod tests {
             None,
             None,
             Some("deprecated".to_string()),
-        ).unwrap();
+        )
+        .unwrap();
 
         let generic = storage.get(id, "rule").unwrap().unwrap();
         let rule = Rule::from_generic(generic).unwrap();
-        
+
         assert_eq!(rule.title, "New Title");
         assert_eq!(rule.rule_type, RuleType::Enforcement);
         assert_eq!(rule.status, RuleStatus::Deprecated);
@@ -627,13 +630,14 @@ mod tests {
             "{}".to_string(),
             "{}".to_string(),
             Some("agent1".to_string()),
-        ).unwrap();
+        )
+        .unwrap();
 
         let rules = storage.query_by_agent("agent1", Some("rule")).unwrap();
         let id = &rules[0].id;
 
         delete_rule(&mut storage, id).unwrap();
-        
+
         // Deletion marks as inactive/deactivated rather than removing
         let generic = storage.get(id, "rule").unwrap().unwrap();
         let rule = Rule::from_generic(generic).unwrap();
@@ -645,10 +649,122 @@ mod tests {
         let mut storage = create_test_storage();
         create_rule(
             &mut storage,
-            "R1".to_string(), None, "validation".to_string(), "high".to_string(), None, "{}".to_string(), "{}".to_string(), None
-        ).unwrap();
-        
+            "R1".to_string(),
+            None,
+            "validation".to_string(),
+            "high".to_string(),
+            None,
+            "{}".to_string(),
+            "{}".to_string(),
+            None,
+        )
+        .unwrap();
+
         list_rules(&storage, None, None, None, None, None, 10, 0).unwrap();
-        list_rules(&storage, Some("validation".to_string()), None, None, None, None, 10, 0).unwrap();
+        list_rules(
+            &storage,
+            Some("validation".to_string()),
+            None,
+            None,
+            None,
+            None,
+            10,
+            0,
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn test_create_rule_invalid_type() {
+        let mut storage = create_test_storage();
+        create_rule(
+            &mut storage,
+            "Invalid Type".to_string(),
+            None,
+            "invalid_type".to_string(),
+            "medium".to_string(),
+            None,
+            "{}".to_string(),
+            "{}".to_string(),
+            None,
+        )
+        .unwrap();
+
+        let rules = storage.query_by_agent("cli", Some("rule")).unwrap();
+        // Should not create rule
+        assert_eq!(rules.len(), 0);
+    }
+
+    #[test]
+    fn test_create_rule_invalid_priority() {
+        let mut storage = create_test_storage();
+        create_rule(
+            &mut storage,
+            "Invalid Priority".to_string(),
+            None,
+            "validation".to_string(),
+            "invalid_priority".to_string(),
+            None,
+            "{}".to_string(),
+            "{}".to_string(),
+            None,
+        )
+        .unwrap();
+
+        let rules = storage.query_by_agent("cli", Some("rule")).unwrap();
+        assert_eq!(rules.len(), 0);
+    }
+
+    #[test]
+    fn test_create_rule_invalid_json() {
+        let mut storage = create_test_storage();
+        let result = create_rule(
+            &mut storage,
+            "Invalid JSON".to_string(),
+            None,
+            "validation".to_string(),
+            "medium".to_string(),
+            None,
+            "{invalid}".to_string(),
+            "{}".to_string(),
+            None,
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_update_rule_not_found() {
+        let mut storage = create_test_storage();
+        assert!(update_rule(
+            &mut storage,
+            "non-existent",
+            Some("New".to_string()),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn test_delete_rule_not_found() {
+        let mut storage = create_test_storage();
+        assert!(delete_rule(&mut storage, "non-existent").is_ok());
+    }
+
+    #[test]
+    fn test_execute_rule_not_found() {
+        let mut storage = create_test_storage();
+        assert!(execute_rule(
+            &mut storage,
+            "non-existent",
+            "entity_id".to_string(),
+            "task".to_string()
+        )
+        .is_ok());
     }
 }
