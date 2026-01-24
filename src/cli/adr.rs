@@ -810,4 +810,28 @@ mod tests {
         let adr_cleared = ADR::from_generic(generic_cleared).unwrap();
         assert_eq!(adr_cleared.superseded_by, None);
     }
+
+    #[test]
+    fn test_update_adr_not_found() {
+        let mut storage = MemoryStorage::new("test-agent");
+        let result = update_adr(
+            &mut storage,
+            "non-existent-id",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+        assert!(result.is_ok()); // Prints error
+    }
+
+    #[test]
+    fn test_delete_adr_not_found() {
+        let mut storage = MemoryStorage::new("test-agent");
+        let result = delete_adr(&mut storage, "non-existent-id");
+        assert!(result.is_ok()); // Prints error
+    }
 }
