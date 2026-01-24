@@ -189,8 +189,5 @@ engram context list | grep -i "breaking"
 
 This skill integrates with:
 - `engram-release-planning` - Plan releases based on changelog categories
-- `engram-semantic-versioning` - Determine version bumps from changelog
 - `engram-technical-writing` - Write clear, user-facing changelog entries
-- `engram-git-workflow` - Use conventional commits for automated changelog
 - `engram-api-design` - Document API changes in changelog
-- `engram-communication-strategy` - Use changelog for user communication

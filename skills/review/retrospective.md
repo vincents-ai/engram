@@ -943,4 +943,4 @@ This skill integrates with:
 - `engram-brainstorming` - Retrospectives generate improvement ideas
 - `engram-risk-assessment` - Retrospectives surface risks
 - `engram-assumption-validation` - Retrospectives test team assumptions
-- `engram-planning` - Retrospective insights inform future planning
+- `engram-writing-plans` - Retrospective insights inform future planning

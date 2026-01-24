@@ -213,4 +213,4 @@ This skill integrates with:
 - `engram-security-architecture` - Security decisions should be ADRs
 - `engram-data-modeling` - Database design decisions warrant ADRs
 - `engram-risk-assessment` - ADRs document risk mitigation strategies
-- `engram-use-memory` - ADRs stored in Engram for future reference
+- `engram-use-engram-memory` - ADRs stored in Engram for future reference

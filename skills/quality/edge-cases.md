@@ -198,9 +198,4 @@ engram context list | grep "Fuzzing Strategy"
 ## Related Skills
 
 This skill integrates with:
-- `engram-test-strategy` - Integrate edge case tests into overall test plan
-- `engram-security-testing` - Many edge cases are security vulnerabilities
-- `engram-code-review` - Review for edge case handling
-- `engram-input-validation` - Design validation based on edge cases
-- `engram-error-handling` - Handle edge case errors gracefully
-- `engram-performance-testing` - Edge cases often reveal performance issues
+- `engram-requesting-code-review` - Review for edge case handling

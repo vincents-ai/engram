@@ -149,4 +149,4 @@ This skill integrates with:
 - `engram-adr` - API design decisions documented as ADRs
 - `engram-test-driven-development` - API tests validate docs
 - `engram-knowledge-transfer` - API docs aid onboarding
-- `engram-use-memory` - Store API evolution history in Engram
+- `engram-use-engram-memory` - Store API evolution history in Engram

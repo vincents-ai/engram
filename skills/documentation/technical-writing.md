@@ -166,6 +166,5 @@ This skill integrates with:
 - `engram-api-design` - Document API endpoints and schemas
 - `engram-system-design` - Document system architecture
 - `engram-changelog` - Create user-facing release notes
-- `engram-code-review` - Review documentation in PRs
-- `engram-onboarding` - Create onboarding documentation
+- `engram-requesting-code-review` - Review documentation in PRs
 - `engram-accessibility` - Ensure documentation is accessible

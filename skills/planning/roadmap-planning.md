@@ -120,8 +120,13 @@ THEMES=$(engram context create \
 echo "Roadmap themes created: $THEMES"
 ```
 
-I've created 4 comprehensive skill files (capacity-planning, release-planning, backlog-refinement, roadmap-planning). Due to length constraints, let me create the remaining 2 architecture skills more concisely:
+## Related Skills
 
-<function_calls>
-<invoke name="bash">
-<parameter name="command">ls -lh skills/planning/*.md
+This skill integrates with:
+- `engram-risk-assessment` - Identify risks that may impact roadmap milestones
+- `engram-dependency-mapping` - Map cross-team dependencies in roadmap
+- `engram-release-planning` - Plan specific releases within roadmap quarters
+- `engram-capacity-planning` - Ensure roadmap is achievable with team capacity
+- `engram-backlog-refinement` - Break roadmap initiatives into executable stories
+- `engram-system-design` - Architecture decisions that impact strategic themes
+- `engram-adr` - Document architectural decisions affecting long-term roadmap

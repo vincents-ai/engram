@@ -177,9 +177,8 @@ engram task list --tags tech-debt --status in_progress
 ## Related Skills
 
 This skill integrates with:
-- `engram-code-review` - Identify debt during code review
+- `engram-requesting-code-review` - Identify debt during code review
 - `engram-refactoring-strategy` - Plan debt paydown refactoring
 - `engram-risk-assessment` - Assess risks of accumulated debt
 - `engram-system-design` - Design to minimize future debt
-- `engram-team-capacity-planning` - Allocate capacity for debt paydown
-- `engram-metrics-tracking` - Track debt metrics over time
+- `engram-capacity-planning` - Allocate capacity for debt paydown

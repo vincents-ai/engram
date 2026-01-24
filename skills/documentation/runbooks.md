@@ -152,7 +152,5 @@ engram context list | grep -i "database restore"
 This skill integrates with:
 - `engram-observability-design` - Runbooks link to dashboards and alerts
 - `engram-system-design` - Runbooks reference architecture diagrams
-- `engram-incident-response` - Use runbooks during incidents
-- `engram-deployment-strategy` - Deployment runbooks follow deployment patterns
 - `engram-risk-assessment` - Runbooks mitigate identified risks
-- `engram-postmortem-analysis` - Incidents lead to runbook improvements
+- `engram-post-mortem` - Incidents lead to runbook improvements

@@ -150,5 +150,5 @@ This skill integrates with:
 - `engram-adr` - ADRs provide decision context for knowledge base
 - `engram-api-docs` - API documentation is part of knowledge base
 - `engram-system-design` - System architecture docs aid understanding
-- `engram-use-memory` - Store all knowledge in Engram for querying
+- `engram-use-engram-memory` - Store all knowledge in Engram for querying
 - `engram-audit-trail` - Track who contributed knowledge when

@@ -206,7 +206,5 @@ engram context list | grep -i "logging"
 This skill integrates with:
 - `engram-system-design` - Design observability into system architecture
 - `engram-runbooks` - Create operational runbooks for alerts and incidents
-- `engram-incident-response` - Use observability data during incident response
-- `engram-performance-optimization` - Use metrics and traces to find bottlenecks
 - `engram-risk-assessment` - Assess risks of insufficient observability
 - `engram-spike-investigation` - Test observability setup with spike solutions

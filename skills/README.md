@@ -4,7 +4,7 @@ This directory contains skills for working with Engram memory system. Skills are
 
 ## Overview
 
-**Total Skills: 13**
+**Total Skills: 43**
 
 Skills are organized by category and use Engram's entity system (context, reasoning, tasks, relationships) to create persistent, queryable memory across agent sessions.
 
@@ -46,6 +46,56 @@ Skills for comprehensive testing:
 Skills for ensuring regulatory compliance:
 
 - **check-compliance** (`compliance/check-compliance.md`) - Validate against compliance frameworks
+
+### Planning Skills (7)
+Skills for project planning and risk management:
+
+- **risk-assessment** (`planning/risk-assessment.md`) - Identify and mitigate project risks
+- **spike-investigation** (`planning/spike-investigation.md`) - Time-boxed research and exploration
+- **dependency-mapping** (`planning/dependency-mapping.md`) - Map technical and team dependencies
+- **backlog-refinement** (`planning/backlog-refinement.md`) - Refine user stories with acceptance criteria
+- **capacity-planning** (`planning/capacity-planning.md`) - Estimate team capacity and velocity
+- **roadmap-planning** (`planning/roadmap-planning.md`) - Create strategic product roadmaps
+- **release-planning** (`planning/release-planning.md`) - Plan and coordinate releases
+
+### Documentation Skills (6)
+Skills for creating and maintaining documentation:
+
+- **adr** (`documentation/adr.md`) - Architecture Decision Records with context
+- **api-docs** (`documentation/api-docs.md`) - API documentation and specifications
+- **technical-writing** (`documentation/technical-writing.md`) - Clear technical documentation
+- **runbooks** (`documentation/runbooks.md`) - Operational runbooks for incidents
+- **knowledge-transfer** (`documentation/knowledge-transfer.md`) - Transfer knowledge between team members
+- **changelog** (`documentation/changelog.md`) - Maintain changelogs following conventions
+
+### Architecture Skills (8)
+Skills for system architecture and design:
+
+- **system-design** (`architecture/system-design.md`) - High-level system architecture
+- **security-architecture** (`architecture/security-architecture.md`) - Security design and threat modeling
+- **scalability-analysis** (`architecture/scalability-analysis.md`) - Analyze scalability requirements
+- **api-design** (`architecture/api-design.md`) - REST/GraphQL API design patterns
+- **data-modeling** (`architecture/data-modeling.md`) - Database schema and data architecture
+- **integration-patterns** (`architecture/integration-patterns.md`) - Service integration patterns
+- **observability-design** (`architecture/observability-design.md`) - Logging, metrics, and tracing
+- **refactoring-strategy** (`architecture/refactoring-strategy.md`) - Strategic code refactoring
+
+### Quality Skills (5)
+Skills for ensuring code quality and performance:
+
+- **assumption-validation** (`quality/assumption-validation.md`) - Validate technical assumptions
+- **edge-cases** (`quality/edge-cases.md`) - Identify and handle edge cases
+- **tech-debt** (`quality/tech-debt.md`) - Track and manage technical debt
+- **performance-analysis** (`quality/performance-analysis.md`) - Analyze performance bottlenecks
+- **accessibility** (`quality/accessibility.md`) - Ensure WCAG accessibility compliance
+
+### Review Skills (4)
+Skills for code review and retrospectives:
+
+- **security-review** (`review/security-review.md`) - Security-focused code review
+- **code-quality** (`review/code-quality.md`) - Comprehensive code quality review
+- **post-mortem** (`review/post-mortem.md`) - Blameless incident post-mortems
+- **retrospective** (`review/retrospective.md`) - Team retrospectives and improvement
 
 ## Skill Format
 
@@ -127,6 +177,31 @@ systematic-debugging → test-driven-development → audit-trail
 ### Compliance Workflow
 ```
 check-compliance → testing → audit-trail
+```
+
+### Planning Workflow
+```
+risk-assessment → spike-investigation → dependency-mapping → backlog-refinement → release-planning
+```
+
+### Architecture Workflow
+```
+system-design → security-architecture → scalability-analysis → api-design → observability-design
+```
+
+### Documentation Workflow
+```
+adr → technical-writing → api-docs → runbooks → knowledge-transfer
+```
+
+### Quality Workflow
+```
+assumption-validation → edge-cases → performance-analysis → tech-debt → accessibility
+```
+
+### Review Workflow
+```
+security-review → code-quality → post-mortem → retrospective
 ```
 
 ## Cross-References
@@ -221,16 +296,22 @@ Skills integrate with Engram's core features:
 
 ## Skill Statistics
 
-- **Total Skills**: 13
-- **Total Lines**: 2,603
-- **Shortest**: testing/skill.md (149 lines)
-- **Longest**: dispatching-parallel-agents (352 lines)
-- **Average**: 200 lines per skill
+- **Total Skills**: 43
+- **Total Lines**: 12,690
+- **Shortest**: planning/roadmap-planning.md (126 lines)
+- **Longest**: review/code-quality.md (1,007 lines)
+- **Average**: 295 lines per skill
 
 ## Version History
 
 - **v0.1.0** (2026-01-22) - Initial 6 skills (compliance, meta, workflow)
 - **v0.2.0** (2026-01-23) - Added 7 superpowers skills + cross-references (13 total)
+- **v0.3.0** (2026-01-24) - Added 30 new skills across 5 categories (43 total)
+  - Planning Skills: 7 (risk, spike, dependencies, backlog, capacity, roadmap, release)
+  - Documentation Skills: 6 (adr, api-docs, technical-writing, runbooks, knowledge-transfer, changelog)
+  - Architecture Skills: 8 (system-design, security, scalability, api, data-modeling, integration, observability, refactoring)
+  - Quality Skills: 5 (assumption, edge-cases, tech-debt, performance, accessibility)
+  - Review Skills: 4 (security-review, code-quality, post-mortem, retrospective)
 
 ## Resources
 
