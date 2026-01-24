@@ -1,4 +1,4 @@
-# Engram - Rust Implementation
+# Engram
 
 A distributed memory system for AI agents, implemented in Rust with extensible architecture and BDD testing.
 
