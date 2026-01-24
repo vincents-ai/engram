@@ -7,8 +7,10 @@ use std::fs;
 use std::path::PathBuf;
 
 /// Setup workspace command
-pub fn setup_workspace() -> Result<(), EngramError> {
-    let engram_dir = PathBuf::from(".engram");
+pub fn setup_workspace(root_dir: Option<PathBuf>) -> Result<(), EngramError> {
+    let engram_dir = root_dir
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join(".engram");
     fs::create_dir_all(&engram_dir).map_err(EngramError::Io)?;
 
     // Create subdirectories
@@ -71,8 +73,11 @@ pub fn setup_agent(
     agent_type: &str,
     specialization: Option<&str>,
     email: Option<&str>,
+    root_dir: Option<PathBuf>,
 ) -> Result<(), EngramError> {
-    let engram_dir = PathBuf::from(".engram");
+    let engram_dir = root_dir
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join(".engram");
     fs::create_dir_all(&engram_dir.join("agents")).map_err(EngramError::Io)?;
 
     let agent_profile = AgentProfile {
@@ -123,13 +128,17 @@ pub fn setup_agent(
 }
 
 /// Setup OpenCode skills command
-pub fn setup_skills() -> Result<(), EngramError> {
+pub fn setup_skills(config_dir: Option<PathBuf>) -> Result<(), EngramError> {
     use std::env;
 
     // Get OpenCode config directory
-    let opencode_dir = env::var("HOME")
-        .map(|home| PathBuf::from(home).join(".config").join("opencode"))
-        .map_err(|_| EngramError::Validation("HOME environment variable not set".to_string()))?;
+    let opencode_dir = if let Some(dir) = config_dir {
+        dir.join(".config").join("opencode")
+    } else {
+        env::var("HOME")
+            .map(|home| PathBuf::from(home).join(".config").join("opencode"))
+            .map_err(|_| EngramError::Validation("HOME environment variable not set".to_string()))?
+    };
 
     let skills_dir = opencode_dir.join("skills");
     fs::create_dir_all(&skills_dir).map_err(EngramError::Io)?;
@@ -357,14 +366,21 @@ pub fn setup_skills() -> Result<(), EngramError> {
 }
 
 /// Setup OpenCode prompts command
-pub fn setup_prompts(prompts_path: Option<&str>) -> Result<(), EngramError> {
+pub fn setup_prompts(
+    prompts_path: Option<&str>,
+    config_dir: Option<PathBuf>,
+) -> Result<(), EngramError> {
     let prompts_source = prompts_path.unwrap_or("./prompts");
     let prompts_source_path = PathBuf::from(prompts_source);
 
     // Get OpenCode config directory
-    let opencode_dir = env::var("HOME")
-        .map(|home| PathBuf::from(home).join(".config").join("opencode"))
-        .map_err(|_| EngramError::Validation("HOME environment variable not set".to_string()))?;
+    let opencode_dir = if let Some(dir) = config_dir {
+        dir.join(".config").join("opencode")
+    } else {
+        env::var("HOME")
+            .map(|home| PathBuf::from(home).join(".config").join("opencode"))
+            .map_err(|_| EngramError::Validation("HOME environment variable not set".to_string()))?
+    };
 
     let opencode_prompts_dir = opencode_dir.join("prompts");
     fs::create_dir_all(&opencode_prompts_dir).map_err(EngramError::Io)?;
@@ -485,4 +501,111 @@ struct AgentProfile {
 struct WorkspaceAccess {
     repositories: Vec<String>,
     tools: Vec<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::TempDir;
+
+    #[test]
+    fn test_setup_workspace() {
+        let temp_dir = TempDir::new().unwrap();
+        let root = temp_dir.path().to_path_buf();
+        
+        setup_workspace(Some(root.clone())).unwrap();
+        
+        let engram_dir = root.join(".engram");
+        assert!(engram_dir.exists());
+        assert!(engram_dir.join("agents").exists());
+        assert!(engram_dir.join("workspaces").exists());
+        assert!(engram_dir.join("templates").exists());
+        assert!(engram_dir.join("config.yaml").exists());
+        
+        // Verify config content
+        let config_content = fs::read_to_string(engram_dir.join("config.yaml")).unwrap();
+        assert!(config_content.contains("agents:"));
+        assert!(config_content.contains("workspaces:"));
+    }
+
+    #[test]
+    fn test_setup_agent() {
+        let temp_dir = TempDir::new().unwrap();
+        let root = temp_dir.path().to_path_buf();
+        
+        setup_agent(
+            "test-agent",
+            "implementation",
+            Some("rust"),
+            Some("test@example.com"),
+            Some(root.clone())
+        ).unwrap();
+        
+        let agent_file = root.join(".engram/agents/test-agent.yaml");
+        assert!(agent_file.exists());
+        
+        let content = fs::read_to_string(agent_file).unwrap();
+        assert!(content.contains("name: test-agent"));
+        assert!(content.contains("agent_type: implementation"));
+        assert!(content.contains("specialization: rust"));
+        assert!(content.contains("email: test@example.com"));
+    }
+
+    #[test]
+    fn test_setup_skills() {
+        let temp_dir = TempDir::new().unwrap();
+        let root = temp_dir.path().to_path_buf();
+        
+        // Setup mock HOME structure
+        let config_dir = root.clone();
+        
+        setup_skills(Some(config_dir.clone())).unwrap();
+        
+        let skills_dir = config_dir.join(".config/opencode/skills");
+        assert!(skills_dir.exists());
+        
+        // Check for a few expected skills
+        assert!(skills_dir.join("engram-use-engram-memory/SKILL.md").exists());
+        assert!(skills_dir.join("engram-test-driven-development/SKILL.md").exists());
+        
+        // Verify content
+        let skill_content = fs::read_to_string(skills_dir.join("engram-use-engram-memory/SKILL.md")).unwrap();
+        assert!(!skill_content.is_empty());
+        
+        // Verify existing skills are not overwritten
+        let test_file = skills_dir.join("engram-use-engram-memory/SKILL.md");
+        fs::write(&test_file, "modified content").unwrap();
+        
+        setup_skills(Some(config_dir)).unwrap();
+        
+        let new_content = fs::read_to_string(test_file).unwrap();
+        assert_eq!(new_content, "modified content");
+    }
+
+    #[test]
+    fn test_setup_prompts() {
+        let temp_dir = TempDir::new().unwrap();
+        let root = temp_dir.path().to_path_buf();
+        
+        // Create mock source prompts
+        let source_prompts = root.join("source_prompts");
+        fs::create_dir_all(source_prompts.join("agents")).unwrap();
+        fs::write(source_prompts.join("agents/test_agent.md"), "test content").unwrap();
+        
+        // Create mock destination config dir
+        let config_dir = root.join("config");
+        
+        setup_prompts(
+            Some(source_prompts.to_str().unwrap()),
+            Some(config_dir.clone())
+        ).unwrap();
+        
+        let installed_prompts = config_dir.join(".config/opencode/prompts");
+        assert!(installed_prompts.exists());
+        assert!(installed_prompts.join("agents/test_agent.md").exists());
+        
+        let content = fs::read_to_string(installed_prompts.join("agents/test_agent.md")).unwrap();
+        assert_eq!(content, "test content");
+    }
 }

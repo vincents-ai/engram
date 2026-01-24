@@ -189,7 +189,7 @@ async fn run() -> Result<(), EngramError> {
 /// Handle setup commands
 fn handle_setup_command(command: cli::SetupCommands) -> Result<(), EngramError> {
     match command {
-        cli::SetupCommands::Workspace => cli::setup_workspace()?,
+        cli::SetupCommands::Workspace => cli::setup_workspace(None)?,
         cli::SetupCommands::Agent {
             name,
             agent_type,
@@ -201,13 +201,14 @@ fn handle_setup_command(command: cli::SetupCommands) -> Result<(), EngramError> 
                 &agent_type,
                 specialization.as_deref(),
                 email.as_deref(),
+                None,
             )?;
         }
         cli::SetupCommands::Skills => {
-            cli::setup_skills()?;
+            cli::setup_skills(None)?;
         }
         cli::SetupCommands::Prompts { path } => {
-            cli::setup_prompts(path.as_deref())?;
+            cli::setup_prompts(path.as_deref(), None)?;
         }
     }
     Ok(())
