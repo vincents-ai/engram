@@ -757,4 +757,57 @@ mod tests {
         let result = add_stakeholder(&mut storage, "missing", "Person".to_string());
         assert!(result.is_ok());
     }
+
+    #[test]
+    fn test_update_adr_superseded_by() {
+        let mut storage = MemoryStorage::new("test-agent");
+        create_adr(
+            &mut storage,
+            "Old ADR".to_string(),
+            1,
+            "Ctx".to_string(),
+            None,
+        )
+        .unwrap();
+
+        let query = storage.query_by_type("adr", None, None, None).unwrap();
+        let id = &query.entities[0].id;
+
+        // Supersede with valid ID (mock string for now)
+        let result = update_adr(
+            &mut storage,
+            id,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some("new-adr-id".to_string()),
+        );
+        assert!(result.is_ok());
+
+        let generic = storage.get(id, "adr").unwrap().unwrap();
+        let adr = ADR::from_generic(generic).unwrap();
+        assert!(matches!(adr.status, AdrStatus::Superseded));
+        assert_eq!(adr.superseded_by, Some("new-adr-id".to_string()));
+
+        // Clear superseded by
+        let result_clear = update_adr(
+            &mut storage,
+            id,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some("".to_string()),
+        );
+        assert!(result_clear.is_ok());
+
+        let generic_cleared = storage.get(id, "adr").unwrap().unwrap();
+        let adr_cleared = ADR::from_generic(generic_cleared).unwrap();
+        assert_eq!(adr_cleared.superseded_by, None);
+    }
 }
