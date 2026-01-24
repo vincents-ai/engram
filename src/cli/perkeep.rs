@@ -216,7 +216,7 @@ pub async fn perkeep_backup<S: Storage>(
     Ok(())
 }
 
-/// Restore entities from Perkeep
+/// Restore from a Perkeep backup
 pub async fn perkeep_restore<S: Storage>(
     storage: &mut S,
     blobref: Option<String>,
@@ -264,7 +264,7 @@ pub async fn perkeep_restore<S: Storage>(
     println!("   Backup blobref: {}", blobref);
 
     if dry_run {
-        println!("\n�Dry run mode - no changes will be made");
+        println!("\n⚠️ Dry run mode - no changes will be made");
     }
 
     // Fetch backup metadata
@@ -430,4 +430,31 @@ pub async fn perkeep_health() -> Result<(), EngramError> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_perkeep_commands_variants() {
+        // Just verify variants exist and can be instantiated
+        let _ = PerkeepCommands::Health;
+        let _ = PerkeepCommands::List { detailed: false };
+        let _ = PerkeepCommands::Backup {
+            entity_type: None,
+            include_relationships: true,
+            description: None,
+        };
+        let _ = PerkeepCommands::Restore {
+            blobref: Some("test".to_string()),
+            agent: None,
+            dry_run: true,
+        };
+        let _ = PerkeepCommands::Config {
+            server: Some("http://localhost".to_string()),
+            auth_token: None,
+            save: false,
+        };
+    }
 }
