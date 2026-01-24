@@ -8,6 +8,7 @@ pub mod compliance;
 pub mod context;
 pub mod convert;
 pub mod escalation;
+pub mod git;
 pub mod help;
 pub mod import;
 pub mod info;
@@ -97,6 +98,11 @@ pub enum Commands {
     Import {
         #[command(subcommand)]
         command: import::ImportCommands,
+    },
+    /// Run Git commands safely (blocks --no-verify)
+    Git {
+        #[command(subcommand)]
+        command: git::GitCommands,
     },
     /// Run test suite
     Test,
