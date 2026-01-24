@@ -627,3 +627,269 @@ fn parse_sandbox_level(level: &str) -> Result<SandboxLevel, EngramError> {
         )),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::storage::MemoryStorage;
+
+    #[test]
+    fn test_create_sandbox() {
+        let mut storage = MemoryStorage::new("test_agent");
+        let agent_id = "agent1".to_string();
+        let level = "restricted".to_string();
+
+        let result = create_sandbox(
+            &mut storage,
+            Some(agent_id.clone()),
+            level,
+            Some("tester".to_string()),
+            false,
+            None,
+            true,
+        );
+
+        assert!(result.is_ok());
+
+        // Verify it exists
+        let ids = storage.list_ids("agent_sandbox").unwrap();
+        assert_eq!(ids.len(), 1);
+
+        let entity = storage.get(&ids[0], "agent_sandbox").unwrap().unwrap();
+        let sandbox = AgentSandbox::from_generic(entity).unwrap();
+        assert_eq!(sandbox.agent_id, agent_id);
+        assert_eq!(sandbox.sandbox_level, SandboxLevel::Restricted);
+        assert_eq!(sandbox.created_by, "tester");
+    }
+
+    #[test]
+    fn test_list_sandboxes() {
+        let mut storage = MemoryStorage::new("test_agent");
+
+        // Create a few sandboxes
+        create_sandbox(
+            &mut storage,
+            Some("agent1".to_string()),
+            "standard".to_string(),
+            None,
+            false,
+            None,
+            false,
+        )
+        .unwrap();
+
+        create_sandbox(
+            &mut storage,
+            Some("agent2".to_string()),
+            "isolated".to_string(),
+            None,
+            false,
+            None,
+            false,
+        )
+        .unwrap();
+
+        // Test listing all
+        let result = list_sandboxes(&storage, None, None, None, true);
+        assert!(result.is_ok());
+
+        // Test filter by agent_id
+        // Since list_sandboxes just prints to stdout, we can't easily capture output here to assert count
+        // but we can verify it doesn't panic.
+        // In a real refactor, list_sandboxes should probably return the list.
+        let result_filtered =
+            list_sandboxes(&storage, Some("agent1".to_string()), None, None, true);
+        assert!(result_filtered.is_ok());
+
+        // Test filter by level
+        let result_level = list_sandboxes(&storage, None, Some("isolated".to_string()), None, true);
+        assert!(result_level.is_ok());
+    }
+
+    #[test]
+    fn test_get_sandbox() {
+        let mut storage = MemoryStorage::new("test_agent");
+        create_sandbox(
+            &mut storage,
+            Some("agent1".to_string()),
+            "standard".to_string(),
+            None,
+            false,
+            None,
+            false,
+        )
+        .unwrap();
+
+        let ids = storage.list_ids("agent_sandbox").unwrap();
+        let id = &ids[0];
+
+        let result = get_sandbox(&storage, id.clone(), true);
+        assert!(result.is_ok());
+
+        let result_missing = get_sandbox(&storage, "nonexistent".to_string(), true);
+        assert!(matches!(result_missing, Err(EngramError::NotFound(_))));
+    }
+
+    #[test]
+    fn test_update_sandbox() {
+        let mut storage = MemoryStorage::new("test_agent");
+        create_sandbox(
+            &mut storage,
+            Some("agent1".to_string()),
+            "standard".to_string(),
+            None,
+            false,
+            None,
+            false,
+        )
+        .unwrap();
+
+        let ids = storage.list_ids("agent_sandbox").unwrap();
+        let id = ids[0].clone();
+
+        let result = update_sandbox(
+            &mut storage,
+            id.clone(),
+            Some("unrestricted".to_string()),
+            false,
+            None,
+            true,
+        );
+        assert!(result.is_ok());
+
+        // Verify update
+        let entity = storage.get(&id, "agent_sandbox").unwrap().unwrap();
+        let sandbox = AgentSandbox::from_generic(entity).unwrap();
+        assert_eq!(sandbox.sandbox_level, SandboxLevel::Unrestricted);
+    }
+
+    #[test]
+    fn test_delete_sandbox() {
+        let mut storage = MemoryStorage::new("test_agent");
+        create_sandbox(
+            &mut storage,
+            Some("agent1".to_string()),
+            "standard".to_string(),
+            None,
+            false,
+            None,
+            false,
+        )
+        .unwrap();
+
+        let ids = storage.list_ids("agent_sandbox").unwrap();
+        let id = ids[0].clone();
+
+        // Test delete with force=true to avoid stdin interaction
+        let result = delete_sandbox(&mut storage, id.clone(), true);
+        assert!(result.is_ok());
+
+        let result_check = storage.get(&id, "agent_sandbox").unwrap();
+        assert!(result_check.is_none());
+    }
+
+    #[test]
+    fn test_validate_operation() {
+        let storage = MemoryStorage::new("test_agent");
+        let result = validate_operation(
+            &storage,
+            Some("agent1".to_string()),
+            Some("read".to_string()),
+            Some("file".to_string()),
+            false,
+            None,
+            true,
+        );
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_reset_sandbox() {
+        let mut storage = MemoryStorage::new("test_agent");
+
+        // Case 1: Existing sandbox
+        create_sandbox(
+            &mut storage,
+            Some("agent1".to_string()),
+            "restricted".to_string(), // Start as restricted
+            None,
+            false,
+            None,
+            false,
+        )
+        .unwrap();
+
+        // Reset it
+        let result = reset_sandbox(
+            &mut storage,
+            "agent1".to_string(),
+            true, // force
+            true,
+        );
+        assert!(result.is_ok());
+
+        // Verify it is now Standard
+        let ids = storage.list_ids("agent_sandbox").unwrap();
+        // Should find the one matching agent1
+        let mut found = false;
+        for id in ids {
+            let entity = storage.get(&id, "agent_sandbox").unwrap().unwrap();
+            let sandbox = AgentSandbox::from_generic(entity).unwrap();
+            if sandbox.agent_id == "agent1" {
+                assert_eq!(sandbox.sandbox_level, SandboxLevel::Standard);
+                found = true;
+                break;
+            }
+        }
+        assert!(found);
+
+        // Case 2: New sandbox
+        let result_new = reset_sandbox(&mut storage, "agent_new".to_string(), true, true);
+        assert!(result_new.is_ok());
+
+        // Verify creation
+        let ids_new = storage.list_ids("agent_sandbox").unwrap();
+        let mut found_new = false;
+        for id in ids_new {
+            let entity = storage.get(&id, "agent_sandbox").unwrap().unwrap();
+            let sandbox = AgentSandbox::from_generic(entity).unwrap();
+            if sandbox.agent_id == "agent_new" {
+                assert_eq!(sandbox.sandbox_level, SandboxLevel::Standard);
+                found_new = true;
+                break;
+            }
+        }
+        assert!(found_new);
+    }
+
+    #[test]
+    fn test_show_stats() {
+        let mut storage = MemoryStorage::new("test_agent");
+        create_sandbox(
+            &mut storage,
+            Some("a1".to_string()),
+            "standard".to_string(),
+            None,
+            false,
+            None,
+            false,
+        )
+        .unwrap();
+        create_sandbox(
+            &mut storage,
+            Some("a2".to_string()),
+            "restricted".to_string(),
+            None,
+            false,
+            None,
+            false,
+        )
+        .unwrap();
+
+        let result = show_stats(&storage, None, true);
+        assert!(result.is_ok());
+
+        let result_agent = show_stats(&storage, Some("a1".to_string()), true);
+        assert!(result_agent.is_ok());
+    }
+}
