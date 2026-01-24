@@ -434,3 +434,154 @@ pub fn delete_context<S: Storage>(storage: &mut S, id: &str) -> Result<(), Engra
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::storage::MemoryStorage;
+
+    fn create_test_storage() -> MemoryStorage {
+        MemoryStorage::new("default")
+    }
+
+    #[test]
+    fn test_create_context_basic() {
+        let mut storage = create_test_storage();
+        let result = create_context(
+            &mut storage,
+            Some("Test Context".to_string()),
+            Some("Content body".to_string()),
+            Some("manual".to_string()),
+            "medium",
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+        );
+        assert!(result.is_ok());
+
+        let contexts = storage.query_by_agent("default", Some("context")).unwrap();
+        assert_eq!(contexts.len(), 1);
+
+        let context = Context::from_generic(contexts[0].clone()).unwrap();
+        assert_eq!(context.title, "Test Context");
+        assert_eq!(context.content, "Content body");
+        assert_eq!(context.relevance, ContextRelevance::Medium);
+    }
+
+    #[test]
+    fn test_create_context_validation() {
+        let mut storage = create_test_storage();
+
+        // Missing title
+        let result = create_context(
+            &mut storage,
+            None,
+            None,
+            None,
+            "medium",
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+        );
+        assert!(matches!(result, Err(EngramError::Validation(_))));
+
+        // Invalid relevance
+        let result = create_context(
+            &mut storage,
+            Some("Title".to_string()),
+            None,
+            None,
+            "invalid_relevance",
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+        );
+        assert!(matches!(result, Err(EngramError::Validation(_))));
+    }
+
+    #[test]
+    fn test_update_context() {
+        let mut storage = create_test_storage();
+        create_context(
+            &mut storage,
+            Some("Test Context".to_string()),
+            Some("Initial content".to_string()),
+            None,
+            "medium",
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+        )
+        .unwrap();
+
+        let contexts = storage.query_by_agent("default", Some("context")).unwrap();
+        let id = &contexts[0].id;
+
+        update_context(&mut storage, id, "Updated content").unwrap();
+
+        let updated_entity = storage.get(id, "context").unwrap().unwrap();
+        let context = Context::from_generic(updated_entity).unwrap();
+        assert_eq!(context.content, "Updated content");
+    }
+
+    #[test]
+    fn test_delete_context() {
+        let mut storage = create_test_storage();
+        create_context(
+            &mut storage,
+            Some("Delete Me".to_string()),
+            None,
+            None,
+            "medium",
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+        )
+        .unwrap();
+
+        let contexts = storage.query_by_agent("default", Some("context")).unwrap();
+        let id = &contexts[0].id;
+
+        delete_context(&mut storage, id).unwrap();
+
+        let result = storage.get(id, "context").unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_show_context_not_found() {
+        let storage = create_test_storage();
+        let result = show_context(&storage, "non-existent-id");
+        assert!(matches!(result, Err(EngramError::NotFound(_))));
+    }
+}
