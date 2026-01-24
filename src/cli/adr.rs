@@ -708,31 +708,53 @@ mod tests {
     }
 
     #[test]
-    fn test_list_adrs() {
+    fn test_update_adr_invalid_status() {
         let mut storage = MemoryStorage::new("test-agent");
+        create_adr(&mut storage, "ADR".to_string(), 1, "Ctx".to_string(), None).unwrap();
+        let id = storage
+            .query_by_type("adr", None, None, None)
+            .unwrap()
+            .entities[0]
+            .id
+            .clone();
 
-        create_adr(
+        let result = update_adr(
             &mut storage,
-            "ADR 1".to_string(),
-            1,
-            "Context".to_string(),
+            &id,
             None,
-        )
-        .unwrap();
-
-        create_adr(
-            &mut storage,
-            "ADR 2".to_string(),
-            2,
-            "Context".to_string(),
+            Some("invalid_status".to_string()),
             None,
-        )
-        .unwrap();
+            None,
+            None,
+            None,
+            None,
+        );
+        assert!(result.is_ok()); // Prints error but returns Ok
 
-        let result = list_adrs(&storage, None, None, 10, 0);
+        let generic = storage.get(&id, "adr").unwrap().unwrap();
+        let adr = ADR::from_generic(generic).unwrap();
+        // Should remain Proposed
+        assert!(matches!(adr.status, AdrStatus::Proposed));
+    }
+
+    #[test]
+    fn test_accept_adr_not_found() {
+        let mut storage = MemoryStorage::new("test-agent");
+        let result = accept_adr(&mut storage, "missing", "D".to_string(), "C".to_string());
+        assert!(result.is_ok()); // Prints error
+    }
+
+    #[test]
+    fn test_add_alternative_not_found() {
+        let mut storage = MemoryStorage::new("test-agent");
+        let result = add_alternative(&mut storage, "missing", "Alt".to_string());
         assert!(result.is_ok());
+    }
 
-        let result = list_adrs(&storage, Some("proposed".to_string()), None, 10, 0);
+    #[test]
+    fn test_add_stakeholder_not_found() {
+        let mut storage = MemoryStorage::new("test-agent");
+        let result = add_stakeholder(&mut storage, "missing", "Person".to_string());
         assert!(result.is_ok());
     }
 }
