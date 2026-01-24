@@ -457,4 +457,10 @@ mod tests {
             save: false,
         };
     }
+
+    // Since PerkeepClient functionality relies on network calls and a running server,
+    // we can't easily unit test the full logic here without mocking the client or server.
+    // However, we can test that error conditions are handled if we could mock the client.
+    // Given the current structure where PerkeepClient is instantiated inside the functions,
+    // we are limited to structural tests or integration tests (which are outside this scope).
 }
