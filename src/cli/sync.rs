@@ -1372,3 +1372,56 @@ pub fn delete_branch(branch_name: &str, force: bool) -> Result<(), EngramError> 
     println!("✅ Branch '{}' deleted successfully", branch_name);
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::storage::MemoryStorage;
+
+    #[test]
+    fn test_merge_strategy_from_str() {
+        assert!(matches!(
+            MergeStrategy::from_str("latest_wins").unwrap(),
+            MergeStrategy::LatestWins
+        ));
+        assert!(matches!(
+            MergeStrategy::from_str("intelligent_merge").unwrap(),
+            MergeStrategy::IntelligentMerge
+        ));
+        assert!(matches!(
+            MergeStrategy::from_str("merge_with_conflict_resolution").unwrap(),
+            MergeStrategy::MergeWithConflictResolution
+        ));
+
+        let strategy = MergeStrategy::from_str("priority_wins:agent1").unwrap();
+        if let MergeStrategy::PriorityWins { agent } = strategy {
+            assert_eq!(agent, "agent1");
+        } else {
+            panic!("Expected PriorityWins");
+        }
+
+        assert!(MergeStrategy::from_str("unknown").is_err());
+        assert!(MergeStrategy::from_str("priority_wins:").is_err());
+    }
+
+    #[test]
+    fn test_sync_agents_empty() {
+        let mut storage = MemoryStorage::new("test-agent");
+        let result = sync_agents(&mut storage, vec![], MergeStrategy::LatestWins, false);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_sync_agents_single() {
+        let mut storage = MemoryStorage::new("test-agent");
+        let result = sync_agents(
+            &mut storage,
+            vec!["agent1".to_string()],
+            MergeStrategy::LatestWins,
+            false,
+        );
+        assert!(result.is_ok());
+        let sync_result = result.unwrap();
+        assert_eq!(sync_result.entities_synced, 0);
+    }
+}
