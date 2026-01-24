@@ -892,4 +892,90 @@ mod tests {
         let result_agent = show_stats(&storage, Some("a1".to_string()), true);
         assert!(result_agent.is_ok());
     }
+
+    #[test]
+    fn test_create_sandbox_invalid_level() {
+        let mut storage = MemoryStorage::new("test_agent");
+        let result = create_sandbox(
+            &mut storage,
+            Some("agent1".to_string()),
+            "invalid_level".to_string(),
+            None,
+            false,
+            None,
+            true,
+        );
+        assert!(matches!(result, Err(EngramError::Validation(_))));
+    }
+
+    #[test]
+    fn test_update_sandbox_not_found() {
+        let mut storage = MemoryStorage::new("test_agent");
+        let result = update_sandbox(
+            &mut storage,
+            "nonexistent_id".to_string(),
+            Some("standard".to_string()),
+            false,
+            None,
+            true,
+        );
+        assert!(matches!(result, Err(EngramError::NotFound(_))));
+    }
+
+    #[test]
+    fn test_update_sandbox_invalid_level() {
+        let mut storage = MemoryStorage::new("test_agent");
+        // First create one
+        create_sandbox(
+            &mut storage,
+            Some("agent1".to_string()),
+            "standard".to_string(),
+            None,
+            false,
+            None,
+            true,
+        )
+        .unwrap();
+
+        let ids = storage.list_ids("agent_sandbox").unwrap();
+        let id = ids[0].clone();
+
+        let result = update_sandbox(
+            &mut storage,
+            id,
+            Some("super_secure_level".to_string()),
+            false,
+            None,
+            true,
+        );
+        assert!(matches!(result, Err(EngramError::Validation(_))));
+    }
+
+    #[test]
+    fn test_validate_operation_missing_fields() {
+        let storage = MemoryStorage::new("test_agent");
+        // Missing agent_id
+        let result = validate_operation(
+            &storage,
+            None,
+            Some("op".to_string()),
+            Some("res".to_string()),
+            false,
+            None,
+            true,
+        );
+        assert!(matches!(result, Err(EngramError::Validation(_))));
+
+        // Missing operation
+        let result = validate_operation(
+            &storage,
+            Some("agent1".to_string()),
+            None,
+            Some("res".to_string()),
+            false,
+            None,
+            true,
+        );
+        assert!(matches!(result, Err(EngramError::Validation(_))));
+    }
 }
