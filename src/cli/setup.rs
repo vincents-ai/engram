@@ -136,6 +136,7 @@ pub fn setup_skills() -> Result<(), EngramError> {
 
     // List of built-in Engram skills to install with their content
     let skills: &[(&str, &str)] = &[
+        // Meta Skills
         (
             "engram-use-engram-memory",
             include_str!("../../skills/meta/use-engram-memory.md"),
@@ -148,6 +149,11 @@ pub fn setup_skills() -> Result<(), EngramError> {
             "engram-audit-trail",
             include_str!("../../skills/meta/audit-trail.md"),
         ),
+        (
+            "engram-dispatching-parallel-agents",
+            include_str!("../../skills/meta/dispatching-parallel-agents.md"),
+        ),
+        // Workflow Skills
         (
             "engram-brainstorming",
             include_str!("../../skills/workflow/brainstorming.md"),
@@ -164,25 +170,149 @@ pub fn setup_skills() -> Result<(), EngramError> {
             "engram-requesting-code-review",
             include_str!("../../skills/workflow/requesting-code-review.md"),
         ),
-        (
-            "engram-check-compliance",
-            include_str!("../../skills/compliance/check-compliance.md"),
-        ),
+        // Development Skills
         (
             "engram-test-driven-development",
             include_str!("../../skills/development/test-driven-development.md"),
         ),
         (
-            "engram-systematic-debugging",
-            include_str!("../../skills/debugging/systematic-debugging.md"),
-        ),
-        (
             "engram-subagent-driven-development",
             include_str!("../../skills/development/subagent-driven-development.md"),
         ),
+        // Debugging Skills
         (
-            "engram-dispatching-parallel-agents",
-            include_str!("../../skills/meta/dispatching-parallel-agents.md"),
+            "engram-systematic-debugging",
+            include_str!("../../skills/debugging/systematic-debugging.md"),
+        ),
+        // Compliance Skills
+        (
+            "engram-check-compliance",
+            include_str!("../../skills/compliance/check-compliance.md"),
+        ),
+        // Planning Skills (7)
+        (
+            "engram-risk-assessment",
+            include_str!("../../skills/planning/risk-assessment.md"),
+        ),
+        (
+            "engram-spike-investigation",
+            include_str!("../../skills/planning/spike-investigation.md"),
+        ),
+        (
+            "engram-dependency-mapping",
+            include_str!("../../skills/planning/dependency-mapping.md"),
+        ),
+        (
+            "engram-capacity-planning",
+            include_str!("../../skills/planning/capacity-planning.md"),
+        ),
+        (
+            "engram-release-planning",
+            include_str!("../../skills/planning/release-planning.md"),
+        ),
+        (
+            "engram-backlog-refinement",
+            include_str!("../../skills/planning/backlog-refinement.md"),
+        ),
+        (
+            "engram-roadmap-planning",
+            include_str!("../../skills/planning/roadmap-planning.md"),
+        ),
+        // Documentation Skills (6)
+        (
+            "engram-adr",
+            include_str!("../../skills/documentation/adr.md"),
+        ),
+        (
+            "engram-api-docs",
+            include_str!("../../skills/documentation/api-docs.md"),
+        ),
+        (
+            "engram-knowledge-transfer",
+            include_str!("../../skills/documentation/knowledge-transfer.md"),
+        ),
+        (
+            "engram-runbooks",
+            include_str!("../../skills/documentation/runbooks.md"),
+        ),
+        (
+            "engram-changelog",
+            include_str!("../../skills/documentation/changelog.md"),
+        ),
+        (
+            "engram-technical-writing",
+            include_str!("../../skills/documentation/technical-writing.md"),
+        ),
+        // Architecture Skills (8)
+        (
+            "engram-system-design",
+            include_str!("../../skills/architecture/system-design.md"),
+        ),
+        (
+            "engram-security-architecture",
+            include_str!("../../skills/architecture/security-architecture.md"),
+        ),
+        (
+            "engram-data-modeling",
+            include_str!("../../skills/architecture/data-modeling.md"),
+        ),
+        (
+            "engram-api-design",
+            include_str!("../../skills/architecture/api-design.md"),
+        ),
+        (
+            "engram-scalability-analysis",
+            include_str!("../../skills/architecture/scalability-analysis.md"),
+        ),
+        (
+            "engram-refactoring-strategy",
+            include_str!("../../skills/architecture/refactoring-strategy.md"),
+        ),
+        (
+            "engram-observability-design",
+            include_str!("../../skills/architecture/observability-design.md"),
+        ),
+        (
+            "engram-integration-patterns",
+            include_str!("../../skills/architecture/integration-patterns.md"),
+        ),
+        // Quality Skills (5)
+        (
+            "engram-assumption-validation",
+            include_str!("../../skills/quality/assumption-validation.md"),
+        ),
+        (
+            "engram-edge-cases",
+            include_str!("../../skills/quality/edge-cases.md"),
+        ),
+        (
+            "engram-tech-debt",
+            include_str!("../../skills/quality/tech-debt.md"),
+        ),
+        (
+            "engram-performance-analysis",
+            include_str!("../../skills/quality/performance-analysis.md"),
+        ),
+        (
+            "engram-accessibility",
+            include_str!("../../skills/quality/accessibility.md"),
+        ),
+        // Review Skills (4)
+        (
+            "engram-security-review",
+            include_str!("../../skills/review/security-review.md"),
+        ),
+        (
+            "engram-code-quality",
+            include_str!("../../skills/review/code-quality.md"),
+        ),
+        (
+            "engram-post-mortem",
+            include_str!("../../skills/review/post-mortem.md"),
+        ),
+        (
+            "engram-retrospective",
+            include_str!("../../skills/review/retrospective.md"),
         ),
     ];
 
