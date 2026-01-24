@@ -521,3 +521,200 @@ pub fn delete_reasoning<S: Storage>(storage: &mut S, id: &str) -> Result<(), Eng
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::storage::MemoryStorage;
+
+    fn create_test_storage() -> MemoryStorage {
+        MemoryStorage::new("default")
+    }
+
+    #[test]
+    fn test_create_reasoning_basic() {
+        let mut storage = create_test_storage();
+        let result = create_reasoning(
+            &mut storage,
+            Some("Test Reasoning".to_string()),
+            Some("task-123".to_string()),
+            Some("agent1".to_string()),
+            Some(0.5),
+            Some("Initial thought".to_string()),
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+        );
+        assert!(result.is_ok());
+
+        let chains = storage.query_by_agent("agent1", Some("reasoning")).unwrap();
+        assert_eq!(chains.len(), 1);
+
+        let reasoning = Reasoning::from_generic(chains[0].clone()).unwrap();
+        assert_eq!(reasoning.title, "Test Reasoning");
+        assert_eq!(reasoning.task_id, "task-123");
+        assert_eq!(reasoning.conclusion, "Initial thought");
+    }
+
+    #[test]
+    fn test_create_reasoning_validation() {
+        let mut storage = create_test_storage();
+
+        // Missing title
+        let result = create_reasoning(
+            &mut storage,
+            None,
+            Some("task-123".to_string()),
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+        );
+        assert!(matches!(result, Err(EngramError::Validation(_))));
+
+        // Missing task_id
+        let result = create_reasoning(
+            &mut storage,
+            Some("Title".to_string()),
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+        );
+        assert!(matches!(result, Err(EngramError::Validation(_))));
+    }
+
+    #[test]
+    fn test_add_reasoning_step() {
+        let mut storage = create_test_storage();
+        create_reasoning(
+            &mut storage,
+            Some("Test Reasoning".to_string()),
+            Some("task-123".to_string()),
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+        )
+        .unwrap();
+
+        let chains = storage
+            .query_by_agent("default", Some("reasoning"))
+            .unwrap();
+        let id = &chains[0].id;
+
+        let result = add_reasoning_step(
+            &mut storage,
+            id,
+            Some("Step 1".to_string()),
+            Some("Conclusion 1".to_string()),
+            0.8,
+            false,
+            None,
+            false,
+            None,
+        );
+        assert!(result.is_ok());
+
+        let entity = storage.get(id, "reasoning").unwrap().unwrap();
+        let reasoning = Reasoning::from_generic(entity).unwrap();
+        assert_eq!(reasoning.steps.len(), 1);
+        assert_eq!(reasoning.steps[0].description, "Step 1");
+        assert_eq!(reasoning.steps[0].confidence, 0.8);
+    }
+
+    #[test]
+    fn test_conclude_reasoning() {
+        let mut storage = create_test_storage();
+        create_reasoning(
+            &mut storage,
+            Some("Test Reasoning".to_string()),
+            Some("task-123".to_string()),
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+        )
+        .unwrap();
+
+        let chains = storage
+            .query_by_agent("default", Some("reasoning"))
+            .unwrap();
+        let id = &chains[0].id;
+
+        let result = conclude_reasoning(
+            &mut storage,
+            id,
+            Some("Final conclusion".to_string()),
+            0.95,
+            false,
+            None,
+        );
+        assert!(result.is_ok());
+
+        let entity = storage.get(id, "reasoning").unwrap().unwrap();
+        let reasoning = Reasoning::from_generic(entity).unwrap();
+        assert_eq!(reasoning.conclusion, "Final conclusion");
+        assert_eq!(reasoning.confidence, 0.95);
+    }
+
+    #[test]
+    fn test_delete_reasoning() {
+        let mut storage = create_test_storage();
+        create_reasoning(
+            &mut storage,
+            Some("Delete Me".to_string()),
+            Some("task-123".to_string()),
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+        )
+        .unwrap();
+
+        let chains = storage
+            .query_by_agent("default", Some("reasoning"))
+            .unwrap();
+        let id = &chains[0].id;
+
+        delete_reasoning(&mut storage, id).unwrap();
+
+        let result = storage.get(id, "reasoning").unwrap();
+        assert!(result.is_none());
+    }
+}
