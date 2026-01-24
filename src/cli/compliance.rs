@@ -265,3 +265,122 @@ fn display_compliance_summary(compliance: &Compliance) {
         compliance.agent
     );
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::storage::MemoryStorage;
+    use crate::entities::ComplianceStatus;
+
+    fn create_test_storage() -> MemoryStorage {
+        MemoryStorage::new("default")
+    }
+
+    #[test]
+    fn test_create_compliance() {
+        let mut storage = create_test_storage();
+        create_compliance(
+            &mut storage,
+            "GDPR-001".to_string(),
+            "Data Privacy".to_string(),
+            "regulatory".to_string(),
+            Some("agent1".to_string()),
+        ).unwrap();
+
+        let items = storage.query_by_agent("agent1", Some("compliance")).unwrap();
+        assert_eq!(items.len(), 1);
+        let compliance = Compliance::from_generic(items[0].clone()).unwrap();
+        assert_eq!(compliance.title, "GDPR-001");
+        assert_eq!(compliance.category, "regulatory");
+        assert_eq!(compliance.status, ComplianceStatus::Pending);
+    }
+
+    #[test]
+    fn test_list_compliance() {
+        let mut storage = create_test_storage();
+        create_compliance(
+            &mut storage,
+            "R1".to_string(),
+            "Desc".to_string(),
+            "cat1".to_string(),
+            Some("agent1".to_string()),
+        ).unwrap();
+        create_compliance(
+            &mut storage,
+            "R2".to_string(),
+            "Desc".to_string(),
+            "cat2".to_string(),
+            Some("agent1".to_string()),
+        ).unwrap();
+
+        // List all for agent1
+        list_compliance(&storage, Some("agent1"), None, None).unwrap();
+
+        // Filter by category
+        list_compliance(&storage, Some("agent1"), Some("cat1"), None).unwrap();
+    }
+
+    #[test]
+    fn test_show_compliance() {
+        let mut storage = create_test_storage();
+        create_compliance(
+            &mut storage,
+            "ShowMe".to_string(),
+            "Desc".to_string(),
+            "cat".to_string(),
+            Some("agent1".to_string()),
+        ).unwrap();
+
+        let items = storage.query_by_agent("agent1", Some("compliance")).unwrap();
+        let id = &items[0].id;
+
+        assert!(show_compliance(&storage, id).is_ok());
+        assert!(show_compliance(&storage, "invalid").is_ok()); // Prints error but returns Ok
+    }
+
+    #[test]
+    fn test_update_compliance() {
+        let mut storage = create_test_storage();
+        create_compliance(
+            &mut storage,
+            "UpdateMe".to_string(),
+            "Desc".to_string(),
+            "cat".to_string(),
+            Some("agent1".to_string()),
+        ).unwrap();
+
+        let items = storage.query_by_agent("agent1", Some("compliance")).unwrap();
+        let id = &items[0].id;
+
+        // Update status
+        update_compliance(&mut storage, id, "status", "compliant").unwrap();
+        
+        let updated = storage.get(id, "compliance").unwrap().unwrap();
+        let compliance = Compliance::from_generic(updated).unwrap();
+        assert_eq!(compliance.status, ComplianceStatus::Compliant);
+
+        // Update description
+        update_compliance(&mut storage, id, "description", "New Desc").unwrap();
+         let updated2 = storage.get(id, "compliance").unwrap().unwrap();
+        let compliance2 = Compliance::from_generic(updated2).unwrap();
+        assert_eq!(compliance2.description, "New Desc");
+    }
+
+    #[test]
+    fn test_delete_compliance() {
+        let mut storage = create_test_storage();
+        create_compliance(
+            &mut storage,
+            "DeleteMe".to_string(),
+            "Desc".to_string(),
+            "cat".to_string(),
+            Some("agent1".to_string()),
+        ).unwrap();
+
+        let items = storage.query_by_agent("agent1", Some("compliance")).unwrap();
+        let id = &items[0].id;
+
+        delete_compliance(&mut storage, id).unwrap();
+        assert!(storage.get(id, "compliance").unwrap().is_none());
+    }
+}
