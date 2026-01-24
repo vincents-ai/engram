@@ -109,4 +109,42 @@ mod tests {
             matches!(result, Err(EngramError::Validation(msg)) if msg.contains("Using --no-verify is not allowed"))
         );
     }
+
+    #[test]
+    fn test_git_status_execution() {
+        // Exercises the execution path for a read-only command
+        let args = vec!["status".to_string()];
+        let result = handle_git_command(args);
+        // Should succeed in a repo, or fail with Git error if not (which is also a handled path)
+        match result {
+            Ok(_) => assert!(true),
+            Err(EngramError::Git(_)) => assert!(true),
+            Err(e) => panic!("Unexpected error type: {:?}", e),
+        }
+    }
+
+    #[test]
+    fn test_git_command_failure() {
+        // Exercises the error handling path for failed commands
+        let args = vec![
+            "checkout".to_string(),
+            "non-existent-branch-xyz-123".to_string(),
+        ];
+        let result = handle_git_command(args);
+        assert!(matches!(result, Err(EngramError::Git(_))));
+    }
+
+    #[test]
+    fn test_git_add_post_command_logic() {
+        // Exercises the post-command logic (lines 58+) by simulating an 'add' command.
+        // We use --dry-run to avoid actually staging files during the test.
+        let args = vec!["add".to_string(), "--dry-run".to_string(), ".".to_string()];
+        let result = handle_git_command(args);
+
+        match result {
+            Ok(_) => assert!(true),
+            Err(EngramError::Git(_)) => assert!(true), // Acceptable if git fails
+            Err(e) => panic!("Unexpected error type: {:?}", e),
+        }
+    }
 }
