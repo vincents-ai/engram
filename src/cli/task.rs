@@ -545,9 +545,10 @@ mod tests {
         ];
 
         for (p_str, p_enum) in priorities {
+            let title = format!("Task {}", p_str);
             create_task(
                 &mut storage,
-                Some(format!("Task {}", p_str)),
+                Some(title.clone()),
                 None,
                 p_str,
                 None,
@@ -563,11 +564,62 @@ mod tests {
             .unwrap();
 
             let tasks = storage.query_by_agent("default", Some("task")).unwrap();
-            let task = Task::from_generic(tasks.last().unwrap().clone()).unwrap();
+            // Find the task we just created by title
+            let task = tasks
+                .iter()
+                .filter_map(|t| Task::from_generic(t.clone()).ok())
+                .find(|t| t.title == title)
+                .expect("Task should exist");
+
             assert_eq!(task.priority, p_enum);
         }
     }
 
+    #[test]
+    fn test_show_task() {
+        let mut storage = create_test_storage();
+        create_task(
+            &mut storage,
+            Some("Show Me".to_string()),
+            None,
+            "medium",
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+        )
+        .unwrap();
+
+        let tasks = storage.query_by_agent("default", Some("task")).unwrap();
+        let id = &tasks[0].id;
+        assert!(show_task(&storage, id).is_ok());
+    }
+
+    #[test]
+    fn test_show_task_not_found() {
+        let storage = create_test_storage();
+        let result = show_task(&storage, "missing-id");
+        assert!(matches!(result, Err(EngramError::NotFound(_))));
+    }
+
+    #[test]
+    fn test_update_task_not_found() {
+        let mut storage = create_test_storage();
+        let result = update_task(&mut storage, "missing-id", "done", None);
+        assert!(matches!(result, Err(EngramError::NotFound(_))));
+    }
+
+    #[test]
+    fn test_archive_task_not_found() {
+        let mut storage = create_test_storage();
+        let result = archive_task(&mut storage, "missing-id", None);
+        assert!(matches!(result, Err(EngramError::NotFound(_))));
+    }
     #[test]
     fn test_create_task_validation() {
         let mut storage = create_test_storage();
@@ -625,10 +677,7 @@ mod tests {
         // Update to done
         update_task(&mut storage, &task_id, "done", Some("Finished")).unwrap();
         let task = Task::from_generic(storage.get(&task_id, "task").unwrap().unwrap()).unwrap();
-        assert!(matches!(
-            task.status,
-            crate::entities::TaskStatus::Done
-        ));
+        assert!(matches!(task.status, crate::entities::TaskStatus::Done));
         assert_eq!(task.outcome.unwrap(), "Finished");
     }
 
