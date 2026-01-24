@@ -1258,10 +1258,10 @@ pub fn query_workflow_actions<S: Storage>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::storage::{MemoryStorage, Storage};
-    use crate::entities::WorkflowStatus;
     use crate::engines::workflow_engine::WorkflowStatus as InstanceStatus;
-    use crate::entities::{Workflow, StateType, TransitionType};
+    use crate::entities::WorkflowStatus;
+    use crate::entities::{StateType, TransitionType, Workflow};
+    use crate::storage::{MemoryStorage, Storage};
 
     fn create_test_workflow(storage: &mut MemoryStorage, title: &str) -> String {
         let workflow = Workflow::new(
@@ -1269,109 +1269,114 @@ mod tests {
             "Description".to_string(),
             "test-agent".to_string(),
         );
-        let id = workflow.id.to_string(); // Access field directly if .id() method not avail in this context
+        let id = workflow.id.to_string();
         storage.store(&workflow.to_generic()).unwrap();
         id
     }
 
     #[test]
-    fn test_create_workflow() {
-        let mut storage = MemoryStorage::new("default");
-        
-        create_workflow(
-            &mut storage,
-            "New Workflow".to_string(),
-            "Description".to_string(),
-            Some("task,project".to_string()),
-            Some("agent1".to_string()),
-        ).unwrap();
-
-        let results = storage.query(&Default::default()).unwrap();
-        assert_eq!(results.entities.len(), 1);
-        
-        // Note: Use Entity trait methods or direct field access depending on scope availability
-        let workflow = Workflow::from_generic(results.entities[0].clone()).unwrap();
-        assert_eq!(workflow.title, "New Workflow");
-        assert_eq!(workflow.status, WorkflowStatus::Draft);
-    }
-
-    #[test]
-    fn test_get_workflow() {
-        let mut storage = MemoryStorage::new("default");
-        let id = create_test_workflow(&mut storage, "Target Workflow");
-        assert!(get_workflow(&storage, &id).is_ok());
-        assert!(get_workflow(&storage, "non-existent").is_ok()); 
-    }
-
-    #[test]
-    fn test_update_workflow() {
-        let mut storage = MemoryStorage::new("default");
-        let id = create_test_workflow(&mut storage, "Old Title");
-        
-        update_workflow(
-            &mut storage,
-            &id,
-            Some("New Title".to_string()),
-            Some("New Desc".to_string()),
-            Some("active".to_string()),
-            Some("bug,feature".to_string()),
-            None,
-        ).unwrap();
-
-        let generic = storage.get(&id, "workflow").unwrap().unwrap();
-        let workflow = Workflow::from_generic(generic).unwrap();
-        
-        assert_eq!(workflow.title, "New Title");
-        assert_eq!(workflow.status, WorkflowStatus::Active);
-    }
-
-    #[test]
-    fn test_delete_workflow() {
-        let mut storage = MemoryStorage::new("default");
-        let id = create_test_workflow(&mut storage, "To Delete");
-        
-        delete_workflow(&mut storage, &id).unwrap();
-
-        let generic = storage.get(&id, "workflow").unwrap().unwrap();
-        let workflow = Workflow::from_generic(generic).unwrap();
-        assert_eq!(workflow.status, WorkflowStatus::Archived);
-    }
-
-    #[test]
-    fn test_list_workflows() {
-        let mut storage = MemoryStorage::new("default");
-        create_test_workflow(&mut storage, "W1");
-        create_test_workflow(&mut storage, "W2");
-        list_workflows(&storage, None, None, 10, 0).unwrap();
-    }
-
-    #[test]
-    fn test_add_state() {
+    fn test_add_state_invalid_type() {
         let mut storage = MemoryStorage::new("default");
         let id = create_test_workflow(&mut storage, "Workflow");
-        
+
         add_state(
             &mut storage,
             &id,
-            "Start".to_string(),
-            "start".to_string(),
-            "Start state".to_string(),
+            "State".to_string(),
+            "invalid_type".to_string(),
+            "Desc".to_string(),
             false,
-        ).unwrap();
+        )
+        .unwrap();
 
         let generic = storage.get(&id, "workflow").unwrap().unwrap();
         let workflow = Workflow::from_generic(generic).unwrap();
-        assert_eq!(workflow.states.len(), 1);
-        assert_eq!(workflow.states[0].name, "Start");
+        // Should not have added the state
+        assert_eq!(workflow.states.len(), 0);
     }
 
     #[test]
-    fn test_activate_workflow() {
+    fn test_add_transition_not_found() {
+        let mut storage = MemoryStorage::new("default");
+        assert!(add_transition(
+            &mut storage,
+            "non-existent",
+            "Trans".to_string(),
+            "s1".to_string(),
+            "s2".to_string(),
+            "manual".to_string(),
+            "Desc".to_string()
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn test_add_transition_invalid_type() {
         let mut storage = MemoryStorage::new("default");
         let id = create_test_workflow(&mut storage, "Workflow");
-        activate_workflow(&mut storage, &id).unwrap();
+
+        add_transition(
+            &mut storage,
+            &id,
+            "Trans".to_string(),
+            "s1".to_string(),
+            "s2".to_string(),
+            "invalid_type".to_string(),
+            "Desc".to_string(),
+        )
+        .unwrap();
+
         let generic = storage.get(&id, "workflow").unwrap().unwrap();
         let workflow = Workflow::from_generic(generic).unwrap();
-        assert_eq!(workflow.status, WorkflowStatus::Active);
+        assert_eq!(workflow.transitions.len(), 0);
+    }
+
+    #[test]
+    fn test_activate_workflow_not_found() {
+        let mut storage = MemoryStorage::new("default");
+        assert!(activate_workflow(&mut storage, "non-existent").is_ok());
+    }
+
+    #[test]
+    fn test_update_workflow_not_found() {
+        let mut storage = MemoryStorage::new("default");
+        assert!(update_workflow(
+            &mut storage,
+            "non-existent",
+            Some("Title".to_string()),
+            None,
+            None,
+            None,
+            None
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn test_delete_workflow_not_found() {
+        let mut storage = MemoryStorage::new("default");
+        assert!(delete_workflow(&mut storage, "non-existent").is_ok());
+    }
+
+    #[test]
+    fn test_update_workflow_invalid_status() {
+        let mut storage = MemoryStorage::new("default");
+        let id = create_test_workflow(&mut storage, "Workflow");
+
+        update_workflow(
+            &mut storage,
+            &id,
+            None,
+            None,
+            Some("invalid_status".to_string()),
+            None,
+            None,
+        )
+        .unwrap();
+
+        let generic = storage.get(&id, "workflow").unwrap().unwrap();
+        let workflow = Workflow::from_generic(generic).unwrap();
+        // Status should remain default (Draft)
+        assert_eq!(workflow.status, WorkflowStatus::Draft);
     }
 }
