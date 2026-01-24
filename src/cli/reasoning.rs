@@ -233,6 +233,11 @@ pub fn create_reasoning<S: Storage>(
 
     // Set initial confidence if provided
     if let Some(conf) = confidence {
+        if conf < 0.0 || conf > 1.0 {
+            return Err(EngramError::Validation(
+                "Confidence must be between 0.0 and 1.0".to_string(),
+            ));
+        }
         reasoning.confidence = conf;
     }
 
@@ -875,5 +880,101 @@ mod tests {
         let storage = create_test_storage();
         let result = show_reasoning(&storage, "non-existent-id");
         assert!(matches!(result, Err(EngramError::NotFound(_))));
+    }
+
+    #[test]
+    fn test_list_reasoning() {
+        let mut storage = create_test_storage();
+        create_reasoning(
+            &mut storage,
+            Some("R1".to_string()),
+            Some("task-1".to_string()),
+            Some("agent1".to_string()),
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+        )
+        .unwrap();
+
+        create_reasoning(
+            &mut storage,
+            Some("R2".to_string()),
+            Some("task-2".to_string()),
+            Some("agent2".to_string()),
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+        )
+        .unwrap();
+
+        // No filters
+        assert!(list_reasoning(&storage, None, None, None).is_ok());
+
+        // Filter by agent
+        assert!(list_reasoning(&storage, Some("agent1"), None, None).is_ok());
+
+        // Filter by task
+        assert!(list_reasoning(&storage, None, Some("task-2"), None).is_ok());
+    }
+
+    #[test]
+    fn test_show_reasoning() {
+        let mut storage = create_test_storage();
+        create_reasoning(
+            &mut storage,
+            Some("Show Me".to_string()),
+            Some("task-1".to_string()),
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+        )
+        .unwrap();
+
+        let chains = storage
+            .query_by_agent("default", Some("reasoning"))
+            .unwrap();
+        let id = &chains[0].id;
+
+        assert!(show_reasoning(&storage, id).is_ok());
+    }
+
+    #[test]
+    fn test_create_reasoning_invalid_confidence() {
+        let mut storage = create_test_storage();
+        let result = create_reasoning(
+            &mut storage,
+            Some("Bad Confidence".to_string()),
+            Some("task-1".to_string()),
+            None,
+            Some(1.5), // Invalid
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+        );
+        assert!(matches!(result, Err(EngramError::Validation(_))));
     }
 }
