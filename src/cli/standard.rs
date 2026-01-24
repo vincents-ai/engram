@@ -541,3 +541,207 @@ fn display_standard(standard: &Standard) {
 
     println!("✅ Is Effective: {}", standard.is_effective());
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::entities::{rule::RulePriority, Entity, Standard, StandardCategory, StandardStatus};
+    use crate::storage::MemoryStorage;
+    use crate::storage::Storage;
+
+    #[test]
+    fn test_create_standard() {
+        let mut storage = MemoryStorage::new("test-agent");
+        let title = "Code Style".to_string();
+        let description = Some("Standard code style".to_string());
+        let category = "coding".to_string();
+        let version = "1.0".to_string();
+        let agent = Some("test-agent".to_string());
+
+        let result = create_standard(
+            &mut storage,
+            title,
+            description,
+            category,
+            version,
+            None,
+            agent,
+        );
+        assert!(result.is_ok());
+
+        // Use query_by_type which is available in the trait
+        let query_result = storage.query_by_type("standard", None, None, None).unwrap();
+        assert_eq!(query_result.total_count, 1);
+
+        let entity = &query_result.entities[0];
+        assert_eq!(entity.data.get("title").unwrap(), "Code Style");
+        assert_eq!(entity.data.get("category").unwrap(), "coding");
+    }
+
+    #[test]
+    fn test_get_standard() {
+        let mut storage = MemoryStorage::new("test-agent");
+        let title = "Security Standard".to_string();
+
+        create_standard(
+            &mut storage,
+            title,
+            None,
+            "security".to_string(),
+            "1.0".to_string(),
+            None,
+            None,
+        )
+        .unwrap();
+
+        let query_result = storage.query_by_type("standard", None, None, None).unwrap();
+        let id = &query_result.entities[0].id;
+
+        let result = get_standard(&storage, id);
+        assert!(result.is_ok());
+
+        let result = get_standard(&storage, "non-existent");
+        assert!(result.is_ok()); // Should just print error message
+    }
+
+    #[test]
+    fn test_update_standard() {
+        let mut storage = MemoryStorage::new("test-agent");
+
+        create_standard(
+            &mut storage,
+            "Old Title".to_string(),
+            None,
+            "process".to_string(),
+            "1.0".to_string(),
+            None,
+            None,
+        )
+        .unwrap();
+
+        let query_result = storage.query_by_type("standard", None, None, None).unwrap();
+        let id = &query_result.entities[0].id;
+
+        let result = update_standard(
+            &mut storage,
+            id,
+            Some("New Title".to_string()),
+            Some("New Description".to_string()),
+            Some("coding".to_string()),
+            Some("2.0".to_string()),
+            Some("active".to_string()),
+            None,
+            None,
+        );
+        assert!(result.is_ok());
+
+        let generic = storage.get(id, "standard").unwrap().unwrap();
+        let standard = Standard::from_generic(generic).unwrap();
+
+        assert_eq!(standard.title, "New Title");
+        assert_eq!(standard.description, "New Description");
+        assert!(matches!(standard.category, StandardCategory::Coding));
+        assert_eq!(standard.version, "2.0");
+        assert!(matches!(standard.status, StandardStatus::Active));
+    }
+
+    #[test]
+    fn test_delete_standard() {
+        let mut storage = MemoryStorage::new("test-agent");
+
+        create_standard(
+            &mut storage,
+            "To Delete".to_string(),
+            None,
+            "process".to_string(),
+            "1.0".to_string(),
+            None,
+            None,
+        )
+        .unwrap();
+
+        let query_result = storage.query_by_type("standard", None, None, None).unwrap();
+        let id = &query_result.entities[0].id;
+
+        let result = delete_standard(&mut storage, id);
+        assert!(result.is_ok());
+
+        let generic = storage.get(id, "standard").unwrap().unwrap();
+        let standard = Standard::from_generic(generic).unwrap();
+        assert!(matches!(standard.status, StandardStatus::Deprecated));
+    }
+
+    #[test]
+    fn test_list_standards() {
+        let mut storage = MemoryStorage::new("test-agent");
+
+        create_standard(
+            &mut storage,
+            "Std 1".to_string(),
+            None,
+            "coding".to_string(),
+            "1.0".to_string(),
+            None,
+            None,
+        )
+        .unwrap();
+
+        create_standard(
+            &mut storage,
+            "Std 2".to_string(),
+            None,
+            "security".to_string(),
+            "1.0".to_string(),
+            None,
+            None,
+        )
+        .unwrap();
+
+        // List all
+        let result = list_standards(&storage, None, None, None, 10, 0);
+        assert!(result.is_ok());
+
+        // Filter by category
+        let result = list_standards(&storage, Some("coding".to_string()), None, None, 10, 0);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_add_requirement() {
+        let mut storage = MemoryStorage::new("test-agent");
+
+        create_standard(
+            &mut storage,
+            "With Req".to_string(),
+            None,
+            "process".to_string(),
+            "1.0".to_string(),
+            None,
+            None,
+        )
+        .unwrap();
+
+        let query_result = storage.query_by_type("standard", None, None, None).unwrap();
+        let id = &query_result.entities[0].id;
+
+        let result = add_requirement(
+            &mut storage,
+            id,
+            "Req 1".to_string(),
+            "Description".to_string(),
+            true,
+            "high".to_string(),
+            false,
+        );
+        assert!(result.is_ok());
+
+        let generic = storage.get(id, "standard").unwrap().unwrap();
+        let standard = Standard::from_generic(generic).unwrap();
+
+        assert_eq!(standard.requirements.len(), 1);
+        let req = &standard.requirements[0];
+        assert_eq!(req.title, "Req 1");
+        assert_eq!(req.mandatory, true);
+        assert!(matches!(req.priority, RulePriority::High));
+    }
+}
