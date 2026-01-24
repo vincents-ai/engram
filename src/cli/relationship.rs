@@ -604,3 +604,92 @@ fn show_stats<S: RelationshipStorage>(storage: &S) -> Result<(), EngramError> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::storage::MemoryStorage;
+
+    #[test]
+    fn test_parse_helpers() {
+        assert!(matches!(
+            parse_relationship_type("depends_on"),
+            Ok(EntityRelationType::DependsOn)
+        ));
+        assert!(matches!(
+            parse_relationship_type("custom_type"),
+            Ok(EntityRelationType::Custom(_))
+        ));
+
+        assert!(matches!(
+            parse_direction("uni"),
+            Ok(RelationshipDirection::Unidirectional)
+        ));
+        assert!(parse_direction("invalid").is_err());
+
+        assert!(matches!(
+            parse_strength("strong"),
+            Ok(RelationshipStrength::Strong)
+        ));
+        assert!(matches!(
+            parse_strength("0.5"),
+            Ok(RelationshipStrength::Custom(_))
+        ));
+        assert!(parse_strength("1.5").is_err());
+
+        assert!(matches!(
+            parse_algorithm("bfs"),
+            Ok(TraversalAlgorithm::BreadthFirst)
+        ));
+        assert!(parse_algorithm("invalid").is_err());
+    }
+
+    #[test]
+    fn test_create_relationship_flow() {
+        let mut storage = MemoryStorage::new("default");
+
+        // Test creation
+        let result = create_relationship(
+            &mut storage,
+            "source-1".to_string(),
+            "task".to_string(),
+            "target-1".to_string(),
+            "context".to_string(),
+            EntityRelationType::DependsOn,
+            "uni".to_string(),
+            "strong".to_string(),
+            Some("Test relationship".to_string()),
+            "agent-1".to_string(),
+        );
+        assert!(result.is_ok());
+
+        // Test listing
+        let list_result = list_relationships(
+            &storage,
+            None,
+            Some("source-1".to_string()),
+            None,
+            None,
+            None,
+            false,
+            None,
+        );
+        assert!(list_result.is_ok());
+
+        // Verify storage content
+        let rels = storage.get_all("relationship").unwrap();
+        assert_eq!(rels.len(), 1);
+        let id = &rels[0].id;
+
+        // Test retrieval
+        let get_result = show_relationship(&storage, id);
+        assert!(get_result.is_ok());
+
+        // Test deletion
+        let delete_result = delete_relationship(&mut storage, id, "agent-1");
+        assert!(delete_result.is_ok());
+
+        let rels_after = storage.get_all("relationship").unwrap();
+        assert_eq!(rels_after.len(), 0);
+    }
+}
