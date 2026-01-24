@@ -935,3 +935,219 @@ fn parse_escalation_status(status: &str) -> Result<EscalationStatus, EngramError
         ))),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::entities::{EscalationOperationType, EscalationPriority, EscalationStatus};
+    use crate::storage::MemoryStorage;
+    use crate::storage::Storage;
+
+    #[test]
+    fn test_create_escalation() {
+        let mut storage = MemoryStorage::new("test-agent");
+
+        let result = create_escalation(
+            &mut storage,
+            Some("agent-1".to_string()),
+            Some("network".to_string()),
+            Some("curl google.com".to_string()),
+            Some("Network access restricted".to_string()),
+            Some("Need to fetch data".to_string()),
+            "high".to_string(),
+            Some("Cannot complete task".to_string()),
+            Some("admin".to_string()),
+            false,
+            None,
+            false,
+        );
+
+        assert!(result.is_ok());
+
+        let query_result = storage
+            .query_by_type("escalation_request", None, None, None)
+            .unwrap();
+        assert_eq!(query_result.total_count, 1);
+
+        let entity = &query_result.entities[0];
+        assert_eq!(entity.data.get("agent_id").unwrap(), "agent-1");
+    }
+
+    #[test]
+    fn test_get_escalation() {
+        let mut storage = MemoryStorage::new("test-agent");
+
+        create_escalation(
+            &mut storage,
+            Some("agent-1".to_string()),
+            Some("filesystem".to_string()),
+            Some("rm -rf /".to_string()),
+            Some("Dangerous".to_string()),
+            Some("Testing".to_string()),
+            "critical".to_string(),
+            None,
+            None,
+            false,
+            None,
+            false,
+        )
+        .unwrap();
+
+        let query_result = storage
+            .query_by_type("escalation_request", None, None, None)
+            .unwrap();
+        let id = &query_result.entities[0].id;
+
+        let result = get_escalation(&storage, id.clone(), false);
+        assert!(result.is_ok());
+
+        let result = get_escalation(&storage, "non-existent".to_string(), false);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_review_escalation() {
+        let mut storage = MemoryStorage::new("test-agent");
+
+        create_escalation(
+            &mut storage,
+            Some("agent-1".to_string()),
+            Some("command".to_string()),
+            Some("ls".to_string()),
+            Some("Blocked".to_string()),
+            Some("Need listing".to_string()),
+            "normal".to_string(),
+            None,
+            None,
+            false,
+            None,
+            false,
+        )
+        .unwrap();
+
+        let query_result = storage
+            .query_by_type("escalation_request", None, None, None)
+            .unwrap();
+        let id = query_result.entities[0].id.clone();
+
+        let result = review_escalation(
+            &mut storage,
+            id.clone(),
+            Some("approved".to_string()),
+            Some("Safe command".to_string()),
+            Some("reviewer-1".to_string()),
+            Some("Reviewer One".to_string()),
+            Some(3600),
+            false,
+            Some("Proceed with caution".to_string()),
+            false,
+            None,
+            false,
+        );
+        assert!(result.is_ok());
+
+        let generic = storage.get(&id, "escalation_request").unwrap().unwrap();
+        let escalation = EscalationRequest::from_generic(generic).unwrap();
+
+        assert!(matches!(escalation.status, EscalationStatus::Approved));
+    }
+
+    #[test]
+    fn test_cancel_escalation() {
+        let mut storage = MemoryStorage::new("test-agent");
+
+        create_escalation(
+            &mut storage,
+            Some("agent-1".to_string()),
+            Some("command".to_string()),
+            Some("ls".to_string()),
+            Some("Blocked".to_string()),
+            Some("Justification".to_string()),
+            "normal".to_string(),
+            None,
+            None,
+            false,
+            None,
+            false,
+        )
+        .unwrap();
+
+        let query_result = storage
+            .query_by_type("escalation_request", None, None, None)
+            .unwrap();
+        let id = query_result.entities[0].id.clone();
+
+        let result = cancel_escalation(
+            &mut storage,
+            id.clone(),
+            Some("Not needed anymore".to_string()),
+            true, // force
+            false,
+        );
+        assert!(result.is_ok());
+
+        let generic = storage.get(&id, "escalation_request").unwrap().unwrap();
+        let escalation = EscalationRequest::from_generic(generic).unwrap();
+
+        assert!(matches!(escalation.status, EscalationStatus::Cancelled));
+    }
+
+    #[test]
+    fn test_list_escalations() {
+        let mut storage = MemoryStorage::new("test-agent");
+
+        create_escalation(
+            &mut storage,
+            Some("agent-1".to_string()),
+            Some("network".to_string()),
+            Some("curl".to_string()),
+            Some("Blocked".to_string()),
+            Some("Justification".to_string()),
+            "normal".to_string(),
+            None,
+            None,
+            false,
+            None,
+            false,
+        )
+        .unwrap();
+
+        let result = list_escalations(
+            &storage,
+            Some("agent-1".to_string()),
+            None,
+            None,
+            None,
+            false,
+            false,
+            None,
+            false,
+        );
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_priority() {
+        assert!(matches!(
+            parse_priority("high").unwrap(),
+            EscalationPriority::High
+        ));
+        assert!(matches!(
+            parse_priority("NORMAL").unwrap(),
+            EscalationPriority::Normal
+        ));
+        assert!(parse_priority("invalid").is_err());
+    }
+
+    #[test]
+    fn test_parse_operation_type() {
+        assert!(matches!(
+            parse_operation_type("network").unwrap(),
+            EscalationOperationType::NetworkAccess
+        ));
+        assert!(matches!(
+            parse_operation_type("unknown").unwrap(),
+            EscalationOperationType::Custom(_)
+        ));
+    }
+}
