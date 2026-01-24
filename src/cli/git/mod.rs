@@ -26,7 +26,16 @@ pub fn handle_git_command(args: Vec<String>) -> Result<(), EngramError> {
             // Note: -n is short for --no-verify in some contexts, though git commit uses it for --no-verify?
             // git commit -n is indeed --no-verify.
             // Let's be strict about --no-verify.
-            return Err(EngramError::Validation("Using --no-verify is not allowed via engram git. Please use standard git if you must bypass hooks.".to_string()));
+            return Err(EngramError::Validation(
+                "❌ Using --no-verify is not allowed via engram git.\n\n\
+                 Bypassing hooks prevents Engram from validating your task references and relationships.\n\n\
+                 💡 If your commit is being rejected:\n\
+                 1. Read the error message carefully - it explains exactly what is missing.\n\
+                 2. Run 'engram validate commit --message \"your message\" --dry-run' to debug.\n\
+                 3. Ensure you have a valid task ID in your message.\n\
+                 4. Ensure the task has linked 'context' and 'reasoning' entities."
+                    .to_string(),
+            ));
         }
     }
 
