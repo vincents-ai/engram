@@ -358,3 +358,83 @@ pub fn list_sessions<S: Storage>(
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::storage::MemoryStorage;
+
+    fn create_test_storage() -> MemoryStorage {
+        MemoryStorage::new("default")
+    }
+
+    #[test]
+    fn test_start_session() {
+        let mut storage = create_test_storage();
+        let session_id = start_session(&mut storage, "agent1".to_string(), false).unwrap();
+        
+        let generic = storage.get(&session_id, "session").unwrap().unwrap();
+        let session = Session::from_generic(generic).unwrap();
+        
+        assert_eq!(session.agent, "agent1");
+        assert_eq!(session.status, SessionStatus::Active);
+    }
+
+    #[test]
+    fn test_end_session() {
+        let mut storage = create_test_storage();
+        let session_id = start_session(&mut storage, "agent1".to_string(), false).unwrap();
+        
+        end_session(&mut storage, session_id.clone(), false).unwrap();
+        
+        let generic = storage.get(&session_id, "session").unwrap().unwrap();
+        let session = Session::from_generic(generic).unwrap();
+        
+        assert_eq!(session.status, SessionStatus::Completed);
+        assert!(session.end_time.is_some());
+    }
+
+    #[test]
+    fn test_end_session_already_ended() {
+        let mut storage = create_test_storage();
+        let session_id = start_session(&mut storage, "agent1".to_string(), false).unwrap();
+        
+        end_session(&mut storage, session_id.clone(), false).unwrap();
+        let result = end_session(&mut storage, session_id, false);
+        
+        assert!(matches!(result, Err(EngramError::Validation(_))));
+    }
+
+    #[test]
+    fn test_list_sessions() {
+        let mut storage = create_test_storage();
+        start_session(&mut storage, "agent1".to_string(), false).unwrap();
+        start_session(&mut storage, "agent2".to_string(), false).unwrap();
+        
+        list_sessions(&storage, None, None).unwrap();
+        list_sessions(&storage, Some("agent1".to_string()), None).unwrap();
+    }
+
+    #[test]
+    fn test_show_session_status() {
+        let mut storage = create_test_storage();
+        let session_id = start_session(&mut storage, "agent1".to_string(), false).unwrap();
+        
+        assert!(show_session_status(&storage, session_id.clone(), true).is_ok());
+        assert!(show_session_status(&storage, "non-existent".to_string(), false).is_err());
+    }
+
+    #[test]
+    fn test_space_metrics_calculation() {
+        let mut storage = create_test_storage();
+        let session_id = start_session(&mut storage, "agent1".to_string(), false).unwrap();
+        end_session(&mut storage, session_id.clone(), false).unwrap();
+
+        let generic = storage.get(&session_id, "session").unwrap().unwrap();
+        let session = Session::from_generic(generic).unwrap();
+        
+        assert!(session.space_metrics.is_some());
+        let metrics = session.space_metrics.unwrap();
+        assert!(metrics.overall_score > 0.0);
+    }
+}
