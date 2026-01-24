@@ -651,4 +651,35 @@ mod tests {
         // Just verify it runs without error (output is to stdout)
         assert!(list_knowledge(&storage, None, Some("fact".to_string()), None).is_ok());
     }
+
+    #[test]
+    fn test_show_knowledge() {
+        let mut storage = create_test_storage();
+        create_knowledge(
+            &mut storage,
+            Some("Show Me".to_string()),
+            Some("Content to show".to_string()),
+            "fact".to_string(),
+            0.8,
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+        )
+        .unwrap();
+
+        let ids = storage.list_ids("knowledge").unwrap();
+        let id = &ids[0];
+
+        assert!(show_knowledge(&storage, id).is_ok());
+        assert!(matches!(
+            show_knowledge(&storage, "non-existent"),
+            Err(EngramError::NotFound(_))
+        ));
+    }
 }
