@@ -71,4 +71,15 @@ mod tests {
         assert!(json.get("$schema").is_some());
         assert_eq!(json.get("title").and_then(|v| v.as_str()), Some("Workflow"));
     }
+
+    #[test]
+    fn test_handle_schema_command_invalid_path() {
+        // Test writing to an invalid path (e.g., directory that doesn't exist)
+        let path = "/non/existent/directory/schema.json".to_string();
+
+        let result = handle_schema_command(SchemaCommands::Workflow { output: Some(path) });
+
+        // This should fail with an IO error
+        assert!(matches!(result, Err(crate::EngramError::Io(_))));
+    }
 }
