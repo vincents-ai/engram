@@ -799,4 +799,77 @@ mod tests {
         let standard = Standard::from_generic(generic).unwrap();
         assert!(matches!(standard.status, StandardStatus::Draft));
     }
+
+    #[test]
+    fn test_update_standard_not_found() {
+        let mut storage = MemoryStorage::new("test-agent");
+        let result = update_standard(
+            &mut storage,
+            "non-existent",
+            Some("New Title".to_string()),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_delete_standard_not_found() {
+        let mut storage = MemoryStorage::new("test-agent");
+        let result = delete_standard(&mut storage, "non-existent");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_add_requirement_not_found() {
+        let mut storage = MemoryStorage::new("test-agent");
+        let result = add_requirement(
+            &mut storage,
+            "non-existent",
+            "Req".to_string(),
+            "Desc".to_string(),
+            true,
+            "high".to_string(),
+            false,
+        );
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_add_requirement_invalid_priority() {
+        let mut storage = MemoryStorage::new("test-agent");
+        create_standard(
+            &mut storage,
+            "Test".to_string(),
+            None,
+            "coding".to_string(),
+            "1.0".to_string(),
+            None,
+            None,
+        )
+        .unwrap();
+
+        let query_result = storage.query_by_type("standard", None, None, None).unwrap();
+        let id = &query_result.entities[0].id;
+
+        let result = add_requirement(
+            &mut storage,
+            id,
+            "Req".to_string(),
+            "Desc".to_string(),
+            true,
+            "invalid_priority".to_string(),
+            false,
+        );
+        assert!(result.is_ok());
+
+        // Verify requirement was NOT added
+        let generic = storage.get(id, "standard").unwrap().unwrap();
+        let standard = Standard::from_generic(generic).unwrap();
+        assert!(standard.requirements.is_empty());
+    }
 }
