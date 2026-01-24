@@ -15,7 +15,7 @@ Engram provides specialized skills for common workflows. Use these skills to ens
 ### Available Skills
 
 ```
-./engram/skills/
+./skills/
 ├── meta/
 │   ├── use-engram-memory.md      # Core memory integration skill
 │   ├── delegate-to-agents.md     # Delegation using engram-adapted agents
@@ -32,10 +32,10 @@ When starting any work, check if a relevant skill exists:
 
 ```bash
 # Check available skills
-ls ./engram/skills/
+ls ./skills/
 
 # Use a skill by reading its documentation
-cat ./engram/skills/meta/use-engram-memory.md
+cat ./skills/meta/use-engram-memory.md
 ```
 
 ## Prompt Templates
@@ -45,7 +45,7 @@ Engram provides engram-adapted agent prompts that integrate with the memory syst
 ### Agent Prompts
 
 ```
-./engram/prompts/agents/
+./prompts/agents/
 ├── 01-the-one.yaml              # Orchestrator (adapted)
 ├── 03-the-architect.yaml        # Architecture design (adapted)
 ├── 05-the-deconstructor.yaml    # Task breakdown (adapted)
@@ -56,7 +56,7 @@ Engram provides engram-adapted agent prompts that integrate with the memory syst
 ### Pipeline Templates
 
 ```
-./engram/prompts/ai/pipelines/
+./prompts/ai/pipelines/
 ├── 01-greenfield-feature-launch.yaml  # Feature development pipeline (adapted)
 ├── _template-engram-adapted.yaml       # Template for adapting pipelines
 └── [100+ specialized pipelines]
@@ -65,7 +65,7 @@ Engram provides engram-adapted agent prompts that integrate with the memory syst
 ### Compliance Prompts
 
 ```
-./engram/prompts/compliance_and_certification/
+./prompts/compliance_and_certification/
 └── prompts/audit_checkpoints/
     ├── igaming/           # Gaming compliance (GLI, MGA, UKGC)
     ├── saas_it/           # SOC2, ISO27001, PCI DSS
@@ -170,7 +170,7 @@ echo "Task {{TASK_ID}} completed. Entities created: [CONTEXT_ID], [REASONING_ID]
 
 ## Integration with External Prompts
 
-When using external prompts (from `./engram/prompts/`), always adapt them:
+When using external prompts (from `./prompts/`), always adapt them:
 
 1. **Add task_id parameter** to all prompts
 2. **Include engram commands** in the prompt body
