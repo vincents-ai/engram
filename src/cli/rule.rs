@@ -542,3 +542,113 @@ fn display_rule(rule: &Rule) {
         println!("📊 Executions: {}", rule.execution_history.len());
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::storage::{MemoryStorage, Storage};
+    use crate::entities::{Rule, RuleStatus, RuleType, RulePriority};
+
+    fn create_test_storage() -> MemoryStorage {
+        MemoryStorage::new("default")
+    }
+
+    #[test]
+    fn test_create_rule() {
+        let mut storage = create_test_storage();
+        create_rule(
+            &mut storage,
+            "Test Rule".to_string(),
+            Some("Description".to_string()),
+            "validation".to_string(),
+            "medium".to_string(),
+            Some("task".to_string()),
+            r#"{"field": "status", "operator": "eq", "value": "done"}"#.to_string(),
+            r#"{"type": "notify", "message": "Task done"}"#.to_string(),
+            Some("agent1".to_string()),
+        ).unwrap();
+
+        let rules = storage.query_by_agent("agent1", Some("rule")).unwrap();
+        assert_eq!(rules.len(), 1);
+        let rule = Rule::from_generic(rules[0].clone()).unwrap();
+        assert_eq!(rule.title, "Test Rule");
+        assert_eq!(rule.rule_type, RuleType::Validation);
+    }
+
+    #[test]
+    fn test_update_rule() {
+        let mut storage = create_test_storage();
+        create_rule(
+            &mut storage,
+            "Old Rule".to_string(),
+            None,
+            "validation".to_string(),
+            "low".to_string(),
+            None,
+            "{}".to_string(),
+            "{}".to_string(),
+            Some("agent1".to_string()),
+        ).unwrap();
+
+        let rules = storage.query_by_agent("agent1", Some("rule")).unwrap();
+        let id = &rules[0].id;
+
+        update_rule(
+            &mut storage,
+            id,
+            Some("New Title".to_string()),
+            Some("New Desc".to_string()),
+            Some("enforcement".to_string()),
+            Some("high".to_string()),
+            None,
+            None,
+            None,
+            Some("deprecated".to_string()),
+        ).unwrap();
+
+        let generic = storage.get(id, "rule").unwrap().unwrap();
+        let rule = Rule::from_generic(generic).unwrap();
+        
+        assert_eq!(rule.title, "New Title");
+        assert_eq!(rule.rule_type, RuleType::Enforcement);
+        assert_eq!(rule.status, RuleStatus::Deprecated);
+    }
+
+    #[test]
+    fn test_delete_rule() {
+        let mut storage = create_test_storage();
+        create_rule(
+            &mut storage,
+            "Delete Me".to_string(),
+            None,
+            "validation".to_string(),
+            "low".to_string(),
+            None,
+            "{}".to_string(),
+            "{}".to_string(),
+            Some("agent1".to_string()),
+        ).unwrap();
+
+        let rules = storage.query_by_agent("agent1", Some("rule")).unwrap();
+        let id = &rules[0].id;
+
+        delete_rule(&mut storage, id).unwrap();
+        
+        // Deletion marks as inactive/deactivated rather than removing
+        let generic = storage.get(id, "rule").unwrap().unwrap();
+        let rule = Rule::from_generic(generic).unwrap();
+        assert_eq!(rule.status, RuleStatus::Inactive);
+    }
+
+    #[test]
+    fn test_list_rules() {
+        let mut storage = create_test_storage();
+        create_rule(
+            &mut storage,
+            "R1".to_string(), None, "validation".to_string(), "high".to_string(), None, "{}".to_string(), "{}".to_string(), None
+        ).unwrap();
+        
+        list_rules(&storage, None, None, None, None, None, 10, 0).unwrap();
+        list_rules(&storage, Some("validation".to_string()), None, None, None, None, 10, 0).unwrap();
+    }
+}
