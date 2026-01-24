@@ -671,4 +671,17 @@ Finding: [3ecbee2c-aedc-4f74-ab7e-49491dda201e]
         let patterns = extract_uuid_patterns(content);
         assert_eq!(patterns.len(), 2);
     }
+
+    #[test]
+    fn test_import_result_empty() {
+        let result = ImportResult {
+            entities_created: 0,
+            relationships_created: 0,
+            warnings: vec![],
+            errors: vec![],
+            entity_ids: vec![],
+        };
+        assert_eq!(result.entities_created, 0);
+        assert!(result.errors.is_empty());
+    }
 }
