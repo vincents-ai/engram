@@ -34,8 +34,14 @@ impl ResponseFormatter {
 
             let mut output = format!("Found {} skill(s):\n\n", count);
             for skill in skills {
-                let name = skill.get("name").and_then(|v| v.as_str()).unwrap_or("unknown");
-                let desc = skill.get("description").and_then(|v| v.as_str()).unwrap_or("(no description)");
+                let name = skill
+                    .get("name")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("unknown");
+                let desc = skill
+                    .get("description")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("(no description)");
                 output.push_str(&format!("[{}]\n  {}\n\n", name, desc));
             }
             return Ok(output);
@@ -53,8 +59,14 @@ impl ResponseFormatter {
 
             let mut output = format!("Found {} skill(s) matching '{}':\n\n", count, query);
             for skill in skills {
-                let name = skill.get("name").and_then(|v| v.as_str()).unwrap_or("unknown");
-                let desc = skill.get("description").and_then(|v| v.as_str()).unwrap_or("(no description)");
+                let name = skill
+                    .get("name")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("unknown");
+                let desc = skill
+                    .get("description")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("(no description)");
                 output.push_str(&format!("[{}]\n  {}\n\n", name, desc));
             }
             return Ok(output);
@@ -66,13 +78,21 @@ impl ResponseFormatter {
         if let Some(prompts) = data.get("prompts").and_then(|v| v.as_array()) {
             let count = prompts.len();
             if count == 0 {
-                return Ok("No prompts found. Set ENGRAM_PROMPTS_PATH to enable prompts.".to_string());
+                return Ok(
+                    "No prompts found. Set ENGRAM_PROMPTS_PATH to enable prompts.".to_string(),
+                );
             }
 
             let mut output = format!("Found {} prompt(s):\n\n", count);
             for prompt in prompts {
-                let name = prompt.get("name").and_then(|v| v.as_str()).unwrap_or("unknown");
-                let title = prompt.get("title").and_then(|v| v.as_str()).unwrap_or("(no title)");
+                let name = prompt
+                    .get("name")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("unknown");
+                let title = prompt
+                    .get("title")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("(no title)");
                 output.push_str(&format!("[{}]\n  {}\n\n", name, title));
             }
             return Ok(output);
@@ -90,8 +110,14 @@ impl ResponseFormatter {
 
             let mut output = format!("Found {} prompt(s) matching '{}':\n\n", count, query);
             for prompt in prompts {
-                let name = prompt.get("name").and_then(|v| v.as_str()).unwrap_or("unknown");
-                let title = prompt.get("title").and_then(|v| v.as_str()).unwrap_or("(no title)");
+                let name = prompt
+                    .get("name")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("unknown");
+                let title = prompt
+                    .get("title")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("(no title)");
                 output.push_str(&format!("[{}]\n  {}\n\n", name, title));
             }
             return Ok(output);

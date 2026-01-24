@@ -111,29 +111,25 @@ async fn run() -> Result<(), EngramError> {
         }
         cli::Commands::Migration => handle_migration_command()?,
         cli::Commands::Guide { command } => handle_help_command(command)?,
-        cli::Commands::Skills { command } => {
-            match command {
-                cli::SkillsCommands::Setup => {
-                    cli::handle_skills_command(cli::SkillsCommands::Setup)?;
-                }
-                cli::SkillsCommands::List { format } => {
-                    cli::list_skills(&format)?;
-                }
-                cli::SkillsCommands::Show { name } => {
-                    cli::show_skill(&name)?;
-                }
+        cli::Commands::Skills { command } => match command {
+            cli::SkillsCommands::Setup => {
+                cli::handle_skills_command(cli::SkillsCommands::Setup)?;
             }
-        }
-        cli::Commands::Prompts { command } => {
-            match command {
-                cli::PromptsCommands::List { category, format } => {
-                    cli::list_prompts(category.as_deref(), &format)?;
-                }
-                cli::PromptsCommands::Show { name } => {
-                    cli::show_prompt(&name)?;
-                }
+            cli::SkillsCommands::List { format } => {
+                cli::list_skills(&format)?;
             }
-        }
+            cli::SkillsCommands::Show { name } => {
+                cli::show_skill(&name)?;
+            }
+        },
+        cli::Commands::Prompts { command } => match command {
+            cli::PromptsCommands::List { category, format } => {
+                cli::list_prompts(category.as_deref(), &format)?;
+            }
+            cli::PromptsCommands::Show { name } => {
+                cli::show_prompt(&name)?;
+            }
+        },
         cli::Commands::Perkeep { command } => {
             use engram::cli::perkeep::{
                 perkeep_backup, perkeep_health, perkeep_list, perkeep_restore,

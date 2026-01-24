@@ -1,6 +1,9 @@
 use crate::entities::Entity;
 use crate::error::EngramError;
-use crate::nlq::{ExtractedEntity, ProcessedQuery, QueryIntent, list_skills, list_prompts, search_skills, search_prompts, SkillsQuery, PromptsQuery};
+use crate::nlq::{
+    list_prompts, list_skills, search_prompts, search_skills, ExtractedEntity, ProcessedQuery,
+    PromptsQuery, QueryIntent, SkillsQuery,
+};
 use crate::storage::{GitStorage, RelationshipStorage, Storage};
 use serde_json::{json, Value};
 
@@ -43,19 +46,25 @@ impl QueryMapper {
     }
 
     // Skills/Prompts handlers
-    async fn handle_list_skills(&self, _processed_query: &ProcessedQuery) -> Result<Value, EngramError> {
+    async fn handle_list_skills(
+        &self,
+        _processed_query: &ProcessedQuery,
+    ) -> Result<Value, EngramError> {
         let skills = list_skills(&SkillsQuery {
             category: None,
             search_term: None,
             format: "full".to_string(),
         })?;
 
-        let skill_list: Vec<Value> = skills.iter()
-            .map(|s| json!({
-                "name": s.name,
-                "description": s.description,
-                "category": s.category,
-            }))
+        let skill_list: Vec<Value> = skills
+            .iter()
+            .map(|s| {
+                json!({
+                    "name": s.name,
+                    "description": s.description,
+                    "category": s.category,
+                })
+            })
             .collect();
 
         Ok(json!({
@@ -66,16 +75,22 @@ impl QueryMapper {
         }))
     }
 
-    async fn handle_search_skills(&self, processed_query: &ProcessedQuery) -> Result<Value, EngramError> {
+    async fn handle_search_skills(
+        &self,
+        processed_query: &ProcessedQuery,
+    ) -> Result<Value, EngramError> {
         let query = &processed_query.original_query;
         let skills = search_skills(query)?;
 
-        let skill_list: Vec<Value> = skills.iter()
-            .map(|s| json!({
-                "name": s.name,
-                "description": s.description,
-                "category": s.category,
-            }))
+        let skill_list: Vec<Value> = skills
+            .iter()
+            .map(|s| {
+                json!({
+                    "name": s.name,
+                    "description": s.description,
+                    "category": s.category,
+                })
+            })
             .collect();
 
         Ok(json!({
@@ -87,20 +102,26 @@ impl QueryMapper {
         }))
     }
 
-    async fn handle_list_prompts(&self, _processed_query: &ProcessedQuery) -> Result<Value, EngramError> {
+    async fn handle_list_prompts(
+        &self,
+        _processed_query: &ProcessedQuery,
+    ) -> Result<Value, EngramError> {
         let prompts = list_prompts(&PromptsQuery {
             category: None,
             search_term: None,
             format: "full".to_string(),
         })?;
 
-        let prompt_list: Vec<Value> = prompts.iter()
-            .map(|p| json!({
-                "name": p.name,
-                "title": p.title,
-                "description": p.description,
-                "category": p.category,
-            }))
+        let prompt_list: Vec<Value> = prompts
+            .iter()
+            .map(|p| {
+                json!({
+                    "name": p.name,
+                    "title": p.title,
+                    "description": p.description,
+                    "category": p.category,
+                })
+            })
             .collect();
 
         Ok(json!({
@@ -111,17 +132,23 @@ impl QueryMapper {
         }))
     }
 
-    async fn handle_search_prompts(&self, processed_query: &ProcessedQuery) -> Result<Value, EngramError> {
+    async fn handle_search_prompts(
+        &self,
+        processed_query: &ProcessedQuery,
+    ) -> Result<Value, EngramError> {
         let query = &processed_query.original_query;
         let prompts = search_prompts(query)?;
 
-        let prompt_list: Vec<Value> = prompts.iter()
-            .map(|p| json!({
-                "name": p.name,
-                "title": p.title,
-                "description": p.description,
-                "category": p.category,
-            }))
+        let prompt_list: Vec<Value> = prompts
+            .iter()
+            .map(|p| {
+                json!({
+                    "name": p.name,
+                    "title": p.title,
+                    "description": p.description,
+                    "category": p.category,
+                })
+            })
             .collect();
 
         Ok(json!({

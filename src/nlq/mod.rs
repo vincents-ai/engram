@@ -18,8 +18,8 @@ pub use intent_classifier::IntentClassifier;
 pub use query_mapper::QueryMapper;
 pub use response_formatter::ResponseFormatter;
 pub use skills_prompts_handler::{
-    list_prompts, list_skills, search_prompts, search_skills,
-    PromptInfo, SkillInfo, PromptsQuery, SkillsQuery
+    list_prompts, list_skills, search_prompts, search_skills, PromptInfo, PromptsQuery, SkillInfo,
+    SkillsQuery,
 };
 
 /// Main Natural Language Query Engine

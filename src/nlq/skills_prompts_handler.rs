@@ -91,7 +91,10 @@ pub fn list_skills(query: &SkillsQuery) -> Result<Vec<SkillInfo>, EngramError> {
             let description = if skill_file.exists() {
                 let content = fs::read_to_string(&skill_file).ok();
                 content.and_then(|c| {
-                    c.lines().next().map(|s| s.to_string()).filter(|s| !s.is_empty())
+                    c.lines()
+                        .next()
+                        .map(|s| s.to_string())
+                        .filter(|s| !s.is_empty())
                 })
             } else {
                 None
@@ -217,7 +220,10 @@ pub fn search_skills(query: &str) -> Result<Vec<SkillInfo>, EngramError> {
     let search_term = if query.contains("for") {
         query.split("for").last().map(|s| s.trim().to_string())
     } else if query.contains("related to") {
-        query.split("related to").last().map(|s| s.trim().to_string())
+        query
+            .split("related to")
+            .last()
+            .map(|s| s.trim().to_string())
     } else {
         Some(query.trim().to_string())
     };
@@ -235,7 +241,10 @@ pub fn search_prompts(query: &str) -> Result<Vec<PromptInfo>, EngramError> {
     let search_term = if query.contains("for") {
         query.split("for").last().map(|s| s.trim().to_string())
     } else if query.contains("related to") {
-        query.split("related to").last().map(|s| s.trim().to_string())
+        query
+            .split("related to")
+            .last()
+            .map(|s| s.trim().to_string())
     } else {
         Some(query.trim().to_string())
     };

@@ -126,7 +126,11 @@ pub fn show_prompt(name: &str) -> Result<(), std::io::Error> {
             let entries = fs::read_dir(&prompt_path)?;
             for entry in entries.flatten() {
                 let file_name = entry.file_name().to_string_lossy().into_owned();
-                let file_type = if entry.path().is_dir() { "[DIR]" } else { "[FILE]" };
+                let file_type = if entry.path().is_dir() {
+                    "[DIR]"
+                } else {
+                    "[FILE]"
+                };
                 println!("  {} {}", file_type, file_name);
             }
         }
@@ -142,9 +146,7 @@ pub fn show_prompt(name: &str) -> Result<(), std::io::Error> {
                 let subentries = fs::read_dir(&entry.path())?;
                 for subentry in subentries.flatten() {
                     let sub_name = subentry.file_name().to_string_lossy().into_owned();
-                    if sub_name.to_lowercase().contains(&search_name)
-                        && subentry.path().is_file()
-                    {
+                    if sub_name.to_lowercase().contains(&search_name) && subentry.path().is_file() {
                         println!("\nFound: {}/{}", entry_name, sub_name);
                         let content = fs::read_to_string(&subentry.path())?;
                         println!("\n{}", content);

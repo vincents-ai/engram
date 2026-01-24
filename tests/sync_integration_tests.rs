@@ -124,10 +124,10 @@ async fn test_branch_deletion() -> Result<(), EngramError> {
     fixture.set_working_directory()?;
 
     create_branch("delete-me", Some("test"), None)?;
-    
+
     // Ensure branch creation completes before switching
     std::thread::sleep(std::time::Duration::from_millis(50));
-    
+
     switch_branch("main", false)?;
 
     let result = delete_branch("delete-me", false);
@@ -236,10 +236,10 @@ async fn test_error_conditions() -> Result<(), EngramError> {
     assert!(result.is_err());
 
     create_branch("current-branch", Some("test"), None)?;
-    
+
     // Ensure branch creation completes before switching
     std::thread::sleep(std::time::Duration::from_millis(50));
-    
+
     switch_branch("current-branch", false)?;
     let result = delete_branch("current-branch", true);
     assert!(result.is_err());
@@ -259,10 +259,10 @@ async fn test_concurrent_branch_operations() -> Result<(), EngramError> {
         let agent_name = format!("agent-{}", i);
 
         create_branch(&branch_name, Some(&agent_name), None)?;
-        
+
         // Ensure branch creation completes before switching
         std::thread::sleep(std::time::Duration::from_millis(50));
-        
+
         switch_branch(&branch_name, false)?;
     }
 
