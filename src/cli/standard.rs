@@ -744,4 +744,59 @@ mod tests {
         assert_eq!(req.mandatory, true);
         assert!(matches!(req.priority, RulePriority::High));
     }
+
+    #[test]
+    fn test_create_standard_invalid_category() {
+        let mut storage = MemoryStorage::new("test-agent");
+        let result = create_standard(
+            &mut storage,
+            "Invalid Cat".to_string(),
+            None,
+            "invalid_category".to_string(),
+            "1.0".to_string(),
+            None,
+            None,
+        );
+        // It returns Ok but prints an error message, and doesn't create the standard
+        assert!(result.is_ok());
+
+        let query_result = storage.query_by_type("standard", None, None, None).unwrap();
+        assert_eq!(query_result.total_count, 0);
+    }
+
+    #[test]
+    fn test_update_standard_invalid_status() {
+        let mut storage = MemoryStorage::new("test-agent");
+        create_standard(
+            &mut storage,
+            "Test".to_string(),
+            None,
+            "coding".to_string(),
+            "1.0".to_string(),
+            None,
+            None,
+        )
+        .unwrap();
+
+        let query_result = storage.query_by_type("standard", None, None, None).unwrap();
+        let id = &query_result.entities[0].id;
+
+        let result = update_standard(
+            &mut storage,
+            id,
+            None,
+            None,
+            None,
+            None,
+            Some("invalid_status".to_string()),
+            None,
+            None,
+        );
+        assert!(result.is_ok()); // Returns Ok but prints error
+
+        // Verify status didn't change (default is Draft)
+        let generic = storage.get(id, "standard").unwrap().unwrap();
+        let standard = Standard::from_generic(generic).unwrap();
+        assert!(matches!(standard.status, StandardStatus::Draft));
+    }
 }

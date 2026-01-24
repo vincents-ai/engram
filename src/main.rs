@@ -121,10 +121,10 @@ async fn run() -> Result<(), EngramError> {
                 cli::handle_skills_command(cli::SkillsCommands::Setup)?;
             }
             cli::SkillsCommands::List { format } => {
-                cli::list_skills(&format)?;
+                cli::list_skills(&format, None)?;
             }
             cli::SkillsCommands::Show { name } => {
-                cli::show_skill(&name)?;
+                cli::show_skill(&name, None)?;
             }
         },
         cli::Commands::Prompts { command } => match command {

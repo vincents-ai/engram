@@ -22,15 +22,18 @@ pub enum SkillsCommands {
 }
 
 /// Get skills path from environment or default
-pub fn get_skills_path() -> PathBuf {
+pub fn get_skills_path(config_dir: Option<PathBuf>) -> PathBuf {
+    if let Some(dir) = config_dir {
+        return dir.join("engram/skills");
+    }
     std::env::var("ENGRAM_SKILLS_PATH")
         .map(PathBuf::from)
         .unwrap_or_else(|_| PathBuf::from("./engram/skills"))
 }
 
 /// List all skills in skills directory
-pub fn list_skills(format: &str) -> Result<(), std::io::Error> {
-    let skills_path = get_skills_path();
+pub fn list_skills(format: &str, config_dir: Option<PathBuf>) -> Result<(), std::io::Error> {
+    let skills_path = get_skills_path(config_dir);
 
     if !skills_path.exists() {
         println!("Skills directory not found: {:?}", skills_path);
@@ -78,17 +81,24 @@ pub fn list_skills(format: &str) -> Result<(), std::io::Error> {
 }
 
 /// Show a specific skill
-pub fn show_skill(name: &str) -> Result<(), std::io::Error> {
-    let skills_path = get_skills_path();
+pub fn show_skill(name: &str, config_dir: Option<PathBuf>) -> Result<(), std::io::Error> {
+    let skills_path = get_skills_path(config_dir);
 
     // Try exact match first, then case-insensitive
-    let skill_path = PathBuf::from(name);
+    let skill_path = skills_path.join(name); // Use base path first, avoid assuming name is path
 
     let actual_path = if skill_path.exists() && skill_path.is_dir() {
         skill_path
     } else {
         // Search for matching directory
         let name_lower = name.to_lowercase();
+        // Check if skills_path exists before reading
+        if !skills_path.exists() {
+            println!("Skill not found: {}", name);
+            println!("Searched in: {:?}", skills_path);
+            return Ok(());
+        }
+
         let entries = std::fs::read_dir(&skills_path)?;
         let found_path = entries
             .flatten()
@@ -102,7 +112,14 @@ pub fn show_skill(name: &str) -> Result<(), std::io::Error> {
         if let Some(path) = found_path {
             path
         } else {
-            skills_path.join(name)
+            // Fallback to checking if name provided was actually a path relative to CWD,
+            // but prioritize skills_dir
+            let local_path = PathBuf::from(name);
+            if local_path.exists() && local_path.is_dir() {
+                local_path
+            } else {
+                skills_path.join(name)
+            }
         }
     };
 
@@ -247,4 +264,69 @@ pub fn handle_skills_command(_command: crate::cli::SkillsCommands) -> Result<(),
     println!("   2. Use skill() tool with skill name");
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::TempDir;
+
+    #[test]
+    fn test_list_skills_empty() {
+        let temp_dir = TempDir::new().unwrap();
+        let root = temp_dir.path().to_path_buf();
+
+        // Ensure parent dir exists but is empty
+        let skills_dir = root.join("engram/skills");
+        fs::create_dir_all(&skills_dir).unwrap();
+
+        // Should just print header and return Ok
+        let result = list_skills("short", Some(root));
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_list_skills_populated() {
+        let temp_dir = TempDir::new().unwrap();
+        let root = temp_dir.path().to_path_buf();
+        let skills_dir = root.join("engram/skills");
+
+        fs::create_dir_all(&skills_dir.join("skill-a")).unwrap();
+        fs::create_dir_all(&skills_dir.join("skill-b")).unwrap();
+
+        // Add descriptions
+        fs::write(skills_dir.join("skill-a/skill.md"), "Description A").unwrap();
+
+        // Test short listing
+        list_skills("short", Some(root.clone())).unwrap();
+
+        // Test full listing
+        list_skills("full", Some(root)).unwrap();
+    }
+
+    #[test]
+    fn test_show_skill() {
+        let temp_dir = TempDir::new().unwrap();
+        let root = temp_dir.path().to_path_buf();
+        let skills_dir = root.join("engram/skills");
+
+        let skill_path = skills_dir.join("test-skill");
+        fs::create_dir_all(&skill_path).unwrap();
+
+        fs::write(skill_path.join("file1.txt"), "content 1").unwrap();
+        fs::write(skill_path.join("file2.rs"), "fn main() {}").unwrap();
+
+        // Test exact match
+        let result = show_skill("test-skill", Some(root.clone()));
+        assert!(result.is_ok());
+
+        // Test case insensitive
+        let result = show_skill("TEST-SKILL", Some(root.clone()));
+        assert!(result.is_ok());
+
+        // Test non-existent
+        let result = show_skill("missing-skill", Some(root));
+        assert!(result.is_ok()); // Returns Ok but prints error message
+    }
 }
