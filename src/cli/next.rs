@@ -417,4 +417,35 @@ mod tests {
         assert!(next.is_some());
         assert_eq!(next.unwrap().id, "2");
     }
+
+    #[test]
+    fn test_find_next_task_empty() {
+        let storage = MockStorage { tasks: vec![] };
+        let next = find_next_task(&storage, "test-agent").unwrap();
+        assert!(next.is_none());
+    }
+
+    #[test]
+    fn test_handle_next_command_task_not_found() {
+        let mut storage = MockStorage { tasks: vec![] };
+        let result = handle_next_command(
+            &mut storage,
+            Some("missing".to_string()),
+            "text".to_string(),
+        );
+        assert!(matches!(result, Err(EngramError::NotFound(_))));
+    }
+
+    #[test]
+    fn test_handle_next_command_no_pending() {
+        // We need a MockStorage that behaves properly for handle_next_command which uses
+        // storage.query_by_agent inside find_next_task.
+        // The MockStorage implementation in this file already implements query_by_agent
+        // by returning all tasks.
+        let mut storage = MockStorage { tasks: vec![] };
+
+        // This should print "No pending tasks found" and return Ok(())
+        let result = handle_next_command(&mut storage, None, "text".to_string());
+        assert!(result.is_ok());
+    }
 }
