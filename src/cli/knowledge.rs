@@ -677,9 +677,82 @@ mod tests {
         let id = &ids[0];
 
         assert!(show_knowledge(&storage, id).is_ok());
-        assert!(matches!(
-            show_knowledge(&storage, "non-existent"),
-            Err(EngramError::NotFound(_))
-        ));
+    }
+
+    #[test]
+    fn test_show_knowledge_not_found() {
+        let storage = create_test_storage();
+        let result = show_knowledge(&storage, "missing-id");
+        assert!(matches!(result, Err(EngramError::NotFound(_))));
+    }
+
+    #[test]
+    fn test_update_knowledge_not_found() {
+        let mut storage = create_test_storage();
+        let result = update_knowledge(&mut storage, "missing-id", "content", "new content");
+        assert!(matches!(result, Err(EngramError::NotFound(_))));
+    }
+
+    #[test]
+    fn test_update_knowledge_invalid_field() {
+        let mut storage = create_test_storage();
+        create_knowledge(
+            &mut storage,
+            Some("Test Fact".to_string()),
+            None,
+            "fact".to_string(),
+            0.8,
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+        )
+        .unwrap();
+
+        let ids = storage.list_ids("knowledge").unwrap();
+        let id = &ids[0];
+
+        let result = update_knowledge(&mut storage, id, "invalid_field", "value");
+        assert!(matches!(result, Err(EngramError::Validation(_))));
+    }
+
+    #[test]
+    fn test_update_knowledge_invalid_confidence() {
+        let mut storage = create_test_storage();
+        create_knowledge(
+            &mut storage,
+            Some("Test Fact".to_string()),
+            None,
+            "fact".to_string(),
+            0.8,
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+        )
+        .unwrap();
+
+        let ids = storage.list_ids("knowledge").unwrap();
+        let id = &ids[0];
+
+        let result = update_knowledge(&mut storage, id, "confidence", "2.0");
+        assert!(matches!(result, Err(EngramError::Validation(_))));
+    }
+
+    #[test]
+    fn test_delete_knowledge_not_found() {
+        let mut storage = create_test_storage();
+        let result = delete_knowledge(&mut storage, "missing-id");
+        assert!(matches!(result, Err(EngramError::NotFound(_))));
     }
 }
