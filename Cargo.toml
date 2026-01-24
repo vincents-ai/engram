@@ -35,7 +35,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # Configuration validation
-schemars = { version = "0.8", features = ["derive"] }
+schemars = { version = "0.8", features = ["derive", "chrono"] }
 
 # BDD Testing Framework
 cucumber = "0.20"

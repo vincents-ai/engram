@@ -2,13 +2,14 @@
 
 use super::{Entity, GenericEntity};
 use chrono::{DateTime, Utc};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
 use validator::Validate;
 
 /// Workflow status variants
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum WorkflowStatus {
     Active,
@@ -18,7 +19,7 @@ pub enum WorkflowStatus {
 }
 
 /// State type variants
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum StateType {
     Start,
@@ -29,7 +30,7 @@ pub enum StateType {
 }
 
 /// Transition type variants
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum TransitionType {
     Automatic,
@@ -39,7 +40,7 @@ pub enum TransitionType {
 }
 
 /// Workflow entity
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, JsonSchema)]
 pub struct Workflow {
     /// Unique identifier
     #[serde(rename = "id")]
@@ -123,7 +124,7 @@ pub struct Workflow {
 }
 
 /// Prompt template for agent instructions
-#[derive(Debug, Clone, Serialize, Deserialize, Validate, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, PartialEq, JsonSchema)]
 pub struct PromptTemplate {
     /// System prompt template (sets behavior/role)
     #[serde(rename = "system", skip_serializing_if = "Option::is_none")]
@@ -135,7 +136,7 @@ pub struct PromptTemplate {
 }
 
 /// Workflow state
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, JsonSchema)]
 pub struct WorkflowState {
     /// State identifier
     #[serde(rename = "id")]
@@ -175,7 +176,7 @@ pub struct WorkflowState {
 }
 
 /// Workflow transition
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, JsonSchema)]
 pub struct WorkflowTransition {
     /// Transition identifier
     #[serde(rename = "id")]
@@ -211,7 +212,7 @@ pub struct WorkflowTransition {
 }
 
 /// State guard condition
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, JsonSchema)]
 pub struct StateGuard {
     /// Guard identifier
     #[serde(rename = "id")]
@@ -231,7 +232,7 @@ pub struct StateGuard {
 }
 
 /// State function (post-function)
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, JsonSchema)]
 pub struct StateFunction {
     /// Function identifier
     #[serde(rename = "id")]
@@ -251,7 +252,7 @@ pub struct StateFunction {
 }
 
 /// Transition condition
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, JsonSchema)]
 pub struct TransitionCondition {
     /// Condition identifier
     #[serde(rename = "id")]
@@ -267,7 +268,7 @@ pub struct TransitionCondition {
 }
 
 /// Transition action
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, JsonSchema)]
 pub struct TransitionAction {
     /// Action identifier
     #[serde(rename = "id")]
@@ -287,7 +288,7 @@ pub struct TransitionAction {
 }
 
 /// Permission scheme
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, JsonSchema)]
 pub struct PermissionScheme {
     /// Scheme identifier
     #[serde(rename = "id")]
@@ -307,7 +308,7 @@ pub struct PermissionScheme {
 }
 
 /// Event handler
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, JsonSchema)]
 pub struct EventHandler {
     /// Handler identifier
     #[serde(rename = "id")]

@@ -130,6 +130,9 @@ async fn run() -> Result<(), EngramError> {
                 cli::show_prompt(&name)?;
             }
         },
+        cli::Commands::Schema { command } => {
+            cli::handle_schema_command(command)?;
+        }
         cli::Commands::Perkeep { command } => {
             use engram::cli::perkeep::{
                 perkeep_backup, perkeep_health, perkeep_list, perkeep_restore,

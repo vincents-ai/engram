@@ -19,6 +19,7 @@ pub mod relationship;
 pub mod rule;
 #[cfg(feature = "sandbox")]
 pub mod sandbox;
+pub mod schema;
 pub mod session;
 pub mod setup;
 pub mod skills;
@@ -44,6 +45,7 @@ pub use relationship::*;
 pub use rule::*;
 #[cfg(feature = "sandbox")]
 pub use sandbox::*;
+pub use schema::*;
 pub use session::*;
 pub use setup::*;
 pub use skills::*;
@@ -212,6 +214,11 @@ pub enum Commands {
     Prompts {
         #[command(subcommand)]
         command: PromptsCommands,
+    },
+    /// Generate JSON Schema for entity types
+    Schema {
+        #[command(subcommand)]
+        command: SchemaCommands,
     },
 }
 
