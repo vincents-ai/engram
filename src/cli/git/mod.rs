@@ -78,3 +78,35 @@ pub fn handle_git_command(args: Vec<String>) -> Result<(), EngramError> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_git_no_args() {
+        let args = vec![];
+        let result = handle_git_command(args);
+        assert!(
+            matches!(result, Err(EngramError::Validation(msg)) if msg == "No git command provided")
+        );
+    }
+
+    #[test]
+    fn test_git_banned_flag_no_verify() {
+        let args = vec!["commit".to_string(), "--no-verify".to_string()];
+        let result = handle_git_command(args);
+        assert!(
+            matches!(result, Err(EngramError::Validation(msg)) if msg.contains("Using --no-verify is not allowed"))
+        );
+    }
+
+    #[test]
+    fn test_git_banned_flag_short_n() {
+        let args = vec!["commit".to_string(), "-n".to_string()];
+        let result = handle_git_command(args);
+        assert!(
+            matches!(result, Err(EngramError::Validation(msg)) if msg.contains("Using --no-verify is not allowed"))
+        );
+    }
+}
