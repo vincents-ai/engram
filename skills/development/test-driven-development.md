@@ -1,5 +1,5 @@
 ---
-name: test-driven-development-engram
+name: engram-test-driven-development
 description: "Engram-integrated version. Use when implementing any feature or bugfix - integrates engram validation checkpoints at each TDD phase."
 ---
 

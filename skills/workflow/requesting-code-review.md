@@ -1,5 +1,5 @@
 ---
-name: requesting-code-review-engram
+name: engram-requesting-code-review
 description: "Engram-integrated version. Use when completing tasks or before merging - creates engram compliance entities for review requirements and context entities for review results."
 ---
 

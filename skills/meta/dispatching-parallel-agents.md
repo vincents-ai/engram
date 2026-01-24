@@ -1,5 +1,5 @@
 ---
-name: dispatching-parallel-agents-engram
+name: engram-dispatching-parallel-agents
 description: "Engram-integrated version. Use when facing 2+ independent tasks - creates engram workflow with parallel states instead of manual task dispatch."
 ---
 

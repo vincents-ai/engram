@@ -1,5 +1,5 @@
 ---
-name: systematic-debugging-engram
+name: engram-systematic-debugging
 description: "Engram-integrated version. Use when encountering bugs - stores investigation in engram reasoning chains for audit trail and pattern analysis."
 ---
 

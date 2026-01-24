@@ -1,5 +1,5 @@
 ---
-name: engram-use-memory
+name: engram-use-engram-memory
 description: "Use engram as persistent memory for all work. Store context, decisions, and reasoning in engram entities instead of losing them in conversation."
 ---
 

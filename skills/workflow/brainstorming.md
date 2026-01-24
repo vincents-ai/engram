@@ -1,5 +1,5 @@
 ---
-name: brainstorming-engram
+name: engram-brainstorming
 description: "Engram-integrated version. Use before any creative work - creates engram context/reasoning entities instead of markdown files."
 ---
 

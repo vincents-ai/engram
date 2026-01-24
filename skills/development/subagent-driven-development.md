@@ -1,5 +1,5 @@
 ---
-name: subagent-driven-development-engram
+name: engram-subagent-driven-development
 description: "Engram-integrated version. Use when executing implementation plans - tracks agent assignment and reviews via engram task.agent field and context entities."
 ---
 

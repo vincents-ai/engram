@@ -1,5 +1,5 @@
 ---
-name: writing-plans-engram
+name: engram-writing-plans
 description: "Engram-integrated version. Use when you have a spec or requirements for a multi-step task, before touching code - creates engram task hierarchy instead of markdown files."
 ---
 
