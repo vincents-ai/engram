@@ -19,10 +19,18 @@
       
       craneLib = crane.mkLib pkgs;
       
+      # Custom source filter to include skill_templates
+      sourceFilter = path: type:
+        (craneLib.filterCargoSources path type) ||
+        (builtins.match ".*skill_templates.*" path != null);
+      
       engramPackage = craneLib.buildPackage {
         pname = "engram";
         version = "0.1.0";
-        src = craneLib.cleanCargoSource ./.;
+        src = pkgs.lib.cleanSourceWith {
+          src = ./.;
+          filter = sourceFilter;
+        };
         
         cargoLockFile = ./Cargo.lock;
 
