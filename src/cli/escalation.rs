@@ -1150,4 +1150,100 @@ mod tests {
             EscalationOperationType::Custom(_)
         ));
     }
+
+    #[test]
+    fn test_review_escalation_not_found() {
+        let mut storage = MemoryStorage::new("test-agent");
+        let result = review_escalation(
+            &mut storage,
+            "non-existent".to_string(),
+            Some("approved".to_string()),
+            Some("Reason".to_string()),
+            Some("reviewer".to_string()),
+            Some("Reviewer".to_string()),
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+        );
+        assert!(result.is_err());
+        match result {
+            Err(EngramError::NotFound(_)) => {}
+            _ => panic!("Expected NotFound error"),
+        }
+    }
+
+    #[test]
+    fn test_review_escalation_invalid_action() {
+        let mut storage = MemoryStorage::new("test-agent");
+
+        create_escalation(
+            &mut storage,
+            Some("agent-1".to_string()),
+            Some("network".to_string()),
+            Some("curl".to_string()),
+            Some("blocked".to_string()),
+            Some("justification".to_string()),
+            "normal".to_string(),
+            None,
+            None,
+            false,
+            None,
+            false,
+        )
+        .unwrap();
+
+        let query = storage
+            .query_by_type("escalation_request", None, None, None)
+            .unwrap();
+        let id = query.entities[0].id.clone();
+
+        // First review to close it
+        review_escalation(
+            &mut storage,
+            id.clone(),
+            Some("approved".to_string()),
+            Some("ok".to_string()),
+            Some("r1".to_string()),
+            Some("Reviewer 1".to_string()),
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+        )
+        .unwrap();
+
+        // Second review should fail because it's already approved (not actionable)
+        let result = review_escalation(
+            &mut storage,
+            id,
+            Some("denied".to_string()),
+            Some("changed mind".to_string()),
+            Some("r2".to_string()),
+            Some("Reviewer 2".to_string()),
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+        );
+
+        assert!(result.is_err());
+        match result {
+            Err(EngramError::InvalidOperation(_)) => {}
+            _ => panic!("Expected InvalidOperation error"),
+        }
+    }
+
+    #[test]
+    fn test_cancel_escalation_not_found() {
+        let mut storage = MemoryStorage::new("test-agent");
+        let result = cancel_escalation(&mut storage, "non-existent".to_string(), None, true, false);
+        assert!(result.is_err());
+    }
 }
