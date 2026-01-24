@@ -926,6 +926,37 @@ fn handle_workflow_command<S: engram::storage::Storage>(
             let storage_for_workflow = GitRefsStorage::new(".", "default")?;
             cli::cancel_workflow_instance(storage_for_workflow, instance_id, agent, reason)?;
         }
+        cli::WorkflowCommands::ExecuteAction {
+            action_type,
+            command,
+            args,
+            working_directory,
+            environment,
+            timeout_seconds,
+            message,
+            entity_id,
+            entity_type,
+        } => {
+            let storage_for_workflow = GitRefsStorage::new(".", "default")?;
+            cli::execute_action(
+                storage_for_workflow,
+                action_type,
+                command,
+                args,
+                working_directory,
+                environment,
+                timeout_seconds,
+                message,
+                entity_id,
+                entity_type,
+            )?;
+        }
+        cli::WorkflowCommands::QueryActions {
+            workflow_id,
+            state_id,
+        } => {
+            cli::query_workflow_actions(storage, workflow_id, state_id)?;
+        }
     }
     Ok(())
 }

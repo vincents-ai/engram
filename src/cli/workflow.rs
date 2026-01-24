@@ -210,6 +210,54 @@ pub enum WorkflowCommands {
         #[arg(long)]
         reason: Option<String>,
     },
+    /// Execute an action (external command, notification, etc.)
+    ExecuteAction {
+        /// Action type (external_command, notification, update_entity)
+        #[arg(long)]
+        action_type: String,
+
+        /// Command to execute (for external_command)
+        #[arg(long)]
+        command: Option<String>,
+
+        /// Arguments for command (comma-separated)
+        #[arg(long)]
+        args: Option<String>,
+
+        /// Working directory
+        #[arg(long)]
+        working_directory: Option<String>,
+
+        /// Environment variables (KEY=VALUE, comma-separated)
+        #[arg(long)]
+        environment: Option<String>,
+
+        /// Timeout in seconds
+        #[arg(long)]
+        timeout_seconds: Option<u64>,
+
+        /// Message (for notification action)
+        #[arg(long)]
+        message: Option<String>,
+
+        /// Entity ID (for update_entity action)
+        #[arg(long)]
+        entity_id: Option<String>,
+
+        /// Entity type (for update_entity action)
+        #[arg(long)]
+        entity_type: Option<String>,
+    },
+    /// Query available actions, guards, and checks for a workflow
+    QueryActions {
+        /// Workflow ID
+        #[arg(help = "Workflow ID")]
+        workflow_id: String,
+
+        /// State ID filter (optional)
+        #[arg(long)]
+        state_id: Option<String>,
+    },
 }
 
 /// Create a new workflow
@@ -962,6 +1010,246 @@ pub fn cancel_workflow_instance<S: Storage + 'static>(
     } else {
         println!("❌ Failed to cancel workflow instance");
         println!("💬 Message: {}", result.message);
+    }
+
+    Ok(())
+}
+
+/// Execute an action (external command, notification, etc.)
+pub fn execute_action<S: Storage + 'static>(
+    storage: S,
+    action_type: String,
+    command: Option<String>,
+    args: Option<String>,
+    working_directory: Option<String>,
+    environment: Option<String>,
+    timeout_seconds: Option<u64>,
+    message: Option<String>,
+    entity_id: Option<String>,
+    entity_type: Option<String>,
+) -> Result<(), EngramError> {
+    use crate::engines::ActionExecutor;
+    let mut parameters = HashMap::new();
+
+    match action_type.as_str() {
+        "external_command" => {
+            if let Some(cmd) = command {
+                parameters.insert("command".to_string(), serde_json::json!(cmd));
+            } else {
+                return Err(EngramError::Validation(
+                    "Command is required for external_command action type".to_string(),
+                ));
+            }
+
+            if let Some(args_str) = args {
+                let args_vec: Vec<String> = args_str
+                    .split(',')
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect();
+                parameters.insert("args".to_string(), serde_json::json!(args_vec));
+            }
+
+            if let Some(wd) = working_directory {
+                parameters.insert("working_directory".to_string(), serde_json::json!(wd));
+            }
+
+            if let Some(env_str) = environment {
+                let mut env_map: HashMap<String, String> = HashMap::new();
+                for pair in env_str.split(',') {
+                    if let Some((key, value)) = pair.split_once('=') {
+                        env_map.insert(key.trim().to_string(), value.trim().to_string());
+                    }
+                }
+                parameters.insert("environment".to_string(), serde_json::json!(env_map));
+            }
+
+            if let Some(timeout) = timeout_seconds {
+                parameters.insert("timeout_seconds".to_string(), serde_json::json!(timeout));
+            }
+
+            parameters.insert("capture_output".to_string(), serde_json::json!(true));
+        }
+        "notification" => {
+            if let Some(msg) = message {
+                parameters.insert("message".to_string(), serde_json::json!(msg));
+            } else {
+                return Err(EngramError::Validation(
+                    "Message is required for notification action type".to_string(),
+                ));
+            }
+        }
+        "update_entity" => {
+            if let Some(id) = entity_id {
+                parameters.insert("entity_id".to_string(), serde_json::json!(id));
+            } else {
+                return Err(EngramError::Validation(
+                    "Entity ID is required for update_entity action type".to_string(),
+                ));
+            }
+
+            if let Some(etype) = entity_type {
+                parameters.insert("entity_type".to_string(), serde_json::json!(etype));
+            } else {
+                return Err(EngramError::Validation(
+                    "Entity type is required for update_entity action type".to_string(),
+                ));
+            }
+        }
+        _ => {
+            return Err(EngramError::Validation(format!(
+                "Unknown action type: {}. Supported: external_command, notification, update_entity",
+                action_type
+            )));
+        }
+    }
+
+    // Execute the action
+    let executor = ActionExecutor::new(true); // Allow external commands
+    let result = executor.execute_action(&action_type, &parameters)?;
+
+    if result.success {
+        println!("✅ Action executed successfully!");
+        println!("💬 Message: {}", result.message);
+
+        if let Some(output) = result.output {
+            println!("📄 Output:");
+            println!("{}", output);
+        }
+
+        if let Some(exit_code) = result.exit_code {
+            println!("🔢 Exit Code: {}", exit_code);
+        }
+    } else {
+        println!("❌ Action execution failed");
+        println!("💬 Message: {}", result.message);
+
+        if let Some(error) = result.error {
+            println!("⚠️  Error:");
+            println!("{}", error);
+        }
+
+        if let Some(exit_code) = result.exit_code {
+            println!("🔢 Exit Code: {}", exit_code);
+        }
+    }
+
+    Ok(())
+}
+
+/// Query available actions, guards, and checks for a workflow
+pub fn query_workflow_actions<S: Storage>(
+    storage: &S,
+    workflow_id: String,
+    state_id: Option<String>,
+) -> Result<(), EngramError> {
+    if let Some(generic) = storage.get(&workflow_id, "workflow")? {
+        let workflow =
+            Workflow::from_generic(generic).map_err(|e| EngramError::Validation(e.to_string()))?;
+
+        println!("📋 Workflow: {} ({})", workflow.title, workflow.id);
+        println!();
+
+        // Filter states if state_id is provided
+        let states_to_show: Vec<&WorkflowState> = if let Some(ref sid) = state_id {
+            workflow.states.iter().filter(|s| &s.id == sid).collect()
+        } else {
+            workflow.states.iter().collect()
+        };
+
+        if states_to_show.is_empty() {
+            if state_id.is_some() {
+                println!("❌ State not found in workflow");
+            } else {
+                println!("ℹ️  No states defined in workflow");
+            }
+            return Ok(());
+        }
+
+        for state in states_to_show {
+            println!("🔷 State: {} ({})", state.name, state.id);
+            println!("   Type: {:?}", state.state_type);
+
+            // Show guards
+            if !state.guards.is_empty() {
+                println!("   🛡️  Guards ({}):", state.guards.len());
+                for guard in &state.guards {
+                    println!("      • {} ({})", guard.guard_type, guard.id);
+                    if !guard.error_message.is_empty() {
+                        println!("        Error: {}", guard.error_message);
+                    }
+                }
+            }
+
+            // Show post-functions
+            if !state.post_functions.is_empty() {
+                println!("   ⚙️  Post-Functions ({}):", state.post_functions.len());
+                for func in &state.post_functions {
+                    println!(
+                        "      • {} - {} ({})",
+                        func.name, func.function_type, func.id
+                    );
+                }
+            }
+
+            println!();
+        }
+
+        // Show transitions
+        let transitions_to_show: Vec<&WorkflowTransition> = if let Some(ref sid) = state_id {
+            workflow
+                .transitions
+                .iter()
+                .filter(|t| &t.from_state == sid)
+                .collect()
+        } else {
+            workflow.transitions.iter().collect()
+        };
+
+        if !transitions_to_show.is_empty() {
+            println!("🔄 Transitions ({}):", transitions_to_show.len());
+            for transition in transitions_to_show {
+                println!(
+                    "   • {} ({} → {})",
+                    transition.name, transition.from_state, transition.to_state
+                );
+                println!("     Type: {:?}", transition.transition_type);
+
+                // Show conditions
+                if !transition.conditions.is_empty() {
+                    println!("     📋 Conditions ({}):", transition.conditions.len());
+                    for condition in &transition.conditions {
+                        println!("        • {} ({})", condition.condition_type, condition.id);
+                    }
+                }
+
+                // Show actions
+                if !transition.actions.is_empty() {
+                    println!("     ⚡ Actions ({}):", transition.actions.len());
+                    for action in &transition.actions {
+                        println!(
+                            "        • {} - {} ({})",
+                            action.name, action.action_type, action.id
+                        );
+
+                        // Show some action details
+                        if action.action_type == "external_command" {
+                            if let Some(cmd) = action.parameters.get("command") {
+                                println!("          Command: {}", cmd);
+                            }
+                        }
+                    }
+                }
+
+                println!();
+            }
+        }
+
+        println!(
+            "💡 Use 'engram workflow execute-action --action-type <type> ...' to test actions"
+        );
+    } else {
+        println!("❌ Workflow not found: {}", workflow_id);
     }
 
     Ok(())

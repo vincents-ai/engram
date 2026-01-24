@@ -3,6 +3,7 @@
 //! Provides state machine-based workflow automation for business processes,
 //! multi-agent coordination, and automated task orchestration.
 
+use crate::engines::action_executor::{ActionExecutor, ActionResult};
 use crate::engines::rule_engine::{RuleExecutionEngine, RuleValue};
 use crate::entities::{Entity, WorkflowInstance};
 use crate::error::EngramError;
@@ -131,6 +132,7 @@ pub struct WorkflowAutomationEngine<S: Storage> {
     storage: S,
     #[allow(dead_code)]
     rule_engine: RuleExecutionEngine,
+    action_executor: ActionExecutor,
     active_instances: HashMap<String, WorkflowInstance>,
     event_queue: VecDeque<WorkflowExecutionEvent>,
     #[allow(dead_code)]
@@ -141,6 +143,7 @@ pub struct WorkflowAutomationEngine<S: Storage> {
 pub struct WorkflowEngineBuilder<S: Storage> {
     storage: Option<S>,
     rule_engine: Option<RuleExecutionEngine>,
+    action_executor: Option<ActionExecutor>,
     max_execution_steps: usize,
 }
 
@@ -149,6 +152,7 @@ impl<S: Storage> WorkflowEngineBuilder<S> {
         Self {
             storage: None,
             rule_engine: None,
+            action_executor: None,
             max_execution_steps: 1000, // Default limit to prevent infinite loops
         }
     }
@@ -163,6 +167,11 @@ impl<S: Storage> WorkflowEngineBuilder<S> {
         self
     }
 
+    pub fn with_action_executor(mut self, action_executor: ActionExecutor) -> Self {
+        self.action_executor = Some(action_executor);
+        self
+    }
+
     pub fn with_max_execution_steps(mut self, max_steps: usize) -> Self {
         self.max_execution_steps = max_steps;
         self
@@ -174,10 +183,14 @@ impl<S: Storage> WorkflowEngineBuilder<S> {
             .ok_or_else(|| EngramError::Validation("Storage is required".to_string()))?;
 
         let rule_engine = self.rule_engine.unwrap_or_else(RuleExecutionEngine::new);
+        let action_executor = self
+            .action_executor
+            .unwrap_or_else(|| ActionExecutor::new(true)); // Default: allow external commands
 
         Ok(WorkflowAutomationEngine {
             storage,
             rule_engine,
+            action_executor,
             active_instances: HashMap::new(),
             event_queue: VecDeque::new(),
             max_execution_steps: self.max_execution_steps,
@@ -191,6 +204,7 @@ impl<S: Storage> WorkflowAutomationEngine<S> {
         Self {
             storage,
             rule_engine: RuleExecutionEngine::new(),
+            action_executor: ActionExecutor::new(true), // Default: allow external commands
             active_instances: HashMap::new(),
             event_queue: VecDeque::new(),
             max_execution_steps: 1000,
@@ -399,6 +413,15 @@ impl<S: Storage> WorkflowAutomationEngine<S> {
             events: vec![transition_event],
             variables_changed: HashMap::new(),
         })
+    }
+
+    /// Execute an action defined in a transition
+    pub fn execute_transition_action(
+        &self,
+        action_type: &str,
+        parameters: &HashMap<String, serde_json::Value>,
+    ) -> Result<ActionResult, EngramError> {
+        self.action_executor.execute_action(action_type, parameters)
     }
 
     /// Get workflow instance status
