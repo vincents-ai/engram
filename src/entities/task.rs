@@ -91,6 +91,10 @@ pub struct Task {
     #[serde(rename = "outcome", skip_serializing_if = "Option::is_none")]
     pub outcome: Option<String>,
 
+    /// Reason for blocking the task
+    #[serde(rename = "block_reason", skip_serializing_if = "Option::is_none")]
+    pub block_reason: Option<String>,
+
     #[serde(rename = "workflow_id", skip_serializing_if = "Option::is_none")]
     pub workflow_id: Option<String>,
 

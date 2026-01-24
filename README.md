@@ -10,50 +10,50 @@ It acts as a "second brain" for your software projects, allowing you to capture 
 
 *   **Context Persistence**: Don't lose the "why" behind your code changes. Store reasoning chains linked directly to tasks.
 *   **Agent Ready**: Your plans and context are structured so AI agents can instantly onboard and contribute effectively.
-*   **Git-Backed**: Everything is stored as text files in your repository. It version controls your project management alongside your code.
+*   **Git-Native Storage**: Engram stores data directly in your `.git` database using custom references (`refs/engram/`). This means your project management is version-controlled without polluting your working directory.
 
 ## Quick Start
 
-### Installation
+### 1. Setup
 
-(Assuming you have the binary available in your path or are running via `cargo run`)
+Run these commands in your project root to initialize Engram and set up your identity.
 
 ```bash
-# Initialize a new workspace
+# Initialize workspace
 engram setup workspace
 
-# Create your first agent identity
-engram setup agent --name human --type operator
+# Create your profile (replace name as needed)
+engram setup agent --name "Human Operator" --agent-type operator
+
+# (Optional) Install git hook to enforce task linking
+engram validate hook install
 ```
 
-### Core Workflow
+### 2. Core Workflow
 
 The Engram workflow follows a simple cycle: **Plan -> Execute -> Remember**.
 
-#### 1. Plan
+#### Plan
 Break down your work into trackable tasks.
 
 ```bash
 # Create a high-level task
 engram task create --title "Add user authentication" --priority high
-
-# Create subtasks
-engram task create --title "Design database schema" --parent-id <TASK_ID>
 ```
 
-#### 2. Execute & Document Context
-As you work, save relevant information (snippets, docs, decisions).
+#### Execute & Document
+As you work, save relevant information.
 
 ```bash
-# Store a piece of context (e.g., a documentation URL or snippet)
+# Store context (e.g., docs)
 engram context create --title "OAuth2 Spec" --source "https://oauth.net/2/"
 
 # Link it to your task
 engram relationship create --source-id <TASK_ID> --target-id <CONTEXT_ID> --type references
 ```
 
-#### 3. Remember (Reasoning)
-Record *why* you made specific decisions. This is crucial for future maintainers (and AI agents).
+#### Remember (Reasoning)
+Record *why* you made specific decisions.
 
 ```bash
 # Record a decision
