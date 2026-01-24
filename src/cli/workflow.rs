@@ -1379,4 +1379,73 @@ mod tests {
         // Status should remain default (Draft)
         assert_eq!(workflow.status, WorkflowStatus::Draft);
     }
+
+    #[test]
+    fn test_execute_action_invalid_type() {
+        let storage = MemoryStorage::new("default");
+        let result = execute_action(
+            storage,
+            "invalid_type".to_string(),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+        assert!(matches!(result, Err(EngramError::Validation(_))));
+    }
+
+    #[test]
+    fn test_execute_action_missing_params() {
+        // External command missing command
+        let storage1 = MemoryStorage::new("default");
+        let result_cmd = execute_action(
+            storage1,
+            "external_command".to_string(),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+        assert!(matches!(result_cmd, Err(EngramError::Validation(_))));
+
+        // Notification missing message
+        let storage2 = MemoryStorage::new("default");
+        let result_notif = execute_action(
+            storage2,
+            "notification".to_string(),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None, // message missing
+            None,
+            None,
+        );
+        assert!(matches!(result_notif, Err(EngramError::Validation(_))));
+
+        // Update entity missing id/type
+        let storage3 = MemoryStorage::new("default");
+        let result_update = execute_action(
+            storage3,
+            "update_entity".to_string(),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None, // id missing
+            None,
+        );
+        assert!(matches!(result_update, Err(EngramError::Validation(_))));
+    }
 }
