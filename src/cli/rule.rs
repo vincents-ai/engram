@@ -767,4 +767,75 @@ mod tests {
         )
         .is_ok());
     }
+
+    #[test]
+    fn test_update_rule_invalid_inputs() {
+        let mut storage = create_test_storage();
+        create_rule(
+            &mut storage,
+            "Rule".to_string(),
+            None,
+            "validation".to_string(),
+            "medium".to_string(),
+            None,
+            "{}".to_string(),
+            "{}".to_string(),
+            None,
+        )
+        .unwrap();
+
+        let rules = storage.query_by_agent("cli", Some("rule")).unwrap();
+        let id = &rules[0].id;
+
+        // Invalid type
+        update_rule(
+            &mut storage,
+            id,
+            None,
+            None,
+            Some("invalid".to_string()),
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        let updated = Rule::from_generic(storage.get(id, "rule").unwrap().unwrap()).unwrap();
+        assert_eq!(updated.rule_type, RuleType::Validation); // Should remain unchanged
+
+        // Invalid priority
+        update_rule(
+            &mut storage,
+            id,
+            None,
+            None,
+            None,
+            Some("invalid".to_string()),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        let updated = Rule::from_generic(storage.get(id, "rule").unwrap().unwrap()).unwrap();
+        assert_eq!(updated.priority, RulePriority::Medium); // Should remain unchanged
+
+        // Invalid status
+        update_rule(
+            &mut storage,
+            id,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some("invalid".to_string()),
+        )
+        .unwrap();
+        let updated = Rule::from_generic(storage.get(id, "rule").unwrap().unwrap()).unwrap();
+        assert!(matches!(updated.status, RuleStatus::Active)); // Should remain unchanged
+    }
 }
