@@ -372,6 +372,7 @@ mod tests {
             outcome: None,
             workflow_id: None,
             workflow_state: None,
+            block_reason: None,
             tags: vec![],
             metadata: HashMap::new(),
         }

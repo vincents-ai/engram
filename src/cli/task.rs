@@ -48,6 +48,10 @@ pub enum TaskCommands {
         #[arg(long)]
         tags: Option<String>,
 
+        /// Output format (json, text)
+        #[arg(long, default_value = "text")]
+        output: String,
+
         /// Read title from stdin
         #[arg(long, conflicts_with_all = ["title", "title_file"])]
         title_stdin: bool,
@@ -162,44 +166,6 @@ fn read_file(path: &str) -> Result<String, EngramError> {
     fs::read_to_string(path).map_err(EngramError::Io)
 }
 
-/// Create task from JSON input
-fn create_task_from_input<S: Storage>(
-    storage: &mut S,
-    input: TaskInput,
-) -> Result<(), EngramError> {
-    let priority_enum = match input.priority.as_deref().unwrap_or("medium") {
-        "low" => TaskPriority::Low,
-        "medium" => TaskPriority::Medium,
-        "high" => TaskPriority::High,
-        "critical" => TaskPriority::Critical,
-        _ => TaskPriority::Medium,
-    };
-
-    let mut task = Task::new(
-        input.title,
-        input.description.unwrap_or_default(),
-        input.agent.unwrap_or_else(|| "default".to_string()),
-        priority_enum,
-        None,
-    );
-
-    if let Some(parent_id) = input.parent {
-        task.parent = Some(parent_id);
-    }
-
-    if let Some(tags_vec) = input.tags {
-        task.tags = tags_vec;
-    }
-
-    let generic = task.to_generic();
-    storage.store(&generic)?;
-
-    println!("✅ Task created:");
-    display_task(&task);
-
-    Ok(())
-}
-
 /// Create task command
 pub fn create_task<S: Storage>(
     storage: &mut S,
@@ -216,6 +182,7 @@ pub fn create_task<S: Storage>(
     description_file: Option<String>,
     json: bool,
     json_file: Option<String>,
+    output_format: String,
 ) -> Result<(), EngramError> {
     // Handle JSON input first (overrides all other inputs)
     if json {
@@ -225,41 +192,79 @@ pub fn create_task<S: Storage>(
             read_stdin()?
         };
 
-        let task_input: TaskInput = serde_json::from_str(&json_content)
-            .map_err(|e| EngramError::Validation(format!("Invalid JSON: {}", e)))?;
+        let task_input: TaskInput = serde_json::from_str(&json_content).map_err(|e| {
+            EngramError::Validation(format!(
+                "Invalid JSON: {}. Line: {}, Column: {}",
+                e,
+                e.line(),
+                e.column()
+            ))
+        })?;
 
-        return create_task_from_input(storage, task_input);
+        // When using --json (input mode), we might want to respect output format too.
+        // But create_task_from_input currently prints to stdout directly.
+        // We should refactor create_task_from_input to accept output_format or return the task.
+        // For now, let's modify create_task_from_input signature if possible, or just reimplement here.
+
+        // Re-implementing logic here to support output format
+        let priority_enum = match task_input.priority.as_deref().unwrap_or("medium") {
+            "low" => TaskPriority::Low,
+            "medium" => TaskPriority::Medium,
+            "high" => TaskPriority::High,
+            "critical" => TaskPriority::Critical,
+            _ => TaskPriority::Medium,
+        };
+
+        let mut task = Task::new(
+            task_input.title,
+            task_input.description.unwrap_or_default(),
+            task_input.agent.unwrap_or_else(|| "default".to_string()),
+            priority_enum,
+            None,
+        );
+
+        if let Some(parent_id) = task_input.parent {
+            task.parent = Some(parent_id);
+        }
+
+        if let Some(tags_vec) = task_input.tags {
+            task.tags = tags_vec;
+        }
+
+        let generic = task.to_generic();
+        storage.store(&generic)?;
+
+        if output_format == "json" {
+            println!("{}", serde_json::to_string_pretty(&task).unwrap());
+        } else {
+            println!("✅ Task created:");
+            display_task(&task);
+        }
+        return Ok(());
     }
 
-    // Resolve title from various sources
-    let final_title = if title_stdin {
-        read_stdin()?
-    } else if let Some(ref file_path) = title_file {
-        read_file(file_path)?
-    } else if let Some(ref t) = title {
-        t.clone()
+    // Interactive/Flag-based Creation Logic
+    let title_val = if title_stdin {
+        Some(read_stdin()?)
+    } else if let Some(ref path) = title_file {
+        Some(read_file(path)?)
     } else {
-        return Err(EngramError::Validation(
-            "Title required: use --title, --title-stdin, or --title-file".to_string(),
-        ));
+        title
     };
 
-    // Resolve description from various sources
-    let _final_description = if description_stdin {
-        Some(read_stdin()?)
-    } else if let Some(ref file_path) = description_file {
-        Some(read_file(file_path)?)
-    } else {
-        description.as_ref().map(|s| s.clone())
-    };
+    // Ensure title is present
+    let final_title = title_val.ok_or_else(|| {
+        EngramError::Validation(
+            "Title is required (use --title, --title-stdin, or --title-file)".to_string(),
+        )
+    })?;
 
-    // Resolve description from various sources
-    let final_description = if description_stdin {
+    let description_val = if description_stdin {
         Some(read_stdin()?)
-    } else if let Some(file_path) = description_file {
-        Some(read_file(&file_path)?)
+    } else if let Some(ref path) = description_file {
+        Some(read_file(path)?)
     } else {
-        description.map(|s| s.to_string())
+        description
     };
 
     let priority_enum = match priority {
@@ -272,14 +277,14 @@ pub fn create_task<S: Storage>(
 
     let mut task = Task::new(
         final_title,
-        final_description.unwrap_or_default(),
+        description_val.unwrap_or_default(),
         agent.unwrap_or_else(|| "default".to_string()),
         priority_enum,
         None,
     );
 
     if let Some(parent_id) = parent {
-        task.parent = Some(parent_id.to_string());
+        task.parent = Some(parent_id);
     }
 
     if let Some(tags_str) = tags {
@@ -289,8 +294,12 @@ pub fn create_task<S: Storage>(
     let generic = task.to_generic();
     storage.store(&generic)?;
 
-    println!("✅ Task created:");
-    display_task(&task);
+    if output_format == "json" {
+        println!("{}", serde_json::to_string_pretty(&task).unwrap());
+    } else {
+        println!("✅ Task created:");
+        display_task(&task);
+    }
 
     Ok(())
 }
@@ -642,6 +651,7 @@ mod tests {
             None,
             false,
             None,
+            "text".to_string(),
         );
         assert!(result.is_ok());
 
@@ -681,6 +691,7 @@ mod tests {
                 None,
                 false,
                 None,
+                "text".to_string(),
             )
             .unwrap();
 
@@ -713,6 +724,7 @@ mod tests {
             None,
             false,
             None,
+            "text".to_string(),
         )
         .unwrap();
 
@@ -760,6 +772,7 @@ mod tests {
             None,
             false,
             None,
+            "text".to_string(),
         );
         assert!(matches!(result, Err(EngramError::Validation(_))));
     }
@@ -781,6 +794,7 @@ mod tests {
             None,
             false,
             None,
+            "text".to_string(),
         )
         .unwrap();
 
@@ -832,6 +846,7 @@ mod tests {
             None,
             false,
             None,
+            "text".to_string(),
         )
         .unwrap();
 
@@ -859,6 +874,7 @@ mod tests {
             None,
             false,
             None,
+            "text".to_string(),
         )
         .unwrap();
 
@@ -894,6 +910,7 @@ mod tests {
             None,
             false,
             None,
+            "text".to_string(),
         )
         .unwrap();
 
@@ -911,6 +928,7 @@ mod tests {
             None,
             false,
             None,
+            "text".to_string(),
         )
         .unwrap();
 
@@ -948,6 +966,7 @@ mod tests {
             None,
             false,
             None,
+            "text".to_string(),
         )
         .unwrap();
 
@@ -1023,6 +1042,7 @@ mod tests {
             None,
             false,
             None,
+            "text".to_string(),
         )
         .unwrap();
 
@@ -1043,7 +1063,7 @@ mod tests {
 
     #[test]
     fn test_create_task_json_invalid() {
-        let mut storage = create_test_storage();
+        let _storage = create_test_storage();
         // We can't easily test stdin/file reading in unit tests without mocking
         // but we can test the json deserialization logic by simulating the function calls that would happen
         // This is harder to test directly via the public API which reads from FS/Stdin

@@ -461,7 +461,7 @@ impl Default for RuleEngineBuilder {
 mod tests {
     use super::*;
     use crate::entities::{RulePriority, RuleStatus, RuleType};
-    use crate::storage::{MemoryStorage, Storage};
+    use crate::storage::Storage;
     use serde_json::json;
 
     fn create_test_rule() -> Rule {
@@ -561,16 +561,52 @@ mod tests {
     }
 
     #[test]
-    fn test_value_parsing() {
+    fn test_execute_rule_success() {
         let engine = RuleExecutionEngine::new();
+        let rule = create_test_rule();
+        let entity = create_test_entity();
 
-        let result = engine.parse_value("42.5");
-        assert!(matches!(result, Ok(RuleValue::Number(n)) if n == 42.5));
+        let mut context = RuleExecutionContext {
+            variables: HashMap::new(),
+            current_entity: Some(entity.clone()),
+            executing_agent: "test-agent".to_string(),
+            execution_time: Utc::now(),
+            metadata: HashMap::new(),
+        };
 
-        let result = engine.parse_value("true");
-        assert!(matches!(result, Ok(RuleValue::Boolean(true))));
+        engine.populate_entity_variables(&mut context, &entity);
 
-        let result = engine.parse_value("hello");
-        assert!(matches!(result, Ok(RuleValue::String(s)) if s == "hello"));
+        let result = engine.execute_rule(&rule, &mut context).unwrap();
+
+        assert!(result.condition_satisfied);
+        assert!(result.actions_executed);
+        assert_eq!(result.actions_taken.len(), 1);
+        assert!(result.actions_taken[0].contains("Logged: High priority task detected"));
+    }
+
+    #[test]
+    fn test_execute_rule_condition_fail() {
+        let engine = RuleExecutionEngine::new();
+        let rule = create_test_rule();
+        // Create entity with low priority so condition fails
+        let mut entity = create_test_entity();
+        if let serde_json::Value::Object(ref mut map) = entity.data {
+            map.insert("priority".to_string(), json!("low"));
+        }
+
+        let mut context = RuleExecutionContext {
+            variables: HashMap::new(),
+            current_entity: Some(entity.clone()),
+            executing_agent: "test-agent".to_string(),
+            execution_time: Utc::now(),
+            metadata: HashMap::new(),
+        };
+
+        engine.populate_entity_variables(&mut context, &entity);
+
+        let result = engine.execute_rule(&rule, &mut context).unwrap();
+
+        assert!(!result.condition_satisfied);
+        assert!(!result.actions_executed);
     }
 }

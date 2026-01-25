@@ -39,7 +39,100 @@ pub fn handle_git_command(args: Vec<String>) -> Result<(), EngramError> {
         }
     }
 
-    // Check if it is a commit command and ensure we aren't bypassing hooks implicitly if that were possible (it's mostly --no-verify)
+    // Handle commit command specifically to force validation
+    if let Some(cmd) = args.first() {
+        if cmd == "commit" {
+            // Find message index
+            let mut message = String::new();
+            if let Some(idx) = args
+                .iter()
+                .position(|arg| arg == "-m" || arg == "--message")
+            {
+                if idx + 1 < args.len() {
+                    message = args[idx + 1].clone();
+                }
+            }
+
+            // If we have a message, run validation
+            if !message.is_empty() {
+                // Instantiate storage and validator to check the commit message
+                // This is a safety measure to ensure validation runs even without hooks
+                let current_dir = std::env::current_dir()
+                    .map_err(|e| EngramError::Io(e))?
+                    .to_string_lossy()
+                    .to_string();
+
+                // Debug print
+                // println!("DEBUG: Validating commit message: '{}'", message);
+
+                // We try to initialize storage. If it fails (e.g. not an engram repo yet),
+                // we might want to warn or skip. But assuming 'engram git' is used in an engram repo.
+                match crate::storage::GitRefsStorage::new(&current_dir, "engram-cli") {
+                    Ok(storage) => {
+                        match crate::validation::CommitValidator::new(storage.clone()) {
+                            Ok(mut validator) => {
+                                // Get staged files for validation
+                                let staged_files = validator.get_staged_files().unwrap_or_default();
+
+                                let result = validator.validate_commit(&message, &staged_files);
+
+                                if !result.valid {
+                                    // Format the errors nicely
+                                    let mut error_msg =
+                                        String::from("❌ Commit validation failed:\n\n");
+                                    for err in result.errors {
+                                        error_msg.push_str(&format!("• {}\n", err.message));
+                                        if let Some(suggestion) = err.suggestion {
+                                            error_msg.push_str(&format!(
+                                                "  Suggestion: {}\n",
+                                                suggestion
+                                            ));
+                                        }
+                                        error_msg.push('\n');
+                                    }
+
+                                    return Err(EngramError::Validation(error_msg));
+                                }
+
+                                // Validation passed
+                                // Check for auto-guide suggestions
+                                match crate::cli::auto_guide::get_auto_guide_suggestion(
+                                    &storage,
+                                    &crate::cli::auto_guide::AutoGuideConfig::default(),
+                                    Some("commit"),
+                                ) {
+                                    Ok(Some(suggestion)) => {
+                                        println!(
+                                            "\n💡 \x1b[1m\x1b[36mEngram Suggestion:\x1b[0m {}",
+                                            suggestion
+                                        );
+                                    }
+                                    Ok(None) => {}
+                                    Err(_) => {
+                                        // Silently fail to not disrupt flow
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                // If we can't create validator, that's a problem but maybe not blocking?
+                                // Let's log it but maybe proceed if it's just a config issue?
+                                // No, safely fail.
+                                return Err(EngramError::Validation(format!(
+                                    "Failed to initialize validator: {}",
+                                    e
+                                )));
+                            }
+                        }
+                    }
+                    Err(_) => {
+                        // If we can't initialize storage, it might not be a repo yet or other issues.
+                        // We'll proceed with git command but warn.
+                        eprintln!("⚠️  Warning: Engram storage not accessible. Skipping internal validation.");
+                    }
+                }
+            }
+        }
+    }
 
     // Construct and execute the git command
     let status = Command::new("git")

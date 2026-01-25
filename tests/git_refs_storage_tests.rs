@@ -116,7 +116,7 @@ fn test_git_refs_query_by_type() {
 fn test_git_refs_query_by_agent() {
     let (_temp_dir, mut storage) = create_test_storage();
 
-    let mut task1 = create_test_task("task-005", "Agent Test 1", "todo");
+    let task1 = create_test_task("task-005", "Agent Test 1", "todo");
     let mut task2 = create_test_task("task-006", "Agent Test 2", "todo");
     task2.agent = "other-agent".to_string();
 

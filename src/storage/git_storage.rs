@@ -318,21 +318,23 @@ impl Storage for GitStorage {
         fs::remove_file(&file_path).map_err(EngramError::Io)?;
 
         // Remove from git and commit
-        let repo = self
-            .repository
-            .lock()
-            .map_err(|e| EngramError::Git(format!("Failed to lock repository: {}", e)))?;
-        let mut index = repo.index().map_err(|e| EngramError::Git(e.to_string()))?;
+        {
+            let repo = self
+                .repository
+                .lock()
+                .map_err(|e| EngramError::Git(format!("Failed to lock repository: {}", e)))?;
+            let mut index = repo.index().map_err(|e| EngramError::Git(e.to_string()))?;
 
-        let relative_path = file_path
-            .strip_prefix(&self.workspace_path)
-            .map_err(|e| EngramError::Git(format!("Failed to make path relative: {}", e)))?;
+            let relative_path = file_path
+                .strip_prefix(&self.workspace_path)
+                .map_err(|e| EngramError::Git(format!("Failed to make path relative: {}", e)))?;
 
-        index
-            .remove_path(relative_path)
-            .map_err(|e| EngramError::Git(e.to_string()))?;
+            index
+                .remove_path(relative_path)
+                .map_err(|e| EngramError::Git(e.to_string()))?;
 
-        index.write().map_err(|e| EngramError::Git(e.to_string()))?;
+            index.write().map_err(|e| EngramError::Git(e.to_string()))?;
+        }
 
         let commit_message = format!(
             "Engram: Delete {} {} by agent {}",

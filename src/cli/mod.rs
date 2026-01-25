@@ -4,6 +4,7 @@
 //! for all entity types and operations.
 
 pub mod adr;
+pub mod auto_guide;
 pub mod compliance;
 pub mod context;
 pub mod convert;

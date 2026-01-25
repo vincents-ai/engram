@@ -253,8 +253,28 @@ impl<S: Storage + RelationshipStorage> CommitValidator<S> {
 
     /// Get staged files from git
     pub fn get_staged_files(&self) -> Result<Vec<String>, EngramError> {
-        // Temporarily return empty list to avoid git2 compilation issues
-        Ok(vec![])
+        use std::process::Command;
+
+        let output = Command::new("git")
+            .args(&["diff", "--name-only", "--cached"])
+            .output()
+            .map_err(|e| EngramError::Io(e))?;
+
+        if !output.status.success() {
+            return Err(EngramError::Git(format!(
+                "Failed to get staged files: {}",
+                String::from_utf8_lossy(&output.stderr)
+            )));
+        }
+
+        let output_str = String::from_utf8_lossy(&output.stdout);
+        let files: Vec<String> = output_str
+            .lines()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+
+        Ok(files)
     }
 
     /// Check if validation is enabled
@@ -305,6 +325,16 @@ impl<S: Storage + RelationshipStorage> CommitValidator<S> {
         }
         Ok(())
     }
+
+    /// Validate a commit with staged changes (deprecated alias)
+    pub fn validate(
+        &mut self,
+        commit_message: &str,
+        staged_files: &[String],
+        _branch: &str, // Added branch parameter but ignored for now
+    ) -> Result<ValidationResult, EngramError> {
+        Ok(self.validate_commit(commit_message, staged_files))
+    }
 }
 
 /// Cache statistics
@@ -324,7 +354,7 @@ mod tests {
         // This test would require setting up storage with test data
         // For now, we'll test the basic structure
         let storage = MemoryStorage::new("test");
-        let mut validator = CommitValidator::new(storage).unwrap();
+        let validator = CommitValidator::new(storage).unwrap();
 
         assert!(validator.is_enabled());
     }
@@ -336,5 +366,58 @@ mod tests {
 
         let result = validator.validate_commit("chore: update dependencies", &vec![]);
         assert!(result.valid); // Should be exempt
+    }
+
+    #[test]
+    fn test_validate_commit_invalid_format() {
+        let storage = MemoryStorage::new("test");
+        let mut validator = CommitValidator::new(storage).unwrap();
+
+        let result = validator.validate_commit("feat: invalid commit message", &vec![]);
+        assert!(!result.valid);
+        assert_eq!(result.errors.len(), 1);
+        assert_eq!(
+            result.errors[0].error_type,
+            ValidationErrorType::NoTaskReference
+        );
+    }
+
+    #[test]
+    fn test_validate_task_not_found() {
+        let storage = MemoryStorage::new("test");
+        let mut validator = CommitValidator::new(storage).unwrap();
+
+        // Use a task ID that doesn't exist in storage
+        let result = validator.validate_commit("feat: [TASK-999] implement feature", &vec![]);
+
+        assert!(!result.valid);
+        assert!(!result.errors.is_empty());
+
+        // Should find task ID but fail because task is not in storage
+        let found_task_error = result
+            .errors
+            .iter()
+            .any(|e| e.error_type == ValidationErrorType::TaskNotFound);
+        assert!(found_task_error, "Should report TaskNotFound error");
+    }
+
+    #[test]
+    fn test_exempt_patterns() {
+        let storage = MemoryStorage::new("test");
+        let mut validator = CommitValidator::new(storage).unwrap();
+
+        // Configure exemptions
+        let mut config = validator.get_config().clone();
+        config
+            .exemptions
+            .push(crate::validation::config::ValidationExemption {
+                message_pattern: "(?i)merge branch".to_string(), // Case insensitive
+                skip_validation: true,
+                skip_specific: vec![],
+            });
+        validator.update_config(config).unwrap();
+
+        let result = validator.validate_commit("Merge branch 'main' into feature", &vec![]);
+        assert!(result.valid);
     }
 }

@@ -232,3 +232,57 @@ impl Entity for Reasoning {
         self
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_reasoning_lifecycle() {
+        let mut reasoning = Reasoning::new(
+            "Decision".to_string(),
+            "task-1".to_string(),
+            "agent".to_string(),
+        );
+
+        assert_eq!(reasoning.steps.len(), 0);
+        assert_eq!(reasoning.confidence, 0.0);
+
+        // Add step
+        reasoning.add_step("Step 1".to_string(), "Conclusion 1".to_string(), 0.8);
+        assert_eq!(reasoning.steps.len(), 1);
+        assert_eq!(reasoning.confidence, 0.8);
+
+        // Add evidence
+        reasoning.add_evidence_to_last_step("Evidence A".to_string());
+        assert_eq!(reasoning.steps[0].evidence.len(), 1);
+
+        // Add second step
+        reasoning.add_step("Step 2".to_string(), "Conclusion 2".to_string(), 0.6);
+        // Average confidence: (0.8 + 0.6) / 2 = 0.7
+        assert_eq!(reasoning.confidence, 0.7);
+
+        // Final conclusion override
+        reasoning.set_conclusion("Final".to_string(), 1.0);
+        assert_eq!(reasoning.conclusion, "Final");
+        assert_eq!(reasoning.confidence, 1.0);
+    }
+
+    #[test]
+    fn test_reasoning_validation() {
+        let mut reasoning = Reasoning::new(
+            "".to_string(), // Invalid empty title
+            "task-1".to_string(),
+            "agent".to_string(),
+        );
+
+        assert!(reasoning.validate_entity().is_err());
+
+        reasoning.title = "Valid".to_string();
+        reasoning.task_id = "".to_string(); // Invalid empty task_id
+        assert!(reasoning.validate_entity().is_err());
+
+        reasoning.task_id = "task-1".to_string();
+        assert!(reasoning.validate_entity().is_ok());
+    }
+}

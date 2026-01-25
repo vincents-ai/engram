@@ -1017,7 +1017,7 @@ pub fn cancel_workflow_instance<S: Storage + 'static>(
 
 /// Execute an action (external command, notification, etc.)
 pub fn execute_action<S: Storage + 'static>(
-    storage: S,
+    _storage: S,
     action_type: String,
     command: Option<String>,
     args: Option<String>,
@@ -1258,9 +1258,9 @@ pub fn query_workflow_actions<S: Storage>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::engines::workflow_engine::WorkflowStatus as InstanceStatus;
+    
     use crate::entities::WorkflowStatus;
-    use crate::entities::{StateType, TransitionType, Workflow};
+    use crate::entities::Workflow;
     use crate::storage::{MemoryStorage, Storage};
 
     fn create_test_workflow(storage: &mut MemoryStorage, title: &str) -> String {

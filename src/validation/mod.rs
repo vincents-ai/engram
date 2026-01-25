@@ -45,7 +45,7 @@ pub struct ValidationError {
 }
 
 /// Types of validation errors
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ValidationErrorType {
     NoTaskReference,
     TaskNotFound,

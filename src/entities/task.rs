@@ -138,6 +138,7 @@ impl Task {
             outcome: None,
             workflow_id,
             workflow_state: None,
+            block_reason: None,
             metadata: HashMap::new(),
         }
     }
@@ -145,6 +146,13 @@ impl Task {
     /// Mark task as in progress
     pub fn start(&mut self) {
         self.status = TaskStatus::InProgress;
+        self.block_reason = None;
+    }
+
+    /// Block the task
+    pub fn block(&mut self, reason: String) {
+        self.status = TaskStatus::Blocked;
+        self.block_reason = Some(reason);
     }
 
     /// Update workflow state
@@ -228,5 +236,70 @@ impl Entity for Task {
         Self: Sized,
     {
         self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_task_creation() {
+        let task = Task::new(
+            "Test Task".to_string(),
+            "Description".to_string(),
+            "agent-1".to_string(),
+            TaskPriority::High,
+            None,
+        );
+
+        assert_eq!(task.title, "Test Task");
+        assert_eq!(task.status, TaskStatus::Todo);
+        assert_eq!(task.priority, TaskPriority::High);
+    }
+
+    #[test]
+    fn test_task_lifecycle() {
+        let mut task = Task::new(
+            "Test".to_string(),
+            "Desc".to_string(),
+            "agent".to_string(),
+            TaskPriority::Medium,
+            None,
+        );
+
+        // Start
+        task.start();
+        assert_eq!(task.status, TaskStatus::InProgress);
+
+        // Block
+        task.block("Waiting".to_string());
+        assert_eq!(task.status, TaskStatus::Blocked);
+        assert_eq!(task.block_reason, Some("Waiting".to_string()));
+
+        // Complete
+        task.complete("Done".to_string());
+        assert_eq!(task.status, TaskStatus::Done);
+        assert!(task.end_time.is_some());
+        assert_eq!(task.outcome, Some("Done".to_string()));
+    }
+
+    #[test]
+    fn test_task_validation() {
+        let mut task = Task::new(
+            "".to_string(), // Invalid empty title
+            "Desc".to_string(),
+            "agent".to_string(),
+            TaskPriority::Low,
+            None,
+        );
+
+        assert!(task.validate_entity().is_err());
+
+        task.title = "Valid Title".to_string();
+        assert!(task.validate_entity().is_ok());
+
+        task.agent = "".to_string(); // Invalid empty agent
+        assert!(task.validate_entity().is_err());
     }
 }

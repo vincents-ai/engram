@@ -154,3 +154,118 @@ impl MemoryEntity {
         path
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn create_test_data() -> HashMap<String, serde_json::Value> {
+        let mut data = HashMap::new();
+        data.insert("title".to_string(), json!("Test Entity"));
+        data.insert("value".to_string(), json!(42));
+        data
+    }
+
+    #[test]
+    fn test_memory_entity_creation() {
+        let data = create_test_data();
+        let entity = MemoryEntity::new(
+            "test-1".to_string(),
+            "task".to_string(),
+            "test-agent".to_string(),
+            Utc::now(),
+            data,
+        );
+
+        assert_eq!(entity.id, "test-1");
+        assert_eq!(entity.entity_type, "task");
+        assert_eq!(entity.agent, "test-agent");
+        assert_eq!(entity.get_field("title"), Some(&json!("Test Entity")));
+        assert!(!entity.content_hash.is_empty());
+        assert!(entity.size_bytes > 0);
+    }
+
+    #[test]
+    fn test_integrity_check() {
+        let data = create_test_data();
+        let mut entity = MemoryEntity::new(
+            "test-1".to_string(),
+            "task".to_string(),
+            "test-agent".to_string(),
+            Utc::now(),
+            data,
+        );
+
+        // Verify integrity initially
+        assert!(entity.verify_integrity());
+
+        // Modify content hash manually (tampering)
+        entity.content_hash = "fake-hash".to_string();
+        assert!(!entity.verify_integrity());
+    }
+
+    #[test]
+    fn test_tags_and_references() {
+        let data = create_test_data();
+        let mut entity = MemoryEntity::new(
+            "test-1".to_string(),
+            "task".to_string(),
+            "test-agent".to_string(),
+            Utc::now(),
+            data,
+        );
+
+        entity.add_tag("important".to_string());
+        entity.add_tag("urgent".to_string());
+        entity.add_tag("important".to_string()); // Duplicate
+
+        assert_eq!(entity.tags.len(), 2);
+        assert!(entity.tags.contains(&"important".to_string()));
+
+        entity.add_reference("ref-1".to_string());
+        entity.add_reference("ref-1".to_string()); // Duplicate
+
+        assert_eq!(entity.references.len(), 1);
+        assert_eq!(entity.references[0], "ref-1");
+    }
+
+    #[test]
+    fn test_field_manipulation() {
+        let data = create_test_data();
+        let mut entity = MemoryEntity::new(
+            "test-1".to_string(),
+            "task".to_string(),
+            "test-agent".to_string(),
+            Utc::now(),
+            data,
+        );
+
+        entity.set_field("new_field".to_string(), json!("new_value"));
+        assert_eq!(entity.get_field("new_field"), Some(&json!("new_value")));
+
+        let removed = entity.remove_field("title");
+        assert_eq!(removed, Some(json!("Test Entity")));
+        assert!(entity.get_field("title").is_none());
+    }
+
+    #[test]
+    fn test_file_path_generation() {
+        let data = create_test_data();
+        let entity = MemoryEntity::new(
+            "abcdef123".to_string(),
+            "task".to_string(),
+            "test-agent".to_string(),
+            Utc::now(),
+            data,
+        );
+
+        let path = entity.get_file_path("/tmp/engram");
+        let path_str = path.to_str().unwrap();
+
+        // Check for expected path components without relying on exact separators
+        assert!(path_str.contains("task"));
+        assert!(path_str.contains("ab")); // First two chars
+        assert!(path_str.contains("abcdef123.json"));
+    }
+}

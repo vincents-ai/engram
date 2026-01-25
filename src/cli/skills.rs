@@ -12,6 +12,10 @@ pub enum SkillsCommands {
         /// Format output (short, full)
         #[arg(long, short, default_value = "short")]
         format: String,
+
+        /// Verbose output
+        #[arg(long, short)]
+        verbose: bool,
     },
     /// Show skill details
     Show {
@@ -28,16 +32,32 @@ pub fn get_skills_path(config_dir: Option<PathBuf>) -> PathBuf {
     }
     std::env::var("ENGRAM_SKILLS_PATH")
         .map(PathBuf::from)
-        .unwrap_or_else(|_| PathBuf::from("./engram/skills"))
+        .unwrap_or_else(|_| {
+            let cwd_skills = PathBuf::from(".engram/skills");
+            if cwd_skills.exists() {
+                cwd_skills
+            } else {
+                PathBuf::from("./engram/skills")
+            }
+        })
 }
 
 /// List all skills in skills directory
-pub fn list_skills(format: &str, config_dir: Option<PathBuf>) -> Result<(), std::io::Error> {
+pub fn list_skills(
+    writer: &mut dyn std::io::Write,
+    format: &str,
+    verbose: bool,
+    config_dir: Option<PathBuf>,
+) -> Result<(), std::io::Error> {
     let skills_path = get_skills_path(config_dir);
 
+    if verbose {
+        writeln!(writer, "Looking for skills in: {:?}", skills_path)?;
+    }
+
     if !skills_path.exists() {
-        println!("Skills directory not found: {:?}", skills_path);
-        println!("Set ENGRAM_SKILLS_PATH environment variable.");
+        writeln!(writer, "Skills directory not found: {:?}", skills_path)?;
+        writeln!(writer, "Set ENGRAM_SKILLS_PATH environment variable.")?;
         return Ok(());
     }
 
@@ -45,17 +65,23 @@ pub fn list_skills(format: &str, config_dir: Option<PathBuf>) -> Result<(), std:
 
     match format {
         "short" | "s" => {
-            println!("Available Skills:");
-            println!("=================");
+            writeln!(writer, "Available Skills:")?;
+            writeln!(writer, "=================")?;
             for entry in entries.flatten() {
                 if entry.path().is_dir() {
-                    println!("  - {}", entry.file_name().to_string_lossy());
+                    writeln!(writer, "  - {}", entry.file_name().to_string_lossy())?;
+                } else if verbose {
+                    writeln!(
+                        writer,
+                        "  (Skipping non-directory: {})",
+                        entry.file_name().to_string_lossy()
+                    )?;
                 }
             }
         }
         "full" | "f" => {
-            println!("Available Skills:");
-            println!("=================");
+            writeln!(writer, "Available Skills:")?;
+            writeln!(writer, "=================")?;
             for entry in entries.flatten() {
                 if entry.path().is_dir() {
                     let file_name = entry.file_name();
@@ -67,13 +93,19 @@ pub fn list_skills(format: &str, config_dir: Option<PathBuf>) -> Result<(), std:
                     } else {
                         "(no description)".to_string()
                     };
-                    println!("\n[{}]", name);
-                    println!("  Description: {}", description);
+                    writeln!(writer, "\n[{}]", name)?;
+                    writeln!(writer, "  Description: {}", description)?;
+                } else if verbose {
+                    writeln!(
+                        writer,
+                        "  (Skipping non-directory: {})",
+                        entry.file_name().to_string_lossy()
+                    )?;
                 }
             }
         }
         _ => {
-            println!("Unknown format: {}. Use 'short' or 'full'.", format);
+            writeln!(writer, "Unknown format: {}. Use 'short' or 'full'.", format)?;
         }
     }
 
@@ -81,7 +113,11 @@ pub fn list_skills(format: &str, config_dir: Option<PathBuf>) -> Result<(), std:
 }
 
 /// Show a specific skill
-pub fn show_skill(name: &str, config_dir: Option<PathBuf>) -> Result<(), std::io::Error> {
+pub fn show_skill(
+    writer: &mut dyn std::io::Write,
+    name: &str,
+    config_dir: Option<PathBuf>,
+) -> Result<(), std::io::Error> {
     let skills_path = get_skills_path(config_dir);
 
     // Try exact match first, then case-insensitive
@@ -94,8 +130,8 @@ pub fn show_skill(name: &str, config_dir: Option<PathBuf>) -> Result<(), std::io
         let name_lower = name.to_lowercase();
         // Check if skills_path exists before reading
         if !skills_path.exists() {
-            println!("Skill not found: {}", name);
-            println!("Searched in: {:?}", skills_path);
+            writeln!(writer, "Skill not found: {}", name)?;
+            writeln!(writer, "Searched in: {:?}", skills_path)?;
             return Ok(());
         }
 
@@ -124,20 +160,21 @@ pub fn show_skill(name: &str, config_dir: Option<PathBuf>) -> Result<(), std::io
     };
 
     if !actual_path.exists() {
-        println!("Skill not found: {}", name);
-        println!("Searched in: {:?}", skills_path);
+        writeln!(writer, "Skill not found: {}", name)?;
+        writeln!(writer, "Searched in: {:?}", skills_path)?;
         return Ok(());
     }
 
     // List skill contents
-    println!(
+    writeln!(
+        writer,
         "\nSkill: {}",
         actual_path
             .file_name()
             .unwrap_or_default()
             .to_string_lossy()
-    );
-    println!("======");
+    )?;
+    writeln!(writer, "======")?;
 
     let entries = std::fs::read_dir(&actual_path)?;
     for entry in entries.flatten() {
@@ -147,15 +184,15 @@ pub fn show_skill(name: &str, config_dir: Option<PathBuf>) -> Result<(), std::io
         } else {
             "[FILE]"
         };
-        println!("  {} {}", file_type, file_name.to_string_lossy());
+        writeln!(writer, "  {} {}", file_type, file_name.to_string_lossy())?;
 
         if entry.path().is_file() {
             let content = std::fs::read_to_string(entry.path())?;
             let preview = String::from_iter(content.lines().take(5));
             if preview.len() > 100 {
-                println!("       {}", &preview[..100]);
+                writeln!(writer, "       {}", &preview[..100])?;
             } else {
-                println!("       {}", preview);
+                writeln!(writer, "       {}", preview)?;
             }
         }
     }
@@ -164,7 +201,10 @@ pub fn show_skill(name: &str, config_dir: Option<PathBuf>) -> Result<(), std::io
 }
 
 /// Handle setup skills command
-pub fn handle_skills_command(_command: crate::cli::SkillsCommands) -> Result<(), EngramError> {
+pub fn handle_skills_command(
+    writer: &mut dyn std::io::Write,
+    _command: crate::cli::SkillsCommands,
+) -> Result<(), EngramError> {
     use std::env;
 
     // Get OpenCode config directory
@@ -234,10 +274,12 @@ pub fn handle_skills_command(_command: crate::cli::SkillsCommands) -> Result<(),
 
         // Skip if skill already exists (user skill take precedence)
         if skill_dir.exists() {
-            println!(
+            writeln!(
+                writer,
                 "⚠️  Skill '{}' already exists, skipping (user skill preserved)",
                 skill_name
-            );
+            )
+            .map_err(EngramError::Io)?;
             continue;
         }
 
@@ -247,21 +289,27 @@ pub fn handle_skills_command(_command: crate::cli::SkillsCommands) -> Result<(),
         let skill_file = skill_dir.join("SKILL.md");
         std::fs::write(&skill_file, skill_content).map_err(EngramError::Io)?;
 
-        println!("✅ Installed skill: {}", skill_name);
+        writeln!(writer, "✅ Installed skill: {}", skill_name).map_err(EngramError::Io)?;
         installed_count += 1;
     }
 
-    println!();
-    println!("🎉 Skills setup complete!");
-    println!("📁 Skills installed to: {:?}", skills_dir);
-    println!("📊 Total skills installed: {}", installed_count);
-    println!();
-    println!("💡 Skills are now available with 'engram:' prefix");
-    println!("   Example: skill() tool with 'engram:use-engram-memory'");
-    println!();
-    println!("📖 To use skills:");
-    println!("   1. Restart your agent session to reload skills");
-    println!("   2. Use skill() tool with skill name");
+    writeln!(writer).map_err(EngramError::Io)?;
+    writeln!(writer, "🎉 Skills setup complete!").map_err(EngramError::Io)?;
+    writeln!(writer, "📁 Skills installed to: {:?}", skills_dir).map_err(EngramError::Io)?;
+    writeln!(writer, "📊 Total skills installed: {}", installed_count).map_err(EngramError::Io)?;
+    writeln!(writer).map_err(EngramError::Io)?;
+    writeln!(writer, "💡 Skills are now available with 'engram:' prefix")
+        .map_err(EngramError::Io)?;
+    writeln!(
+        writer,
+        "   Example: skill() tool with 'engram:use-engram-memory'"
+    )
+    .map_err(EngramError::Io)?;
+    writeln!(writer).map_err(EngramError::Io)?;
+    writeln!(writer, "📖 To use skills:").map_err(EngramError::Io)?;
+    writeln!(writer, "   1. Restart your agent session to reload skills")
+        .map_err(EngramError::Io)?;
+    writeln!(writer, "   2. Use skill() tool with skill name").map_err(EngramError::Io)?;
 
     Ok(())
 }
@@ -282,8 +330,12 @@ mod tests {
         fs::create_dir_all(&skills_dir).unwrap();
 
         // Should just print header and return Ok
-        let result = list_skills("short", Some(root));
+        let mut buffer = Vec::new();
+        let result = list_skills(&mut buffer, "short", false, Some(root));
         assert!(result.is_ok());
+
+        let output = String::from_utf8(buffer).unwrap();
+        assert!(output.contains("Available Skills:"));
     }
 
     #[test]
@@ -299,10 +351,18 @@ mod tests {
         fs::write(skills_dir.join("skill-a/skill.md"), "Description A").unwrap();
 
         // Test short listing
-        list_skills("short", Some(root.clone())).unwrap();
+        let mut buffer_short = Vec::new();
+        list_skills(&mut buffer_short, "short", false, Some(root.clone())).unwrap();
+        let output_short = String::from_utf8(buffer_short).unwrap();
+        assert!(output_short.contains("skill-a"));
+        assert!(output_short.contains("skill-b"));
 
         // Test full listing
-        list_skills("full", Some(root)).unwrap();
+        let mut buffer_full = Vec::new();
+        list_skills(&mut buffer_full, "full", false, Some(root)).unwrap();
+        let output_full = String::from_utf8(buffer_full).unwrap();
+        assert!(output_full.contains("skill-a"));
+        assert!(output_full.contains("Description A"));
     }
 
     #[test]
@@ -318,16 +378,27 @@ mod tests {
         fs::write(skill_path.join("file2.rs"), "fn main() {}").unwrap();
 
         // Test exact match
-        let result = show_skill("test-skill", Some(root.clone()));
+        let mut buffer = Vec::new();
+        let result = show_skill(&mut buffer, "test-skill", Some(root.clone()));
         assert!(result.is_ok());
+        let output = String::from_utf8(buffer).unwrap();
+        assert!(output.contains("Skill: test-skill"));
+        assert!(output.contains("file1.txt"));
+        assert!(output.contains("content 1"));
 
         // Test case insensitive
-        let result = show_skill("TEST-SKILL", Some(root.clone()));
+        let mut buffer_case = Vec::new();
+        let result = show_skill(&mut buffer_case, "TEST-SKILL", Some(root.clone()));
         assert!(result.is_ok());
+        let output_case = String::from_utf8(buffer_case).unwrap();
+        assert!(output_case.contains("Skill: test-skill"));
 
         // Test non-existent
-        let result = show_skill("missing-skill", Some(root));
+        let mut buffer_missing = Vec::new();
+        let result = show_skill(&mut buffer_missing, "missing-skill", Some(root));
         assert!(result.is_ok()); // Returns Ok but prints error message
+        let output_missing = String::from_utf8(buffer_missing).unwrap();
+        assert!(output_missing.contains("Skill not found"));
     }
 
     #[test]
@@ -338,8 +409,11 @@ mod tests {
         // Don't create directory
 
         // Should handle gracefully (print message and return Ok)
-        let result = list_skills("short", Some(root));
+        let mut buffer = Vec::new();
+        let result = list_skills(&mut buffer, "short", false, Some(root));
         assert!(result.is_ok());
+        let output = String::from_utf8(buffer).unwrap();
+        assert!(output.contains("Skills directory not found"));
     }
 
     #[test]
@@ -350,7 +424,10 @@ mod tests {
         fs::create_dir_all(&skills_dir).unwrap();
 
         // Should print unknown format message and return Ok
-        let result = list_skills("invalid", Some(root));
+        let mut buffer = Vec::new();
+        let result = list_skills(&mut buffer, "invalid", false, Some(root));
         assert!(result.is_ok());
+        let output = String::from_utf8(buffer).unwrap();
+        assert!(output.contains("Unknown format"));
     }
 }

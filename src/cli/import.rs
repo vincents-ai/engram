@@ -739,7 +739,7 @@ title: Test
 
     #[test]
     fn test_extract_uuid_from_pattern() {
-        let text = "[Finding: da23ec54-04c8-4679-81e4-d90c09642d4c]";
+        let _text = "[Finding: da23ec54-04c8-4679-81e4-d90c09642d4c]";
         // The regex in extract_uuid_from_pattern strictly matches:
         // [UUID] where UUID is hex.
         // It does NOT match [Finding: UUID].

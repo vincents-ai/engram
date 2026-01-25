@@ -238,3 +238,65 @@ impl Entity for Knowledge {
         self
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_knowledge_creation() {
+        let knowledge = Knowledge::new(
+            "Test Fact".to_string(),
+            "Sky is blue".to_string(),
+            KnowledgeType::Fact,
+            0.9,
+            "agent".to_string(),
+        );
+
+        assert_eq!(knowledge.title, "Test Fact");
+        assert_eq!(knowledge.knowledge_type, KnowledgeType::Fact);
+        assert_eq!(knowledge.confidence, 0.9);
+    }
+
+    #[test]
+    fn test_knowledge_updates() {
+        let mut knowledge = Knowledge::new(
+            "Test".to_string(),
+            "Original".to_string(),
+            KnowledgeType::Concept,
+            0.5,
+            "agent".to_string(),
+        );
+
+        // Update content
+        knowledge.update_content("Updated".to_string(), 0.8);
+        assert_eq!(knowledge.content, "Updated");
+        assert_eq!(knowledge.confidence, 0.8);
+
+        // Record usage
+        assert_eq!(knowledge.usage_count, 0);
+        knowledge.record_usage();
+        assert_eq!(knowledge.usage_count, 1);
+        assert!(knowledge.last_used.is_some());
+    }
+
+    #[test]
+    fn test_knowledge_validation() {
+        let mut knowledge = Knowledge::new(
+            "".to_string(), // Invalid empty title
+            "Content".to_string(),
+            KnowledgeType::Rule,
+            1.0,
+            "agent".to_string(),
+        );
+
+        assert!(knowledge.validate_entity().is_err());
+
+        knowledge.title = "Valid".to_string();
+        knowledge.confidence = 1.5; // Invalid confidence
+        assert!(knowledge.validate_entity().is_err());
+
+        knowledge.confidence = 0.5;
+        assert!(knowledge.validate_entity().is_ok());
+    }
+}

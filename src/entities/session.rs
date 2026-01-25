@@ -302,3 +302,54 @@ impl Entity for Session {
         self
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_session_lifecycle() {
+        let mut session = Session::new(
+            "Test Session".to_string(),
+            "agent".to_string(),
+            vec!["Goal".to_string()],
+        );
+
+        assert_eq!(session.status, SessionStatus::Active);
+
+        session.pause();
+        assert_eq!(session.status, SessionStatus::Paused);
+
+        session.resume();
+        assert_eq!(session.status, SessionStatus::Active);
+
+        session.complete(vec!["Outcome".to_string()]);
+        assert_eq!(session.status, SessionStatus::Completed);
+        assert!(session.end_time.is_some());
+    }
+
+    #[test]
+    fn test_metrics_collection() {
+        let mut session = Session::new("Metrics Test".to_string(), "agent".to_string(), vec![]);
+
+        let space = SpaceMetrics {
+            satisfaction_score: 90.0,
+            performance_score: 85.0,
+            activity_score: 100.0,
+            communication_score: 80.0,
+            efficiency_score: 95.0,
+            overall_score: 90.0,
+        };
+        session.set_space_metrics(space);
+        assert!(session.space_metrics.is_some());
+
+        let dora = DoraMetrics {
+            deployment_frequency: 2.0,
+            lead_time: 1.5,
+            change_failure_rate: 0.05,
+            mean_time_to_recover: 2.0,
+        };
+        session.set_dora_metrics(dora);
+        assert!(session.dora_metrics.is_some());
+    }
+}

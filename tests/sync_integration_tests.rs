@@ -146,7 +146,7 @@ async fn test_branch_deletion() -> Result<(), EngramError> {
 
     switch_branch("main", false)?;
 
-    let result = delete_branch("delete-me", false);
+    let _result = delete_branch("delete-me", false);
 
     delete_branch("delete-me", true)?;
 

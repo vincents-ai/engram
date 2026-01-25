@@ -26,11 +26,12 @@ use std::sync::{Arc, Mutex};
 ///
 /// This eliminates the need for .engram directory structure and provides
 /// better integration with Git tooling and distributed workflows.
+
 pub struct GitRefsStorage {
     repository: Arc<Mutex<Repository>>,
     workspace_path: PathBuf,
     #[allow(dead_code)]
-    entity_registry: EntityRegistry,
+    entity_registry: Arc<EntityRegistry>,
     current_agent: String,
     relationship_index: Arc<Mutex<RelationshipIndex>>,
 }
@@ -41,6 +42,18 @@ impl std::fmt::Debug for GitRefsStorage {
             .field("workspace_path", &self.workspace_path)
             .field("current_agent", &self.current_agent)
             .finish()
+    }
+}
+
+impl Clone for GitRefsStorage {
+    fn clone(&self) -> Self {
+        Self {
+            repository: self.repository.clone(),
+            workspace_path: self.workspace_path.clone(),
+            entity_registry: self.entity_registry.clone(),
+            current_agent: self.current_agent.clone(),
+            relationship_index: self.relationship_index.clone(),
+        }
     }
 }
 
@@ -67,7 +80,7 @@ impl GitRefsStorage {
         let mut storage = GitRefsStorage {
             repository: Arc::new(Mutex::new(repository)),
             workspace_path,
-            entity_registry: registry,
+            entity_registry: Arc::new(registry),
             current_agent: agent.to_string(),
             relationship_index: Arc::new(Mutex::new(RelationshipIndex::new())),
         };
@@ -813,5 +826,86 @@ impl RelationshipStorage for GitRefsStorage {
             most_connected_entity: None,
             relationship_density: 0.0,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::Utc;
+    use serde_json::json;
+    use tempfile::tempdir;
+
+    fn create_test_entity(id: &str, agent: &str) -> GenericEntity {
+        GenericEntity {
+            id: id.to_string(),
+            entity_type: "task".to_string(),
+            agent: agent.to_string(),
+            timestamp: Utc::now(),
+            data: json!({
+                "title": "Test Task",
+                "status": "pending"
+            }),
+        }
+    }
+
+    #[test]
+    fn test_git_refs_storage_creation() {
+        let dir = tempdir().unwrap();
+        let storage = GitRefsStorage::new(dir.path().to_str().unwrap(), "test-agent");
+        assert!(storage.is_ok());
+    }
+
+    #[test]
+    fn test_store_and_get() {
+        let dir = tempdir().unwrap();
+        let mut storage = GitRefsStorage::new(dir.path().to_str().unwrap(), "test-agent").unwrap();
+
+        let entity = create_test_entity("test-1", "test-agent");
+        storage.store(&entity).unwrap();
+
+        let retrieved = storage.get("test-1", "task").unwrap();
+        assert!(retrieved.is_some());
+        let retrieved = retrieved.unwrap();
+        assert_eq!(retrieved.id, "test-1");
+        assert_eq!(retrieved.agent, "test-agent");
+        assert_eq!(retrieved.entity_type, "task");
+    }
+
+    #[test]
+    fn test_delete() {
+        let dir = tempdir().unwrap();
+        let mut storage = GitRefsStorage::new(dir.path().to_str().unwrap(), "test-agent").unwrap();
+
+        let entity = create_test_entity("test-1", "test-agent");
+        storage.store(&entity).unwrap();
+
+        let retrieved = storage.get("test-1", "task").unwrap();
+        assert!(retrieved.is_some());
+
+        storage.delete("test-1", "task").unwrap();
+
+        let retrieved = storage.get("test-1", "task").unwrap();
+        assert!(retrieved.is_none());
+    }
+
+    #[test]
+    fn test_query_by_agent() {
+        let dir = tempdir().unwrap();
+        let mut storage = GitRefsStorage::new(dir.path().to_str().unwrap(), "test-agent").unwrap();
+
+        let entity1 = create_test_entity("test-1", "agent-a");
+        let entity2 = create_test_entity("test-2", "agent-b");
+
+        storage.store(&entity1).unwrap();
+        storage.store(&entity2).unwrap();
+
+        let results = storage.query_by_agent("agent-a", None).unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].id, "test-1");
+
+        let results = storage.query_by_agent("agent-b", None).unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].id, "test-2");
     }
 }

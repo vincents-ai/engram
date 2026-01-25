@@ -18,6 +18,10 @@ pub enum PromptsCommands {
         /// Format output (short, full)
         #[arg(long, short, default_value = "short")]
         format: String,
+
+        /// Verbose output (show search paths and filtering)
+        #[arg(long, short)]
+        verbose: bool,
     },
     /// Show prompt details
     Show {
@@ -31,7 +35,14 @@ pub enum PromptsCommands {
 pub fn get_prompts_path() -> PathBuf {
     std::env::var("ENGRAM_PROMPTS_PATH")
         .map(PathBuf::from)
-        .unwrap_or_else(|_| PathBuf::from("./engram/prompts"))
+        .unwrap_or_else(|_| {
+            let cwd_prompts = PathBuf::from(".engram/prompts");
+            if cwd_prompts.exists() {
+                cwd_prompts
+            } else {
+                PathBuf::from("./engram/prompts")
+            }
+        })
 }
 
 /// List all prompts in the prompts directory
@@ -39,10 +50,18 @@ pub fn list_prompts(
     category: Option<&str>,
     format: &str,
     root: Option<PathBuf>,
+    verbose: bool,
 ) -> Result<(), std::io::Error> {
     let prompts_path = root.unwrap_or_else(get_prompts_path);
 
+    if verbose {
+        println!("🔎 Searching for prompts in: {:?}", prompts_path);
+    }
+
     if !prompts_path.exists() {
+        if verbose {
+            println!("❌ Directory does not exist");
+        }
         println!("Prompts directory not found: {:?}", prompts_path);
         println!("Set ENGRAM_PROMPTS_PATH environment variable.");
         return Ok(());
@@ -61,6 +80,9 @@ pub fn list_prompts(
 
                     if let Some(cat) = category {
                         if name.to_lowercase() != cat.to_lowercase() {
+                            if verbose {
+                                println!("  Skipping category '{}' (filtered by '{}')", name, cat);
+                            }
                             continue;
                         }
                     }
@@ -68,6 +90,8 @@ pub fn list_prompts(
                     // Count files in subdirectory
                     let count = fs::read_dir(&entry.path())?.flatten().count();
                     println!("  - {} ({})", name, count);
+                } else if verbose {
+                    println!("  Skipping file in root: {:?}", entry.path());
                 }
             }
         }
@@ -81,6 +105,9 @@ pub fn list_prompts(
 
                     if let Some(cat) = category {
                         if name.to_lowercase() != cat.to_lowercase() {
+                            if verbose {
+                                println!("  Skipping category '{}' (filtered by '{}')", name, cat);
+                            }
                             continue;
                         }
                     }
@@ -98,6 +125,8 @@ pub fn list_prompts(
                     if total > 10 {
                         println!("  ... and {} more", total - 10);
                     }
+                } else if verbose {
+                    println!("  Skipping file in root: {:?}", entry.path());
                 }
             }
         }
@@ -179,6 +208,7 @@ mod tests {
         let _ = PromptsCommands::List {
             category: None,
             format: "short".to_string(),
+            verbose: false,
         };
         let _ = PromptsCommands::Show {
             name: "test".to_string(),
@@ -197,7 +227,7 @@ mod tests {
     fn test_list_prompts_empty() {
         let temp_dir = TempDir::new().unwrap();
         // Now we can properly test with a custom root
-        let result = list_prompts(None, "short", Some(temp_dir.path().to_path_buf()));
+        let result = list_prompts(None, "short", Some(temp_dir.path().to_path_buf()), false);
         assert!(result.is_ok());
     }
 
@@ -220,7 +250,7 @@ mod tests {
         writeln!(file, "content").unwrap();
 
         // Capture stdout would be ideal but for now we just check no error
-        let result = list_prompts(None, "short", Some(temp_dir.path().to_path_buf()));
+        let result = list_prompts(None, "short", Some(temp_dir.path().to_path_buf()), false);
         assert!(result.is_ok());
 
         // Test filtering
@@ -228,6 +258,7 @@ mod tests {
             Some("category1"),
             "short",
             Some(temp_dir.path().to_path_buf()),
+            false,
         );
         assert!(result_cat.is_ok());
     }

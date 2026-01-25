@@ -53,3 +53,57 @@ impl WorkspaceConfig {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_workspace_config_validation() {
+        let mut config = WorkspaceConfig::default();
+        assert!(config.validate().is_ok());
+
+        config.name = "".to_string();
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_workspace_config_merge() {
+        let mut base = WorkspaceConfig::default();
+        let mut other = WorkspaceConfig::default();
+
+        other.name = "new-workspace".to_string();
+        other.default_agent = "special-agent".to_string();
+        other.sync_strategy = "overwrite".to_string();
+
+        // Setup base agents
+        base.agents.insert(
+            "agent1".to_string(),
+            AgentConfig {
+                name: "agent1".to_string(),
+                agent_type: "test".to_string(),
+                specialization: None,
+                email: None,
+            },
+        );
+
+        // Setup other agents (should merge/overwrite)
+        other.agents.insert(
+            "agent2".to_string(),
+            AgentConfig {
+                name: "agent2".to_string(),
+                agent_type: "test".to_string(),
+                specialization: None,
+                email: None,
+            },
+        );
+
+        base.merge(other);
+
+        assert_eq!(base.name, "new-workspace");
+        assert_eq!(base.default_agent, "special-agent");
+        assert_eq!(base.sync_strategy, "overwrite");
+        assert!(base.agents.contains_key("agent1"));
+        assert!(base.agents.contains_key("agent2"));
+    }
+}

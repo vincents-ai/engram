@@ -395,3 +395,91 @@ impl std::fmt::Display for EscalationRequest {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn create_test_context() -> OperationContext {
+        OperationContext {
+            operation: "write_file".to_string(),
+            parameters: HashMap::new(),
+            resource: Some("/etc/passwd".to_string()),
+            block_reason: "Protected file".to_string(),
+            alternatives: vec![],
+            risk_assessment: Some("High".to_string()),
+        }
+    }
+
+    #[test]
+    fn test_escalation_creation() {
+        let req = EscalationRequest::new(
+            "agent-007".to_string(),
+            EscalationOperationType::FileSystemAccess,
+            create_test_context(),
+            "Need access".to_string(),
+            EscalationPriority::High,
+            "system".to_string(),
+        );
+
+        assert_eq!(req.agent_id, "agent-007");
+        assert_eq!(req.status, EscalationStatus::Pending);
+        assert_eq!(req.priority, EscalationPriority::High);
+        assert!(req.is_actionable());
+    }
+
+    #[test]
+    fn test_escalation_lifecycle() {
+        let mut req = EscalationRequest::new(
+            "agent-007".to_string(),
+            EscalationOperationType::FileSystemAccess,
+            create_test_context(),
+            "Need access".to_string(),
+            EscalationPriority::Normal,
+            "system".to_string(),
+        );
+
+        // Assign reviewer
+        let reviewer = ReviewerInfo {
+            reviewer_id: "admin".to_string(),
+            reviewer_name: "Admin User".to_string(),
+            reviewer_email: Some("admin@example.com".to_string()),
+            department: Some("Security".to_string()),
+        };
+        req.assign_reviewer(reviewer);
+        assert!(req.reviewer.is_some());
+
+        // Approve
+        let decision = ReviewDecision {
+            status: EscalationStatus::Approved,
+            reason: "Granted".to_string(),
+            conditions: vec![],
+            approval_duration: Some(3600),
+            create_policy: false,
+            notes: None,
+        };
+        req.record_decision(decision);
+        assert_eq!(req.status, EscalationStatus::Approved);
+        assert!(req.reviewed_at.is_some());
+        assert!(!req.is_actionable());
+    }
+
+    #[test]
+    fn test_escalation_expiration() {
+        let mut req = EscalationRequest::new(
+            "agent-007".to_string(),
+            EscalationOperationType::FileSystemAccess,
+            create_test_context(),
+            "Need access".to_string(),
+            EscalationPriority::Critical, // 1 hour expiration
+            "system".to_string(),
+        );
+
+        // Simulate expiration
+        req.expires_at = Utc::now() - chrono::Duration::hours(1);
+        assert!(req.is_expired());
+
+        req.mark_expired();
+        assert_eq!(req.status, EscalationStatus::Expired);
+    }
+}

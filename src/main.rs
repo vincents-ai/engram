@@ -118,18 +118,22 @@ async fn run() -> Result<(), EngramError> {
         cli::Commands::Guide { command } => handle_help_command(command)?,
         cli::Commands::Skills { command } => match command {
             cli::SkillsCommands::Setup => {
-                cli::handle_skills_command(cli::SkillsCommands::Setup)?;
+                cli::handle_skills_command(&mut std::io::stdout(), cli::SkillsCommands::Setup)?;
             }
-            cli::SkillsCommands::List { format } => {
-                cli::list_skills(&format, None)?;
+            cli::SkillsCommands::List { format, verbose } => {
+                cli::list_skills(&mut std::io::stdout(), &format, verbose, None)?;
             }
             cli::SkillsCommands::Show { name } => {
-                cli::show_skill(&name, None)?;
+                cli::show_skill(&mut std::io::stdout(), &name, None)?;
             }
         },
         cli::Commands::Prompts { command } => match command {
-            cli::PromptsCommands::List { category, format } => {
-                cli::list_prompts(category.as_deref(), &format, None)?;
+            cli::PromptsCommands::List {
+                category,
+                format,
+                verbose,
+            } => {
+                cli::list_prompts(category.as_deref(), &format, None, verbose)?;
             }
             cli::PromptsCommands::Show { name } => {
                 cli::show_prompt(&name, None)?;
@@ -205,7 +209,7 @@ fn handle_setup_command(command: cli::SetupCommands) -> Result<(), EngramError> 
             )?;
         }
         cli::SetupCommands::Skills => {
-            cli::setup_skills(None)?;
+            cli::handle_skills_command(&mut std::io::stdout(), cli::SkillsCommands::Setup)?;
         }
         cli::SetupCommands::Prompts { path } => {
             cli::setup_prompts(path.as_deref(), None)?;
@@ -259,6 +263,7 @@ fn handle_task_command<S: engram::storage::Storage + 'static>(
             agent,
             parent,
             tags,
+            output,
             title_stdin,
             title_file,
             description_stdin,
@@ -280,6 +285,7 @@ fn handle_task_command<S: engram::storage::Storage + 'static>(
                 description_file,
                 json,
                 json_file,
+                output,
             )?;
         }
         cli::TaskCommands::List {

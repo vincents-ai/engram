@@ -186,3 +186,73 @@ impl AppSettings {
         self.workspace.merge(other.workspace);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::agent_config::AgentConfig;
+
+    #[test]
+    fn test_default_config() {
+        let config = AppConfig::default();
+        assert_eq!(config.storage.storage_type, "git");
+        assert_eq!(config.workspace.name, "default");
+        assert!(config.features.plugins);
+        assert!(config.agents.is_empty());
+    }
+
+    #[test]
+    fn test_storage_config_validation() {
+        let mut config = StorageConfig::default();
+        assert!(config.validate().is_ok());
+
+        config.storage_type = "".to_string();
+        assert!(config.validate().is_err());
+
+        config.storage_type = "git".to_string();
+        config.base_path = "".to_string();
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_config_merge() {
+        let mut base = AppConfig::default();
+        let mut other = AppConfig::default();
+
+        // Modify other config
+        other.storage.storage_type = "memory".to_string();
+        other.workspace.name = "project-x".to_string();
+        other.features.experimental = true;
+
+        let mut agent = AgentConfig {
+            name: "test-agent".to_string(),
+            agent_type: "general".to_string(),
+            specialization: None,
+            email: None,
+        };
+        other.agents.insert("test-agent".to_string(), agent);
+
+        // Merge
+        base.merge(other);
+
+        // Verify merge results
+        assert_eq!(base.storage.storage_type, "memory");
+        assert_eq!(base.workspace.name, "project-x");
+        assert!(base.features.experimental);
+        assert!(base.agents.contains_key("test-agent"));
+    }
+
+    #[test]
+    fn test_git_config_merge() {
+        let mut base = GitConfig::default();
+        let mut other = GitConfig {
+            author_name: "New Author".to_string(),
+            author_email: "".to_string(), // Should not overwrite if empty
+        };
+
+        base.merge(other);
+
+        assert_eq!(base.author_name, "New Author");
+        assert_eq!(base.author_email, "user@engram.ai"); // Kept default
+    }
+}

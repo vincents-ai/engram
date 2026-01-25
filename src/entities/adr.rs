@@ -330,3 +330,121 @@ impl Entity for ADR {
         self
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_adr_creation() {
+        let title = "Use Rust for Engram";
+        let number = 1;
+        let agent = "agent-123";
+        let context = "Need a systems programming language";
+        let adr = ADR::new(
+            title.to_string(),
+            number,
+            agent.to_string(),
+            context.to_string(),
+        );
+
+        assert_eq!(adr.title, title);
+        assert_eq!(adr.number, number);
+        assert_eq!(adr.agent, agent);
+        assert_eq!(adr.context, context);
+        assert_eq!(adr.status, AdrStatus::Proposed);
+        assert!(!adr.id.is_empty());
+        assert!(adr.decision_date.is_none());
+    }
+
+    #[test]
+    fn test_adr_validation() {
+        let adr = ADR::new(
+            "".to_string(), // Empty title
+            1,
+            "agent".to_string(),
+            "context".to_string(),
+        );
+        assert!(adr.validate_entity().is_err());
+
+        let adr = ADR::new(
+            "Title".to_string(),
+            1,
+            "agent".to_string(),
+            "".to_string(), // Empty context
+        );
+        assert!(adr.validate_entity().is_err());
+
+        let adr = ADR::new(
+            "Title".to_string(),
+            1,
+            "agent".to_string(),
+            "context".to_string(),
+        );
+        assert!(adr.validate_entity().is_ok());
+    }
+
+    #[test]
+    fn test_adr_lifecycle() {
+        let mut adr = ADR::new(
+            "Title".to_string(),
+            1,
+            "agent".to_string(),
+            "context".to_string(),
+        );
+
+        // Add alternative
+        let alt_id = adr.add_alternative("Python".to_string());
+        assert_eq!(adr.alternatives.len(), 1);
+
+        adr.add_pro_to_alternative(&alt_id, "Easy".to_string());
+        adr.add_con_to_alternative(&alt_id, "Slow".to_string());
+        assert_eq!(adr.alternatives[0].pros.len(), 1);
+        assert_eq!(adr.alternatives[0].cons.len(), 1);
+
+        // Accept
+        adr.accept("Use Rust".to_string(), "Performance".to_string());
+        assert_eq!(adr.status, AdrStatus::Accepted);
+        assert!(adr.decision_date.is_some());
+
+        // Reject
+        let mut adr = ADR::new(
+            "Title".to_string(),
+            2,
+            "agent".to_string(),
+            "context".to_string(),
+        );
+        adr.reject();
+        assert_eq!(adr.status, AdrStatus::Deprecated);
+
+        // Deprecate
+        let mut adr = ADR::new(
+            "Title".to_string(),
+            3,
+            "agent".to_string(),
+            "context".to_string(),
+        );
+        adr.deprecate(Some("ADR-004".to_string()));
+        assert_eq!(adr.status, AdrStatus::Deprecated);
+        assert_eq!(adr.superseded_by, Some("ADR-004".to_string()));
+    }
+
+    #[test]
+    fn test_adr_metadata() {
+        let mut adr = ADR::new(
+            "Title".to_string(),
+            1,
+            "agent".to_string(),
+            "context".to_string(),
+        );
+
+        adr.add_stakeholder("DevOps".to_string());
+        assert!(adr.stakeholders.contains(&"DevOps".to_string()));
+
+        adr.add_related_adr("ADR-002".to_string());
+        assert!(adr.related_adrs.contains(&"ADR-002".to_string()));
+
+        adr.set_implementation("Implemented in v1.0".to_string());
+        assert_eq!(adr.implementation, Some("Implemented in v1.0".to_string()));
+    }
+}

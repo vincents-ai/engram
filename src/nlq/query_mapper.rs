@@ -451,7 +451,7 @@ impl Default for QueryMapper {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::nlq::QueryIntent;
+    
 
     #[test]
     fn test_agent_extraction() {

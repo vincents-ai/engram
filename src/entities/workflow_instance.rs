@@ -111,3 +111,92 @@ impl Entity for WorkflowInstance {
         self
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    #[test]
+    fn test_workflow_instance_creation() {
+        let id = "instance-1";
+        let workflow_id = "workflow-1";
+        let current_state = "start";
+        let executing_agent = "agent-1";
+        let now = Utc::now();
+
+        let context = WorkflowExecutionContext {
+            entity_id: Some(id.to_string()),
+            entity_type: Some("workflow_instance".to_string()),
+            executing_agent: executing_agent.to_string(),
+            variables: HashMap::new(),
+            metadata: HashMap::new(),
+            permissions: Vec::new(),
+        };
+
+        let instance = WorkflowInstance {
+            id: id.to_string(),
+            workflow_id: workflow_id.to_string(),
+            current_state: current_state.to_string(),
+            context,
+            status: WorkflowStatus::Running,
+            started_at: now,
+            updated_at: now,
+            completed_at: None,
+            execution_history: vec![],
+        };
+
+        assert_eq!(instance.id, id);
+        assert_eq!(instance.workflow_id, workflow_id);
+        assert_eq!(instance.current_state, current_state);
+        assert_eq!(instance.agent(), executing_agent);
+    }
+
+    #[test]
+    fn test_workflow_instance_validation() {
+        let id = "instance-1";
+        let workflow_id = "workflow-1";
+        let current_state = "start";
+        let executing_agent = "agent-1";
+        let now = Utc::now();
+
+        let create_instance = |id: &str, wf_id: &str, state: &str, agent: &str| WorkflowInstance {
+            id: id.to_string(),
+            workflow_id: wf_id.to_string(),
+            current_state: state.to_string(),
+            context: WorkflowExecutionContext {
+                entity_id: Some(id.to_string()),
+                entity_type: Some("workflow_instance".to_string()),
+                executing_agent: agent.to_string(),
+                variables: HashMap::new(),
+                metadata: HashMap::new(),
+                permissions: Vec::new(),
+            },
+            status: WorkflowStatus::Running,
+            started_at: now,
+            updated_at: now,
+            completed_at: None,
+            execution_history: vec![],
+        };
+
+        // Valid instance
+        let instance = create_instance(id, workflow_id, current_state, executing_agent);
+        assert!(instance.validate_entity().is_ok());
+
+        // Empty ID
+        let instance = create_instance("", workflow_id, current_state, executing_agent);
+        assert!(instance.validate_entity().is_err());
+
+        // Empty workflow ID
+        let instance = create_instance(id, "", current_state, executing_agent);
+        assert!(instance.validate_entity().is_err());
+
+        // Empty state
+        let instance = create_instance(id, workflow_id, "", executing_agent);
+        assert!(instance.validate_entity().is_err());
+
+        // Empty agent
+        let instance = create_instance(id, workflow_id, current_state, "");
+        assert!(instance.validate_entity().is_err());
+    }
+}

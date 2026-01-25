@@ -707,3 +707,96 @@ impl RelationshipStorage for MemoryStorage {
         })
     }
 }
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::entities::{Entity, Task, TaskPriority, TaskStatus};
+
+    fn create_test_task(id: &str) -> Task {
+        Task {
+            id: id.to_string(),
+            title: "Test Task".to_string(),
+            description: "A test task".to_string(),
+            status: TaskStatus::Todo,
+            priority: TaskPriority::Medium,
+            agent: "test-agent".to_string(),
+            start_time: Utc::now(),
+            end_time: None,
+            parent: None,
+            children: Vec::new(),
+            tags: Vec::new(),
+            context_ids: Vec::new(),
+            knowledge: Vec::new(),
+            files: Vec::new(),
+            outcome: None,
+            block_reason: None,
+            workflow_id: None,
+            workflow_state: None,
+            metadata: HashMap::new(),
+        }
+    }
+
+    #[test]
+    fn test_memory_storage_creation() {
+        let storage = MemoryStorage::new("test-agent");
+        assert_eq!(storage.current_agent, "test-agent");
+    }
+
+    #[test]
+    fn test_store_and_get_entity() {
+        let mut storage = MemoryStorage::new("test-agent");
+
+        let task = create_test_task("task-1");
+        let generic = task.to_generic();
+
+        // Store
+        let result = storage.store(&generic);
+        assert!(result.is_ok());
+
+        // Get
+        let retrieved = storage.get("task-1", "task").unwrap();
+        assert!(retrieved.is_some());
+
+        let retrieved_generic = retrieved.unwrap();
+        assert_eq!(retrieved_generic.id, "task-1");
+        assert_eq!(retrieved_generic.entity_type, "task");
+    }
+
+    #[test]
+    fn test_delete_entity() {
+        let mut storage = MemoryStorage::new("test-agent");
+
+        let task = create_test_task("task-1");
+        storage.store(&task.to_generic()).unwrap();
+
+        // Verify exists
+        assert!(storage.get("task-1", "task").unwrap().is_some());
+
+        // Delete
+        let result = storage.delete("task-1", "task");
+        assert!(result.is_ok());
+
+        // Verify gone
+        assert!(storage.get("task-1", "task").unwrap().is_none());
+    }
+
+    #[test]
+    fn test_query_by_agent() {
+        let mut storage = MemoryStorage::new("test-agent");
+
+        let task1 = create_test_task("task-1");
+        let mut task2 = create_test_task("task-2");
+        task2.agent = "other-agent".to_string();
+
+        storage.store(&task1.to_generic()).unwrap();
+        storage.store(&task2.to_generic()).unwrap();
+
+        let results = storage.query_by_agent("test-agent", None).unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].id, "task-1");
+
+        let results_other = storage.query_by_agent("other-agent", None).unwrap();
+        assert_eq!(results_other.len(), 1);
+        assert_eq!(results_other[0].id, "task-2");
+    }
+}

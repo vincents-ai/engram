@@ -200,7 +200,7 @@ impl ActionExecutor {
     /// Wait for command output with timeout
     fn wait_for_output_with_timeout(
         &self,
-        mut child: std::process::Child,
+        child: std::process::Child,
         timeout: Duration,
     ) -> Result<std::process::Output> {
         use std::sync::mpsc;

@@ -427,3 +427,102 @@ mod duration_serde {
         Ok(Duration::from_secs(secs))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn create_test_level() -> GateLevel {
+        GateLevel {
+            name: "Level 1".to_string(),
+            threshold: ChangeThreshold {
+                max_lines_changed: 100,
+                max_files_affected: 5,
+                max_complexity_delta: 0.5,
+                allowed_change_types: vec![ChangeType::BugFix, ChangeType::Documentation],
+                risk_level_limit: ProgressiveRiskLevel::Low,
+                file_patterns: vec![],
+            },
+            required_gates: vec![],
+            optional_gates: vec![],
+            max_execution_time: Duration::from_secs(60),
+            parallelization: ParallelizationStrategy::Sequential,
+            failure_handling: FailureHandling::default(),
+            enabled: true,
+            priority: 1,
+        }
+    }
+
+    #[test]
+    fn test_config_creation() {
+        let name = "Test Config";
+        let agent = "test-agent";
+        let config = ProgressiveGateConfig::new(name.to_string(), agent.to_string());
+
+        assert_eq!(config.name, name);
+        assert_eq!(config.agent, agent);
+        assert!(config.active);
+        assert!(config.gate_levels.is_empty());
+    }
+
+    #[test]
+    fn test_config_validation() {
+        let mut config = ProgressiveGateConfig::new("".to_string(), "agent".to_string());
+        assert!(config.validate_entity().is_err()); // Empty name
+
+        let mut config = ProgressiveGateConfig::new("Name".to_string(), "agent".to_string());
+        assert!(config.validate_entity().is_err()); // No gate levels
+
+        config.add_gate_level(create_test_level());
+        assert!(config.validate_entity().is_ok());
+    }
+
+    #[test]
+    fn test_level_selection() {
+        let mut config = ProgressiveGateConfig::new("Test".to_string(), "agent".to_string());
+        config.add_gate_level(create_test_level());
+
+        let metrics = ComplexityMetrics {
+            lines_changed: 50,
+            files_affected: 2,
+            complexity_delta: 0.1,
+            primary_change_type: ChangeType::BugFix,
+            risk_level: ProgressiveRiskLevel::Low,
+            change_distribution: ChangeDistribution {
+                source_files: 1,
+                test_files: 1,
+                config_files: 0,
+                documentation: 0,
+                build_files: 0,
+            },
+            risk_factors: vec![],
+            performance_impact: false,
+        };
+
+        let level = config.find_appropriate_level(&metrics);
+        assert!(level.is_some());
+        assert_eq!(level.unwrap().name, "Level 1");
+
+        let high_risk_metrics = ComplexityMetrics {
+            lines_changed: 200, // Exceeds limit
+            ..metrics
+        };
+
+        // Should return last level (fallback) or none if no match and no fallback logic explicitly defined
+        // In current implementation it returns last level if no match found
+        let level = config.find_appropriate_level(&high_risk_metrics);
+        assert!(level.is_some());
+    }
+
+    #[test]
+    fn test_serialization() {
+        let mut config = ProgressiveGateConfig::new("Test".to_string(), "agent".to_string());
+        config.add_gate_level(create_test_level());
+
+        let json = serde_json::to_string(&config).unwrap();
+        let deserialized: ProgressiveGateConfig = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(config.id, deserialized.id);
+        assert_eq!(config.gate_levels.len(), deserialized.gate_levels.len());
+    }
+}

@@ -13,10 +13,9 @@ use engram::{
         Context, ContextRelevance, Entity, EntityRelationType, EntityRelationship, Task,
         TaskPriority, TaskStatus,
     },
-    nlq::{EntityExtractor, ExtractedEntity, IntentClassifier, NLQEngine, QueryIntent},
+    nlq::{EntityExtractor, IntentClassifier, NLQEngine, QueryIntent},
     storage::{GitStorage, Storage},
 };
-use serde_json;
 use std::fs;
 use tempfile::TempDir;
 use tokio;

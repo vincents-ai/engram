@@ -195,3 +195,75 @@ impl Entity for Context {
         self
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_context_creation() {
+        let title = "Project Overview";
+        let content = "This project aims to...";
+        let source = "manual";
+        let relevance = ContextRelevance::High;
+        let agent = "user-agent";
+
+        let context = Context::new(
+            title.to_string(),
+            content.to_string(),
+            source.to_string(),
+            relevance.clone(),
+            agent.to_string(),
+        );
+
+        assert_eq!(context.title, title);
+        assert_eq!(context.content, content);
+        assert_eq!(context.source, source);
+        assert_eq!(context.relevance, relevance);
+        assert_eq!(context.agent, agent);
+        assert!(!context.id.is_empty());
+    }
+
+    #[test]
+    fn test_context_validation() {
+        let context = Context::new(
+            "".to_string(), // Empty title
+            "Content".to_string(),
+            "source".to_string(),
+            ContextRelevance::Low,
+            "agent".to_string(),
+        );
+        assert!(context.validate_entity().is_err());
+
+        let context = Context::new(
+            "Title".to_string(),
+            "".to_string(), // Empty content
+            "source".to_string(),
+            ContextRelevance::Low,
+            "agent".to_string(),
+        );
+        assert!(context.validate_entity().is_err());
+    }
+
+    #[test]
+    fn test_context_updates() {
+        let mut context = Context::new(
+            "Title".to_string(),
+            "Content".to_string(),
+            "source".to_string(),
+            ContextRelevance::Medium,
+            "agent".to_string(),
+        );
+
+        let new_content = "Updated content";
+        context.update_content(new_content.to_string());
+        assert_eq!(context.content, new_content);
+
+        context.set_source_id("file://readme.md".to_string());
+        assert_eq!(context.source_id, Some("file://readme.md".to_string()));
+
+        let entity_id = "related-123";
+        context.add_related_entity(entity_id.to_string());
+        assert!(context.related_entities.contains(&entity_id.to_string()));
+    }
+}

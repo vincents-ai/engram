@@ -521,7 +521,7 @@ mod tests {
     fn test_create_context_json_invalid() {
         let mut storage = create_test_storage();
         // Malformed JSON should fail
-        let result = create_context(
+        let _result = create_context(
             &mut storage,
             None,
             None,

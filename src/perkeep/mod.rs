@@ -56,6 +56,53 @@ impl Default for PerkeepConfig {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_perkeep_config_default() {
+        let config = PerkeepConfig::default();
+        // Since env vars might be set, we can't strictly assert the URL,
+        // but we can check if verify_tls defaults to true
+        assert!(config.verify_tls);
+    }
+
+    #[test]
+    fn test_backup_metadata_creation() {
+        let metadata = EngramBackupMetadata::new(
+            10,
+            vec!["task".to_string(), "note".to_string()],
+            HashMap::new(),
+            1024,
+            "test-agent".to_string()
+        );
+
+        assert_eq!(metadata.version, "1.0.0");
+        assert_eq!(metadata.entity_count, 10);
+        assert_eq!(metadata.entity_types.len(), 2);
+        assert_eq!(metadata.total_size, 1024);
+        assert_eq!(metadata.agent, "test-agent");
+        assert!(!metadata.timestamp.is_empty());
+    }
+
+    #[test]
+    fn test_client_url_construction() {
+        let config = PerkeepConfig {
+            server_url: "http://test:3179".to_string(),
+            auth_token: None,
+            verify_tls: true,
+        };
+        
+        let client = PerkeepClient::new(config).expect("Failed to create client");
+        
+        assert_eq!(client.server_url(), "http://test:3179");
+        assert_eq!(client.upload_url(), "http://test:3179/blob/upload");
+        assert_eq!(client.search_url(), "http://test:3179/search/query");
+        assert_eq!(client.blob_url("abc"), "http://test:3179/blobs/abc");
+    }
+}
+
 /// Perkeep blob reference
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlobRef {

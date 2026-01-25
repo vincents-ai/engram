@@ -332,3 +332,66 @@ impl Entity for Standard {
         self
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_standard_creation() {
+        let standard = Standard::new(
+            "Style Guide".to_string(),
+            "Formatting".to_string(),
+            StandardCategory::Coding,
+            "1.0.0".to_string(),
+            "agent".to_string(),
+            Utc::now(),
+        );
+
+        assert_eq!(standard.title, "Style Guide");
+        assert_eq!(standard.status, StandardStatus::Draft);
+        assert_eq!(standard.category, StandardCategory::Coding);
+    }
+
+    #[test]
+    fn test_standard_lifecycle() {
+        let mut standard = Standard::new(
+            "Lifecycle".to_string(),
+            "Test".to_string(),
+            StandardCategory::Process,
+            "1.0.0".to_string(),
+            "agent".to_string(),
+            Utc::now(),
+        );
+
+        standard.activate();
+        assert_eq!(standard.status, StandardStatus::Active);
+        assert!(standard.is_effective());
+
+        standard.deprecate(Some("new-id".to_string()));
+        assert_eq!(standard.status, StandardStatus::Deprecated);
+        assert_eq!(standard.superseded_by, Some("new-id".to_string()));
+        assert!(!standard.is_effective());
+    }
+
+    #[test]
+    fn test_standard_validation() {
+        let mut standard = Standard::new(
+            "".to_string(), // Invalid empty title
+            "Desc".to_string(),
+            StandardCategory::Security,
+            "1.0.0".to_string(),
+            "agent".to_string(),
+            Utc::now(),
+        );
+
+        assert!(standard.validate_entity().is_err());
+
+        standard.title = "Valid".to_string();
+        standard.version = "".to_string(); // Invalid empty version
+        assert!(standard.validate_entity().is_err());
+
+        standard.version = "1.0.0".to_string();
+        assert!(standard.validate_entity().is_ok());
+    }
+}

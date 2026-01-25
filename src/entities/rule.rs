@@ -367,3 +367,102 @@ impl Entity for Rule {
         self
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_rule_creation() {
+        let rule = Rule::new(
+            "Test Rule".to_string(),
+            "Description".to_string(),
+            RuleType::Validation,
+            RulePriority::High,
+            "agent".to_string(),
+            json!({"field": "status", "op": "eq", "value": "done"}),
+            json!({"effect": "block"}),
+        );
+
+        assert_eq!(rule.title, "Test Rule");
+        assert_eq!(rule.status, RuleStatus::Active);
+        assert_eq!(rule.priority, RulePriority::High);
+    }
+
+    #[test]
+    fn test_rule_lifecycle() {
+        let mut rule = Rule::new(
+            "Lifecycle".to_string(),
+            "Test".to_string(),
+            RuleType::Enforcement,
+            RulePriority::Medium,
+            "agent".to_string(),
+            json!({}),
+            json!({}),
+        );
+
+        rule.deactivate();
+        assert_eq!(rule.status, RuleStatus::Inactive);
+
+        rule.activate();
+        assert_eq!(rule.status, RuleStatus::Active);
+
+        rule.deprecate();
+        assert_eq!(rule.status, RuleStatus::Deprecated);
+    }
+
+    #[test]
+    fn test_rule_execution() {
+        let mut rule = Rule::new(
+            "Exec".to_string(),
+            "Test".to_string(),
+            RuleType::Validation,
+            RulePriority::Low,
+            "agent".to_string(),
+            json!({}),
+            json!({}),
+        );
+
+        let entity = GenericEntity {
+            id: "e1".to_string(),
+            entity_type: "task".to_string(),
+            agent: "agent".to_string(),
+            timestamp: Utc::now(),
+            data: json!({}),
+        };
+
+        // Execution succeeds for active rule
+        let result = rule.execute(&entity);
+        assert_eq!(result, RuleExecutionResult::Success);
+        assert_eq!(rule.execution_history.len(), 1);
+
+        // Skipped for inactive rule
+        rule.deactivate();
+        let result = rule.execute(&entity);
+        assert_eq!(result, RuleExecutionResult::Skipped);
+        assert_eq!(rule.execution_history.len(), 2);
+    }
+
+    #[test]
+    fn test_rule_validation() {
+        let mut rule = Rule::new(
+            "".to_string(), // Invalid empty title
+            "Desc".to_string(),
+            RuleType::Notification,
+            RulePriority::Low,
+            "agent".to_string(),
+            json!({}),
+            json!({}),
+        );
+
+        assert!(rule.validate_entity().is_err());
+
+        rule.title = "Valid".to_string();
+        rule.description = "".to_string(); // Invalid empty description
+        assert!(rule.validate_entity().is_err());
+
+        rule.description = "Valid".to_string();
+        assert!(rule.validate_entity().is_ok());
+    }
+}

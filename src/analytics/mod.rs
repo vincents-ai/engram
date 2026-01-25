@@ -399,6 +399,127 @@ impl WorkflowStageReport {
     }
 }
 
+impl Default for BottleneckReport {
+    fn default() -> Self {
+        Self {
+            generated_at: Utc::now(),
+            period_days: 0,
+            overall_metrics: BottleneckOverallMetrics {
+                total_tasks_created: 0,
+                total_tasks_completed: 0,
+                completion_rate: 0.0,
+                avg_cycle_time_seconds: 0.0,
+                blocked_task_rate: 0.0,
+            },
+            task_bottlenecks: vec![],
+            workflow_bottlenecks: vec![],
+            recommendations: vec![],
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::entities::Task;
+    use crate::storage::MemoryStorage;
+
+    #[test]
+    fn test_productivity_score_calculation() {
+        let metrics = SessionAnalytics {
+            session_id: "test".to_string(),
+            agent_name: "test".to_string(),
+            start_time: Utc::now(),
+            end_time: Some(Utc::now() + chrono::Duration::minutes(60)),
+            space_metrics: SpaceMetrics {
+                satisfaction_score: 0.8,
+                performance_score: 0.8,
+                activity_score: 0.8,
+                communication_score: 0.8,
+                efficiency_score: 0.8,
+                overall_score: 0.8,
+            },
+            dora_metrics: DoraMetrics {
+                deployment_frequency: 0,
+                lead_time: 0.0,
+                change_failure_rate: 0.0,
+                mean_time_to_recover: 0.0,
+            },
+            tasks_completed: 5,
+            context_items_created: 10,
+            reasoning_steps_taken: 50,
+            knowledge_items_added: 2,
+        };
+
+        let score = metrics.calculate_productivity_score();
+        assert!(score > 0.0);
+    }
+
+    #[test]
+    fn test_fatigue_analysis() {
+        let analysis = FatigueAnalysis {
+            optimal_session_length: 60,
+            current_session_length: 0,
+            fatigue_risk_level: "low".to_string(),
+            recommendation: "none".to_string(),
+        };
+
+        assert_eq!(analysis.analyze(30), "low");
+        assert_eq!(analysis.analyze(70), "medium");
+        assert_eq!(analysis.analyze(130), "high");
+    }
+
+    // We can't easily test TaskDurationReport or BottleneckReport generation here
+    // because they depend on Storage containing Tasks, and populating MemoryStorage with
+    // Tasks that implement Entity trait (which they do) requires generic conversion logic.
+    // However, the logic inside `generate` is straightforward filtering and aggregation.
+
+    // Let's at least test the calculation logic for productivity score with different durations.
+    #[test]
+    fn test_productivity_score_duration_impact() {
+        let mut metrics = SessionAnalytics {
+            session_id: "test".to_string(),
+            agent_name: "test".to_string(),
+            start_time: Utc::now(),
+            end_time: Some(Utc::now() + chrono::Duration::minutes(60)), // 1 hour (factor 1.0)
+            space_metrics: SpaceMetrics {
+                satisfaction_score: 1.0,
+                performance_score: 1.0,
+                activity_score: 1.0,
+                communication_score: 1.0,
+                efficiency_score: 1.0,
+                overall_score: 1.0,
+            },
+            dora_metrics: DoraMetrics {
+                deployment_frequency: 0,
+                lead_time: 0.0,
+                change_failure_rate: 0.0,
+                mean_time_to_recover: 0.0,
+            },
+            tasks_completed: 5,
+            context_items_created: 10,
+            reasoning_steps_taken: 50,
+            knowledge_items_added: 2,
+        };
+
+        // Duration factor 1.0 -> 1.0 * (0.3 + 0.4*1.0 + 0.3) = 1.0
+        let score_normal = metrics.calculate_productivity_score();
+        assert!((score_normal - 1.0).abs() < 0.001);
+
+        // > 4 hours (factor 0.85)
+        metrics.end_time = Some(Utc::now() + chrono::Duration::minutes(300));
+        let score_long = metrics.calculate_productivity_score();
+        // 1.0 * (0.3 + 0.4*0.85 + 0.3) = 1.0 * (0.6 + 0.34) = 0.94
+        assert!((score_long - 0.94).abs() < 0.001);
+
+        // > 8 hours (factor 0.7)
+        metrics.end_time = Some(Utc::now() + chrono::Duration::minutes(500));
+        let score_very_long = metrics.calculate_productivity_score();
+        // 1.0 * (0.3 + 0.4*0.7 + 0.3) = 1.0 * (0.6 + 0.28) = 0.88
+        assert!((score_very_long - 0.88).abs() < 0.001);
+    }
+}
+
 impl BottleneckReport {
     pub fn generate<S: Storage + 'static>(storage: S, days: u32) -> Result<Self, String> {
         let cutoff = Utc::now() - chrono::Duration::days(days as i64);

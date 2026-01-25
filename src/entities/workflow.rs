@@ -480,3 +480,113 @@ impl Entity for Workflow {
         self
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn create_test_state(id: &str, name: &str, is_final: bool) -> WorkflowState {
+        WorkflowState {
+            id: id.to_string(),
+            name: name.to_string(),
+            state_type: if is_final {
+                StateType::Done
+            } else {
+                StateType::Start
+            },
+            description: format!("Description for {}", name),
+            is_final,
+            prompts: None,
+            guards: vec![],
+            post_functions: vec![],
+        }
+    }
+
+    #[test]
+    fn test_workflow_creation() {
+        let workflow = Workflow::new(
+            "Code Review".to_string(),
+            "Standard code review workflow".to_string(),
+            "agent-1".to_string(),
+        );
+
+        assert_eq!(workflow.title, "Code Review");
+        assert_eq!(workflow.status, WorkflowStatus::Draft);
+        assert!(workflow.states.is_empty());
+        assert!(workflow.initial_state.is_empty());
+    }
+
+    #[test]
+    fn test_workflow_lifecycle() {
+        let mut workflow = Workflow::new(
+            "Test Workflow".to_string(),
+            "Description".to_string(),
+            "agent-1".to_string(),
+        );
+
+        // Define states
+        let start = create_test_state("start", "Start", false);
+        let end = create_test_state("end", "End", true);
+
+        workflow.add_state(start.clone());
+        workflow.add_state(end.clone());
+        workflow.set_initial_state(start.id.clone());
+        workflow.add_final_state(end.id.clone());
+
+        assert_eq!(workflow.states.len(), 2);
+        assert_eq!(workflow.initial_state, "start");
+        assert!(workflow.final_states.contains(&"end".to_string()));
+
+        // Activation
+        workflow.activate();
+        assert_eq!(workflow.status, WorkflowStatus::Active);
+
+        // Deactivation
+        workflow.deactivate();
+        assert_eq!(workflow.status, WorkflowStatus::Inactive);
+    }
+
+    #[test]
+    fn test_workflow_validation() {
+        let mut workflow = Workflow::new(
+            "".to_string(), // Empty title
+            "Desc".to_string(),
+            "agent".to_string(),
+        );
+        workflow.set_initial_state("start".to_string());
+        assert!(workflow.validate_entity().is_err());
+
+        let mut workflow = Workflow::new(
+            "Title".to_string(),
+            "".to_string(), // Empty description
+            "agent".to_string(),
+        );
+        workflow.set_initial_state("start".to_string());
+        assert!(workflow.validate_entity().is_err());
+
+        let workflow = Workflow::new("Title".to_string(), "Desc".to_string(), "agent".to_string());
+        // Missing initial state
+        assert!(workflow.validate_entity().is_err());
+    }
+
+    #[test]
+    fn test_transitions() {
+        let mut workflow =
+            Workflow::new("Title".to_string(), "Desc".to_string(), "agent".to_string());
+
+        let transition = WorkflowTransition {
+            id: "t1".to_string(),
+            name: "Submit".to_string(),
+            from_state: "draft".to_string(),
+            to_state: "review".to_string(),
+            transition_type: TransitionType::Manual,
+            description: "Submit for review".to_string(),
+            conditions: vec![],
+            actions: vec![],
+        };
+
+        workflow.add_transition(transition);
+        assert_eq!(workflow.transitions.len(), 1);
+        assert_eq!(workflow.transitions[0].name, "Submit");
+    }
+}

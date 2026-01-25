@@ -24,6 +24,7 @@ pub mod quality_gates;
 #[cfg(feature = "sandbox")]
 pub mod sandbox;
 pub mod session;
+pub mod skill_templates;
 pub mod storage;
 pub mod validation;
 pub mod vector;
@@ -42,7 +43,7 @@ pub use storage::{MemoryEntity, Storage};
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    
 
     #[test]
     fn test_library_compilation() {

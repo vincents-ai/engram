@@ -364,3 +364,73 @@ impl Entity for Compliance {
         self
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_compliance_creation() {
+        let compliance = Compliance::new(
+            "GDPR Check".to_string(),
+            "Verify data handling".to_string(),
+            "Privacy".to_string(),
+            "agent".to_string(),
+        );
+
+        assert_eq!(compliance.title, "GDPR Check");
+        assert_eq!(compliance.status, ComplianceStatus::Pending);
+        assert_eq!(compliance.category, "Privacy");
+    }
+
+    #[test]
+    fn test_compliance_workflow() {
+        let mut compliance = Compliance::new(
+            "Security".to_string(),
+            "Check".to_string(),
+            "Security".to_string(),
+            "agent".to_string(),
+        );
+
+        // Mark compliant
+        compliance.mark_compliant();
+        assert_eq!(compliance.status, ComplianceStatus::Compliant);
+        assert!(compliance.violations.is_empty());
+
+        // Create violation
+        let violation = ComplianceViolation {
+            id: "v1".to_string(),
+            description: "Weak password".to_string(),
+            severity: SeverityLevel::High,
+            location: None,
+            detected_at: Utc::now(),
+            remediation_steps: vec![],
+            remediation_status: "open".to_string(),
+        };
+
+        // Mark non-compliant
+        compliance.mark_non_compliant(vec![violation]);
+        assert_eq!(compliance.status, ComplianceStatus::NonCompliant);
+        assert_eq!(compliance.violations.len(), 1);
+        assert_eq!(compliance.severity, Some(SeverityLevel::High));
+    }
+
+    #[test]
+    fn test_compliance_validation() {
+        let mut compliance = Compliance::new(
+            "".to_string(), // Invalid empty title
+            "Desc".to_string(),
+            "Cat".to_string(),
+            "agent".to_string(),
+        );
+
+        assert!(compliance.validate_entity().is_err());
+
+        compliance.title = "Valid".to_string();
+        compliance.description = "".to_string(); // Invalid empty description
+        assert!(compliance.validate_entity().is_err());
+
+        compliance.description = "Valid".to_string();
+        assert!(compliance.validate_entity().is_ok());
+    }
+}

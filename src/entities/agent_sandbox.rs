@@ -147,6 +147,16 @@ pub enum FallbackAction {
     Defer,
 }
 
+impl From<CommandPattern> for CommandPermission {
+    fn from(pattern: CommandPattern) -> Self {
+        Self {
+            pattern,
+            description: "Auto-generated from pattern".to_string(),
+            risk_level: RiskLevel::Low,
+        }
+    }
+}
+
 /// Command permissions
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CommandPermission {
@@ -164,7 +174,7 @@ pub struct PathRestriction {
 }
 
 /// File operations
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "snake_case")]
 pub enum FileOperation {
     Read,
@@ -223,7 +233,7 @@ pub struct DangerousPattern {
 }
 
 /// Risk levels
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum RiskLevel {
     Low,

@@ -310,3 +310,81 @@ impl Default for CommandValidator {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+    use chrono::Utc;
+
+    #[tokio::test]
+    async fn test_validate_whitelist_allowed() {
+        let mut validator = CommandValidator::new();
+        let request = SandboxRequest {
+            agent_id: "test-agent".to_string(),
+            operation: "ls".to_string(),
+            resource_type: "command".to_string(),
+            parameters: json!({}),
+            timestamp: Utc::now(),
+            session_id: Some("session-1".to_string()),
+        };
+
+        let filter = CommandFilter {
+            whitelist_mode: true,
+            allowed_commands: vec![CommandPattern::Exact {
+                command: "ls".to_string(),
+            }],
+            ..Default::default()
+        };
+
+        let result = validator.validate_command(&request, &filter).await.unwrap();
+        assert!(matches!(result, CommandValidationResult::Allow));
+    }
+
+    #[tokio::test]
+    async fn test_validate_whitelist_blocked() {
+        let mut validator = CommandValidator::new();
+        let request = SandboxRequest {
+            agent_id: "test-agent".to_string(),
+            operation: "rm".to_string(),
+            resource_type: "command".to_string(),
+            parameters: json!({}),
+            timestamp: Utc::now(),
+            session_id: Some("session-1".to_string()),
+        };
+
+        let filter = CommandFilter {
+            whitelist_mode: true,
+            allowed_commands: vec![CommandPattern::Exact {
+                command: "ls".to_string(),
+            }],
+            ..Default::default()
+        };
+
+        let result = validator.validate_command(&request, &filter).await.unwrap();
+        assert!(matches!(result, CommandValidationResult::Block(_)));
+    }
+
+    #[test]
+    fn test_risk_estimation() {
+        assert!(matches!(
+            CommandValidator::estimate_command_risk("rm -rf /"),
+            RiskLevel::High
+        ));
+        assert!(matches!(
+            CommandValidator::estimate_command_risk("curl http://example.com"),
+            RiskLevel::Medium
+        ));
+        assert!(matches!(
+            CommandValidator::estimate_command_risk("echo hello"),
+            RiskLevel::Low
+        ));
+    }
+
+    #[test]
+    fn test_validate_syntax() {
+        assert!(CommandValidator::validate_command_syntax("ls -la"));
+        assert!(!CommandValidator::validate_command_syntax("rm -rf /"));
+        assert!(!CommandValidator::validate_command_syntax("command > /dev/sda"));
+    }
+}
