@@ -69,6 +69,7 @@ pub enum TaskCommands {
         description_file: Option<String>,
 
         /// Create task from JSON input (stdin or file)
+        /// NOTE: This only specifies the INPUT format. Output format is controlled by --output.
         #[arg(long, conflicts_with_all = ["title", "description", "title_stdin", "title_file", "description_stdin", "description_file"])]
         json: bool,
 
@@ -200,11 +201,6 @@ pub fn create_task<S: Storage>(
                 e.column()
             ))
         })?;
-
-        // When using --json (input mode), we might want to respect output format too.
-        // But create_task_from_input currently prints to stdout directly.
-        // We should refactor create_task_from_input to accept output_format or return the task.
-        // For now, let's modify create_task_from_input signature if possible, or just reimplement here.
 
         // Re-implementing logic here to support output format
         let priority_enum = match task_input.priority.as_deref().unwrap_or("medium") {
