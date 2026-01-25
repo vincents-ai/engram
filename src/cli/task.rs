@@ -314,6 +314,9 @@ pub fn create_task<S: Storage>(
     Ok(())
 }
 
+use crate::cli::utils::{create_table, truncate};
+use prettytable::{cell, row};
+
 /// List tasks command
 pub fn list_tasks<S: Storage>(
     storage: &S,
@@ -345,12 +348,30 @@ pub fn list_tasks<S: Storage>(
     }
 
     println!("📋 Tasks ({} found):", tasks.len());
+
+    let mut table = create_table();
+    table.set_titles(row!["ID", "Status", "Title", "Agent"]);
+
     for generic_task in &tasks {
-        if let Ok(task_obj) = Task::from_generic(generic_task.clone()) {
-            display_task_summary(&task_obj);
+        if let Ok(task) = Task::from_generic(generic_task.clone()) {
+            let status_emoji = match task.status {
+                crate::entities::TaskStatus::Todo => "📝 Todo",
+                crate::entities::TaskStatus::InProgress => "🚧 In Progress",
+                crate::entities::TaskStatus::Done => "✅ Done",
+                crate::entities::TaskStatus::Blocked => "⛔ Blocked",
+                crate::entities::TaskStatus::Cancelled => "❌ Cancelled",
+            };
+
+            table.add_row(row![
+                &task.id[..8],
+                status_emoji,
+                truncate(&task.title, 50),
+                truncate(&task.agent, 15)
+            ]);
         }
     }
 
+    table.printstd();
     Ok(())
 }
 
@@ -622,6 +643,7 @@ fn display_task(task: &Task) {
 }
 
 /// Display task summary for lists
+// Deprecated: use list_tasks table output instead
 fn display_task_summary(task: &Task) {
     println!(
         "  • {} [{}] - {} ({})",

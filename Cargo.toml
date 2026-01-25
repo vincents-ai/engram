@@ -74,6 +74,7 @@ bytemuck = { version = "1.24", optional = true }
 # TUI dependencies
 crossterm = { version = "0.27", optional = true }
 ratatui = { version = "0.26", optional = true }
+prettytable-rs = "0.10.0"
 
 [build-dependencies]
 chrono = { version = "0.4", features = ["serde"] }

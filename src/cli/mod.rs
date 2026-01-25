@@ -29,6 +29,7 @@ pub mod standard;
 pub mod sync;
 pub mod task;
 pub mod validation;
+pub mod utils;
 pub mod workflow;
 
 pub use adr::*;

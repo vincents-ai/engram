@@ -94,6 +94,9 @@ pub fn create_compliance<S: Storage>(
     Ok(())
 }
 
+use crate::cli::utils::{create_table, truncate};
+use prettytable::{cell, row};
+
 /// List compliance requirements
 pub fn list_compliance<S: Storage>(
     storage: &S,
@@ -129,11 +132,30 @@ pub fn list_compliance<S: Storage>(
         "🔍 Compliance Requirements ({} found):",
         compliance_items.len()
     );
+
+    let mut table = create_table();
+    table.set_titles(row!["ID", "Status", "Title", "Category", "Agent"]);
+
     for generic_item in &compliance_items {
-        if let Ok(compliance_obj) = Compliance::from_generic(generic_item.clone()) {
-            display_compliance_summary(&compliance_obj);
+        if let Ok(compliance) = Compliance::from_generic(generic_item.clone()) {
+            let status_icon = match compliance.status {
+                crate::entities::ComplianceStatus::Compliant => "✅ Compliant",
+                crate::entities::ComplianceStatus::NonCompliant => "❌ Non-Compliant",
+                crate::entities::ComplianceStatus::Pending => "⏳ Pending",
+                crate::entities::ComplianceStatus::Exempt => "🔒 Exempt",
+            };
+
+            table.add_row(row![
+                &compliance.id[..8],
+                status_icon,
+                truncate(&compliance.title, 40),
+                truncate(&compliance.category, 15),
+                truncate(&compliance.agent, 10)
+            ]);
         }
     }
+
+    table.printstd();
 
     Ok(())
 }
@@ -274,6 +296,7 @@ fn display_compliance(compliance: &Compliance) {
 }
 
 /// Display compliance requirement summary
+// Deprecated: use list_compliance table output instead
 fn display_compliance_summary(compliance: &Compliance) {
     let status_icon = match compliance.status {
         crate::entities::ComplianceStatus::Compliant => "✅",
