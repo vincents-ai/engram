@@ -903,6 +903,7 @@ fn handle_workflow_command<S: engram::storage::Storage>(
             entity_type,
             agent,
             variables,
+            context_file,
         } => {
             let storage_for_workflow = GitRefsStorage::new(".", "default")?;
             cli::start_workflow_instance(
@@ -912,15 +913,23 @@ fn handle_workflow_command<S: engram::storage::Storage>(
                 entity_type,
                 agent,
                 variables,
+                context_file,
             )?;
         }
         cli::WorkflowCommands::Transition {
             instance_id,
             transition,
             agent,
+            context_file,
         } => {
             let storage_for_workflow = GitRefsStorage::new(".", "default")?;
-            cli::execute_workflow_transition(storage_for_workflow, instance_id, transition, agent)?;
+            cli::execute_workflow_transition(
+                storage_for_workflow,
+                instance_id,
+                transition,
+                agent,
+                context_file,
+            )?;
         }
         cli::WorkflowCommands::Status { instance_id } => {
             let storage_for_workflow = GitRefsStorage::new(".", "default")?;
