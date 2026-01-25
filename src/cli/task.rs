@@ -194,11 +194,25 @@ pub fn create_task<S: Storage>(
         };
 
         let task_input: TaskInput = serde_json::from_str(&json_content).map_err(|e| {
+            // Provide helpful context about the error location
+            let line = e.line();
+            let col = e.column();
+            
+            // Try to extract a snippet around the error if possible
+            let lines: Vec<&str> = json_content.lines().collect();
+            let snippet = if line > 0 && line <= lines.len() {
+                let context_line = lines[line - 1];
+                format!("\n\nContext (Line {}):\n> {}", line, context_line)
+            } else {
+                String::new()
+            };
+
             EngramError::Validation(format!(
-                "Invalid JSON: {}. Line: {}, Column: {}",
+                "❌ Invalid JSON format\n\nError: {}\nLocation: Line {}, Column {}{}\n\nTip: Ensure your JSON has valid structure and quotes around strings.",
                 e,
-                e.line(),
-                e.column()
+                line,
+                col,
+                snippet
             ))
         })?;
 
