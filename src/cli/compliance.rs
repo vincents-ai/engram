@@ -140,7 +140,33 @@ pub fn list_compliance<S: Storage>(
 
 /// Show compliance requirement details
 pub fn show_compliance<S: Storage>(storage: &S, id: &str) -> Result<(), EngramError> {
-    let generic = storage.get(id, "compliance")?;
+    // Try to find by exact ID first
+    let generic = match storage.get(id, "compliance") {
+        Ok(Some(item)) => Some(item),
+        Ok(None) => {
+            // If not found, try to find by partial ID (prefix match)
+            let all_items = storage.query_by_agent("default", Some("compliance"))?;
+            let matches: Vec<_> = all_items
+                .into_iter()
+                .filter(|item| item.id.starts_with(id))
+                .collect();
+
+            if matches.len() == 1 {
+                Some(matches[0].clone())
+            } else if matches.len() > 1 {
+                println!("❌ Ambiguous ID '{}'. Found multiple matches:", id);
+                for item in matches {
+                    if let Ok(compliance) = Compliance::from_generic(item) {
+                        println!("  - {} ({})", compliance.id, compliance.title);
+                    }
+                }
+                return Ok(());
+            } else {
+                None
+            }
+        }
+        Err(e) => return Err(e),
+    };
 
     if let Some(generic_item) = generic {
         let compliance = Compliance::from_generic(generic_item)?;
