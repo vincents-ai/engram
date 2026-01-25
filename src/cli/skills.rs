@@ -30,16 +30,29 @@ pub fn get_skills_path(config_dir: Option<PathBuf>) -> PathBuf {
     if let Some(dir) = config_dir {
         return dir.join("engram/skills");
     }
-    std::env::var("ENGRAM_SKILLS_PATH")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| {
-            let cwd_skills = PathBuf::from(".engram/skills");
-            if cwd_skills.exists() {
-                cwd_skills
-            } else {
-                PathBuf::from("./engram/skills")
-            }
-        })
+
+    // 1. Try environment variable
+    if let Ok(path_str) = std::env::var("ENGRAM_SKILLS_PATH") {
+        let path = PathBuf::from(&path_str);
+        if path.exists() {
+            return path;
+        }
+    }
+
+    // 2. Try .engram/skills in CWD
+    let cwd_skills = PathBuf::from(".engram/skills");
+    if cwd_skills.exists() {
+        return cwd_skills;
+    }
+
+    // 3. Try engram/skills in CWD
+    let local_skills = PathBuf::from("./engram/skills");
+    if local_skills.exists() {
+        return local_skills;
+    }
+
+    // 4. Fallback to default
+    PathBuf::from(".engram/skills")
 }
 
 /// List all skills in skills directory

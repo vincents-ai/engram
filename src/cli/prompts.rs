@@ -33,16 +33,31 @@ pub enum PromptsCommands {
 
 /// Get prompts path from environment or default
 pub fn get_prompts_path() -> PathBuf {
-    std::env::var("ENGRAM_PROMPTS_PATH")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| {
-            let cwd_prompts = PathBuf::from(".engram/prompts");
-            if cwd_prompts.exists() {
-                cwd_prompts
-            } else {
-                PathBuf::from("./engram/prompts")
-            }
-        })
+    // 1. Try environment variable
+    if let Ok(path_str) = std::env::var("ENGRAM_PROMPTS_PATH") {
+        let path = PathBuf::from(&path_str);
+        if path.exists() {
+            return path;
+        }
+        // If set but not found, we might want to warn, but for now let's fall through
+        // or we could return it to let the caller fail on it.
+        // However, the requirement is "Default to looking in ... if ... point to invalid paths"
+    }
+
+    // 2. Try .engram/prompts in CWD
+    let cwd_prompts = PathBuf::from(".engram/prompts");
+    if cwd_prompts.exists() {
+        return cwd_prompts;
+    }
+
+    // 3. Try engram/prompts in CWD
+    let local_prompts = PathBuf::from("./engram/prompts");
+    if local_prompts.exists() {
+        return local_prompts;
+    }
+
+    // 4. Fallback to default
+    PathBuf::from(".engram/prompts")
 }
 
 /// List all prompts in the prompts directory
@@ -91,7 +106,15 @@ pub fn list_prompts(
                     let count = fs::read_dir(&entry.path())?.flatten().count();
                     println!("  - {} ({})", name, count);
                 } else if verbose {
-                    println!("  Skipping file in root: {:?}", entry.path());
+                    let path = entry.path();
+                    let is_hidden = path
+                        .file_name()
+                        .map(|s| s.to_string_lossy().starts_with('.'))
+                        .unwrap_or(false);
+
+                    if !is_hidden {
+                        println!("  Skipping file in root: {:?} (Prompts should be organized in subdirectories/categories, or use 'show' for specific files)", path);
+                    }
                 }
             }
         }
@@ -126,7 +149,15 @@ pub fn list_prompts(
                         println!("  ... and {} more", total - 10);
                     }
                 } else if verbose {
-                    println!("  Skipping file in root: {:?}", entry.path());
+                    let path = entry.path();
+                    let is_hidden = path
+                        .file_name()
+                        .map(|s| s.to_string_lossy().starts_with('.'))
+                        .unwrap_or(false);
+
+                    if !is_hidden {
+                        println!("  Skipping file in root: {:?} (Prompts should be organized in subdirectories/categories, or use 'show' for specific files)", path);
+                    }
                 }
             }
         }
