@@ -60,7 +60,7 @@ pub fn get_prompts_path() -> PathBuf {
     PathBuf::from(".engram/prompts")
 }
 
-use crate::cli::utils::{create_table, truncate};
+use crate::cli::utils::create_table;
 use prettytable::row;
 
 /// List all prompts in the prompts directory
@@ -71,22 +71,39 @@ pub fn list_prompts(
     verbose: bool,
 ) -> Result<(), std::io::Error> {
     let prompts_path = root.unwrap_or_else(get_prompts_path);
+    let abs_path = std::fs::canonicalize(&prompts_path).unwrap_or_else(|_| prompts_path.clone());
 
     if verbose {
-        println!("🔎 Searching for prompts in: {:?}", prompts_path);
+        println!("🔎 Prompts configuration:");
+        println!("  • Target path: {:?}", prompts_path);
+        println!("  • Absolute path: {:?}", abs_path);
+        if let Ok(env_path) = std::env::var("ENGRAM_PROMPTS_PATH") {
+            println!("  • ENGRAM_PROMPTS_PATH: {}", env_path);
+        } else {
+            println!("  • ENGRAM_PROMPTS_PATH: (not set)");
+        }
     }
 
     if !prompts_path.exists() {
         if verbose {
             println!("❌ Directory does not exist");
         }
-        println!("Prompts directory not found: {:?}", prompts_path);
-        println!("Set ENGRAM_PROMPTS_PATH environment variable.");
+        // Only show error if we are not in verbose mode (already showed status)
+        // or ensure the message is clear.
+        println!("Prompts directory not found at: {:?}", abs_path);
+        println!(
+            "Current working directory: {:?}",
+            std::env::current_dir().unwrap_or_default()
+        );
+        println!("\nTo fix this:");
+        println!("1. Run 'engram setup prompts' to install default prompts");
+        println!("2. Or set ENGRAM_PROMPTS_PATH to your prompts directory");
         return Ok(());
     }
 
     let entries = fs::read_dir(&prompts_path)?;
     let mut table = create_table();
+    let mut found_any = false;
 
     match format {
         "short" | "s" => {
@@ -108,6 +125,7 @@ pub fn list_prompts(
                     // Count files in subdirectory
                     let count = fs::read_dir(&entry.path())?.flatten().count();
                     table.add_row(row![name, count]);
+                    found_any = true;
                 } else if verbose {
                     let path = entry.path();
                     let is_hidden = path
@@ -120,7 +138,11 @@ pub fn list_prompts(
                     }
                 }
             }
-            table.printstd();
+            if found_any {
+                table.printstd();
+            } else if verbose {
+                println!("No prompts found in {:?}", prompts_path);
+            }
         }
         "full" | "f" => {
             table.set_titles(row!["Category", "Prompt Name"]);
@@ -149,6 +171,7 @@ pub fn list_prompts(
 
                     if file_names.is_empty() {
                         table.add_row(row![name, "-"]);
+                        found_any = true;
                     } else {
                         for (i, file_name) in file_names.iter().enumerate() {
                             if i == 0 {
@@ -156,6 +179,7 @@ pub fn list_prompts(
                             } else {
                                 table.add_row(row!["", file_name]);
                             }
+                            found_any = true;
                         }
                     }
                 } else if verbose {
@@ -170,7 +194,11 @@ pub fn list_prompts(
                     }
                 }
             }
-            table.printstd();
+            if found_any {
+                table.printstd();
+            } else if verbose {
+                println!("No prompts found in {:?}", prompts_path);
+            }
         }
         _ => {
             println!("Unknown format: {}. Use 'short' or 'full'.", format);

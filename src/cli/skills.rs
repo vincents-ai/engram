@@ -66,19 +66,44 @@ pub fn list_skills(
     config_dir: Option<PathBuf>,
 ) -> Result<(), std::io::Error> {
     let skills_path = get_skills_path(config_dir);
+    let abs_path = std::fs::canonicalize(&skills_path).unwrap_or_else(|_| skills_path.clone());
 
     if verbose {
-        writeln!(writer, "Looking for skills in: {:?}", skills_path)?;
+        writeln!(writer, "🔎 Skills configuration:")?;
+        writeln!(writer, "  • Target path: {:?}", skills_path)?;
+        writeln!(writer, "  • Absolute path: {:?}", abs_path)?;
+        if let Ok(env_path) = std::env::var("ENGRAM_SKILLS_PATH") {
+            writeln!(writer, "  • ENGRAM_SKILLS_PATH: {}", env_path)?;
+        } else {
+            writeln!(writer, "  • ENGRAM_SKILLS_PATH: (not set)")?;
+        }
     }
 
     if !skills_path.exists() {
-        writeln!(writer, "Skills directory not found: {:?}", skills_path)?;
-        writeln!(writer, "Set ENGRAM_SKILLS_PATH environment variable.")?;
+        if verbose {
+            writeln!(writer, "❌ Directory does not exist")?;
+        }
+        writeln!(writer, "Skills directory not found at: {:?}", abs_path)?;
+        writeln!(
+            writer,
+            "Current working directory: {:?}",
+            std::env::current_dir().unwrap_or_default()
+        )?;
+        writeln!(writer, "\nTo fix this:")?;
+        writeln!(
+            writer,
+            "1. Run 'engram setup skills' to install default skills"
+        )?;
+        writeln!(
+            writer,
+            "2. Or set ENGRAM_SKILLS_PATH to your skills directory"
+        )?;
         return Ok(());
     }
 
     let entries = std::fs::read_dir(&skills_path)?;
     let mut table = create_table();
+    let mut found_any = false;
 
     match format {
         "short" | "s" => {
@@ -86,6 +111,7 @@ pub fn list_skills(
             for entry in entries.flatten() {
                 if entry.path().is_dir() {
                     table.add_row(row![entry.file_name().to_string_lossy()]);
+                    found_any = true;
                 } else if verbose {
                     writeln!(
                         writer,
@@ -94,7 +120,11 @@ pub fn list_skills(
                     )?;
                 }
             }
-            table.print(writer)?;
+            if found_any {
+                table.print(writer)?;
+            } else if verbose {
+                writeln!(writer, "No skills found in {:?}", skills_path)?;
+            }
         }
         "full" | "f" => {
             table.set_titles(row!["Skill Name", "Description"]);
@@ -103,14 +133,23 @@ pub fn list_skills(
                     let file_name = entry.file_name();
                     let name = file_name.to_string_lossy();
                     let skill_file = entry.path().join("skill.md");
+                    // Try case-insensitive lookup for SKILL.md/skill.md
                     let description = if skill_file.exists() {
                         let content = std::fs::read_to_string(&skill_file)?;
                         content.lines().next().unwrap_or("").to_string()
                     } else {
-                        "(no description)".to_string()
+                        // Try uppercase SKILL.md
+                        let skill_file_upper = entry.path().join("SKILL.md");
+                        if skill_file_upper.exists() {
+                            let content = std::fs::read_to_string(&skill_file_upper)?;
+                            content.lines().next().unwrap_or("").to_string()
+                        } else {
+                            "(no description)".to_string()
+                        }
                     };
 
                     table.add_row(row![truncate(&name, 30), truncate(&description, 50)]);
+                    found_any = true;
                 } else if verbose {
                     writeln!(
                         writer,
@@ -119,7 +158,11 @@ pub fn list_skills(
                     )?;
                 }
             }
-            table.print(writer)?;
+            if found_any {
+                table.print(writer)?;
+            } else if verbose {
+                writeln!(writer, "No skills found in {:?}", skills_path)?;
+            }
         }
         _ => {
             writeln!(writer, "Unknown format: {}. Use 'short' or 'full'.", format)?;
