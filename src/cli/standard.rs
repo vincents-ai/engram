@@ -305,8 +305,12 @@ pub fn delete_standard<S: Storage>(storage: &mut S, id: &str) -> Result<(), Engr
     Ok(())
 }
 
+use crate::cli::utils::{create_table, truncate};
+use prettytable::row;
+
 /// List standards
 pub fn list_standards<S: Storage>(
+    writer: &mut dyn std::io::Write,
     storage: &S,
     category: Option<String>,
     status: Option<String>,
@@ -342,22 +346,25 @@ pub fn list_standards<S: Storage>(
 
     let result = storage.query(&filter)?;
 
-    println!("📋 Standards List");
-    println!("=================");
-
     if result.entities.is_empty() {
-        println!("No standards found matching the criteria.");
+        writeln!(writer, "No standards found matching the criteria.")?;
         return Ok(());
     }
 
-    println!(
+    writeln!(
+        writer,
         "Found {} standards (showing {} to {} of {})",
         result.total_count,
         offset + 1,
         offset + result.entities.len(),
         result.total_count
-    );
-    println!();
+    )?;
+    writeln!(writer)?;
+
+    let mut table = create_table();
+    table.set_titles(row![
+        "#", "ID", "St", "Cat", "Ver", "Title", "Agent", "Updated"
+    ]);
 
     for (i, entity) in result.entities.iter().enumerate() {
         let standard_data = &entity.data;
@@ -400,43 +407,39 @@ pub fn list_standards<S: Storage>(
             _ => "📋",
         };
 
-        println!(
-            "{}. {} {} {} v{}",
-            index, status_symbol, category_symbol, title, version
-        );
+        let updated_at = entity.timestamp.format("%Y-%m-%d").to_string();
 
-        println!("   ID: {}", entity.id);
-
-        if let Some(description) = standard_data.get("description").and_then(|v| v.as_str()) {
-            let truncated = if description.len() > 80 {
-                format!("{}...", &description[..77])
-            } else {
-                description.to_string()
-            };
-            println!("   📄 {}", truncated);
-        }
-
-        println!("   🏷️  Category: {} | 📊 Status: {}", category, status);
-
-        if let Some(requirements) = standard_data.get("requirements").and_then(|v| v.as_array()) {
-            println!("   📋 {} requirements", requirements.len());
-        }
-
-        println!(
-            "   👤 Agent: {} | 📅 {}",
-            entity.agent,
-            entity.timestamp.format("%Y-%m-%d %H:%M")
-        );
-
-        println!();
+        table.add_row(row![
+            index,
+            &entity.id[..8],
+            status_symbol,
+            category_symbol,
+            version,
+            truncate(title, 30),
+            truncate(&entity.agent, 10),
+            updated_at
+        ]);
     }
+
+    table.print(writer)?;
+    writeln!(writer)?;
 
     if result.has_more {
-        println!("💡 Use --offset {} to see more standards", offset + limit);
+        writeln!(
+            writer,
+            "💡 Use --offset {} to see more standards",
+            offset + limit
+        )?;
     }
 
-    println!("💡 Use 'engram standard get <id>' to view full standard details");
-    println!("💡 Use 'engram standard add-requirement <id>' to add requirements");
+    writeln!(
+        writer,
+        "💡 Use 'engram standard get <id>' to view full standard details"
+    )?;
+    writeln!(
+        writer,
+        "💡 Use 'engram standard add-requirement <id>' to add requirements"
+    )?;
 
     Ok(())
 }
@@ -698,11 +701,21 @@ mod tests {
         .unwrap();
 
         // List all
-        let result = list_standards(&storage, None, None, None, 10, 0);
+        let mut buffer = Vec::new();
+        let result = list_standards(&mut buffer, &storage, None, None, None, 10, 0);
         assert!(result.is_ok());
 
         // Filter by category
-        let result = list_standards(&storage, Some("coding".to_string()), None, None, 10, 0);
+        let mut buffer2 = Vec::new();
+        let result = list_standards(
+            &mut buffer2,
+            &storage,
+            Some("coding".to_string()),
+            None,
+            None,
+            10,
+            0,
+        );
         assert!(result.is_ok());
     }
 

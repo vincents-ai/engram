@@ -598,11 +598,14 @@ pub fn add_remote<S: Storage>(
 }
 
 /// List all configured remotes
-pub fn list_remotes() -> Result<Vec<RemoteConfig>, EngramError> {
+pub fn list_remotes(writer: &mut dyn std::io::Write) -> Result<Vec<RemoteConfig>, EngramError> {
+    use crate::cli::utils::create_table;
+    use prettytable::row;
+
     let config_path = ".engram/remotes.json";
 
     if !Path::new(config_path).exists() {
-        println!("📡 No remotes configured");
+        writeln!(writer, "📡 No remotes configured")?;
         return Ok(Vec::new());
     }
 
@@ -611,47 +614,58 @@ pub fn list_remotes() -> Result<Vec<RemoteConfig>, EngramError> {
     let remotes: HashMap<String, RemoteConfig> =
         serde_json::from_str(&content).map_err(|e| EngramError::Serialization(e))?;
 
-    println!("📡 Configured Remotes");
-    println!("====================");
-
     if remotes.is_empty() {
-        println!("No remotes configured.");
+        writeln!(writer, "No remotes configured.")?;
         return Ok(Vec::new());
     }
+
+    writeln!(writer, "Found {} configured remotes", remotes.len())?;
+    writeln!(writer)?;
 
     let mut remote_list: Vec<RemoteConfig> = remotes.into_values().collect();
     remote_list.sort_by(|a, b| a.name.cmp(&b.name));
 
+    let mut table = create_table();
+    table.set_titles(row!["Name", "Branch", "URL", "Auth", "Last Sync"]);
+
     for remote in &remote_list {
-        println!("📡 {}", remote.name);
-        println!("   URL: {}", remote.url);
-        println!("   Branch: {}", remote.branch);
-        if let Some(ref auth_type) = remote.auth_type {
-            println!("   Authentication: {}", auth_type);
+        let auth_info = if let Some(ref auth_type) = remote.auth_type {
+            let mut info = auth_type.clone();
             if let Some(ref username) = remote.username {
-                println!("   Username: {}", username);
+                info = format!("{} ({})", info, username);
             }
-            if let Some(ref ssh_key) = remote.ssh_key_path {
-                println!("   SSH Key: {}", ssh_key);
-            }
-        }
-        if let Some(last_sync) = remote.last_sync {
-            println!(
-                "   Last Sync: {}",
-                last_sync.format("%Y-%m-%d %H:%M:%S UTC")
-            );
+            info
         } else {
-            println!("   Last Sync: Never");
-        }
-        println!();
+            "-".to_string()
+        };
+
+        let last_sync = if let Some(sync) = remote.last_sync {
+            sync.format("%Y-%m-%d %H:%M").to_string()
+        } else {
+            "Never".to_string()
+        };
+
+        table.add_row(row![
+            remote.name,
+            remote.branch,
+            remote.url,
+            auth_info,
+            last_sync
+        ]);
     }
+
+    table.print(writer)?;
+    writeln!(writer)?;
 
     Ok(remote_list)
 }
 
 /// Get sync status with a remote
-pub fn get_sync_status(remote_name: &str) -> Result<RemoteSyncStatus, EngramError> {
-    println!("📊 Checking sync status for '{}'...", remote_name);
+pub fn get_sync_status(
+    writer: &mut dyn std::io::Write,
+    remote_name: &str,
+) -> Result<RemoteSyncStatus, EngramError> {
+    writeln!(writer, "📊 Checking sync status for '{}'...", remote_name)?;
 
     // Load remotes configuration
     let config_path = ".engram/remotes.json";
@@ -689,18 +703,18 @@ pub fn get_sync_status(remote_name: &str) -> Result<RemoteSyncStatus, EngramErro
     let is_ahead = false; // Placeholder
     let is_behind = false; // Placeholder
 
-    println!("📊 Sync Status for '{}'", remote_name);
-    println!("=========================");
-    println!("Remote: {}", remote_config.url);
-    println!("Local Hash: {}...", &local_hash[..12]);
-    println!("Remote Hash: {}...", &remote_hash[..12]);
+    writeln!(writer, "📊 Sync Status for '{}'", remote_name)?;
+    writeln!(writer, "=========================")?;
+    writeln!(writer, "Remote: {}", remote_config.url)?;
+    writeln!(writer, "Local Hash: {}...", &local_hash[..12])?;
+    writeln!(writer, "Remote Hash: {}...", &remote_hash[..12])?;
 
     if is_behind {
-        println!("Status: ⬇️  Behind remote (pull needed)");
+        writeln!(writer, "Status: ⬇️  Behind remote (pull needed)")?;
     } else if is_ahead {
-        println!("Status: ⬆️  Ahead of remote (push needed)");
+        writeln!(writer, "Status: ⬆️  Ahead of remote (push needed)")?;
     } else {
-        println!("Status: ✅ Up to date");
+        writeln!(writer, "Status: ✅ Up to date")?;
     }
 
     let status = RemoteSyncStatus {
@@ -1063,12 +1077,12 @@ pub fn handle_sync_command<S: Storage>(
             ssh_key.clone(),
         ),
         SyncCommands::ListRemotes => {
-            list_remotes()?;
+            list_remotes(&mut std::io::stdout())?;
             Ok(())
         }
         SyncCommands::Status { remote } => {
             if let Some(remote_name) = remote {
-                get_sync_status(remote_name)?;
+                get_sync_status(&mut std::io::stdout(), remote_name)?;
             } else {
                 return Err(EngramError::Validation(
                     "Remote name required for status check".to_string(),
@@ -1285,6 +1299,9 @@ pub fn switch_branch(branch_name: &str, create_if_missing: bool) -> Result<(), E
 
 /// List all branches
 pub fn list_branches(_all: bool, current_only: bool) -> Result<(), EngramError> {
+    use crate::cli::utils::create_table;
+    use prettytable::row;
+
     let repo_path = std::env::current_dir()?.join(".engram");
     let repo = Repository::open(&repo_path)
         .map_err(|e| EngramError::Git(format!("Failed to open repository: {}", e)))?;
@@ -1296,13 +1313,12 @@ pub fn list_branches(_all: bool, current_only: bool) -> Result<(), EngramError> 
         None
     };
 
-    println!("🌿 Git Branches");
-    println!("===============");
-
     let branches = repo
         .branches(Some(git2::BranchType::Local))
         .map_err(|e| EngramError::Git(format!("Failed to list branches: {}", e)))?;
 
+    // Collect branches first to handle errors and sorting
+    let mut branch_list = Vec::new();
     for branch_result in branches {
         let (branch, _branch_type) =
             branch_result.map_err(|e| EngramError::Git(format!("Failed to read branch: {}", e)))?;
@@ -1310,25 +1326,34 @@ pub fn list_branches(_all: bool, current_only: bool) -> Result<(), EngramError> 
         let branch_name = branch
             .name()
             .map_err(|e| EngramError::Git(format!("Failed to get branch name: {}", e)))?
-            .unwrap_or("<unnamed>");
+            .unwrap_or("<unnamed>")
+            .to_string();
 
-        let is_current = current_branch == Some(branch_name);
+        branch_list.push(branch_name);
+    }
+    branch_list.sort();
 
-        if current_only {
-            if is_current {
-                println!("* {}", branch_name);
-                return Ok(());
-            }
-            continue;
+    if current_only {
+        if let Some(current) = current_branch {
+            println!("* {}", current);
+        } else {
+            println!("No current branch (detached HEAD)");
         }
-
-        let prefix = if is_current { "* " } else { "  " };
-        println!("{}{}", prefix, branch_name);
+        return Ok(());
     }
 
-    if current_only && current_branch.is_none() {
-        println!("No current branch (detached HEAD)");
+    let mut table = create_table();
+    table.set_titles(row!["Current", "Branch Name"]);
+
+    for branch_name in branch_list {
+        let is_current = current_branch.as_deref() == Some(branch_name.as_str());
+        let marker = if is_current { "*" } else { "" };
+
+        table.add_row(row![marker, branch_name]);
     }
+
+    table.printstd();
+    println!();
 
     Ok(())
 }

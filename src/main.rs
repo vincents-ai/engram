@@ -540,7 +540,7 @@ fn handle_session_command<S: engram::storage::Storage>(
             end_session(storage, id, generate_summary)?;
         }
         engram::cli::SessionCommands::List { agent, limit } => {
-            list_sessions(storage, agent, limit)?;
+            list_sessions(&mut std::io::stdout(), storage, agent, limit)?;
         }
     }
 
@@ -730,7 +730,7 @@ fn handle_standard_command<S: engram::storage::Storage>(
             limit,
             offset,
         } => {
-            cli::list_standards(storage, category, status, search, limit, offset)?;
+            cli::list_standards(&mut std::io::stdout(), storage, category, status, search, limit, offset)?;
         }
         cli::StandardCommands::AddRequirement {
             id,
@@ -865,7 +865,7 @@ fn handle_workflow_command<S: engram::storage::Storage>(
             limit,
             offset,
         } => {
-            cli::list_workflows(storage, status, search, limit, offset)?;
+            cli::list_workflows(&mut std::io::stdout(), storage, status, search, limit, offset)?;
         }
         cli::WorkflowCommands::AddState {
             id,

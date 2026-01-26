@@ -402,13 +402,16 @@ pub fn delete_workflow<S: Storage>(storage: &mut S, id: &str) -> Result<(), Engr
 
 /// List workflows
 pub fn list_workflows<S: Storage>(
+    writer: &mut dyn std::io::Write,
     storage: &S,
     status: Option<String>,
     search: Option<String>,
     limit: usize,
     offset: usize,
 ) -> Result<(), EngramError> {
+    use crate::cli::utils::{create_table, truncate};
     use crate::storage::QueryFilter;
+    use prettytable::row;
     use serde_json::Value;
     use std::collections::HashMap;
 
@@ -432,26 +435,28 @@ pub fn list_workflows<S: Storage>(
 
     let result = storage.query(&filter)?;
 
-    println!("📋 Workflows List");
-    println!("=================");
-
     if result.entities.is_empty() {
-        println!("No workflows found matching the criteria.");
+        writeln!(writer, "No workflows found matching the criteria.")?;
         return Ok(());
     }
 
-    println!(
+    writeln!(
+        writer,
         "Found {} workflows (showing {} to {} of {})",
         result.total_count,
         offset + 1,
         offset + result.entities.len(),
         result.total_count
-    );
-    println!();
+    )?;
+    writeln!(writer)?;
 
-    for (i, entity) in result.entities.iter().enumerate() {
+    let mut table = create_table();
+    table.set_titles(row![
+        "ID", "S", "Title", "State", "Agent", "States", "Updated"
+    ]);
+
+    for entity in result.entities {
         let workflow_data = &entity.data;
-        let index = offset + i + 1;
 
         let name = workflow_data
             .get("name")
@@ -466,7 +471,7 @@ pub fn list_workflows<S: Storage>(
         let current_state = workflow_data
             .get("current_state")
             .and_then(|v| v.as_str())
-            .unwrap_or("none");
+            .unwrap_or("-");
 
         let status_symbol = match status {
             "active" => "🟢",
@@ -476,51 +481,46 @@ pub fn list_workflows<S: Storage>(
             _ => "⚪",
         };
 
-        println!(
-            "{}. {} {} [{}]",
-            index,
+        let state_count = workflow_data
+            .get("states")
+            .and_then(|v| v.as_array())
+            .map(|a| a.len())
+            .unwrap_or(0);
+
+        table.add_row(row![
+            &entity.id[..8],
             status_symbol,
-            name,
-            status.to_uppercase()
-        );
-
-        println!("   ID: {}", entity.id);
-
-        if let Some(description) = workflow_data.get("description").and_then(|v| v.as_str()) {
-            let truncated = if description.len() > 80 {
-                format!("{}...", &description[..77])
-            } else {
-                description.to_string()
-            };
-            println!("   📄 {}", truncated);
-        }
-
-        println!("   🔄 Current State: {}", current_state);
-
-        if let Some(states) = workflow_data.get("states").and_then(|v| v.as_array()) {
-            println!("   📊 {} states defined", states.len());
-        }
-
-        if let Some(transitions) = workflow_data.get("transitions").and_then(|v| v.as_array()) {
-            println!("   🔀 {} transitions configured", transitions.len());
-        }
-
-        println!(
-            "   👤 Agent: {} | 📅 {}",
-            entity.agent,
-            entity.timestamp.format("%Y-%m-%d %H:%M")
-        );
-
-        println!();
+            truncate(name, 40),
+            truncate(current_state, 15),
+            truncate(&entity.agent, 15),
+            state_count,
+            entity.timestamp.format("%Y-%m-%d")
+        ]);
     }
+
+    table.print(writer)?;
+    writeln!(writer)?;
 
     if result.has_more {
-        println!("💡 Use --offset {} to see more workflows", offset + limit);
+        writeln!(
+            writer,
+            "💡 Use --offset {} to see more workflows",
+            offset + limit
+        )?;
     }
 
-    println!("💡 Use 'engram workflow get <id>' to view full workflow details");
-    println!("💡 Use 'engram workflow add-state <id>' to add states");
-    println!("💡 Use 'engram workflow add-transition <id>' to add transitions");
+    writeln!(
+        writer,
+        "💡 Use 'engram workflow get <id>' to view full workflow details"
+    )?;
+    writeln!(
+        writer,
+        "💡 Use 'engram workflow add-state <id>' to add states"
+    )?;
+    writeln!(
+        writer,
+        "💡 Use 'engram workflow add-transition <id>' to add transitions"
+    )?;
 
     Ok(())
 }

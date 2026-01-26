@@ -300,8 +300,12 @@ fn calculate_basic_dora_metrics(session: &Session) -> DoraMetrics {
     }
 }
 
+use crate::cli::utils::{create_table, truncate};
+use prettytable::row;
+
 /// List sessions
 pub fn list_sessions<S: Storage>(
+    writer: &mut dyn std::io::Write,
     storage: &S,
     agent_filter: Option<String>,
     limit: Option<usize>,
@@ -329,32 +333,49 @@ pub fn list_sessions<S: Storage>(
     }
 
     if sessions.is_empty() {
-        println!("No sessions found");
+        writeln!(writer, "No sessions found")?;
         return Ok(());
     }
 
-    println!("Sessions ({})", sessions.len());
-    println!("========================================");
+    writeln!(writer, "Found {} sessions", sessions.len())?;
+    writeln!(writer)?;
+
+    let mut table = create_table();
+    table.set_titles(row!["ID", "St", "Agent", "Started", "Ended", "Duration"]);
 
     for session in sessions {
-        let status_str = match session.status {
-            SessionStatus::Active => "Active",
-            SessionStatus::Paused => "Paused",
-            SessionStatus::Completed => "Completed",
-            SessionStatus::Cancelled => "Cancelled",
+        let status_symbol = match session.status {
+            SessionStatus::Active => "🟢",
+            SessionStatus::Paused => "⏸️",
+            SessionStatus::Completed => "✅",
+            SessionStatus::Cancelled => "❌",
         };
 
-        println!("ID: {}", session.id);
-        println!("  Agent: {} | Status: {}", session.agent, status_str);
-        println!(
-            "  Started: {}",
-            session.start_time.format("%Y-%m-%d %H:%M").to_string()
-        );
-        if let Some(end_time) = session.end_time {
-            println!("  Ended: {}", end_time.format("%Y-%m-%d %H:%M").to_string());
-        }
-        println!();
+        let duration_str = if let Some(duration) = session.duration_seconds {
+            let hours = duration / 3600;
+            let minutes = (duration % 3600) / 60;
+            format!("{}h {}m", hours, minutes)
+        } else {
+            "-".to_string()
+        };
+
+        let end_time = session
+            .end_time
+            .map(|t| t.format("%Y-%m-%d %H:%M").to_string())
+            .unwrap_or_else(|| "-".to_string());
+
+        table.add_row(row![
+            &session.id[..8],
+            status_symbol,
+            truncate(&session.agent, 15),
+            session.start_time.format("%Y-%m-%d %H:%M"),
+            end_time,
+            duration_str
+        ]);
     }
+
+    table.print(writer)?;
+    writeln!(writer)?;
 
     Ok(())
 }
@@ -411,8 +432,27 @@ mod tests {
         start_session(&mut storage, "agent1".to_string(), false).unwrap();
         start_session(&mut storage, "agent2".to_string(), false).unwrap();
 
-        list_sessions(&storage, None, None).unwrap();
-        list_sessions(&storage, Some("agent1".to_string()), None).unwrap();
+        let mut buffer = Vec::new();
+        list_sessions(&mut buffer, &storage, None, None).unwrap();
+        let output = String::from_utf8(buffer).unwrap();
+
+        assert!(output.contains("Found 2 sessions"));
+        assert!(output.contains("agent1"));
+        assert!(output.contains("agent2"));
+
+        let mut buffer_filtered = Vec::new();
+        list_sessions(
+            &mut buffer_filtered,
+            &storage,
+            Some("agent1".to_string()),
+            None,
+        )
+        .unwrap();
+        let output_filtered = String::from_utf8(buffer_filtered).unwrap();
+
+        assert!(output_filtered.contains("Found 1 sessions"));
+        assert!(output_filtered.contains("agent1"));
+        assert!(!output_filtered.contains("agent2"));
     }
 
     #[test]

@@ -55,6 +55,9 @@ pub fn get_skills_path(config_dir: Option<PathBuf>) -> PathBuf {
     PathBuf::from(".engram/skills")
 }
 
+use crate::cli::utils::{create_table, truncate};
+use prettytable::row;
+
 /// List all skills in skills directory
 pub fn list_skills(
     writer: &mut dyn std::io::Write,
@@ -75,14 +78,14 @@ pub fn list_skills(
     }
 
     let entries = std::fs::read_dir(&skills_path)?;
+    let mut table = create_table();
 
     match format {
         "short" | "s" => {
-            writeln!(writer, "Available Skills:")?;
-            writeln!(writer, "=================")?;
+            table.set_titles(row!["Skill Name"]);
             for entry in entries.flatten() {
                 if entry.path().is_dir() {
-                    writeln!(writer, "  - {}", entry.file_name().to_string_lossy())?;
+                    table.add_row(row![entry.file_name().to_string_lossy()]);
                 } else if verbose {
                     writeln!(
                         writer,
@@ -91,10 +94,10 @@ pub fn list_skills(
                     )?;
                 }
             }
+            table.print(writer)?;
         }
         "full" | "f" => {
-            writeln!(writer, "Available Skills:")?;
-            writeln!(writer, "=================")?;
+            table.set_titles(row!["Skill Name", "Description"]);
             for entry in entries.flatten() {
                 if entry.path().is_dir() {
                     let file_name = entry.file_name();
@@ -106,8 +109,8 @@ pub fn list_skills(
                     } else {
                         "(no description)".to_string()
                     };
-                    writeln!(writer, "\n[{}]", name)?;
-                    writeln!(writer, "  Description: {}", description)?;
+
+                    table.add_row(row![truncate(&name, 30), truncate(&description, 50)]);
                 } else if verbose {
                     writeln!(
                         writer,
@@ -116,6 +119,7 @@ pub fn list_skills(
                     )?;
                 }
             }
+            table.print(writer)?;
         }
         _ => {
             writeln!(writer, "Unknown format: {}. Use 'short' or 'full'.", format)?;
@@ -348,7 +352,8 @@ mod tests {
         assert!(result.is_ok());
 
         let output = String::from_utf8(buffer).unwrap();
-        assert!(output.contains("Available Skills:"));
+        // The new table output format prints table borders and headers
+        assert!(output.contains("Skill Name"));
     }
 
     #[test]
@@ -367,6 +372,8 @@ mod tests {
         let mut buffer_short = Vec::new();
         list_skills(&mut buffer_short, "short", false, Some(root.clone())).unwrap();
         let output_short = String::from_utf8(buffer_short).unwrap();
+
+        // Check for content within table structure
         assert!(output_short.contains("skill-a"));
         assert!(output_short.contains("skill-b"));
 
@@ -374,7 +381,10 @@ mod tests {
         let mut buffer_full = Vec::new();
         list_skills(&mut buffer_full, "full", false, Some(root)).unwrap();
         let output_full = String::from_utf8(buffer_full).unwrap();
+
         assert!(output_full.contains("skill-a"));
+        // Description check might fail due to table formatting/truncation if we're not careful,
+        // but it should be present in the table
         assert!(output_full.contains("Description A"));
     }
 
