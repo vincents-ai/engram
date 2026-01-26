@@ -76,4 +76,4 @@ engram reasoning create --title "Chose JWT for stateless auth" --task-id <TASK_I
 
 ## License
 
-AGPL-3.0-or-later OR Commercial.
+AGPL-3.0-or-later OR Commercial - dual-licensed for open source and commercial use
