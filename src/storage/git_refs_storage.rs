@@ -138,12 +138,13 @@ impl GitRefsStorage {
         Ok(())
     }
 
-    /// Load entity from Git ref
+    /// Load entity from Git ref, supporting short ID lookup
     fn load_entity_from_ref(
         &self,
         entity_type: &str,
         entity_id: &str,
     ) -> Result<Option<GenericEntity>, EngramError> {
+        // First try exact match
         let ref_name = self.get_entity_ref(entity_type, entity_id);
 
         let repo = self.repository.lock().map_err(|_| {
@@ -152,12 +153,50 @@ impl GitRefsStorage {
             ))
         })?;
 
-        let result = match repo.find_reference(&ref_name) {
-            Ok(reference) => {
+        let reference = match repo.find_reference(&ref_name) {
+            Ok(r) => Some(r),
+            Err(_) => {
+                // If exact match fails and ID looks like a short ID (e.g. 8 chars), try to find a match
+                if entity_id.len() >= 4 && entity_id.len() < 36 {
+                    let ref_prefix = format!("refs/engram/{}/", entity_type);
+                    let all_refs = repo.references().map_err(|e| {
+                        EngramError::Git(format!("Failed to list references: {}", e))
+                    })?;
+
+                    let mut matched_ref = None;
+                    for r_result in all_refs {
+                        let r = r_result.map_err(|e| {
+                            EngramError::Git(format!("Failed to read reference: {}", e))
+                        })?;
+                        if let Some(name) = r.name() {
+                            if name.starts_with(&ref_prefix) {
+                                let current_id = name.strip_prefix(&ref_prefix).unwrap();
+                                if current_id.starts_with(entity_id) {
+                                    if matched_ref.is_some() {
+                                        // Ambiguous match
+                                        return Err(EngramError::Validation(format!(
+                                            "Ambiguous short ID: {}",
+                                            entity_id
+                                        )));
+                                    }
+                                    matched_ref = Some(r);
+                                }
+                            }
+                        }
+                    }
+                    matched_ref
+                } else {
+                    None
+                }
+            }
+        };
+
+        let result = match reference {
+            Some(reference) => {
                 let oid = reference.target().ok_or_else(|| {
                     EngramError::Storage(StorageError::InvalidState(format!(
                         "Ref {} has no target",
-                        ref_name
+                        reference.name().unwrap_or("unknown")
                     )))
                 })?;
 
@@ -191,7 +230,7 @@ impl GitRefsStorage {
 
                 Ok(Some(generic_entity))
             }
-            Err(_) => Ok(None),
+            None => Ok(None),
         };
         result
     }
