@@ -382,6 +382,9 @@ pub fn conclude_reasoning<S: Storage>(
     Ok(())
 }
 
+use crate::cli::utils::{create_table, truncate};
+use prettytable::{cell, row};
+
 pub fn list_reasoning<S: Storage>(
     storage: &S,
     agent: Option<&str>,
@@ -410,28 +413,29 @@ pub fn list_reasoning<S: Storage>(
     }
 
     println!("Found {} reasoning chain(s)", result.entities.len());
-    println!();
+
+    let mut table = create_table();
+    table.set_titles(row!["ID", "Status", "Title", "Task ID", "Agent"]);
 
     for entity in result.entities {
         if let Ok(reasoning) = Reasoning::from_generic(entity) {
-            println!("ID: {}", reasoning.id);
-            println!("Title: {}", reasoning.title);
-            println!("Task ID: {}", reasoning.task_id);
-            println!("Agent: {}", reasoning.agent);
-            println!("Steps: {}", reasoning.steps.len());
-            println!("Confidence: {:.2}", reasoning.confidence);
-            if !reasoning.conclusion.is_empty() {
-                println!("Status: Concluded");
+            let status = if !reasoning.conclusion.is_empty() {
+                "✅ Concluded"
             } else {
-                println!("Status: In Progress");
-            }
-            println!(
-                "Created: {}",
-                reasoning.created_at.format("%Y-%m-%d %H:%M:%S")
-            );
-            println!("---");
+                "🚧 In Progress"
+            };
+
+            table.add_row(row![
+                &reasoning.id[..8],
+                status,
+                truncate(&reasoning.title, 40),
+                truncate(&reasoning.task_id, 15),
+                truncate(&reasoning.agent, 10)
+            ]);
         }
     }
+
+    table.printstd();
 
     if result.has_more {
         println!("(More results available - use --limit to see more)");

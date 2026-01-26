@@ -268,6 +268,9 @@ pub fn create_context<S: Storage>(
     Ok(())
 }
 
+use crate::cli::utils::{create_table, truncate};
+use prettytable::{cell, row};
+
 /// List contexts
 pub fn list_contexts<S: Storage>(
     storage: &S,
@@ -299,29 +302,25 @@ pub fn list_contexts<S: Storage>(
     }
 
     println!("Found {} context(s)", result.entities.len());
-    println!();
+
+    let mut table = create_table();
+    table.set_titles(row!["ID", "Title", "Relevance", "Source", "Agent"]);
 
     for entity in result.entities {
         if let Ok(context) = Context::from_generic(entity) {
-            println!("ID: {}", context.id);
-            println!("Title: {}", context.title);
-            println!("Agent: {}", context.agent);
-            println!("Relevance: {:?}", context.relevance);
-            if !context.source.is_empty() {
-                println!("Source: {}", context.source);
-            }
-            if context.content.len() > 100 {
-                println!("Content: {}...", &context.content[..97]);
-            } else {
-                println!("Content: {}", context.content);
-            }
-            println!(
-                "Created: {}",
-                context.timestamp().format("%Y-%m-%d %H:%M:%S")
-            );
-            println!("---");
+            let relevance_str = format!("{:?}", context.relevance);
+
+            table.add_row(row![
+                &context.id[..8],
+                truncate(&context.title, 40),
+                relevance_str,
+                truncate(&context.source, 20),
+                truncate(&context.agent, 10)
+            ]);
         }
     }
+
+    table.printstd();
 
     if result.has_more {
         println!("(More results available - use --limit to see more)");
