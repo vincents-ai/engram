@@ -138,6 +138,12 @@ async fn run() -> Result<(), EngramError> {
             cli::PromptsCommands::Show { name } => {
                 cli::show_prompt(&name, None)?;
             }
+            cli::PromptsCommands::Validate {
+                category,
+                fix,
+            } => {
+                cli::validate_prompts(category.as_deref(), fix, None)?;
+            }
         },
         cli::Commands::Schema { command } => {
             cli::handle_schema_command(command)?;

@@ -1,5 +1,36 @@
 # NIST Cybersecurity Framework (CSF) and Risk Management Audit Checkpoint Prompts
 
+
+  
+  EVIDENCE-BASED VALIDATION REQUIREMENTS:
+  - provide evidence-based validation for all final claims instead of unsubstantiated assertions
+  - Every assertion must be supported by concrete evidence from code, tests, logs, or documentation
+  - Include specific examples, file paths, line numbers, and verifiable measurements
+  - Provide quantifiable metrics and test results when making claims about improvements
+  - Reference official documentation or standards when applicable
+
+  EVIDENCE COLLECTION INSTRUCTIONS:
+  - Always provide evidence in this format:
+    ## Claim: [Your specific assertion]
+    ### Evidence:
+    - **Code Reference**: `src/file.rs:123` - Function demonstrates...
+    - **Test Results**: [Command output showing results]
+    - **Execution Log**: [Timestamped log entries]
+    - **Documentation**: [Citations from official docs]
+  - Never make unsubstantiated claims like "the code is better", "this improves security", or "the refactoring is better", "this improves security", or "the refactoring is better"
+  - Instead, provide quantifiable evidence: "Reduced processing time from 500ms to 120ms"
+
+
+
+  
+  EVIDENCE-BASED VALIDATION REQUIREMENTS:
+  - provide evidence-based validation for all final claims instead of unsubstantiated assertions
+  - Every assertion must be supported by concrete evidence from code, tests, logs, or documentation
+  - Include specific examples, file paths, line numbers, and verifiable measurements
+  - Provide quantifiable metrics and test results when making claims about improvements
+  - Reference official documentation or standards when applicable
+
+
 ## Overview
 This collection provides comprehensive audit checkpoint prompts for the NIST Cybersecurity Framework (CSF) 2.0 and enterprise risk management frameworks including NIST RMF, ISO 31000, and integrated threat modeling approaches.
 

@@ -1,0 +1,201 @@
+---
+version: "1.0.0"
+title: "Evidence-Based Validation Template"
+description: "Universal template for enforcing evidence-based validation requirements in all prompts"
+instructions: |
+  EVIDENCE-BASED VALIDATION REQUIREMENTS - MANDATORY FOR ALL FINAL CLAIMS
+  
+  Instead of unsubstantiated assertions, all final claims MUST provide evidence-based validation.
+  
+  REQUIRED EVIDENCE TYPES:
+  
+  1. CODE EVIDENCE
+     - Specific file paths, function names, line numbers
+     - Actual code snippets demonstrating the claim
+     - Test results showing the behavior
+  
+  2. EXECUTION EVIDENCE  
+     - Command outputs with timestamps
+     - Log files, error messages, or status reports
+     - Performance metrics, benchmarks, measurements
+  
+  3. DOCUMENTATION EVIDENCE
+     - Citations from official documentation
+     - Links to specifications, standards, or RFCs
+     - References to established patterns or frameworks
+  
+  4. MEASUREMENT EVIDENCE
+     - Quantifiable metrics (before/after comparisons)
+     - Test coverage percentages
+     - Numerical improvements or regressions
+  
+  EVIDENCE FORMAT:
+  ```
+  ## Claim: [Specific assertion]
+  
+  ### Evidence:
+  - **Code Reference**: `src/file.rs:123` - Function `process_data()` demonstrates...
+  - **Test Results**: `cargo test unit_tests` output: 42 tests passed, 0 failed
+  - **Execution Log**: `[2024-01-26 10:15:32] Successfully processed 1,247 records in 0.8s`
+  - **Documentation**: https://docs.rust-lang.org/std/result/enum.Result.html
+  ```
+  
+  PROHIBITED (invalid examples):
+  ❌ "The code is more efficient"
+  ❌ "This improves security" 
+  ❌ "The refactoring is better"
+  ❌ "Fixed the bug"
+  
+  REQUIRED (valid examples):
+  ✅ "Reduced processing time from 500ms to 120ms (60% improvement) as measured by `hyperfine` benchmarks"
+  ✅ "Fixed buffer overflow vulnerability in `src/parser.rs:45` by adding bounds check, verified by `cargo-audit` scan"
+  ✅ "Increased test coverage from 72% to 95% in `src/utils/` module, confirmed by `cargo tarpaulin` report"
+  ✅ "Implemented rate limiting in `src/api.rs:78-89` reducing error rate from 15% to 2% according to production metrics"
+  
+  VALIDATION STEPS FOR EVERY CLAIM:
+  1. State the specific claim
+  2. Provide concrete evidence from at least one category above
+  3. Include verifiable references (file paths, URLs, timestamps)
+  4. Quantify the impact when possible
+  5. Cross-validate with multiple evidence sources when available
+
+parameters:
+  properties:
+    claim:
+      type: string
+      description: "The specific claim being validated"
+    evidence_type:
+      type: array
+      items:
+        type: string
+        enum: ["code", "execution", "documentation", "measurement"]
+      description: "Types of evidence provided"
+    task_id:
+      type: string
+      description: "The engram task ID for this validation work"
+  required:
+    - claim
+    - evidence_type
+    - task_id
+
+prompt: |
+  VALIDATE CLAIM WITH EVIDENCE:
+  
+  CLAIM: {{claim}}
+  EVIDENCE REQUIRED: {{evidence_type}}
+  TASK ID: {{task_id}}
+  
+  EVIDENCE-BASED VALIDATION WORKFLOW:
+  
+  STEP 1: Retrieve task context
+  ```bash
+  engram task show {{task_id}}
+  engram relationship connected --entity-id {{task_id}} --references
+  ```
+  
+  STEP 2: Gather evidence for the claim
+  For each evidence type in {{evidence_type}}:
+  
+  **Code Evidence**: 
+  - Find relevant files: `rg -n "[relevant_terms]" src/`
+  - Extract code snippets with line numbers
+  - Run tests: `cargo test [relevant_test]`
+  
+  **Execution Evidence**:
+  - Run commands: `[command_to_validate_claim]`
+  - Capture logs: `tail -f [log_file]`
+  - Measure performance: `hyperfine '[before]' '[after]'`
+  
+  **Documentation Evidence**:
+  - Search docs: `rg -n "[topic]" docs/`
+  - Reference external docs with specific URLs
+  - Cite standards or specifications
+  
+  **Measurement Evidence**:
+  - Get baseline metrics: `[measurement_command]`
+  - Compare before/after results
+  - Calculate percentage improvements
+  
+  STEP 3: Validate evidence quality
+  ```bash
+  engram reasoning create \
+    --title "Evidence Validation: {{claim}}" \
+    --task-id {{task_id}} \
+    --content "## Claim\n{{claim}}\n\n## Evidence Collected\n[Detailed evidence with sources]\n\n## Verification Status\n[Verified/Partially Verified/Not Verified]\n\n## Confidence Level\n[High/Medium/Low] with reasoning"
+  ```
+  
+  STEP 4: Store validated claim
+  ```bash
+  engram context create \
+    --title "Validated Claim: {{claim}}" \
+    --content "## Claim\n{{claim}}\n\n## Evidence\n[All supporting evidence with sources]\n\n## Validation Result\n[Final validation status]"
+  
+  engram relationship create \
+    --source-id {{task_id}} \
+    --target-id [CONTEXT_ID] \
+    --produces
+  ```
+  
+  STEP 5: Update task status
+  ```bash
+  engram task update {{task_id}} --status done --outcome "Evidence-based validation complete for claim: {{claim}}"
+  ```
+  
+  RESPONSE FORMAT:
+  Return JSON with validation results:
+  ```json
+  {
+    "task_id": "{{task_id}}",
+    "claim": "{{claim}}",
+    "validation_status": ["verified", "partially_verified", "not_verified"],
+    "evidence_types_provided": {{evidence_type}},
+    "confidence_level": ["high", "medium", "low"],
+    "validation_context_id": "[CONTEXT_ID]",
+    "key_findings": [
+      "Specific evidence finding 1 with source",
+      "Specific evidence finding 2 with source"
+    ]
+  }
+  ```
+
+response:
+  format: json
+  schema:
+    type: object
+    properties:
+      task_id:
+        type: string
+        description: "The task ID (echoed for confirmation)"
+      claim:
+        type: string
+        description: "The claim that was validated"
+      validation_status:
+        type: string
+        enum: ["verified", "partially_verified", "not_verified"]
+        description: "Result of evidence-based validation"
+      evidence_types_provided:
+        type: array
+        items:
+          type: string
+        description: "Types of evidence that were successfully collected"
+      confidence_level:
+        type: string
+        enum: ["high", "medium", "low"]
+        description: "Confidence in the validation based on evidence quality"
+      validation_context_id:
+        type: string
+        description: "The engram context ID storing the validation results"
+      key_findings:
+        type: array
+        items:
+          type: string
+        description: "Key evidence findings with their sources"
+    required:
+      - task_id
+      - claim
+      - validation_status
+      - evidence_types_provided
+      - confidence_level
+      - validation_context_id
+
+extensions: []

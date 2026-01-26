@@ -29,6 +29,16 @@ pub enum PromptsCommands {
         #[arg(help = "Prompt name or path")]
         name: String,
     },
+    /// Validate all prompts for evidence-based validation requirements
+    Validate {
+        /// Category to validate (agents, ai, compliance)
+        #[arg(long, short)]
+        category: Option<String>,
+
+        /// Fix common issues automatically
+        #[arg(long, short)]
+        fix: bool,
+    },
 }
 
 /// Get prompts path from environment or default
@@ -208,6 +218,78 @@ pub fn list_prompts(
     Ok(())
 }
 
+/// Validate prompt for evidence-based validation requirements
+fn validate_prompt_evidence_requirements(content: &str, prompt_name: &str) -> Vec<String> {
+    let mut warnings = Vec::new();
+
+    // Check for evidence-based validation keywords
+    let evidence_keywords = [
+        "evidence-based validation",
+        "provide evidence-based validation",
+        "instead of unsubstantiated assertions",
+        "concrete evidence",
+        "verifiable measurements",
+        "specific examples",
+        "quantifiable metrics",
+    ];
+
+    let has_evidence_requirements = evidence_keywords
+        .iter()
+        .any(|keyword| content.to_lowercase().contains(keyword));
+
+    if !has_evidence_requirements {
+        warnings.push(format!(
+            "⚠️  Missing evidence-based validation requirements in prompt: {}",
+            prompt_name
+        ));
+        warnings.push(
+            "   Add: 'provide evidence-based validation for all final claims instead of unsubstantiated assertions'".to_string()
+        );
+    }
+
+    // Check for prohibited unsubstantiated assertion patterns
+    let prohibited_patterns = [
+        "the code is more efficient",
+        "this improves security",
+        "the refactoring is better",
+        "fixed the bug",
+        "improved performance",
+    ];
+
+    for pattern in &prohibited_patterns {
+        if content.to_lowercase().contains(pattern) {
+            warnings.push(format!(
+                "⚠️  Found potentially unsubstantiated assertion pattern: '{}'",
+                pattern
+            ));
+        }
+    }
+
+    // Check for evidence collection instructions
+    let evidence_collection_patterns = [
+        "code reference:",
+        "test results:",
+        "execution log:",
+        "documentation:",
+        "measurement evidence:",
+        "evidence collection instructions:",
+        "## claim:",
+        "### evidence:",
+    ];
+
+    let has_evidence_collection = evidence_collection_patterns
+        .iter()
+        .any(|pattern| content.to_lowercase().contains(pattern));
+
+    if has_evidence_requirements && !has_evidence_collection {
+        warnings.push(
+            "⚠️  Prompt mentions evidence-based validation but lacks specific evidence collection instructions".to_string()
+        );
+    }
+
+    warnings
+}
+
 /// Show a specific prompt
 pub fn show_prompt(name: &str, root: Option<PathBuf>) -> Result<(), std::io::Error> {
     let prompts_path = root.unwrap_or_else(get_prompts_path);
@@ -221,6 +303,16 @@ pub fn show_prompt(name: &str, root: Option<PathBuf>) -> Result<(), std::io::Err
             println!("\nPrompt: {}", name);
             println!("========");
             println!("\n{}", content);
+
+            // Validate evidence-based validation requirements
+            let warnings = validate_prompt_evidence_requirements(&content, name);
+            if !warnings.is_empty() {
+                println!("\n🔍 Evidence-Based Validation Check:");
+                for warning in warnings {
+                    println!("{}", warning);
+                }
+                println!("\n💡 See: ./engram/prompts/_evidence-based-validation-template.yaml");
+            }
         } else {
             // It's a directory, list contents
             println!("\nPrompt Directory: {}", name);
@@ -253,6 +345,20 @@ pub fn show_prompt(name: &str, root: Option<PathBuf>) -> Result<(), std::io::Err
                         println!("\nFound: {}/{}", entry_name, sub_name);
                         let content = fs::read_to_string(&subentry.path())?;
                         println!("\n{}", content);
+
+                        // Validate evidence-based validation requirements
+                        let warnings = validate_prompt_evidence_requirements(
+                            &content,
+                            &format!("{}/{}", entry_name, sub_name),
+                        );
+                        if !warnings.is_empty() {
+                            println!("\n🔍 Evidence-Based Validation Check:");
+                            for warning in warnings {
+                                println!("{}", warning);
+                            }
+                            println!("\n💡 See: ./engram/prompts/_evidence-based-validation-template.yaml");
+                        }
+
                         return Ok(());
                     }
                 }
@@ -261,6 +367,97 @@ pub fn show_prompt(name: &str, root: Option<PathBuf>) -> Result<(), std::io::Err
 
         println!("Prompt not found: {}", name);
         println!("Searched in: {:?}", prompts_path);
+    }
+
+    Ok(())
+}
+
+/// Validate all prompts for evidence-based validation requirements
+pub fn validate_prompts(
+    category: Option<&str>,
+    fix: bool,
+    root: Option<PathBuf>,
+) -> Result<(), std::io::Error> {
+    let prompts_path = root.unwrap_or_else(get_prompts_path);
+
+    if !prompts_path.exists() {
+        println!("Prompts directory not found at: {:?}", prompts_path);
+        return Ok(());
+    }
+
+    println!("🔍 Validating evidence-based validation requirements...\n");
+
+    let entries = fs::read_dir(&prompts_path)?;
+    let mut total_files = 0;
+    let mut valid_files = 0;
+    let mut warnings_found = 0;
+
+    for entry in entries.flatten() {
+        if entry.path().is_dir() {
+            let dir_name = entry.file_name().to_string_lossy().into_owned();
+
+            if let Some(cat) = category {
+                if dir_name.to_lowercase() != cat.to_lowercase() {
+                    continue;
+                }
+            }
+
+            println!("📁 Validating category: {}", dir_name);
+
+            let subentries = fs::read_dir(&entry.path())?;
+            for subentry in subentries.flatten() {
+                if subentry.path().is_file() {
+                    let file_name = subentry.file_name().to_string_lossy().into_owned();
+                    if file_name.ends_with(".yaml") || file_name.ends_with(".md") {
+                        total_files += 1;
+
+                        let content = match fs::read_to_string(&subentry.path()) {
+                            Ok(c) => c,
+                            Err(_) => {
+                                println!("  ❌ Failed to read: {}", file_name);
+                                continue;
+                            }
+                        };
+
+                        let warnings = validate_prompt_evidence_requirements(
+                            &content,
+                            &format!("{}/{}", dir_name, file_name),
+                        );
+
+                        if warnings.is_empty() {
+                            valid_files += 1;
+                            println!("  ✅ {}", file_name);
+                        } else {
+                            warnings_found += warnings.len();
+                            println!("  ⚠️  {} ({} issues)", file_name, warnings.len());
+                            for warning in warnings {
+                                println!("    {}", warning);
+                            }
+
+                            if fix {
+                                println!("  💡 Auto-fix not yet implemented for: {}", file_name);
+                            }
+                        }
+                    }
+                }
+            }
+            println!();
+        }
+    }
+
+    println!("📊 Validation Summary:");
+    println!("  Total files: {}", total_files);
+    println!("  Valid files: {}", valid_files);
+    println!("  Warnings found: {}", warnings_found);
+
+    if warnings_found > 0 {
+        println!("\n🛠️  To fix issues:");
+        println!("  1. Review prompts that failed validation");
+        println!("  2. Add evidence-based validation requirements");
+        println!("  3. Reference: ./engram/prompts/_evidence-based-validation-template.yaml");
+        println!("  4. Use: engram prompts validate --fix (when implemented)");
+    } else {
+        println!("\n🎉 All prompts meet evidence-based validation requirements!");
     }
 
     Ok(())

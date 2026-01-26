@@ -2,6 +2,33 @@ version: "1.0.0"
 title: "Digital Forensic Recovery"
 description: "Recover deleted files from disk image."
 instructions: |
+  
+  EVIDENCE-BASED VALIDATION REQUIREMENTS:
+  - provide evidence-based validation for all final claims instead of unsubstantiated assertions
+  - Every assertion must be supported by concrete evidence from code, tests, logs, or documentation
+  - Include specific examples, file paths, line numbers, and verifiable measurements
+  - Provide quantifiable metrics and test results when making claims about improvements
+  - Reference official documentation or standards when applicable
+
+  EVIDENCE COLLECTION INSTRUCTIONS:
+  - Always provide evidence in this format:
+    ## Claim: [Your specific assertion]
+    ### Evidence:
+    - **Code Reference**: `src/file.rs:123` - Function demonstrates...
+    - **Test Results**: [Command output showing results]
+    - **Execution Log**: [Timestamped log entries]
+    - **Documentation**: [Citations from official docs]
+  - Never make unsubstantiated claims like "the code is better", "this improves security", or "the refactoring is better", "this improves security", or "the refactoring is better"
+  - Instead, provide quantifiable evidence: "Reduced processing time from 500ms to 120ms"
+
+  
+  EVIDENCE-BASED VALIDATION REQUIREMENTS:
+  - provide evidence-based validation for all final claims instead of unsubstantiated assertions
+  - Every assertion must be supported by concrete evidence from code, tests, logs, or documentation
+  - Include specific examples, file paths, line numbers, and verifiable measurements
+  - Provide quantifiable metrics and test results when making claims about improvements
+  - Reference official documentation or standards when applicable
+
   Recover lost data from a disk image.
   1. Create a read-only image of the drive using Agent 52 (acting as disk imager).
   2. Scan the file system structures for deleted entries using Agent 109 (acting as forensic expert).

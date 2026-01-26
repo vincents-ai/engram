@@ -6,7 +6,7 @@ This guide explains how to construct effective prompts for agents using the Engr
 
 - **Single Source of Truth**: Agents should look up task context via `engram task show` and `engram relationship`, not rely on prompt injection.
 - **Atomic Operations**: Workflows should be broken down into discrete steps tracked by Engram tasks.
-- **Validation**: Every step must be verifiable via `engram validate`.
+- **Evidence-Based Validation**: Every step must be verifiable via `engram validate` with provide evidence-based validation for all final claims instead of unsubstantiated assertions.
 - **Skills First**: Check for existing skills before creating new prompts.
 
 ## Available Prompts
@@ -53,6 +53,58 @@ Location: `./engram/prompts/compliance_and_certification/prompts/audit_checkpoin
 | Medical Device | IEC 62304 |
 | Cybersecurity | NIST CSF, RMF, ISO 27002, CIS Controls |
 
+## Evidence-Based Validation Requirements
+
+**CRITICAL**: All prompts must enforce evidence-based validation for all final claims instead of unsubstantiated assertions.
+
+### Required Evidence Types
+
+Every assertion or claim must be supported by at least one of:
+
+1. **Code Evidence**
+   - Specific function names, file paths, and line numbers
+   - Actual code snippets demonstrating the claim
+   - Test results showing behavior
+
+2. **Execution Evidence**
+   - Command outputs with timestamps
+   - Log files or error messages
+   - Performance metrics or benchmarks
+
+3. **Documentation Evidence**
+   - Citations from official documentation
+   - Links to specifications or standards
+   - References to established patterns or frameworks
+
+4. **Measurement Evidence**
+   - Quantifiable metrics (e.g., "reduced from 500ms to 120ms")
+   - Test coverage percentages
+   - Before/after comparisons
+
+### Evidence Format Requirements
+
+```
+## Claim: [Your assertion]
+
+### Evidence:
+- **Code Reference**: `src/file.rs:123` - Function `process_data()` shows...
+- **Test Results**: `cargo test` output showing 100% pass rate
+- **Execution Log**: `[2024-01-26 10:15:32] Successfully processed 1,247 records`
+- **Documentation**: https://docs.rust-lang.org/std/result/enum.Result.html
+```
+
+### Invalid Examples
+
+❌ "The code is more efficient"
+❌ "This improves security"
+❌ "The refactoring is better"
+
+### Valid Examples
+
+✅ "Reduced processing time from 500ms to 120ms (60% improvement) as measured by `hyperfine` benchmarks"
+✅ "Fixed buffer overflow vulnerability in `src/parser.rs:45` by adding bounds check, verified by `cargo-audit` scan"
+✅ "Increased test coverage from 72% to 95% in `src/utils/` module, confirmed by `cargo tarpaulin` report"
+
 ## Standard Prompt Template
 
 Use this template to instruct agents. Replace `{{TASK_ID}}` with the actual UUID.
@@ -77,6 +129,11 @@ You are an autonomous agent using Engram for state management.
 3. **Validate**:
    - Run `engram validate check`
    - Run tests/linters as required by the task
+   - **Evidence-Based Validation**: Provide evidence-based validation for all final claims instead of unsubstantiated assertions. Every assertion must be supported by:
+     - Concrete evidence from code, tests, logs, or documentation
+     - Verifiable measurements or test results
+     - Specific examples or citations
+     - Quantifiable metrics where applicable
 
 4. **Complete**:
    - Store result: `engram context create --title "[Result]" --content "[Output]"`
@@ -338,6 +395,11 @@ For writing docs.
 - **No Hallucinations**: If a UUID isn't found, stop and error out. Don't invent IDs.
 - **Link Everything**: If you create a new artifact (file, module), create a corresponding Engram entity and link it to the task.
 - **Status Hygiene**: Always move tasks to `inprogress` before starting and `done` only after validation.
+- **Evidence-Based Validation**: Provide evidence-based validation for all final claims instead of unsubstantiated assertions. Every claim must be backed by:
+  - Verifiable evidence (code, tests, logs, documentation)
+  - Specific examples and citations
+  - Quantifiable metrics and measurements
+  - Test results or execution outputs
 - **Skills First**: Check `./engram/skills/` for existing skills before creating new prompts.
 - **Use Adapted Prompts**: Prefer engram-adapted prompts from `./engram/prompts/` over generic prompts.
 - **Store Progress**: Don't just complete tasks - store intermediate progress as reasoning entities.

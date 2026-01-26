@@ -451,15 +451,13 @@ pub fn list_workflows<S: Storage>(
     writeln!(writer)?;
 
     let mut table = create_table();
-    table.set_titles(row![
-        "ID", "S", "Title", "State", "Agent", "States", "Updated"
-    ]);
+    table.set_titles(row!["ID", "Status", "Title", "State", "Agent", "Updated"]);
 
     for entity in result.entities {
         let workflow_data = &entity.data;
 
         let name = workflow_data
-            .get("name")
+            .get("title") // Was "name" but workflow entity uses "title"
             .and_then(|v| v.as_str())
             .unwrap_or("Unnamed Workflow");
 
@@ -469,31 +467,38 @@ pub fn list_workflows<S: Storage>(
             .unwrap_or("draft");
 
         let current_state = workflow_data
-            .get("current_state")
+            .get("current_state") // This might not be on the definition, usually on instance
             .and_then(|v| v.as_str())
             .unwrap_or("-");
 
-        let status_symbol = match status {
-            "active" => "🟢",
-            "draft" => "🟡",
-            "archived" => "🗄️",
-            "paused" => "⏸️",
-            _ => "⚪",
-        };
+        // If this is a definition, it might not have current_state, but we can show initial_state if needed
+        // Or just leave it as "-"
+        // Actually, looking at `list_workflows`, it queries `workflow` entity type, which is definitions.
+        // Definitions don't have current_state. They have initial_state.
+        // But the previous code tried to get `current_state`.
+        // Let's check if we want to show initial state or just remove the column if meaningless.
+        // The goal was: ID, Status, Title, Current State, Agent, Updated
+        // For definitions, maybe "States Count" is better than "Current State"?
+        // But the requirement says "Current State".
+        // If it's a definition list, "Current State" is N/A.
+        // Let's stick to the requested columns but maybe fill "State" with something useful or "-"
+        // Actually, for consistency with the prompt: "ID, Status, Title, Current State, Agent, Updated"
+        // I will use "-" for definition lists if field is missing.
 
-        let state_count = workflow_data
-            .get("states")
-            .and_then(|v| v.as_array())
-            .map(|a| a.len())
-            .unwrap_or(0);
+        let status_symbol = match status {
+            "active" => "🟢 Active",
+            "draft" => "🟡 Draft",
+            "archived" => "🗄️ Archived",
+            "paused" => "⏸️ Paused",
+            _ => "⚪ Unknown",
+        };
 
         table.add_row(row![
             &entity.id[..8],
             status_symbol,
             truncate(name, 40),
             truncate(current_state, 15),
-            truncate(&entity.agent, 15),
-            state_count,
+            truncate(&entity.agent, 10),
             entity.timestamp.format("%Y-%m-%d")
         ]);
     }

@@ -315,7 +315,7 @@ pub fn create_task<S: Storage>(
 }
 
 use crate::cli::utils::{create_table, truncate};
-use prettytable::{cell, row};
+use prettytable::row;
 
 /// List tasks command
 pub fn list_tasks<S: Storage>(
@@ -350,7 +350,9 @@ pub fn list_tasks<S: Storage>(
     println!("📋 Tasks ({} found):", tasks.len());
 
     let mut table = create_table();
-    table.set_titles(row!["ID", "Status", "Title", "Agent"]);
+    table.set_titles(row![
+        "ID", "Status", "Priority", "Title", "Agent", "Created"
+    ]);
 
     for generic_task in &tasks {
         if let Ok(task) = Task::from_generic(generic_task.clone()) {
@@ -362,11 +364,15 @@ pub fn list_tasks<S: Storage>(
                 crate::entities::TaskStatus::Cancelled => "❌ Cancelled",
             };
 
+            let priority_str = format!("{:?}", task.priority);
+
             table.add_row(row![
                 &task.id[..8],
                 status_emoji,
-                truncate(&task.title, 50),
-                truncate(&task.agent, 15)
+                priority_str,
+                truncate(&task.title, 40),
+                truncate(&task.agent, 10),
+                task.start_time.format("%Y-%m-%d")
             ]);
         }
     }

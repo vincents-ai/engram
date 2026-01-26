@@ -95,7 +95,7 @@ pub fn create_compliance<S: Storage>(
 }
 
 use crate::cli::utils::{create_table, truncate};
-use prettytable::{cell, row};
+use prettytable::row;
 
 /// List compliance requirements
 pub fn list_compliance<S: Storage>(
@@ -134,7 +134,9 @@ pub fn list_compliance<S: Storage>(
     );
 
     let mut table = create_table();
-    table.set_titles(row!["ID", "Status", "Title", "Category", "Agent"]);
+    table.set_titles(row![
+        "ID", "Status", "Category", "Title", "Agent", "Updated"
+    ]);
 
     for generic_item in &compliance_items {
         if let Ok(compliance) = Compliance::from_generic(generic_item.clone()) {
@@ -148,9 +150,10 @@ pub fn list_compliance<S: Storage>(
             table.add_row(row![
                 &compliance.id[..8],
                 status_icon,
-                truncate(&compliance.title, 40),
                 truncate(&compliance.category, 15),
-                truncate(&compliance.agent, 10)
+                truncate(&compliance.title, 40),
+                truncate(&compliance.agent, 10),
+                compliance.updated_at.format("%Y-%m-%d")
             ]);
         }
     }

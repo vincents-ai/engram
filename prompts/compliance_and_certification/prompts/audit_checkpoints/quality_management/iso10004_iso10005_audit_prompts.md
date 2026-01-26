@@ -1,5 +1,36 @@
 # ISO 10004 and ISO 10005 Quality Management Audit Prompts
 
+
+  
+  EVIDENCE-BASED VALIDATION REQUIREMENTS:
+  - provide evidence-based validation for all final claims instead of unsubstantiated assertions
+  - Every assertion must be supported by concrete evidence from code, tests, logs, or documentation
+  - Include specific examples, file paths, line numbers, and verifiable measurements
+  - Provide quantifiable metrics and test results when making claims about improvements
+  - Reference official documentation or standards when applicable
+
+  EVIDENCE COLLECTION INSTRUCTIONS:
+  - Always provide evidence in this format:
+    ## Claim: [Your specific assertion]
+    ### Evidence:
+    - **Code Reference**: `src/file.rs:123` - Function demonstrates...
+    - **Test Results**: [Command output showing results]
+    - **Execution Log**: [Timestamped log entries]
+    - **Documentation**: [Citations from official docs]
+  - Never make unsubstantiated claims like "the code is better", "this improves security", or "the refactoring is better", "this improves security", or "the refactoring is better"
+  - Instead, provide quantifiable evidence: "Reduced processing time from 500ms to 120ms"
+
+
+
+  
+  EVIDENCE-BASED VALIDATION REQUIREMENTS:
+  - provide evidence-based validation for all final claims instead of unsubstantiated assertions
+  - Every assertion must be supported by concrete evidence from code, tests, logs, or documentation
+  - Include specific examples, file paths, line numbers, and verifiable measurements
+  - Provide quantifiable metrics and test results when making claims about improvements
+  - Reference official documentation or standards when applicable
+
+
 This collection provides comprehensive audit checkpoint prompts for ISO 10004:2018 Quality Management - Customer Satisfaction - Monitoring and Measurement and ISO 10005:2018 Quality Management Systems - Guidelines for Quality Plans compliance assessment.
 
 ## Context and Background
