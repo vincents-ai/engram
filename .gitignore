@@ -8,3 +8,4 @@ result
 .DS_Store
 .github/actions/
 .github/scripts/
+.engram-session-tracking.json
