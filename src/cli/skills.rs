@@ -395,8 +395,9 @@ mod tests {
         assert!(result.is_ok());
 
         let output = String::from_utf8(buffer).unwrap();
-        // The new table output format prints table borders and headers
-        assert!(output.contains("Skill Name"));
+        // Since we changed logic to only print table if items found, this should now be empty for non-verbose
+        // or just not contain the header.
+        assert!(!output.contains("Skill Name"));
     }
 
     #[test]
