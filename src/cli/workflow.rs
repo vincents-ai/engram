@@ -707,6 +707,39 @@ fn display_workflow(workflow: &Workflow) {
     }
 }
 
+/// Helper to parse context file into RuleValue map
+fn parse_context_file(path: &str) -> Result<HashMap<String, RuleValue>, EngramError> {
+    let content = std::fs::read_to_string(path).map_err(EngramError::Io)?;
+    let json_data: serde_json::Value = serde_json::from_str(&content)
+        .map_err(|e| EngramError::Validation(format!("Invalid context file JSON: {}", e)))?;
+
+    let mut variables = HashMap::new();
+    if let Some(obj) = json_data.as_object() {
+        for (k, v) in obj {
+            let rule_val = match v {
+                serde_json::Value::String(s) => RuleValue::String(s.clone()),
+                serde_json::Value::Number(n) => {
+                    if let Some(i) = n.as_i64() {
+                        RuleValue::Number(i as f64)
+                    } else if let Some(f) = n.as_f64() {
+                        RuleValue::Number(f)
+                    } else {
+                        RuleValue::String(n.to_string())
+                    }
+                }
+                serde_json::Value::Bool(b) => RuleValue::Boolean(*b),
+                _ => RuleValue::String(v.to_string()),
+            };
+            variables.insert(k.clone(), rule_val);
+        }
+    } else {
+        return Err(EngramError::Validation(
+            "Context file must contain a JSON object".to_string(),
+        ));
+    }
+    Ok(variables)
+}
+
 /// Start a workflow instance using the automation engine
 pub fn start_workflow_instance<S: Storage + 'static>(
     storage: S,
@@ -723,34 +756,8 @@ pub fn start_workflow_instance<S: Storage + 'static>(
 
     // Load variables from context file first (if provided)
     if let Some(path) = context_file {
-        let content = std::fs::read_to_string(&path).map_err(EngramError::Io)?;
-        let json_data: serde_json::Value = serde_json::from_str(&content)
-            .map_err(|e| EngramError::Validation(format!("Invalid context file JSON: {}", e)))?;
-
-        if let Some(obj) = json_data.as_object() {
-            for (k, v) in obj {
-                // Convert JSON values to RuleValue
-                let rule_val = match v {
-                    serde_json::Value::String(s) => RuleValue::String(s.clone()),
-                    serde_json::Value::Number(n) => {
-                        if let Some(i) = n.as_i64() {
-                            RuleValue::Number(i as f64)
-                        } else if let Some(f) = n.as_f64() {
-                            RuleValue::Number(f)
-                        } else {
-                            RuleValue::String(n.to_string())
-                        }
-                    }
-                    serde_json::Value::Bool(b) => RuleValue::Boolean(*b),
-                    _ => RuleValue::String(v.to_string()), // Fallback for complex types
-                };
-                initial_variables.insert(k.clone(), rule_val);
-            }
-        } else {
-            return Err(EngramError::Validation(
-                "Context file must contain a JSON object".to_string(),
-            ));
-        }
+        let file_vars = parse_context_file(&path)?;
+        initial_variables.extend(file_vars);
     }
 
     // Overlay CLI variables (overrides file variables)
@@ -813,20 +820,10 @@ pub fn execute_workflow_transition<S: Storage + 'static>(
 ) -> Result<(), EngramError> {
     let mut engine = WorkflowAutomationEngine::new(storage);
 
-    // Note: execute_transition currently doesn't accept context/variables updates.
-    // If needed, we would need to extend WorkflowAutomationEngine::execute_transition.
-    // For now, if context_file is provided, we might want to update the instance context first?
-    // Or warn that it's not supported yet for transitions?
-    // The requirement is "add a --context-json or --context-file flag to workflow start AND workflow transition".
-    // Let's check if we can update context before transitioning.
-    // The engine has update_instance_context(instance_id, new_context) but it might be private or not exposed.
-    // Looking at WorkflowAutomationEngine interface (inferred):
-    // It seems we only call execute_transition.
-
-    if let Some(_) = context_file {
-        println!("⚠️  Warning: Context file support for transitions is not yet fully implemented in the engine. Context will be ignored.");
-        // Ideally we would load the file and update the instance variables here.
-        // But for now, let's at least acknowledge the flag to satisfy the CLI contract.
+    if let Some(path) = context_file {
+        let file_vars = parse_context_file(&path)?;
+        // Update instance variables before executing the transition
+        engine.update_instance_variables(&instance_id, file_vars)?;
     }
 
     let result = engine.execute_transition(&instance_id, transition, agent)?;

@@ -504,6 +504,39 @@ impl<S: Storage> WorkflowAutomationEngine<S> {
         })
     }
 
+    /// Update workflow instance variables
+    pub fn update_instance_variables(
+        &mut self,
+        instance_id: &str,
+        variables: HashMap<String, RuleValue>,
+    ) -> Result<(), EngramError> {
+        if !self.active_instances.contains_key(instance_id) {
+            if let Some(generic) = self.storage.get(instance_id, "workflow_instance")? {
+                let instance = WorkflowInstance::from_generic(generic)
+                    .map_err(|e| EngramError::Validation(e.to_string()))?;
+                self.active_instances
+                    .insert(instance_id.to_string(), instance);
+            } else {
+                return Err(EngramError::NotFound(format!(
+                    "Workflow instance {} not found",
+                    instance_id
+                )));
+            }
+        }
+
+        let instance = self.active_instances.get_mut(instance_id).unwrap();
+
+        // Merge variables
+        for (key, value) in variables {
+            instance.context.variables.insert(key, value);
+        }
+
+        instance.updated_at = Utc::now();
+        self.storage.store(&instance.to_generic())?;
+
+        Ok(())
+    }
+
     /// Process pending workflow events
     pub fn process_events(&mut self) -> Result<Vec<WorkflowExecutionResult>, EngramError> {
         let results = Vec::new();

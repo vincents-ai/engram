@@ -34,5 +34,6 @@
 
 ## API Consistency
 
+
 - [x] **Issue:** `engram task list` and `engram compliance list` use different visual metaphors and output structures (bullets vs icons).
 - [x] **Fix:** Standardize the "list" view output format across all entities for a consistent developer experience.
