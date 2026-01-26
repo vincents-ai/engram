@@ -217,6 +217,9 @@ pub fn create_sandbox<S: Storage>(
     Ok(())
 }
 
+use crate::cli::utils::{create_table, truncate};
+use prettytable::{cell, row};
+
 /// List sandbox configurations
 pub fn list_sandboxes<S: Storage>(
     storage: &S,
@@ -267,13 +270,20 @@ pub fn list_sandboxes<S: Storage>(
         if sandboxes.is_empty() {
             println!("No sandbox configurations found.");
         } else {
-            println!("📋 Sandbox Configurations ({} found):", sandboxes.len());
+            let mut table = create_table();
+            table.set_titles(row!["ID", "Agent ID", "Level", "Created By", "Violations"]);
+
             for sandbox in sandboxes {
-                println!(
-                    "  • {} [{}] - {} ({:?})",
-                    sandbox.id, sandbox.agent_id, sandbox.agent, sandbox.sandbox_level
-                );
+                table.add_row(row![
+                    &sandbox.id[..8],
+                    truncate(&sandbox.agent_id, 20),
+                    format!("{:?}", sandbox.sandbox_level),
+                    truncate(&sandbox.created_by, 15),
+                    sandbox.violation_count
+                ]);
             }
+
+            table.printstd();
         }
     }
 

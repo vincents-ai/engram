@@ -60,6 +60,9 @@ pub fn get_prompts_path() -> PathBuf {
     PathBuf::from(".engram/prompts")
 }
 
+use crate::cli::utils::{create_table, truncate};
+use prettytable::row;
+
 /// List all prompts in the prompts directory
 pub fn list_prompts(
     category: Option<&str>,
@@ -83,11 +86,11 @@ pub fn list_prompts(
     }
 
     let entries = fs::read_dir(&prompts_path)?;
+    let mut table = create_table();
 
     match format {
         "short" | "s" => {
-            println!("Available Prompts:");
-            println!("==================");
+            table.set_titles(row!["Category", "Prompt Count"]);
 
             for entry in entries.flatten() {
                 if entry.path().is_dir() {
@@ -104,7 +107,7 @@ pub fn list_prompts(
 
                     // Count files in subdirectory
                     let count = fs::read_dir(&entry.path())?.flatten().count();
-                    println!("  - {} ({})", name, count);
+                    table.add_row(row![name, count]);
                 } else if verbose {
                     let path = entry.path();
                     let is_hidden = path
@@ -117,10 +120,10 @@ pub fn list_prompts(
                     }
                 }
             }
+            table.printstd();
         }
         "full" | "f" => {
-            println!("Available Prompts:");
-            println!("==================");
+            table.set_titles(row!["Category", "Prompt Name"]);
 
             for entry in entries.flatten() {
                 if entry.path().is_dir() {
@@ -135,18 +138,25 @@ pub fn list_prompts(
                         }
                     }
 
-                    println!("\n[{}]", name);
-                    println!("---");
-
                     let subentries = fs::read_dir(&entry.path())?;
-                    for subentry in subentries.flatten().take(10) {
-                        let sub_name = subentry.file_name().to_string_lossy().into_owned();
-                        println!("  - {}", sub_name);
-                    }
+                    let mut file_names = Vec::new();
 
-                    let total: usize = fs::read_dir(&entry.path())?.flatten().count();
-                    if total > 10 {
-                        println!("  ... and {} more", total - 10);
+                    for subentry in subentries.flatten() {
+                        let sub_name = subentry.file_name().to_string_lossy().into_owned();
+                        file_names.push(sub_name);
+                    }
+                    file_names.sort();
+
+                    if file_names.is_empty() {
+                        table.add_row(row![name, "-"]);
+                    } else {
+                        for (i, file_name) in file_names.iter().enumerate() {
+                            if i == 0 {
+                                table.add_row(row![name, file_name]);
+                            } else {
+                                table.add_row(row!["", file_name]);
+                            }
+                        }
                     }
                 } else if verbose {
                     let path = entry.path();
@@ -160,6 +170,7 @@ pub fn list_prompts(
                     }
                 }
             }
+            table.printstd();
         }
         _ => {
             println!("Unknown format: {}. Use 'short' or 'full'.", format);

@@ -276,6 +276,9 @@ pub fn create_knowledge<S: Storage>(
     Ok(())
 }
 
+use crate::cli::utils::{create_table, truncate};
+use prettytable::{cell, row};
+
 /// List knowledge items
 pub fn list_knowledge<S: Storage>(
     storage: &S,
@@ -312,24 +315,32 @@ pub fn list_knowledge<S: Storage>(
         items.truncate(limit_val);
     }
 
-    println!("Knowledge Items:");
-    println!("================");
-
-    for knowledge in items {
-        println!("ID: {}", knowledge.id);
-        println!("Title: {}", knowledge.title);
-        println!("Type: {:?}", knowledge.knowledge_type);
-        println!("Confidence: {:.2}", knowledge.confidence);
-        println!("Agent: {}", knowledge.agent);
-        if let Some(source) = &knowledge.source {
-            println!("Source: {}", source);
-        }
-        if !knowledge.tags.is_empty() {
-            println!("Tags: {}", knowledge.tags.join(", "));
-        }
-        println!("---");
+    if items.is_empty() {
+        println!("No knowledge items found matching the criteria.");
+        return Ok(());
     }
 
+    let mut table = create_table();
+    table.set_titles(row![
+        "ID", "Title", "Type", "Conf", "Agent", "Source", "Updated"
+    ]);
+
+    for knowledge in items {
+        let type_str = format!("{:?}", knowledge.knowledge_type);
+        let source_str = knowledge.source.unwrap_or_else(|| "-".to_string());
+
+        table.add_row(row![
+            &knowledge.id[..8],
+            truncate(&knowledge.title, 40),
+            type_str,
+            format!("{:.2}", knowledge.confidence),
+            truncate(&knowledge.agent, 15),
+            truncate(&source_str, 20),
+            knowledge.updated_at.format("%Y-%m-%d")
+        ]);
+    }
+
+    table.printstd();
     Ok(())
 }
 

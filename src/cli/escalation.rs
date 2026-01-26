@@ -315,6 +315,9 @@ pub fn create_escalation<S: Storage>(
     Ok(())
 }
 
+use crate::cli::utils::{create_table, truncate};
+use prettytable::{cell, row};
+
 /// List escalation requests
 pub fn list_escalations<S: Storage>(
     storage: &S,
@@ -400,7 +403,17 @@ pub fn list_escalations<S: Storage>(
         if escalations.is_empty() {
             println!("No escalation requests found.");
         } else {
-            println!("🚨 Escalation Requests ({} found):", escalations.len());
+            let mut table = create_table();
+            table.set_titles(row![
+                "ID",
+                "St",
+                "Agent",
+                "Operation",
+                "Type",
+                "Priority",
+                "Created"
+            ]);
+
             for escalation in escalations {
                 let status_icon = match escalation.status {
                     EscalationStatus::Pending => "⏳",
@@ -410,28 +423,21 @@ pub fn list_escalations<S: Storage>(
                     EscalationStatus::Cancelled => "🚫",
                 };
 
-                println!(
-                    "  {} {} [{}] - {} ({:?}, {:?})",
-                    status_icon,
-                    escalation.id,
-                    escalation.agent_id,
-                    escalation.operation_context.operation,
-                    escalation.operation_type,
-                    escalation.priority
-                );
+                let op_type = format!("{:?}", escalation.operation_type);
+                let priority = format!("{:?}", escalation.priority);
 
-                if escalation.status == EscalationStatus::Pending {
-                    if let Some(time_remaining) = escalation.time_to_expiration() {
-                        let hours = time_remaining.num_hours();
-                        let minutes = time_remaining.num_minutes() % 60;
-                        if time_remaining.num_seconds() > 0 {
-                            println!("    ⏱️  Expires in: {}h {}m", hours, minutes);
-                        } else {
-                            println!("    ⚠️  Expired");
-                        }
-                    }
-                }
+                table.add_row(row![
+                    &escalation.id[..8],
+                    status_icon,
+                    truncate(&escalation.agent_id, 15),
+                    truncate(&escalation.operation_context.operation, 30),
+                    truncate(&op_type, 15),
+                    priority,
+                    escalation.created_at.format("%Y-%m-%d %H:%M")
+                ]);
             }
+
+            table.printstd();
         }
     }
 

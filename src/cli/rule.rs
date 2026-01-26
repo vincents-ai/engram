@@ -348,6 +348,9 @@ pub fn delete_rule<S: Storage>(storage: &mut S, id: &str) -> Result<(), EngramEr
     Ok(())
 }
 
+use crate::cli::utils::{create_table, truncate};
+use prettytable::{cell, row};
+
 /// List rules
 pub fn list_rules<S: Storage>(
     storage: &S,
@@ -398,9 +401,6 @@ pub fn list_rules<S: Storage>(
 
     let result = storage.query(&filter)?;
 
-    println!("📋 Rules List");
-    println!("==============");
-
     if result.entities.is_empty() {
         println!("No rules found matching the criteria.");
         return Ok(());
@@ -414,6 +414,11 @@ pub fn list_rules<S: Storage>(
         result.total_count
     );
     println!();
+
+    let mut table = create_table();
+    table.set_titles(row![
+        "#", "ID", "St", "Pri", "Type", "Name", "Agent", "Updated"
+    ]);
 
     for (i, entity) in result.entities.iter().enumerate() {
         let rule_data = &entity.data;
@@ -447,38 +452,26 @@ pub fn list_rules<S: Storage>(
             _ => "❓",
         };
 
-        println!(
-            "{}. {} {} [{}] {}",
+        let updated_at = rule_data
+            .get("updated_at")
+            .and_then(|v| v.as_str())
+            .map(|s| s.split('T').next().unwrap_or(s))
+            .unwrap_or("N/A");
+
+        table.add_row(row![
             index,
+            &entity.id[..8],
             status_symbol,
             priority_symbol,
-            rule_type.to_uppercase(),
-            name
-        );
-
-        println!("   ID: {}", entity.id);
-
-        if let Some(description) = rule_data.get("description").and_then(|v| v.as_str()) {
-            let truncated = if description.len() > 80 {
-                format!("{}...", &description[..77])
-            } else {
-                description.to_string()
-            };
-            println!("   📝 {}", truncated);
-        }
-
-        if let Some(applies_to) = rule_data.get("applies_to").and_then(|v| v.as_str()) {
-            println!("   🎯 Applies to: {}", applies_to);
-        }
-
-        println!(
-            "   👤 Agent: {} | 📅 {}",
-            entity.agent,
-            entity.timestamp.format("%Y-%m-%d %H:%M")
-        );
-
-        println!();
+            truncate(rule_type, 15),
+            truncate(name, 30),
+            truncate(&entity.agent, 10),
+            updated_at
+        ]);
     }
+
+    table.printstd();
+    println!();
 
     if result.has_more {
         println!("💡 Use --offset {} to see more rules", offset + limit);

@@ -258,6 +258,9 @@ pub fn delete_adr<S: Storage>(storage: &mut S, id: &str) -> Result<(), EngramErr
     Ok(())
 }
 
+use crate::cli::utils::{create_table, truncate};
+use prettytable::{cell, row};
+
 /// List ADRs
 pub fn list_adrs<S: Storage>(
     storage: &S,
@@ -290,9 +293,6 @@ pub fn list_adrs<S: Storage>(
 
     let result = storage.query(&filter)?;
 
-    println!("📋 ADRs List");
-    println!("============");
-
     if result.entities.is_empty() {
         println!("No ADRs found matching the criteria.");
         return Ok(());
@@ -306,6 +306,9 @@ pub fn list_adrs<S: Storage>(
         result.total_count
     );
     println!();
+
+    let mut table = create_table();
+    table.set_titles(row!["#", "ID", "St", "Number", "Title", "Agent", "Updated"]);
 
     for (i, entity) in result.entities.iter().enumerate() {
         let adr_data = &entity.data;
@@ -332,45 +335,25 @@ pub fn list_adrs<S: Storage>(
             _ => "❓",
         };
 
-        println!("{}. {} ADR-{:03} {}", index, status_symbol, number, title);
+        let updated_at = adr_data
+            .get("updated_at")
+            .and_then(|v| v.as_str())
+            .map(|s| s.split('T').next().unwrap_or(s))
+            .unwrap_or("N/A");
 
-        println!("   ID: {}", entity.id);
-
-        if let Some(context) = adr_data.get("context").and_then(|v| v.as_str()) {
-            let truncated = if context.len() > 80 {
-                format!("{}...", &context[..77])
-            } else {
-                context.to_string()
-            };
-            println!("   📝 Context: {}", truncated);
-        }
-
-        if status == "accepted" {
-            if let Some(decision) = adr_data.get("decision").and_then(|v| v.as_str()) {
-                let truncated = if decision.len() > 60 {
-                    format!("{}...", &decision[..57])
-                } else {
-                    decision.to_string()
-                };
-                println!("   ✅ Decision: {}", truncated);
-            }
-        }
-
-        if let Some(alternatives) = adr_data.get("alternatives").and_then(|v| v.as_array()) {
-            if !alternatives.is_empty() {
-                println!("   🔀 {} alternative(s) considered", alternatives.len());
-            }
-        }
-
-        println!(
-            "   📊 Status: {} | 👤 Agent: {} | 📅 {}",
-            status,
-            entity.agent,
-            entity.timestamp.format("%Y-%m-%d %H:%M")
-        );
-
-        println!();
+        table.add_row(row![
+            index,
+            &entity.id[..8],
+            status_symbol,
+            format!("ADR-{:03}", number),
+            truncate(title, 40),
+            truncate(&entity.agent, 15),
+            updated_at
+        ]);
     }
+
+    table.printstd();
+    println!();
 
     if result.has_more {
         println!("💡 Use --offset {} to see more ADRs", offset + limit);
