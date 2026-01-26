@@ -593,36 +593,63 @@ pub fn reset_sandbox<S: Storage>(
 fn read_sandbox_input_from_stdin() -> Result<SandboxInput, EngramError> {
     let mut input = String::new();
     io::stdin().read_to_string(&mut input)?;
-    Ok(serde_json::from_str(&input)?)
+    parse_json_with_error_context(&input)
 }
 
 fn read_sandbox_input_from_file(file_path: &str) -> Result<SandboxInput, EngramError> {
     let content = fs::read_to_string(file_path)?;
-    Ok(serde_json::from_str(&content)?)
+    parse_json_with_error_context(&content)
 }
 
 fn read_update_input_from_stdin() -> Result<SandboxUpdateInput, EngramError> {
     let mut input = String::new();
     io::stdin().read_to_string(&mut input)?;
-    Ok(serde_json::from_str(&input)?)
+    parse_json_with_error_context(&input)
 }
 
 fn read_update_input_from_file(file_path: &str) -> Result<SandboxUpdateInput, EngramError> {
     let content = fs::read_to_string(file_path)?;
-    Ok(serde_json::from_str(&content)?)
+    parse_json_with_error_context(&content)
 }
 
 fn read_validation_request_from_stdin() -> Result<SandboxValidationRequest, EngramError> {
     let mut input = String::new();
     io::stdin().read_to_string(&mut input)?;
-    Ok(serde_json::from_str(&input)?)
+    parse_json_with_error_context(&input)
 }
 
 fn read_validation_request_from_file(
     file_path: &str,
 ) -> Result<SandboxValidationRequest, EngramError> {
     let content = fs::read_to_string(file_path)?;
-    Ok(serde_json::from_str(&content)?)
+    parse_json_with_error_context(&content)
+}
+
+fn parse_json_with_error_context<T: serde::de::DeserializeOwned>(
+    json_content: &str,
+) -> Result<T, EngramError> {
+    serde_json::from_str(json_content).map_err(|e| {
+        // Provide helpful context about the error location
+        let line = e.line();
+        let col = e.column();
+        
+        // Try to extract a snippet around the error if possible
+        let lines: Vec<&str> = json_content.lines().collect();
+        let snippet = if line > 0 && line <= lines.len() {
+            let context_line = lines[line - 1];
+            format!("\n\nContext (Line {}):\n> {}", line, context_line)
+        } else {
+            String::new()
+        };
+
+        EngramError::Validation(format!(
+            "❌ Invalid JSON format\n\nError: {}\nLocation: Line {}, Column {}{}\n\nTip: Ensure your JSON has valid structure and quotes around strings.",
+            e,
+            line,
+            col,
+            snippet
+        ))
+    })
 }
 
 fn parse_sandbox_level(level: &str) -> Result<SandboxLevel, EngramError> {
