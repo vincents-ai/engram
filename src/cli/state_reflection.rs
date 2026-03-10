@@ -339,7 +339,7 @@ pub fn show_reflection<S: Storage>(storage: &S, id: &str) -> Result<(), EngramEr
         .ok_or_else(|| EngramError::NotFound(format!("State reflection not found: {}", id)))?;
 
     let reflection = StateReflection::from_generic(entity)
-        .map_err(|e| EngramError::Validation(e.to_string()))?;
+        .map_err(|e: EngramError| EngramError::Validation(e.to_string()))?;
 
     println!("State Reflection Details:");
     println!("=========================");
@@ -394,7 +394,7 @@ pub fn record_dissonance<S: Storage>(
         .ok_or_else(|| EngramError::NotFound(format!("State reflection not found: {}", id)))?;
 
     let mut reflection = StateReflection::from_generic(entity)
-        .map_err(|e| EngramError::Validation(e.to_string()))?;
+        .map_err(|e: EngramError| EngramError::Validation(e.to_string()))?;
 
     reflection.record_dissonance(description.to_string(), score);
 
