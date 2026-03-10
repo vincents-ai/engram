@@ -1,5 +1,11 @@
 //! In-memory storage implementation for testing and development
 
+#![allow(
+    clippy::map_identity,
+    clippy::unwrap_or_default,
+    clippy::needless_borrows_for_generic_args
+)]
+
 use super::{
     GitCommit, MemoryEntity, QueryFilter, QueryResult, RelationshipIndex, RelationshipStats,
     RelationshipStorage, SortOrder, Storage, StorageStats, TraversalAlgorithm,
@@ -38,6 +44,8 @@ impl MemoryStorage {
         registry.register::<crate::entities::Standard>();
         registry.register::<crate::entities::ADR>();
         registry.register::<crate::entities::Workflow>();
+        registry.register::<crate::entities::Theory>();
+        registry.register::<crate::entities::StateReflection>();
 
         Self {
             entities: Arc::new(Mutex::new(HashMap::new())),
@@ -512,7 +520,7 @@ impl RelationshipStorage for MemoryStorage {
 
         let mut relationships = Vec::new();
         for rel_id in &rel_ids {
-            if let Some(rel) = self.get_relationship(&rel_id)? {
+            if let Some(rel) = self.get_relationship(rel_id)? {
                 relationships.push(rel);
             }
         }
@@ -529,7 +537,7 @@ impl RelationshipStorage for MemoryStorage {
 
         let mut relationships = Vec::new();
         for rel_id in &rel_ids {
-            if let Some(rel) = self.get_relationship(&rel_id)? {
+            if let Some(rel) = self.get_relationship(rel_id)? {
                 relationships.push(rel);
             }
         }
@@ -546,7 +554,7 @@ impl RelationshipStorage for MemoryStorage {
 
         let mut relationships = Vec::new();
         for rel_id in &rel_ids {
-            if let Some(rel) = self.get_relationship(&rel_id)? {
+            if let Some(rel) = self.get_relationship(rel_id)? {
                 relationships.push(rel);
             }
         }

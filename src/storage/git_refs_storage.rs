@@ -5,6 +5,8 @@
 //! Entities are stored as Git blobs and referenced by refs in the format:
 //! refs/engram/{entity_type}/{entity_id}
 
+#![allow(clippy::needless_borrows_for_generic_args)]
+
 use super::{
     relationship_storage::{
         EntityPath, RelationshipIndex, RelationshipStats, RelationshipStorage, TraversalAlgorithm,
@@ -26,7 +28,6 @@ use std::sync::{Arc, Mutex};
 ///
 /// This eliminates the need for .engram directory structure and provides
 /// better integration with Git tooling and distributed workflows.
-
 pub struct GitRefsStorage {
     repository: Arc<Mutex<Repository>>,
     workspace_path: PathBuf,
@@ -76,6 +77,8 @@ impl GitRefsStorage {
         registry.register::<crate::entities::Session>();
         registry.register::<crate::entities::Compliance>();
         registry.register::<crate::entities::EntityRelationship>();
+        registry.register::<crate::entities::Theory>();
+        registry.register::<crate::entities::StateReflection>();
 
         let mut storage = GitRefsStorage {
             repository: Arc::new(Mutex::new(repository)),
@@ -219,13 +222,7 @@ impl GitRefsStorage {
                     entity_type: memory_entity.entity_type,
                     agent: memory_entity.agent,
                     timestamp: memory_entity.timestamp,
-                    data: serde_json::Value::Object(
-                        memory_entity
-                            .data
-                            .into_iter()
-                            .map(|(k, v)| (k, v))
-                            .collect(),
-                    ),
+                    data: serde_json::Value::Object(memory_entity.data.into_iter().collect()),
                 };
 
                 Ok(Some(generic_entity))

@@ -1,3 +1,5 @@
+#![allow(clippy::needless_borrows_for_generic_args)]
+
 use crate::entities::{
     BuiltinCommandType, CommandFilter, CommandPattern, DangerousPattern, ParameterRestriction,
     RiskLevel,
@@ -148,10 +150,10 @@ impl CommandValidator {
             None => &serde_json::to_string(value).unwrap_or_default(),
         };
 
-        if !restriction.allowed_values.is_empty() {
-            if !restriction.allowed_values.contains(&value_str.to_string()) {
-                return Err(format!("Value '{}' not in allowed list", value_str));
-            }
+        if !restriction.allowed_values.is_empty()
+            && !restriction.allowed_values.contains(&value_str.to_string())
+        {
+            return Err(format!("Value '{}' not in allowed list", value_str));
         }
 
         if restriction
@@ -314,8 +316,8 @@ impl Default for CommandValidator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::json;
     use chrono::Utc;
+    use serde_json::json;
 
     #[tokio::test]
     async fn test_validate_whitelist_allowed() {
@@ -385,6 +387,8 @@ mod tests {
     fn test_validate_syntax() {
         assert!(CommandValidator::validate_command_syntax("ls -la"));
         assert!(!CommandValidator::validate_command_syntax("rm -rf /"));
-        assert!(!CommandValidator::validate_command_syntax("command > /dev/sda"));
+        assert!(!CommandValidator::validate_command_syntax(
+            "command > /dev/sda"
+        ));
     }
 }

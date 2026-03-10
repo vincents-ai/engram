@@ -26,10 +26,12 @@ pub mod session;
 pub mod setup;
 pub mod skills;
 pub mod standard;
+pub mod state_reflection;
 pub mod sync;
 pub mod task;
-pub mod validation;
+pub mod theory;
 pub mod utils;
+pub mod validation;
 pub mod workflow;
 
 pub use adr::*;
@@ -53,8 +55,10 @@ pub use session::*;
 pub use setup::*;
 pub use skills::*;
 pub use standard::*;
-pub use sync::*;
+pub use state_reflection::*;
+pub use sync::SyncCommands;
 pub use task::*;
+pub use theory::*;
 pub use validation::*;
 pub use workflow::*;
 
@@ -227,6 +231,16 @@ pub enum Commands {
     Schema {
         #[command(subcommand)]
         command: SchemaCommands,
+    },
+    /// Domain theories and mental models (Naur, 1985)
+    Theory {
+        #[command(subcommand)]
+        command: TheoryCommands,
+    },
+    /// State reflections and cognitive dissonance detection
+    Reflect {
+        #[command(subcommand)]
+        command: StateReflectionCommands,
     },
 }
 

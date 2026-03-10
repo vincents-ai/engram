@@ -89,7 +89,9 @@ engram adr create --title "Database choice" --number 001
 engram workflow create --title "Development pipeline"
 
 ### Skills Integration
-engram ships with specialized skills for common workflows:
+
+Engram ships with specialized skills for common workflows:
+
 ```bash
 # Use skills from ./engram/skills/
 cat ./engram/skills/meta/use-engram-memory.md      # Core memory skill
@@ -99,7 +101,9 @@ cat ./engram/skills/compliance/check-compliance.md # Compliance checking
 ```
 
 ### Prompts Library
-engram includes a comprehensive prompt library for agent orchestration:
+
+Engram includes a comprehensive prompt library for agent orchestration:
+
 ```bash
 # Agent prompts (170+)
 ls ./engram/prompts/agents/
@@ -145,6 +149,8 @@ cat ./engram/prompts/ai/pipelines/01-greenfield-feature-launch.yaml
 - [Prompt Engineering Guide](docs/engram/skills/prompt_guide.md) - Prompt construction patterns
 
 # Relationship Management
+
+```bash
 engram relationship create --source-id task1 --source-type task --target-id task2 --target-type task --relationship-type depends-on --agent alice
 engram relationship list --agent alice
 engram relationship get `<relationship-id>`
@@ -152,19 +158,28 @@ engram relationship find-path --source-id task1 --target-id task3 --algorithm di
 engram relationship connected --entity-id task1 --relationship-type depends-on
 engram relationship stats --agent alice
 engram relationship delete `<relationship-id>`
+```
 
 # Commit Validation and Hooks
+
+```bash
 engram validation commit --message "feat: implement user authentication [TASK-123]"
 engram validation commit --message "test commit" --dry-run
 engram validation hook install
 engram validation hook uninstall
 engram validation hook status
 engram validation check
+```
 
 # Synchronization
+
+```bash
 engram sync --agents "alice,bob" --strategy intelligent_merge
+```
 
 # Perkeep Backup and Restore
+
+```bash
 engram perkeep backup --description "Full backup"
 engram perkeep backup --entity-type task --include-relationships
 engram perkeep list --detailed

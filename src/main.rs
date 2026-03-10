@@ -138,15 +138,20 @@ async fn run() -> Result<(), EngramError> {
             cli::PromptsCommands::Show { name } => {
                 cli::show_prompt(&name, None)?;
             }
-            cli::PromptsCommands::Validate {
-                category,
-                fix,
-            } => {
+            cli::PromptsCommands::Validate { category, fix } => {
                 cli::validate_prompts(category.as_deref(), fix, None)?;
             }
         },
         cli::Commands::Schema { command } => {
             cli::handle_schema_command(command)?;
+        }
+        cli::Commands::Theory { command } => {
+            let mut storage = GitRefsStorage::new(".", "default")?;
+            handle_theory_command(command, &mut storage)?;
+        }
+        cli::Commands::Reflect { command } => {
+            let mut storage = GitRefsStorage::new(".", "default")?;
+            handle_reflection_command(command, &mut storage)?;
         }
         cli::Commands::Perkeep { command } => {
             use engram::cli::perkeep::{
@@ -736,7 +741,15 @@ fn handle_standard_command<S: engram::storage::Storage>(
             limit,
             offset,
         } => {
-            cli::list_standards(&mut std::io::stdout(), storage, category, status, search, limit, offset)?;
+            cli::list_standards(
+                &mut std::io::stdout(),
+                storage,
+                category,
+                status,
+                search,
+                limit,
+                offset,
+            )?;
         }
         cli::StandardCommands::AddRequirement {
             id,
@@ -871,7 +884,14 @@ fn handle_workflow_command<S: engram::storage::Storage>(
             limit,
             offset,
         } => {
-            cli::list_workflows(&mut std::io::stdout(), storage, status, search, limit, offset)?;
+            cli::list_workflows(
+                &mut std::io::stdout(),
+                storage,
+                status,
+                search,
+                limit,
+                offset,
+            )?;
         }
         cli::WorkflowCommands::AddState {
             id,
@@ -1374,6 +1394,120 @@ fn handle_help_command(command: Option<cli::HelpCommands>) -> Result<(), EngramE
             println!("For specific command help:");
             println!("  engram <command> --help        # Help for individual commands");
             println!("  engram --help                  # Show all available commands");
+        }
+    }
+
+    Ok(())
+}
+
+/// Handle theory commands (Naur, 1985 - Programming as Theory Building)
+fn handle_theory_command<S: engram::storage::Storage>(
+    command: cli::TheoryCommands,
+    storage: &mut S,
+) -> Result<(), EngramError> {
+    use engram::cli::theory::*;
+
+    match command {
+        cli::TheoryCommands::Create {
+            domain,
+            agent,
+            task,
+            json,
+            json_file,
+        } => {
+            create_theory(storage, domain, agent, task, json, json_file)?;
+        }
+        cli::TheoryCommands::List {
+            agent,
+            domain,
+            limit,
+        } => {
+            list_theories(storage, agent, domain, limit)?;
+        }
+        cli::TheoryCommands::Show { id, show_metrics } => {
+            show_theory(storage, &id, show_metrics)?;
+        }
+        cli::TheoryCommands::Update {
+            id,
+            concept,
+            mapping,
+            rationale,
+            invariant,
+        } => {
+            update_theory(storage, &id, concept, mapping, rationale, invariant)?;
+        }
+        cli::TheoryCommands::Delete { id } => {
+            delete_theory(storage, &id)?;
+        }
+        cli::TheoryCommands::ApplyReflection {
+            theory_id,
+            reflection_id,
+            updates_file,
+        } => {
+            apply_reflection(storage, &theory_id, &reflection_id, &updates_file)?;
+        }
+    }
+
+    Ok(())
+}
+
+/// Handle state reflection commands (Cognitive Dissonance Detection)
+fn handle_reflection_command<S: engram::storage::Storage>(
+    command: cli::StateReflectionCommands,
+    storage: &mut S,
+) -> Result<(), EngramError> {
+    use engram::cli::state_reflection::*;
+
+    match command {
+        cli::StateReflectionCommands::Create {
+            theory,
+            context,
+            observed,
+            trigger_type,
+            agent,
+            json,
+            json_file,
+        } => {
+            create_reflection(
+                storage,
+                Some(theory),
+                Some(context),
+                Some(observed),
+                trigger_type,
+                agent,
+                json,
+                json_file,
+            )?;
+        }
+        cli::StateReflectionCommands::List {
+            theory,
+            trigger_type,
+            unresolved,
+            limit,
+        } => {
+            list_reflections(storage, theory, trigger_type, unresolved, limit)?;
+        }
+        cli::StateReflectionCommands::Show { id } => {
+            show_reflection(storage, &id)?;
+        }
+        cli::StateReflectionCommands::RecordDissonance {
+            id,
+            description,
+            score,
+        } => {
+            record_dissonance(storage, &id, &description, score)?;
+        }
+        cli::StateReflectionCommands::ProposeUpdate { id, update } => {
+            propose_update(storage, &id, &update)?;
+        }
+        cli::StateReflectionCommands::Resolve { id, new_theory } => {
+            resolve_reflection(storage, &id, &new_theory)?;
+        }
+        cli::StateReflectionCommands::Delete { id } => {
+            delete_reflection(storage, &id)?;
+        }
+        cli::StateReflectionCommands::RequiresMutation { id, threshold } => {
+            requires_mutation(storage, &id, threshold)?;
         }
     }
 

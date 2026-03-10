@@ -126,9 +126,61 @@ Engram shines when you work with AI. Because your context and plans are structur
 *Example Agent Handoff:*
 > "I created task [TASK-123] 'Refactor Auth Middleware'. I've linked the [Context-456] 'New Security Standards' doc. Please pick this up."
 
+## Theory Building
+
+Based on Peter Naur's "Programming as Theory Building" (1985), capture the mental model behind your code.
+
+```bash
+# Create a theory about a domain
+engram theory create "User Authentication" --agent your-agent
+
+# Add conceptual model (concepts + definitions)
+engram theory update --id <ID> --concept "User: A person who authenticates to the system"
+engram theory update --id <ID> --concept "Session: A period of authenticated access"
+
+# Add system mappings (how concepts map to code)
+engram theory update --id <ID> --mapping "User: src/entities/user.rs (struct User)"
+engram theory update --id <ID> --mapping "Session: src/entities/session.rs (struct Session)"
+
+# Add design rationale (why decisions were made)
+engram theory update --id <ID> --rationale "JWT Tokens: Stateless auth to avoid session storage"
+
+# Add invariants (must-be-true statements)
+engram theory update --id <ID> --invariant "User email must be unique"
+```
+
+## State Reflection
+
+When code behavior conflicts with your theory, use reflection to detect and resolve the dissonance.
+
+```bash
+# Create a reflection when you encounter unexpected behavior
+engram reflect create \
+  --theory <THEORY_ID> \
+  --observed "Test failed: expected User but got None" \
+  --trigger-type test_failure
+
+# Record specific dissonance points
+engram reflect record-dissonance \
+  --id <REFLECTION_ID> \
+  --description "Theory claims User always exists, but code allows null"
+
+# Propose theory updates
+engram reflect propose-update \
+  --id <REFLECTION_ID> \
+  --update "Make User optional in Session, update invariant"
+
+# Check if mutation required (dissonance >= 0.7)
+engram reflect requires-mutation --id <REFLECTION_ID>
+# Exit 0 = theory must be updated before code fixes
+```
+
+The 0.7 threshold enforces Naur's insight: bugs often indicate flawed mental models, not just typos.
+
 ## Tips & Tricks
 
 *   **Automatic Storage**: Engram saves data instantly to your git repo's database (`.git/objects`). You do **not** need to `git add` or commit Engram data manually; it's handled automatically via `git refs`.
 *   **Share with Team**: Since Engram uses standard git refs, you can push/pull them to share context with your team (requires configuring your git fetch/push refspecs).
 *   **Hook Usage**: With the hook installed, use `engram task list --status inprogress` to find your active task ID before committing.
 *   **Keep it Granular**: It's better to have 5 small tasks than 1 giant one. It makes reasoning easier to attach.
+*   **Be Specific with AI**: When creating tasks for AI agents, include explicit file paths, expected outcomes, and success criteria. This prevents the "tool calling loop" issue where agents over-investigate instead of acting. See [Known Issues](./known-issues/README.md) for details.
