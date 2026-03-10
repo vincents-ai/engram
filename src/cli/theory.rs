@@ -262,8 +262,8 @@ pub fn show_theory<S: Storage>(
         .get(id, Theory::entity_type())?
         .ok_or_else(|| EngramError::NotFound(format!("Theory not found: {}", id)))?;
 
-    let theory =
-        Theory::from_generic(entity).map_err(|e| EngramError::Validation(e.to_string()))?;
+    let theory = Theory::from_generic(entity)
+        .map_err(|e: EngramError| EngramError::Validation(e.to_string()))?;
 
     println!("Theory Details:");
     println!("===============");
@@ -334,8 +334,8 @@ pub fn update_theory<S: Storage>(
         .get(id, Theory::entity_type())?
         .ok_or_else(|| EngramError::NotFound(format!("Theory not found: {}", id)))?;
 
-    let mut theory =
-        Theory::from_generic(entity).map_err(|e| EngramError::Validation(e.to_string()))?;
+    let mut theory = Theory::from_generic(entity)
+        .map_err(|e: EngramError| EngramError::Validation(e.to_string()))?;
 
     if let Some(concept_str) = concept {
         let parts: Vec<&str> = concept_str.splitn(2, ':').collect();
@@ -394,8 +394,8 @@ pub fn apply_reflection<S: Storage>(
         .get(theory_id, Theory::entity_type())?
         .ok_or_else(|| EngramError::NotFound(format!("Theory not found: {}", theory_id)))?;
 
-    let mut theory =
-        Theory::from_generic(entity).map_err(|e| EngramError::Validation(e.to_string()))?;
+    let mut theory = Theory::from_generic(entity)
+        .map_err(|e: EngramError| EngramError::Validation(e.to_string()))?;
 
     let json_str = read_file(updates_file)?;
     let updates: HashMap<String, String> = serde_json::from_str(&json_str)

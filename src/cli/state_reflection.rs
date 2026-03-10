@@ -421,7 +421,7 @@ pub fn propose_update<S: Storage>(
         .ok_or_else(|| EngramError::NotFound(format!("State reflection not found: {}", id)))?;
 
     let mut reflection = StateReflection::from_generic(entity)
-        .map_err(|e| EngramError::Validation(e.to_string()))?;
+        .map_err(|e: EngramError| EngramError::Validation(e.to_string()))?;
 
     reflection.propose_update(update.to_string());
 
@@ -443,7 +443,7 @@ pub fn resolve_reflection<S: Storage>(
         .ok_or_else(|| EngramError::NotFound(format!("State reflection not found: {}", id)))?;
 
     let mut reflection = StateReflection::from_generic(entity)
-        .map_err(|e| EngramError::Validation(e.to_string()))?;
+        .map_err(|e: EngramError| EngramError::Validation(e.to_string()))?;
 
     reflection.resolve(new_theory_id.to_string());
 
@@ -472,7 +472,7 @@ pub fn requires_mutation<S: Storage>(
         .ok_or_else(|| EngramError::NotFound(format!("State reflection not found: {}", id)))?;
 
     let reflection = StateReflection::from_generic(entity)
-        .map_err(|e| EngramError::Validation(e.to_string()))?;
+        .map_err(|e: EngramError| EngramError::Validation(e.to_string()))?;
 
     if reflection.requires_theory_mutation(threshold) {
         println!(
