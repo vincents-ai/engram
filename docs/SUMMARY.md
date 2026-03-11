@@ -26,8 +26,8 @@
 
 ## Agent Integration
 
-- [Using Engram (for Agents)](engram/skills/using-engram.md)
-- [Prompt Guide](engram/skills/prompt_guide.md)
+- [Using Engram (for Agents)](skills/using-engram.md)
+- [Prompt Guide](skills/prompt_guide.md)
 
 ## Reference
 
