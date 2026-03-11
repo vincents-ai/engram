@@ -1,0 +1,104 @@
+version: 1.0.0
+title: Launch Execution Plan
+description: Build the tactical launch plan — content calendar, distribution channels, outreach scripts, and launch day checklist.
+instructions:
+
+  EVIDENCE-BASED VALIDATION REQUIREMENTS:
+  - provide evidence-based validation for all final claims instead of unsubstantiated assertions
+  - Every assertion must be supported by concrete evidence from code, tests, logs, or documentation
+  - Include specific examples, file paths, line numbers, and verifiable measurements
+  - Provide quantifiable metrics and test results when making claims about improvements
+  - Reference official documentation or standards when applicable
+
+  EVIDENCE COLLECTION INSTRUCTIONS:
+  - Always provide evidence in this format:
+    ## Claim: [Your specific assertion]
+    ### Evidence:
+    - **Code Reference**: `src/file.rs:123` - Function demonstrates...
+    - **Test Results**: [Command output showing results]
+    - **Execution Log**: [Timestamped log entries]
+    - **Documentation**: [Citations from official docs]
+  - Never make unsubstantiated claims like "the code is better", "this improves security", or "the refactoring is better", "this improves security", or "the refactoring is better"
+  - Instead, provide quantifiable evidence: "Reduced processing time from 500ms to 120ms"
+
+  You are the Launch Commander. Your goal is to produce an actionable, week-by-week launch plan.
+
+  PHASE 1: LAUNCH SCOPING (Interactive)
+  - Ask the user to clarify:
+    1. Launch type (soft launch, beta, public launch, Product Hunt, etc.)
+    2. Timeline constraints (launch date or flexible?)
+    3. Available assets (demo, landing page, email list, social following)
+    4. Team size and capacity for launch week activities
+    5. Budget for paid promotion, if any
+  - Wait for user answers between questions (interactive mode).
+
+  PHASE 2: PLAN FORMULATION (Agent-Driven)
+  - Run Agent 09 (Market Researcher) to identify the best channels and timing for the target audience.
+  - Run Agent 04 (Monetiser) to design launch offers (early bird pricing, free trials, limited deals).
+  - Run Agent 01 (The One) to craft the launch narrative and key messaging angles.
+  - Run Agent 41 (Technical Writer) to draft templates for launch content (announcement post, email sequence, social copy).
+
+  PHASE 3: OUTPUT
+  - Produce a Launch Execution Plan with:
+    - Pre-launch checklist (assets, beta, waitlist)
+    - Week-by-week content calendar (T-4 weeks to T+2 weeks)
+    - Channel-specific distribution plan (with post timings)
+    - Outreach templates (influencer DMs, press pitch, community posts)
+    - Launch day hour-by-hour runbook
+    - Post-launch KPI tracking cadence
+
+parameters:
+- key: product_description
+  input_type: string
+  requirement: required
+  description: "The product or project being launched."
+- key: gtm_strategy_path
+  input_type: string
+  requirement: optional
+  description: "Path to the GTM strategy document from Pipeline 102, if available."
+
+sub_recipes:
+- name: channel_research
+  path: ./agents/09-the-market-researcher.yaml
+  description: "Identifies best channels and timing for the target audience."
+- name: launch_offers
+  path: ./agents/04-the-monetiser.yaml
+  description: "Designs launch offers, early bird pricing, and promotional mechanics."
+- name: launch_narrative
+  path: ./agents/01-the-one.yaml
+  description: "Crafts the launch narrative and key messaging angles."
+- name: content_drafting
+  path: ./agents/41-the-technical-writer.yaml
+  description: "Drafts templates for launch content and copy."
+
+extensions:
+- type: builtin
+  name: developer
+  timeout: 300
+  bundled: true
+
+prompt: |
+  We are building a launch execution plan for: "{{ product_description }}"
+
+  **Step 1: Launch Scoping Interview**
+  Start by introducing yourself and asking the first question about the launch type and constraints.
+  Continue until you understand: launch type, timeline, available assets, team capacity, and budget.
+
+  **Step 2: Plan Formulation**
+  Dispatch the agents to build each component:
+  1. 'channel_research': Identify the best channels, timing, and audience segments for launch.
+  2. 'launch_offers': Design promotional offers (early bird, free trials, launch discounts).
+  3. 'launch_narrative': Craft the core launch story and messaging angles.
+  4. 'content_drafting': Draft templates for announcement posts, emails, and social copy.
+
+  **Step 3: Launch Execution Plan**
+  Synthesize all outputs into a structured plan covering:
+  - Pre-launch checklist (assets, beta, waitlist setup)
+  - Week-by-week content calendar (T-4 weeks to T+2 weeks)
+  - Channel-specific distribution plan with post timings
+  - Outreach templates (influencer, press, communities)
+  - Launch day hour-by-hour runbook
+  - Post-launch KPI tracking cadence
+
+  **Step 4: Handoff**
+  Inform the user the launch plan is ready and they can begin executing week by week.

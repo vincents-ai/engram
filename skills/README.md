@@ -4,7 +4,7 @@ This directory contains skills for working with Engram memory system. Skills are
 
 ## Overview
 
-**Total Skills: 43**
+**Total Skills: 46**
 
 Skills are organized by category and use Engram's entity system (context, reasoning, tasks, relationships) to create persistent, queryable memory across agent sessions.
 
@@ -96,6 +96,13 @@ Skills for code review and retrospectives:
 - **code-quality** (`review/code-quality.md`) - Comprehensive code quality review
 - **post-mortem** (`review/post-mortem.md`) - Blameless incident post-mortems
 - **retrospective** (`review/retrospective.md`) - Team retrospectives and improvement
+
+### Go-to-Market Skills (3)
+Skills for product strategy, market validation, and launch execution:
+
+- **market-validation** (`go-to-market/market-validation.md`) - Validate product ideas through interactive discovery and agent-driven research
+- **gtm-strategy** (`go-to-market/gtm-strategy.md`) - Define ICP, positioning, pricing, channels, and success metrics
+- **launch-execution** (`go-to-market/launch-execution.md`) - Build tactical launch plans with content calendar, outreach, and runbook
 
 ## Skill Format
 
@@ -204,6 +211,11 @@ assumption-validation → edge-cases → performance-analysis → tech-debt → 
 security-review → code-quality → post-mortem → retrospective
 ```
 
+### Go-to-Market Workflow
+```
+market-validation → gtm-strategy → launch-execution
+```
+
 ## Cross-References
 
 All skills include a "Related Skills" section that references other skills using the format:
@@ -296,11 +308,11 @@ Skills integrate with Engram's core features:
 
 ## Skill Statistics
 
-- **Total Skills**: 43
-- **Total Lines**: 12,690
+- **Total Skills**: 46
+- **Total Lines**: ~14,000
 - **Shortest**: planning/roadmap-planning.md (126 lines)
 - **Longest**: review/code-quality.md (1,007 lines)
-- **Average**: 295 lines per skill
+- **Average**: ~300 lines per skill
 
 ## Version History
 
@@ -312,6 +324,9 @@ Skills integrate with Engram's core features:
   - Architecture Skills: 8 (system-design, security, scalability, api, data-modeling, integration, observability, refactoring)
   - Quality Skills: 5 (assumption, edge-cases, tech-debt, performance, accessibility)
   - Review Skills: 4 (security-review, code-quality, post-mortem, retrospective)
+- **v0.4.0** (2026-03-29) - Added 3 go-to-market skills (46 total)
+  - Go-to-Market Skills: 3 (market-validation, gtm-strategy, launch-execution)
+  - Corresponding pipelines: 101-market-validation, 102-gtm-strategy, 103-launch-execution
 
 ## Resources
 
