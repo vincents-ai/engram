@@ -309,11 +309,11 @@ mod tests {
         monitor.start_operation(agent_id, "op2");
 
         let request = create_test_request("op3");
-        
+
         // Should fail because active_ops (2) >= max (2)
         // Wait, check_limits checks `active_ops >= limits.max_concurrent_operations`.
         // If we have 2 running, we can't start a 3rd.
-        
+
         let result = monitor.check_limits(agent_id, &request, &limits).await;
         assert!(result.is_err());
         match result {
@@ -325,9 +325,12 @@ mod tests {
 
         // End one operation
         monitor.end_operation(agent_id, "op1");
-        
+
         // Should succeed now
-        assert!(monitor.check_limits(agent_id, &request, &limits).await.is_ok());
+        assert!(monitor
+            .check_limits(agent_id, &request, &limits)
+            .await
+            .is_ok());
     }
 
     #[tokio::test]
@@ -339,7 +342,10 @@ mod tests {
 
         // Make 5 successful requests
         for _ in 0..5 {
-            assert!(monitor.check_limits(agent_id, &request, &limits).await.is_ok());
+            assert!(monitor
+                .check_limits(agent_id, &request, &limits)
+                .await
+                .is_ok());
         }
 
         // 6th request should fail
@@ -361,7 +367,7 @@ mod tests {
 
         let mut params = serde_json::Map::new();
         params.insert("file_size_mb".to_string(), serde_json::json!(15.0));
-        
+
         let request = SandboxRequest {
             operation: "write_file".to_string(),
             parameters: serde_json::Value::Object(params),
@@ -391,70 +397,70 @@ mod tests {
         // if request is execute_command/workflow
         // AND execution_start is Some
         // AND elapsed > limit
-        
+
         // We can simulate an already running long operation by hacking the internal state?
         // No, we can't access private fields.
         // But we can rely on `start_operation` setting `execution_start`.
-        
+
         // Wait, `check_limits` checks if *current* operation has timed out?
         // No, it checks if the *agent* has a long running operation?
         // logic:
         // if request.operation matches execute_...
         //   if let Some(start_time) = execution_start { ... }
-        
+
         // `execution_start` is set when `start_operation` is called for "execute_..."
         // So this check seems to enforce timeout on *ongoing* operation?
         // But `check_limits` is usually called *before* starting an operation?
         // Ah, maybe it's called periodically? Or it prevents *new* ops if existing one is too long?
-        
+
         // If `execution_start` is Some, it means an operation is *already* running.
         // If we call `check_limits` for a *new* request, and `execution_start` is set,
         // it means we are checking if the *currently running* operation has timed out?
         // Or maybe it's checking if the *new* request is allowed given the state?
-        
+
         // The logic in `check_limits`:
         // if request.operation is "execute_command"
         // AND execution_start is present (meaning one is already running? or THIS one started?)
-        
+
         // If `execution_start` is per-agent, and `active_operations` can be > 1...
         // `execution_start` is `Option<Instant>`, so it only tracks *one* start time?
         // It seems `ResourceMonitor` might assume only one "long running execution" at a time per agent?
         // Or `execution_start` tracks the *first* active execution?
-        
+
         // Let's verify `start_operation`:
         // if matches!(operation, "execute_...") { usage.execution_start = Some(Instant::now()); }
         // It overwrites `execution_start`.
-        
+
         // So if we have multiple concurrent `execute_command`s, `execution_start` tracks the *latest* one?
         // That seems like a potential bug or limitation, but for now let's test what we can.
-        
+
         // Since we can't wait minutes, we'll trust the logic if we can't inject time.
         // Or we can assume `max_execution_time_minutes` might be used as `0`?
         // Struct defines `min = 1`.
-        
+
         // So we can't test timeout easily without mocking time or waiting.
         // We'll skip this test case for now or just verifying basic start/end behavior.
-        
+
         let mut monitor = ResourceMonitor::new();
         let agent_id = "test_agent";
-        
+
         monitor.start_operation(agent_id, "execute_command");
         let snapshot = monitor.get_current_usage(agent_id).unwrap();
         assert_eq!(snapshot.active_operations, 1);
-        
+
         monitor.end_operation(agent_id, "execute_command");
         let snapshot = monitor.get_current_usage(agent_id).unwrap();
         assert_eq!(snapshot.active_operations, 0);
     }
-    
+
     #[tokio::test]
     async fn test_agent_data_clearing() {
         let mut monitor = ResourceMonitor::new();
         let agent_id = "test_agent";
-        
+
         monitor.start_operation(agent_id, "op1");
         assert!(monitor.get_current_usage(agent_id).is_some());
-        
+
         monitor.clear_agent_data(agent_id);
         assert!(monitor.get_current_usage(agent_id).is_none());
     }

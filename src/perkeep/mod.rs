@@ -75,7 +75,7 @@ mod tests {
             vec!["task".to_string(), "note".to_string()],
             HashMap::new(),
             1024,
-            "test-agent".to_string()
+            "test-agent".to_string(),
         );
 
         assert_eq!(metadata.version, "1.0.0");
@@ -93,9 +93,9 @@ mod tests {
             auth_token: None,
             verify_tls: true,
         };
-        
+
         let client = PerkeepClient::new(config).expect("Failed to create client");
-        
+
         assert_eq!(client.server_url(), "http://test:3179");
         assert_eq!(client.upload_url(), "http://test:3179/blob/upload");
         assert_eq!(client.search_url(), "http://test:3179/search/query");

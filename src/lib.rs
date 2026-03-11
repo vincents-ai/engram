@@ -43,7 +43,6 @@ pub use storage::{MemoryEntity, Storage};
 
 #[cfg(test)]
 mod tests {
-    
 
     #[test]
     fn test_library_compilation() {

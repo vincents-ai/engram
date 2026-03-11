@@ -451,7 +451,6 @@ impl Default for QueryMapper {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
 
     #[test]
     fn test_agent_extraction() {
