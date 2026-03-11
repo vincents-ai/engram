@@ -75,9 +75,11 @@ engram reasoning create --title "Chose JWT for stateless auth" --task-id <TASK_I
 
 ## Documentation
 
-*   [**User Guide**](docs/user-guide.md): A comprehensive guide for human operators.
-*   [**Book (mdBook)**](book/index.html): Full documentation with Theory Building and State Reflection guides.
-*   [**Using Engram (for Agents)**](docs/engram/skills/using-engram.md): How AI agents interact with the system.
+This book contains the complete Engram documentation. Use the sidebar or search to navigate.
+
+*   [**User Guide**](user-guide.md): A comprehensive guide for human operators.
+*   [**Using Engram (for Agents)**](engram/skills/using-engram.md): How AI agents interact with the system.
+*   [**DEVELOPMENT.md**](development/DEVELOPMENT.md): Build instructions and contributing guidelines.
 
 ## Theory Building
 

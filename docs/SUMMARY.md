@@ -1,6 +1,5 @@
 # Engram Documentation
 
-- [Home](../README.md)
 - [Development Guide](development/DEVELOPMENT.md)
 
 ## Getting Started
