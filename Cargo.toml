@@ -1,6 +1,6 @@
 [package]
 name = "engram"
-version = "0.2.7"
+version = "0.3.0"
 edition = "2021"
 authors = ["Vincent Palmer <shift@someone.section.me>"]
 description = "Distributed memory system for AI agents - Rust implementation"
@@ -65,7 +65,7 @@ git2 = { version = "0.19", features = ["vendored-openssl"] }
 tokio = { version = "1.0", features = ["rt", "rt-multi-thread", "macros"] }
 
 # Vector search (optional)
-rusqlite = { version = "0.32", features = ["bundled"], optional = true }
+rusqlite = { version = "0.30", features = ["bundled"], optional = true }
 sqlite-vec = { version = "0.1", optional = true }
 fastembed = { version = "5.8", optional = true }
 ndarray = { version = "0.17", optional = true }

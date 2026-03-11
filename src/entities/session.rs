@@ -15,6 +15,9 @@ pub enum SessionStatus {
     Paused,
     Completed,
     Cancelled,
+    /// Agent is experiencing cognitive dissonance and must
+    /// pause to mutate its Theory before continuing
+    Reflecting,
 }
 
 /// Session entity for tracking agent sessions
@@ -63,6 +66,26 @@ pub struct Session {
         default
     )]
     pub knowledge_ids: Vec<String>,
+
+    /// The ID of the Theory (mental model) currently governing this session
+    #[serde(
+        rename = "active_theory_id",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
+    pub active_theory_id: Option<String>,
+
+    /// Theory IDs that have been bound during this session
+    #[serde(rename = "theory_ids", skip_serializing_if = "Vec::is_empty", default)]
+    pub theory_ids: Vec<String>,
+
+    /// Reflection IDs generated during this session
+    #[serde(
+        rename = "reflection_ids",
+        skip_serializing_if = "Vec::is_empty",
+        default
+    )]
+    pub reflection_ids: Vec<String>,
 
     /// Session goals
     #[serde(rename = "goals", skip_serializing_if = "Vec::is_empty", default)]
@@ -156,6 +179,9 @@ impl Session {
             task_ids: Vec::new(),
             context_ids: Vec::new(),
             knowledge_ids: Vec::new(),
+            active_theory_id: None,
+            theory_ids: Vec::new(),
+            reflection_ids: Vec::new(),
             goals,
             outcomes: Vec::new(),
             space_metrics: None,
@@ -227,6 +253,49 @@ impl Session {
     /// Set DORA metrics
     pub fn set_dora_metrics(&mut self, metrics: DoraMetrics) {
         self.dora_metrics = Some(metrics);
+    }
+
+    /// Bind a Theory (mental model) to this session
+    ///
+    /// This injects a system instruction into the session metadata to ensure
+    /// the agent's LLM processes the Theory's invariants during inference.
+    pub fn bind_theory(&mut self, theory_id: String) {
+        self.active_theory_id = Some(theory_id.clone());
+        if !self.theory_ids.contains(&theory_id) {
+            self.theory_ids.push(theory_id.clone());
+        }
+        // Inject theory binding into metadata for LLM context
+        self.metadata.insert(
+            "system_theory_binding".to_string(),
+            serde_json::json!({
+                "active_theory_id": theory_id,
+                "instruction": "You are bound to this Theory. You must not violate its invariants."
+            }),
+        );
+    }
+
+    /// Enter reflection state - agent must pause and mutate theory
+    ///
+    /// When an action fails or cognitive dissonance is detected,
+    /// the agent enters this state to update its mental model before
+    /// attempting fixes.
+    pub fn trigger_reflection(&mut self) {
+        self.status = SessionStatus::Reflecting;
+    }
+
+    /// Resolve reflection state - return to active
+    ///
+    /// Called after the agent has generated a StateReflection
+    /// and optionally updated the active Theory.
+    pub fn resolve_reflection(&mut self) {
+        self.status = SessionStatus::Active;
+    }
+
+    /// Add a reflection ID generated during this session
+    pub fn add_reflection(&mut self, reflection_id: String) {
+        if !self.reflection_ids.contains(&reflection_id) {
+            self.reflection_ids.push(reflection_id);
+        }
     }
 }
 

@@ -242,7 +242,7 @@ mod tests {
                 can_execute_workflows: true,
                 restricted_workflow_types: vec!["dangerous_workflow".to_string()], // Changed to Vec
             },
-            forbidden_paths: vec![], // Added forbidden_paths
+            forbidden_paths: vec![],          // Added forbidden_paths
             quality_gate_permissions: vec![], // Added quality_gate_permissions
         }
     }
@@ -259,7 +259,7 @@ mod tests {
             agent_id: "test_agent".to_string(),
             resource_type: "file".to_string(),
             session_id: Some("session_1".to_string()), // Wrapped in Some
-            timestamp: chrono::Utc::now(), // Added timestamp
+            timestamp: chrono::Utc::now(),             // Added timestamp
         };
         assert!(engine
             .validate_operation(&req_read, &permissions)
@@ -273,7 +273,7 @@ mod tests {
             agent_id: "test_agent".to_string(),
             resource_type: "file".to_string(),
             session_id: Some("session_1".to_string()), // Wrapped in Some
-            timestamp: chrono::Utc::now(), // Added timestamp
+            timestamp: chrono::Utc::now(),             // Added timestamp
         };
         assert!(engine
             .validate_operation(&req_write, &permissions)
@@ -295,12 +295,12 @@ mod tests {
             agent_id: "test_agent".to_string(),
             resource_type: "system".to_string(),
             session_id: Some("session_1".to_string()), // Wrapped in Some
-            timestamp: chrono::Utc::now(), // Added timestamp
+            timestamp: chrono::Utc::now(),             // Added timestamp
         };
-        
+
         // "echo" matches exact "echo", but "echo hello" doesn't match exact "echo".
         // The implementation checks `regex.is_match(command)` or `command == allowed_cmd`.
-        
+
         // Let's test a prefix one that works.
         let mut params_git = serde_json::Map::new(); // Changed to Map
         params_git.insert("command".to_string(), serde_json::json!("git status"));
@@ -310,7 +310,7 @@ mod tests {
             agent_id: "test_agent".to_string(),
             resource_type: "system".to_string(),
             session_id: Some("session_1".to_string()), // Wrapped in Some
-            timestamp: chrono::Utc::now(), // Added timestamp
+            timestamp: chrono::Utc::now(),             // Added timestamp
         };
         assert!(engine
             .validate_operation(&req_git, &permissions)
@@ -326,7 +326,7 @@ mod tests {
             agent_id: "test_agent".to_string(),
             resource_type: "system".to_string(),
             session_id: Some("session_1".to_string()), // Wrapped in Some
-            timestamp: chrono::Utc::now(), // Added timestamp
+            timestamp: chrono::Utc::now(),             // Added timestamp
         };
         assert!(engine
             .validate_operation(&req_rm, &permissions)
@@ -351,7 +351,7 @@ mod tests {
             agent_id: "test_agent".to_string(),
             resource_type: "network".to_string(),
             session_id: Some("session_1".to_string()), // Wrapped in Some
-            timestamp: chrono::Utc::now(), // Added timestamp
+            timestamp: chrono::Utc::now(),             // Added timestamp
         };
         assert!(engine
             .validate_operation(&req_local, &permissions)
@@ -367,7 +367,7 @@ mod tests {
             agent_id: "test_agent".to_string(),
             resource_type: "network".to_string(),
             session_id: Some("session_1".to_string()), // Wrapped in Some
-            timestamp: chrono::Utc::now(), // Added timestamp
+            timestamp: chrono::Utc::now(),             // Added timestamp
         };
         assert!(engine
             .validate_operation(&req_ext, &permissions)
@@ -387,7 +387,7 @@ mod tests {
             agent_id: "test_agent".to_string(),
             resource_type: "workflow".to_string(),
             session_id: Some("session_1".to_string()), // Wrapped in Some
-            timestamp: chrono::Utc::now(), // Added timestamp
+            timestamp: chrono::Utc::now(),             // Added timestamp
         };
         assert!(engine
             .validate_operation(&req_create, &permissions)
@@ -401,7 +401,7 @@ mod tests {
             agent_id: "test_agent".to_string(),
             resource_type: "workflow".to_string(),
             session_id: Some("session_1".to_string()), // Wrapped in Some
-            timestamp: chrono::Utc::now(), // Added timestamp
+            timestamp: chrono::Utc::now(),             // Added timestamp
         };
         assert!(engine
             .validate_operation(&req_modify, &permissions)
@@ -420,7 +420,7 @@ mod tests {
             agent_id: "test_agent".to_string(),
             resource_type: "workflow".to_string(),
             session_id: Some("session_1".to_string()), // Wrapped in Some
-            timestamp: chrono::Utc::now(), // Added timestamp
+            timestamp: chrono::Utc::now(),             // Added timestamp
         };
         assert!(engine
             .validate_operation(&req_exec_restricted, &permissions)

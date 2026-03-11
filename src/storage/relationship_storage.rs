@@ -1,5 +1,7 @@
 //! Relationship-specific storage operations and graph indexing
 
+#![allow(clippy::collapsible_if, clippy::needless_borrows_for_generic_args)]
+
 use std::cmp::{Ordering, Reverse};
 use std::collections::{HashMap, HashSet, VecDeque};
 
@@ -58,17 +60,17 @@ impl RelationshipIndex {
 
         self.outbound
             .entry(relationship.source_id.clone())
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(rel_id.clone());
 
         self.inbound
             .entry(relationship.target_id.clone())
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(rel_id.clone());
 
         self.by_type
             .entry(relationship.relationship_type.clone())
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(rel_id.clone());
 
         if relationship.direction == RelationshipDirection::Bidirectional {

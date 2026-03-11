@@ -349,6 +349,7 @@ pub fn list_sessions<S: Storage>(
             SessionStatus::Paused => "⏸️",
             SessionStatus::Completed => "✅",
             SessionStatus::Cancelled => "❌",
+            SessionStatus::Reflecting => "🔄",
         };
 
         let duration_str = if let Some(duration) = session.duration_seconds {

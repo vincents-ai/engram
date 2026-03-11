@@ -5,6 +5,47 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-03-10
+
+### Added
+- **Theory Building Entity**: Formal mental model capture based on Peter Naur's "Programming as Theory Building" (1985)
+  - `domain_name`: High-level domain identifier
+  - `conceptual_model`: HashMap of concept → definition
+  - `system_mapping`: HashMap of concept → code location
+  - `design_rationale`: HashMap of decision → reason
+  - `invariants`: Vec of must-be-true statements
+  - `iteration_count`: Tracks theory evolution
+  - `apply_reflection_updates()`: Evolve theory from reflections
+
+- **StateReflection Entity**: Cognitive dissonance detection for AI agents
+  - `theory_id`: Theory being evaluated
+  - `observed_state`: Raw error/observation
+  - `cognitive_dissonance`: Vec of conflicts detected
+  - `proposed_theory_updates`: How to resolve conflicts
+  - `dissonance_score`: 0.0-1.0 (≥0.7 requires theory mutation)
+  - `trigger_type`: test_failure, runtime_error, unexpected_output, etc.
+  - `severity`: none, low, medium, high, critical
+
+- **Session Enhancements**
+  - New `Reflecting` status - blocks code execution until theory updated
+  - `bind_theory()` - injects theory invariants into session metadata
+  - `active_theory_id`, `theory_ids`, `reflection_ids` fields
+
+- **CLI Commands**
+  - `engram theory create|list|show|update|delete`
+  - `engram reflect create|list|show|record-dissonance|propose-update|resolve|requires-mutation`
+  - `engram session bind-theory|trigger-reflection|resolve-reflection`
+
+- **mdBook Documentation**: Full documentation with Theory Building and State Reflection guides
+
+- **Pipeline**: `prompts/ai/pipelines/00-theory-building.yaml` for theory extraction workflows
+
+- **Agent Persona**: `prompts/agents/168-the-theorist.yaml` for reverse-engineering mental models
+
+### Fixed
+- Various clippy and formatting issues
+- Syntax errors in theory.rs and session.rs
+
 ## [0.1.2] - 2026-01-20
 
 ### Added

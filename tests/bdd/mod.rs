@@ -898,6 +898,9 @@ impl EngramWorld {
             dora_metrics: None,
             tags: Vec::new(),
             metadata: std::collections::HashMap::new(),
+            active_theory_id: None,
+            theory_ids: vec![],
+            reflection_ids: vec![],
         };
 
         let mut result = Ok(());

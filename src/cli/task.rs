@@ -197,7 +197,7 @@ pub fn create_task<S: Storage>(
             // Provide helpful context about the error location
             let line = e.line();
             let col = e.column();
-            
+
             // Try to extract a snippet around the error if possible
             let lines: Vec<&str> = json_content.lines().collect();
             let snippet = if line > 0 && line <= lines.len() {

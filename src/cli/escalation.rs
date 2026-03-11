@@ -912,7 +912,7 @@ fn parse_json_with_error_context<T: serde::de::DeserializeOwned>(
         // Provide helpful context about the error location
         let line = e.line();
         let col = e.column();
-        
+
         // Try to extract a snippet around the error if possible
         let lines: Vec<&str> = json_content.lines().collect();
         let snippet = if line > 0 && line <= lines.len() {

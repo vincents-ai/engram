@@ -1,0 +1,20 @@
+[book]
+title = "Engram - Distributed Memory for AI Agents"
+description = "A second brain for your software projects - capture context, reasoning, and knowledge"
+authors = ["Vincents AI Team"]
+language = "en"
+src = "docs"
+
+[build]
+build-dir = "book"
+create-missing = false
+
+[output.html]
+additional-css = ["docs/theme/engram.css"]
+default-theme = "light"
+preferred-dark-theme = "coal"
+smart-punctuation = true
+edit-url-template = "https://github.com/vincents-ai/engram/edit/main/{path}"
+
+[preprocessor.index]
+[preprocessor.links]

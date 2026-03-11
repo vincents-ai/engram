@@ -147,11 +147,11 @@ cat ./engram/prompts/ai/pipelines/01-greenfield-feature-launch.yaml
 # Relationship Management
 engram relationship create --source-id task1 --source-type task --target-id task2 --target-type task --relationship-type depends-on --agent alice
 engram relationship list --agent alice
-engram relationship get <relationship-id>
+engram relationship get `<relationship-id>`
 engram relationship find-path --source-id task1 --target-id task3 --algorithm dijkstra
 engram relationship connected --entity-id task1 --relationship-type depends-on
 engram relationship stats --agent alice
-engram relationship delete <relationship-id>
+engram relationship delete `<relationship-id>`
 
 # Commit Validation and Hooks
 engram validation commit --message "feat: implement user authentication [TASK-123]"

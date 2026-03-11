@@ -16,7 +16,9 @@ pub mod relationship;
 pub mod rule;
 pub mod session;
 pub mod standard;
+pub mod state_reflection;
 pub mod task;
+pub mod theory;
 pub mod workflow;
 pub mod workflow_instance;
 
@@ -34,7 +36,9 @@ pub use relationship::*;
 pub use rule::*;
 pub use session::*;
 pub use standard::*;
+pub use state_reflection::*;
 pub use task::*;
+pub use theory::*;
 pub use workflow::*;
 pub use workflow_instance::*;
 

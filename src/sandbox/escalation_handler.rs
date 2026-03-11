@@ -3,6 +3,8 @@
 //! Handles the creation, approval, denial, and timeout of escalation requests
 //! when agents need elevated permissions beyond their sandbox level.
 
+#![allow(clippy::collapsible_if, clippy::needless_borrows_for_generic_args)]
+
 use crate::entities::{
     Entity, EscalationOperationType, EscalationPriority, EscalationRequest, EscalationStatus,
     OperationContext, ReviewDecision, ReviewerInfo,
@@ -337,8 +339,10 @@ impl EscalationHandler {
             SandboxError::StorageError(format!("Failed to list escalations: {}", e))
         })?;
 
-        let mut stats = EscalationStatistics::default();
-        stats.total_requests = all_ids.len();
+        let mut stats = EscalationStatistics {
+            total_requests: all_ids.len(),
+            ..Default::default()
+        };
 
         for id in all_ids {
             if let Ok(escalation) = self.get_escalation(&id).await {

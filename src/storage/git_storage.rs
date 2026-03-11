@@ -1,5 +1,7 @@
 //! Git-based storage implementation
 
+#![allow(clippy::needless_borrows_for_generic_args)]
+
 use super::{
     GitCommit, MemoryEntity, QueryFilter, QueryResult, RelationshipIndex, RelationshipStats,
     RelationshipStorage, SortOrder, Storage, StorageStats, TraversalAlgorithm,
@@ -61,6 +63,8 @@ impl GitStorage {
         registry.register::<crate::entities::Session>();
         registry.register::<crate::entities::Compliance>();
         registry.register::<crate::entities::EntityRelationship>();
+        registry.register::<crate::entities::Theory>();
+        registry.register::<crate::entities::StateReflection>();
 
         let mut storage = GitStorage {
             repository: Arc::new(Mutex::new(repository)),
@@ -848,8 +852,7 @@ impl RelationshipStorage for GitStorage {
 
         let most_connected_entity = entity_connections
             .into_iter()
-            .max_by_key(|(_, count)| *count)
-            .map(|(entity, count)| (entity, count));
+            .max_by_key(|(_, count)| *count);
 
         let max_possible_edges = if entity_count > 1 {
             entity_count * (entity_count - 1)
