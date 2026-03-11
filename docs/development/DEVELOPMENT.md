@@ -145,8 +145,8 @@ cat ./engram/prompts/ai/pipelines/01-greenfield-feature-launch.yaml
 ```
 
 ### Documentation
-- [Using Engram](docs/engram/skills/using-engram.md) - Core workflow protocol
-- [Prompt Engineering Guide](docs/engram/skills/prompt_guide.md) - Prompt construction patterns
+- [Using Engram](../engram/skills/using-engram.md) - Core workflow protocol
+- [Prompt Engineering Guide](../engram/skills/prompt_guide.md) - Prompt construction patterns
 
 # Relationship Management
 
