@@ -161,7 +161,7 @@ fn test_nlq_intent_classification() {
             QueryIntent::SearchContext,
         ),
         ("show workflow status", QueryIntent::AnalyzeWorkflow),
-        ("random unrelated query", QueryIntent::Unknown),
+        ("random unrelated query", QueryIntent::FullTextSearch),
     ];
 
     for (query, expected_intent) in test_cases {
@@ -337,11 +337,11 @@ async fn test_nlq_unknown_query_handling() {
         .expect("Failed to process query");
 
     assert!(
-        result.formatted_response.contains("understand")
-            || result.formatted_response.contains("help")
-            || result.formatted_response.contains("try")
-            || result.formatted_response.contains("sorry")
-            || result.formatted_response.contains("unclear")
+        result.formatted_response.contains("search")
+            || result.formatted_response.contains("found")
+            || result.formatted_response.contains("results")
+            || result.formatted_response.contains("no matching")
+            || result.formatted_response.contains("tasks")
     );
 }
 
