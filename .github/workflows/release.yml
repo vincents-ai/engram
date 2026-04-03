@@ -27,15 +27,13 @@ jobs:
         id: get_version
         run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
-      - name: Create Release
+      - name: Create Draft Release
         id: create_release
         uses: softprops/action-gh-release@v2
         with:
           name: Engram v${{ steps.get_version.outputs.version }}
           tag_name: ${{ github.ref }}
-          draft: false
-          prerelease: false
-          generate_release_notes: true
+          draft: true
           files: install.sh
           body: |
             ## Quick Install
@@ -47,42 +45,62 @@ jobs:
 
             ### Linux (x86_64)
             ```bash
-            curl -L https://github.com/vincents-ai/engram/releases/download/${{ github.ref_name }}/engram-linux-amd64.tar.gz | tar xz
+            curl -L https://github.com/vincents-ai/engram/releases/latest/download/engram-linux-amd64.tar.gz | tar xz
             chmod +x engram
             sudo mv engram /usr/local/bin/
             ```
 
             ### Linux (musl - static binary)
             ```bash
-            curl -L https://github.com/vincents-ai/engram/releases/download/${{ github.ref_name }}/engram-linux-musl-amd64.tar.gz | tar xz
+            curl -L https://github.com/vincents-ai/engram/releases/latest/download/engram-linux-musl-amd64.tar.gz | tar xz
             chmod +x engram
             sudo mv engram /usr/local/bin/
             ```
 
             ### macOS (Intel)
             ```bash
-            curl -L https://github.com/vincents-ai/engram/releases/download/${{ github.ref_name }}/engram-macos-amd64.tar.gz | tar xz
+            curl -L https://github.com/vincents-ai/engram/releases/latest/download/engram-macos-amd64.tar.gz | tar xz
             chmod +x engram
             sudo mv engram /usr/local/bin/
             ```
 
             ### macOS (Apple Silicon)
             ```bash
-            curl -L https://github.com/vincents-ai/engram/releases/download/${{ github.ref_name }}/engram-macos-arm64.tar.gz | tar xz
+            curl -L https://github.com/vincents-ai/engram/releases/latest/download/engram-macos-arm64.tar.gz | tar xz
             chmod +x engram
             sudo mv engram /usr/local/bin/
             ```
 
             ### Windows
-            Download `engram-windows-amd64.zip`, extract, and add to PATH.
+            Download `engram-windows-amd64.zip` from the [latest release](https://github.com/vincents-ai/engram/releases/latest), extract it, and add the directory to your `PATH`.
 
             ### From Nix
             ```bash
-            nix run github:vincents-ai/engram:${{ github.ref_name }} -- --help
+            nix run github:vincents-ai/engram -- --help
             ```
 
             ## Verification
             All binaries include SHA256 checksums for verification.
+
+  publish-release:
+    name: Publish Release
+    needs: [build, build-nix]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get version from tag
+        id: get_version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Publish Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
 
   build:
     name: Build - ${{ matrix.platform.name }}
