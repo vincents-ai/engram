@@ -211,6 +211,7 @@ jobs:
         if: matrix.platform.archive == 'tar.gz'
         uses: softprops/action-gh-release@v2
         with:
+          draft: true
           files: |
             ${{ matrix.platform.asset }}.tar.gz
             ${{ matrix.platform.asset }}.sha256
@@ -219,6 +220,7 @@ jobs:
         if: matrix.platform.archive == 'zip'
         uses: softprops/action-gh-release@v2
         with:
+          draft: true
           files: |
             ${{ matrix.platform.asset }}.zip
             ${{ matrix.platform.asset }}.sha256
@@ -246,6 +248,7 @@ jobs:
       - name: Upload to release
         uses: softprops/action-gh-release@v2
         with:
+          draft: true
           files: |
             engram-nix-linux-amd64
             engram-nix-linux-amd64.sha256
