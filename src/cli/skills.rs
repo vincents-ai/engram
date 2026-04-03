@@ -5,7 +5,7 @@ use std::path::PathBuf;
 /// Skills commands
 #[derive(Debug, Subcommand)]
 pub enum SkillsCommands {
-    /// Install OpenCode skills
+    /// Install skills
     Setup {
         /// Overwrite skills that already exist on disk
         #[arg(long, short)]
@@ -310,30 +310,27 @@ fn unified_diff(skill_name: &str, old: &str, new: &str) -> String {
     if old == new {
         return String::new();
     }
-    let diff = TextDiff::from_lines(old, new);
+    let diff = TextDiff::from_lines::<str>(old, new);
     let mut out = String::new();
+    let mut header_written = false;
     for (idx, group) in diff.grouped_ops(3).iter().enumerate() {
         if idx > 0 {
             out.push_str("---\n");
         }
         for op in group {
-            for change in diff.iter_inline_changes(op) {
+            for change in diff.iter_changes(op) {
                 let prefix = match change.tag() {
                     ChangeTag::Delete => "-",
                     ChangeTag::Insert => "+",
                     ChangeTag::Equal => " ",
                 };
-                // Print file header on first changed line
-                if idx == 0 && change.tag() != ChangeTag::Equal {
-                    if out.is_empty() {
-                        out.push_str(&format!("--- {}/SKILL.md (on disk)\n", skill_name));
-                        out.push_str(&format!("+++ {}/SKILL.md (binary)\n", skill_name));
-                    }
+                if !header_written && change.tag() != ChangeTag::Equal {
+                    out.push_str(&format!("--- {}/SKILL.md (on disk)\n", skill_name));
+                    out.push_str(&format!("+++ {}/SKILL.md (binary)\n", skill_name));
+                    header_written = true;
                 }
                 out.push_str(prefix);
-                for (_, value) in change.iter_strings_lossy() {
-                    out.push_str(&value);
-                }
+                out.push_str(change.value());
                 if change.missing_newline() {
                     out.push('\n');
                 }
@@ -420,6 +417,10 @@ pub fn handle_skills_command(
         (
             "engram-author-skill",
             include_str!("../../skills/meta/author-skill.md"),
+        ),
+        (
+            "engram-tmux-commands",
+            include_str!("../../skills/meta/tmux-commands.md"),
         ),
     ];
 

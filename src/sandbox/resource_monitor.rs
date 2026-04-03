@@ -273,7 +273,6 @@ impl Default for ResourceMonitor {
 mod tests {
     use super::*;
     use chrono::Utc;
-    use std::thread;
 
     fn create_test_request(operation: &str) -> SandboxRequest {
         SandboxRequest {
@@ -390,7 +389,7 @@ mod tests {
     #[tokio::test]
     async fn test_execution_timeout() {
         // We need to mock limits with very short timeout for testing
-        let mut limits = create_test_limits();
+        let _limits = create_test_limits();
         // Since limits.max_execution_time_minutes is u32 minutes, min is 1 minute.
         // We can't easily test "real" timeout without waiting 1 minute or mocking Instant.
         // However, the logic is:

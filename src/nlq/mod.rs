@@ -52,6 +52,8 @@ pub enum QueryIntent {
     SearchSkills,
     ListPrompts,
     SearchPrompts,
+    /// Free-text search across all entity types (tasks, context, reasoning)
+    FullTextSearch,
     Unknown,
 }
 

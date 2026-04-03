@@ -267,7 +267,7 @@ pub enum SetupCommands {
         #[arg(long)]
         email: Option<String>,
     },
-    /// Install OpenCode skills
+    /// Install skills
     Skills {
         /// Overwrite skills that already exist on disk
         #[arg(long, short)]
@@ -279,7 +279,7 @@ pub enum SetupCommands {
         #[arg(long, short)]
         tool: Option<String>,
     },
-    /// Install OpenCode prompts
+    /// Install prompts
     Prompts {
         /// Path to prompts directory (default: ./prompts)
         #[arg(long, short)]

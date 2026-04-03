@@ -421,8 +421,6 @@ impl Default for BottleneckReport {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::entities::Task;
-    use crate::storage::MemoryStorage;
 
     #[test]
     fn test_productivity_score_calculation() {

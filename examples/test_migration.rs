@@ -6,7 +6,7 @@ fn main() {
 
     // Test basic migration creation
     match Migration::new(".", "default", false, false) {
-        Ok(mut migration) => {
+        Ok(_migration) => {
             println!("✅ Migration instance created successfully");
 
             // Test pre-flight validation

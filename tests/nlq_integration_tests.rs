@@ -21,6 +21,7 @@ use tempfile::TempDir;
 use tokio;
 use uuid::Uuid;
 
+#[allow(dead_code)]
 struct NLQTestFixture {
     temp_dir: TempDir,
     storage: GitStorage,

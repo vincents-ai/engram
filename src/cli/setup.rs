@@ -341,6 +341,10 @@ pub fn setup_skills(config_dir: Option<PathBuf>, force: bool) -> Result<(), Engr
             "engram-author-skill",
             include_str!("../../skills/meta/author-skill.md"),
         ),
+        (
+            "engram-tmux-commands",
+            include_str!("../../skills/meta/tmux-commands.md"),
+        ),
     ];
 
     let mut installed_count = 0;
@@ -363,12 +367,12 @@ pub fn setup_skills(config_dir: Option<PathBuf>, force: bool) -> Result<(), Engr
             // Show unified diff between on-disk and binary versions
             {
                 use similar::{ChangeTag, TextDiff};
-                let diff = TextDiff::from_lines(&on_disk, skill_content);
+                let diff = TextDiff::from_lines(on_disk.as_str(), *skill_content);
                 println!("📝 Skill '{}' differs from binary:", skill_name);
                 let mut header_printed = false;
                 for group in diff.grouped_ops(3) {
                     for op in &group {
-                        for change in diff.iter_inline_changes(op) {
+                        for change in diff.iter_changes(op) {
                             if !header_printed && change.tag() != ChangeTag::Equal {
                                 println!("--- {}/SKILL.md (on disk)", skill_name);
                                 println!("+++ {}/SKILL.md (binary)", skill_name);
@@ -379,9 +383,7 @@ pub fn setup_skills(config_dir: Option<PathBuf>, force: bool) -> Result<(), Engr
                                 ChangeTag::Insert => "+",
                                 ChangeTag::Equal => " ",
                             };
-                            for (_, value) in change.iter_strings_lossy() {
-                                print!("{}{}", prefix, value);
-                            }
+                            print!("{}{}", prefix, change.value());
                             if change.missing_newline() {
                                 println!();
                             }

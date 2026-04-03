@@ -20,6 +20,7 @@ impl ResponseFormatter {
             QueryIntent::SearchSkills => self.format_skills_search(data),
             QueryIntent::ListPrompts => self.format_prompts_list(data),
             QueryIntent::SearchPrompts => self.format_prompts_search(data),
+            QueryIntent::FullTextSearch => self.format_full_text_search(data),
             QueryIntent::Unknown => self.format_unknown(data),
         }
     }
@@ -283,6 +284,67 @@ impl ResponseFormatter {
                 current_state,
                 status
             ));
+        }
+
+        Ok(response)
+    }
+
+    fn format_full_text_search(&self, data: &Value) -> Result<String, EngramError> {
+        let query = data["query"].as_str().unwrap_or("");
+        let total = data["total_matches"].as_u64().unwrap_or(0);
+
+        if total == 0 {
+            return Ok(format!("No results found for '{}'", query));
+        }
+
+        let empty_vec = vec![];
+        let mut response = format!("Found {} result(s) for '{}':\n", total, query);
+
+        let tasks = data["tasks"].as_array().unwrap_or(&empty_vec);
+        if !tasks.is_empty() {
+            response.push_str("\nTasks:\n");
+            for (i, task) in tasks.iter().enumerate() {
+                let title = task["title"].as_str().unwrap_or("Untitled");
+                let id = task["id"].as_str().unwrap_or("");
+                let status = task["status"].as_str().unwrap_or("Unknown");
+                response.push_str(&format!(
+                    "  {}. [{}] {} ({})\n",
+                    i + 1,
+                    &id[..8.min(id.len())],
+                    title,
+                    status
+                ));
+            }
+        }
+
+        let contexts = data["contexts"].as_array().unwrap_or(&empty_vec);
+        if !contexts.is_empty() {
+            response.push_str("\nContext:\n");
+            for (i, ctx) in contexts.iter().enumerate() {
+                let title = ctx["title"].as_str().unwrap_or("Untitled");
+                let id = ctx["id"].as_str().unwrap_or("");
+                response.push_str(&format!(
+                    "  {}. [{}] {}\n",
+                    i + 1,
+                    &id[..8.min(id.len())],
+                    title
+                ));
+            }
+        }
+
+        let reasoning = data["reasoning"].as_array().unwrap_or(&empty_vec);
+        if !reasoning.is_empty() {
+            response.push_str("\nReasoning:\n");
+            for (i, rsn) in reasoning.iter().enumerate() {
+                let title = rsn["title"].as_str().unwrap_or("Untitled");
+                let id = rsn["id"].as_str().unwrap_or("");
+                response.push_str(&format!(
+                    "  {}. [{}] {}\n",
+                    i + 1,
+                    &id[..8.min(id.len())],
+                    title
+                ));
+            }
         }
 
         Ok(response)

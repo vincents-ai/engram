@@ -3,10 +3,11 @@
 //! This example provides demonstrations of core Engram features including
 //! entity creation, relationships, validation, sessions, workflows, and backup.
 
-use engram::entities::{Context, ContextRelevance, Entity, Reasoning, Task};
+use engram::entities::{Context, ContextRelevance, Reasoning, Task};
 use engram::storage::memory_only_storage::MemoryStorage;
 use engram::storage::Storage;
-use engram::Entity as _;
+#[allow(unused_imports)]
+use engram::Entity;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Engram Feature Demonstrations");
