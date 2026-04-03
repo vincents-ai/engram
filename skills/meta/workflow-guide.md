@@ -1,271 +1,317 @@
 ---
 name: engram-workflow-guide
-description: "Guide to engram workflows: what they are, which existing skill chain to use for a given goal, and how to design custom workflows by chaining skills together."
+description: "Guide to creating and using engram state machine workflows: definitions with states/transitions/guards/actions, instances, CLI commands, and stage-based commit validation."
 ---
 
 # Engram Workflow Guide
 
 ## Overview
 
-A workflow is a sequence of skills chained together to accomplish a goal. Each step in a workflow creates engram entities (tasks, context, reasoning, ADRs, relationships). The graph structure means work is auditable, resumable, and queryable.
+An engram workflow is a **state machine definition** that governs how work progresses through defined phases. Workflows have states, transitions between states, guards that control entry/exit conditions, and actions that fire on state changes. When you start a workflow on a task, an **instance** is created that tracks the current state and records an audit trail of every transition.
 
-Workflows differ from ad-hoc work in three ways:
+This is not a conceptual "chain of skills." It is a persisted, queryable state machine with commit-time enforcement.
 
-1. **Process enforced** -- a workflow prescribes the order of operations. You do not skip steps.
-2. **Reasoning captured** -- every decision and finding is stored as a reasoning or context entity, not lost in conversation.
-3. **Outcomes linked** -- each phase's output is connected to the next phase's input via relationships, so the full chain of cause and effect is traversable.
+## Core Concepts
 
-## The Workflow Lifecycle
+### Workflow Definition
 
-Every workflow, whether built-in or custom, follows the same six phases:
+A `Workflow` entity is the template. It defines:
 
-```
-1. SEARCH   — engram ask query / engram task show
-2. PLAN     — engram task create (hierarchy with --parent)
-3. EXECUTE  — dispatch to skills or subagents
-4. COLLECT  — engram relationship connected to gather results
-5. VALIDATE — engram validate check
-6. CLOSE    — engram task update --status done
-```
+| Component | What it does |
+|-----------|-------------|
+| **States** | Named phases in the lifecycle (e.g., `requirements`, `planning`, `development`, `review`, `done`) |
+| **Transitions** | Allowed moves between states (e.g., `planning -> development`, `development -> review`) |
+| **Guards** | Conditions that must be met to enter/leave a state (e.g., "must have reasoning entity") |
+| **Actions** | Things that happen automatically on state entry (e.g., notifications, validation) |
+| **Prompts** | System/user prompt templates that set agent behavior for each state |
+| **Entity Types** | What entity types the workflow applies to (e.g., `"task"`) |
+| **Permission Schemes** | Who can execute which transitions |
 
-These phases are not optional. Skipping search means duplicating work. Skipping validation means shipping unverified changes.
+### Workflow Instance
 
-```bash
-engram ask query "<goal or topic>"
-engram task create --title "<Goal: description>" --priority high --output json
-engram task update <PARENT_UUID> --status in_progress
-engram task create --title "<Phase: description>" --parent <PARENT_UUID> --priority medium --output json
-engram task update <SUBTASK_UUID> --status in_progress
-engram relationship connected --entity-id <SUBTASK_UUID> --max-depth 2
-engram validate check
-engram task update <PARENT_UUID> --status done --outcome "<summary>"
-```
+A `WorkflowInstance` is a single execution run. It tracks:
 
-## Workflow Selection Guide
+- The workflow definition it belongs to
+- The current state
+- Context variables (bound entity, executing agent, permissions)
+- Full execution history (audit trail of every state change)
 
-Use this table to pick the right workflow for your goal. The entry-point skill is where you start.
+### Tasks and Workflows
 
-| Goal | Workflow | Skills (in order) | Entry Point |
-|------|----------|-------------------|-------------|
-| Build a new feature | Feature Development | brainstorming -> writing-plans -> test-driven-development -> requesting-code-review | `engram-brainstorming` |
-| Debug a problem | Debugging | systematic-debugging -> test-driven-development -> audit-trail | `engram-systematic-debugging` |
-| Design a system | Architecture | system-design -> risk-assessment -> writing-plans | `system-design` |
-| Review code | Review | requesting-code-review | `engram-requesting-code-review` |
-| Plan a release | Release | release-planning -> changelog -> testing | `release-planning` |
-| Check compliance | Compliance | check-compliance -> testing -> audit-trail | `engram-check-compliance` |
-| Multiple independent tasks | Parallel | plan-feature -> delegate-to-agents -> dispatching-parallel-agents -> subagent-driven-development | `engram-plan-feature` |
-| Launch a product | GTM Pipeline | market-validation -> gtm-strategy -> launch-execution | `market-validation` |
-| Not sure what to do | Exploratory | brainstorming -> (pick workflow from above) | `engram-brainstorming` |
+Tasks can be bound to workflows via `workflow_id` and `workflow_state` fields. The `WorkflowValidator` reads the task's current workflow state and enforces stage-based commit policies (e.g., "no code commits allowed in the requirements stage").
 
-### Decision Tree
+## Creating a Workflow Definition
 
-```
-What do you need to do?
-|
-|-- Build something new -> Feature Development
-|-- Fix a bug -> Debugging
-|-- Design a system -> Architecture
-|-- Review someone's code -> Review
-|-- Prepare a release -> Release
-|-- Verify compliance -> Compliance
-|-- Multiple tasks at once -> Parallel
-|-- Launch to market -> GTM Pipeline
-|-- Unsure -> Brainstorm first, then re-evaluate
-```
-
-## Common Patterns
-
-These patterns appear in every workflow. Learn them once, apply them everywhere.
-
-### Research-Before-Acting
-
-Always search engram before starting any phase. This prevents duplicating prior work and ensures you build on existing context.
+### Step 1: Create the workflow
 
 ```bash
-engram ask query "<topic>"
-engram task show <UUID>
+engram workflow create \
+  --title "SDLC" \
+  --description "Standard software development lifecycle" \
+  --entity-types "task" \
+  --agent "claude"
 ```
 
-### Task Hierarchy
+Returns the workflow UUID. The workflow starts in `Draft` status.
 
-One parent task for the goal. One subtask per workflow phase. The parent tracks overall status; subtasks track phase-level progress.
+### Step 2: Add states
+
+Each state represents a phase. State types: `start`, `in_progress`, `review`, `done`, `blocked`.
 
 ```bash
-engram task create --title "<Goal: description>" --priority high --output json
-engram task create --title "<Phase 1: research>" --parent <PARENT_UUID> --priority medium --output json
-engram task create --title "<Phase 2: design>" --parent <PARENT_UUID> --priority medium --output json
-engram task create --title "<Phase 3: implement>" --parent <PARENT_UUID> --priority high --output json
-engram task create --title "<Phase 4: verify>" --parent <PARENT_UUID> --priority high --output json
+WORKFLOW_ID="<workflow-uuid>"
+
+engram workflow add-state "$WORKFLOW_ID" \
+  --name "requirements" \
+  --state-type start \
+  --description "Gather and document requirements" \
+  --is-final
+
+engram workflow add-state "$WORKFLOW_ID" \
+  --name "planning" \
+  --state-type in_progress \
+  --description "Design solution and create implementation plan"
+
+engram workflow add-state "$WORKFLOW_ID" \
+  --name "development" \
+  --state-type in_progress \
+  --description "Write code with TDD"
+
+engram workflow add-state "$WORKFLOW_ID" \
+  --name "review" \
+  --state-type review \
+  --description "Code review and compliance check"
+
+engram workflow add-state "$WORKFLOW_ID" \
+  --name "done" \
+  --state-type done \
+  --description "Complete" \
+  --is-final
 ```
 
-### Reasoning Chain
+### Step 3: Add transitions
 
-Store why, not just what. Every phase produces a reasoning entity explaining the logic that led to its output. This makes the workflow auditable and resumable.
+Transitions define allowed state changes. Transition types: `automatic`, `manual`, `conditional`, `scheduled`.
 
 ```bash
-engram reasoning create \
-  --title "<phase>: logic and conclusions" \
-  --task-id <TASK_UUID> \
-  --content "Inputs: <what we started with>\nAnalysis: <what we found>\nDecision: <what we chose and why>"
+engram workflow add-transition "$WORKFLOW_ID" \
+  --name "begin_planning" \
+  --from-state "requirements" \
+  --to-state "planning" \
+  --transition-type manual \
+  --description "Requirements approved, begin planning"
+
+engram workflow add-transition "$WORKFLOW_ID" \
+  --name "begin_development" \
+  --from-state "planning" \
+  --to-state "development" \
+  --transition-type manual \
+  --description "Plan approved, begin development"
+
+engram workflow add-transition "$WORKFLOW_ID" \
+  --name "submit_for_review" \
+  --from-state "development" \
+  --to-state "review" \
+  --transition-type manual \
+  --description "Development complete, submit for review"
+
+engram workflow add-transition "$WORKFLOW_ID" \
+  --name "approve" \
+  --from-state "review" \
+  --to-state "done" \
+  --transition-type manual \
+  --description "Review passed"
+
+engram workflow add-transition "$WORKFLOW_ID" \
+  --name "request_changes" \
+  --from-state "review" \
+  --to-state "development" \
+  --transition-type manual \
+  --description "Review feedback, return to development"
 ```
 
-### Validation Gate
-
-Run `engram validate check` before closing any task. Do not skip this. It catches lint errors, type errors, and configuration problems before they propagate.
+### Step 4: Activate
 
 ```bash
-engram validate check
-engram task update <TASK_UUID> --status done --outcome "<summary>"
+engram workflow activate "$WORKFLOW_ID"
 ```
 
-### Parallel Dispatch
-
-When subtasks are independent, dispatch them simultaneously. This is the primary speed advantage of the workflow system.
+### Step 5: Verify
 
 ```bash
-engram task update <SUBTASK_A> --status in_progress
-engram task update <SUBTASK_B> --status in_progress
-# Tell both subagents their UUIDs. They run concurrently.
+engram workflow get "$WORKFLOW_ID"
+engram workflow query-actions "$WORKFLOW_ID"
 ```
 
-## Designing Custom Workflows
+## Using a Workflow
 
-When none of the built-in workflows fit, design a custom one by following these steps.
-
-### 1. Identify the Phases
-
-Break the goal into sequential phases. Common phase shapes:
-
-| Phase type | Purpose | Example skills |
-|-----------|---------|----------------|
-| Research | Gather information, explore options | brainstorming, spike-investigation, market-validation |
-| Design | Make decisions, create plans | system-design, writing-plans, risk-assessment |
-| Implement | Build, write code, execute | test-driven-development, subagent-driven-development |
-| Verify | Test, review, validate | requesting-code-review, check-compliance, test-harness-review |
-| Document | Record outcomes, transfer knowledge | changelog, runbooks, knowledge-transfer |
-
-### 2. Pick One Skill Per Phase
-
-Each phase maps to exactly one skill. Do not combine phases or skip them.
-
-Example -- custom "Database Migration" workflow:
-
-```
-Phase 1: Research    -> spike-investigation (understand current schema)
-Phase 2: Design      -> writing-plans (migration plan with rollback)
-Phase 3: Implement   -> test-driven-development (write migration + tests)
-Phase 4: Verify      -> check-compliance (data integrity check)
-```
-
-### 3. Define the Entity Flow
-
-Specify what each phase creates and what the next phase consumes:
-
-```
-Phase 1 creates: context entities (current schema, constraints)
-Phase 2 consumes: Phase 1 context
-Phase 2 creates: task hierarchy (parent + subtasks per migration step)
-Phase 3 consumes: Phase 2 task hierarchy
-Phase 3 creates: code changes + reasoning entities
-Phase 4 consumes: Phase 3 code changes
-Phase 4 creates: compliance context + final reasoning
-```
-
-### 4. Set Up the Task Hierarchy
+### Start an instance on a task
 
 ```bash
-engram task create --title "Goal: Database migration for X" --priority high --output json
-# PARENT_UUID = parent-001
-
-engram task create --title "Research: current schema analysis" --parent parent-001 --priority medium --output json
-# SUB_UUID = sub-002
-
-engram task create --title "Design: migration plan with rollback" --parent parent-001 --priority medium --output json
-# SUB_UUID = sub-003
-
-engram task create --title "Implement: migration and tests" --parent parent-001 --priority high --output json
-# SUB_UUID = sub-004
-
-engram task create --title "Verify: data integrity compliance" --parent parent-001 --priority high --output json
-# SUB_UUID = sub-005
+engram workflow start "$WORKFLOW_ID" \
+  --agent "claude" \
+  --entity-id "$TASK_ID" \
+  --entity-type "task"
 ```
 
-### 5. Link Phase Outputs to Next Phase Inputs
+Returns the instance UUID and initial state.
 
-After each phase completes, link its output entities to the next phase's task:
+### Transition through states
 
 ```bash
-engram relationship create \
-  --source-id <NEXT_PHASE_TASK_UUID> --source-type task \
-  --target-id <OUTPUT_CONTEXT_UUID> --target-type context \
-  --relationship-type depends_on --agent "<your-name>"
+INSTANCE_ID="<instance-uuid>"
+
+engram workflow transition "$INSTANCE_ID" \
+  --transition "begin_planning" \
+  --agent "claude"
 ```
 
-This makes the dependency graph explicit. If a future agent needs to understand why Phase 3 made certain choices, they traverse: Phase 3 task -> depends_on -> Phase 2 output -> explains -> Phase 1 context.
+### Check status and history
 
-## Quick Reference: Skill Categories
-
-| Category | Use Case | Entry Point Skill |
-|----------|----------|-------------------|
-| Meta | Orchestration, memory, delegation, workflows | `engram-orchestrator` |
-| Workflow | Planning, brainstorming, code review | `engram-writing-plans` |
-| Development | TDD, subagent-driven dev | `engram-test-driven-development` |
-| Debugging | Systematic investigation | `engram-systematic-debugging` |
-| Compliance | Framework checks, audit | `engram-check-compliance` |
-| Testing | Test harness review | `test-harness-review` |
-| Architecture | System design, API design, data modeling | `system-design` |
-| Planning | Roadmaps, releases, capacity, spikes | `roadmap-planning` |
-| Documentation | API docs, runbooks, ADRs, changelogs | `technical-writing` |
-| Quality | Tech debt, performance, edge cases, accessibility | `tech-debt` |
-| Review | Code quality, security, retrospectives, post-mortems | `code-quality` |
-| Go-to-Market | Market validation, GTM strategy, launch | `market-validation` |
-
-## Example: Full Feature Development Workflow
-
+```bash
+engram workflow status "$INSTANCE_ID"
 ```
-Goal: "Add user notifications system"
 
-[Phase 1: Brainstorm]
-engram ask query "user notifications"
-engram task create --title "Goal: User notifications system" --priority high --output json
-# PARENT_UUID = feat-001
-engram task create --title "Brainstorm: notification requirements" --parent feat-001 --priority medium --output json
-# BRAINSTORM_UUID = feat-002
-engram task update feat-002 --status in_progress
-# Run brainstorming skill -> produces context entities with requirements
-engram reasoning create --title "Notification requirements summary" --task-id feat-001 --content "Push + in-app + email. Real-time via WebSocket. Preferences per user."
-engram task update feat-002 --status done
+### List instances
 
-[Phase 2: Plan]
-engram task create --title "Plan: implementation breakdown" --parent feat-001 --priority medium --output json
-# PLAN_UUID = feat-003
-engram task update feat-003 --status in_progress
-# Run writing-plans skill -> produces task hierarchy
-engram task update feat-003 --status done
+```bash
+engram workflow instances --workflow-id "$WORKFLOW_ID" --running-only
+engram workflow instances --agent "claude"
+```
 
-[Phase 3: Implement]
-engram task create --title "Implement: notification service with TDD" --parent feat-001 --priority high --output json
-# IMPL_UUID = feat-004
-engram task update feat-004 --status in_progress
-# Run test-driven-development skill -> produces code + reasoning
-engram task update feat-004 --status done
+### Cancel an instance
 
-[Phase 4: Review]
-engram task create --title "Review: code review" --parent feat-001 --priority high --output json
-# REVIEW_UUID = feat-005
-engram task update feat-005 --status in_progress
-# Run requesting-code-review skill -> produces review context
-engram task update feat-005 --status done
+```bash
+engram workflow cancel "$INSTANCE_ID" --agent "claude" --reason "no longer needed"
+```
 
-[Close]
-engram validate check
-engram task update feat-001 --status done --outcome "User notifications system implemented and reviewed"
+## Stage-Based Commit Validation
+
+When a task is bound to a workflow, the `WorkflowValidator` enforces commit policies based on the current workflow state. These are the built-in stage policies:
+
+| Stage | Code Commits | Engram Only | Tests Pass | Build Pass | Quality Gates |
+|-------|-------------|-------------|------------|------------|---------------|
+| `requirements` | No | Yes | No | No | requirements_validation, must_reference_context |
+| `planning` | No | Yes | No | No | planning_validation, must_have_reasoning |
+| `bdd_red` | Yes | No | No | No | tests_only, tests_must_fail |
+| `bdd_green` | Yes | No | Yes | Yes | minimal_implementation |
+| `bdd_refactor` | Yes | No | Yes | Yes | no_new_tests, maintain_coverage |
+| `development` | Yes | No | Yes | Yes | code_quality, test_coverage |
+| `integration` | Yes | No | Yes | Yes | full_test_suite, integration_tests |
+| `default` | Yes | No | No | No | (none) |
+
+This means: if your task is in the `requirements` workflow state, commits containing code changes will be rejected. Only engram entity changes are allowed. This enforces process discipline.
+
+## Full Example: SDLC Workflow
+
+```bash
+# 1. Create the task
+engram task create --title "Add user authentication" --priority high --output json
+# TASK_ID = task-001
+
+# 2. Create the workflow definition
+engram workflow create \
+  --title "SDLC" \
+  --description "Standard software development lifecycle" \
+  --entity-types "task" \
+  --agent "claude"
+# WORKFLOW_ID = wf-002
+
+# 3. Add states
+engram workflow add-state wf-002 --name requirements --state-type start --description "Gather requirements" --is-final
+engram workflow add-state wf-002 --name planning --state-type in_progress --description "Design and plan"
+engram workflow add-state wf-002 --name development --state-type in_progress --description "TDD implementation"
+engram workflow add-state wf-002 --name review --state-type review --description "Code review"
+engram workflow add-state wf-002 --name done --state-type done --description "Complete" --is-final
+
+# 4. Add transitions
+engram workflow add-transition wf-002 --name begin_planning --from-state requirements --to-state planning --transition-type manual --description "Start planning"
+engram workflow add-transition wf-002 --name begin_development --from-state planning --to-state development --transition-type manual --description "Start development"
+engram workflow add-transition wf-002 --name submit_review --from-state development --to-state review --transition-type manual --description "Submit for review"
+engram workflow add-transition wf-002 --name approve --from-state review --to-state done --transition-type manual --description "Approved"
+engram workflow add-transition wf-002 --name reject --from-state review --to-state development --transition-type manual --description "Needs changes"
+
+# 5. Activate
+engram workflow activate wf-002
+
+# 6. Start an instance on the task
+engram workflow start wf-002 --agent "claude" --entity-id task-001 --entity-type "task"
+# INSTANCE_ID = inst-003
+
+# 7. Work through the states
+# Requirements phase — only engram entity commits allowed
+engram context create --title "Auth requirements" --content "JWT tokens, refresh rotation, password hashing with bcrypt" --source "requirements"
+engram workflow transition inst-003 --transition begin_planning --agent "claude"
+
+# Planning phase — only engram entity commits allowed
+engram reasoning create --title "Auth design decisions" --task-id task-001 --content "JWT chosen over sessions: stateless, scales horizontally"
+engram workflow transition inst-003 --transition begin_development --agent "claude"
+
+# Development phase — code commits allowed, tests and build must pass
+# ... write code ...
+engram workflow transition inst-003 --transition submit_review --agent "claude"
+
+# Review phase
+# ... review passes ...
+engram workflow transition inst-003 --transition approve --agent "claude"
+
+# 8. Check final status
+engram workflow status inst-003
+```
+
+## Inspecting Workflows
+
+```bash
+engram workflow list --status active
+engram workflow list --search "SDLC"
+engram workflow get "$WORKFLOW_ID"
+engram workflow query-actions "$WORKFLOW_ID" --state-id "review"
+engram workflow instances --running-only
+```
+
+## Transition Types
+
+| Type | When to Use |
+|------|------------|
+| `manual` | Agent or human must explicitly trigger the transition |
+| `automatic` | Fires as soon as the state is entered (no approval needed) |
+| `conditional` | Fires when a condition evaluates to true (checked automatically) |
+| `scheduled` | Fires on a schedule (e.g., timeout reminders) |
+
+## State Types
+
+| Type | Purpose |
+|------|---------|
+| `start` | Initial state of the workflow |
+| `in_progress` | Active work phase |
+| `review` | Awaiting approval or review |
+| `done` | Terminal state |
+| `blocked` | Waiting on external dependency |
+
+## Workflow Actions
+
+Transitions can trigger actions:
+
+```bash
+engram workflow execute-action \
+  --action-type external_command \
+  --command "cargo test" \
+  --working-directory "/path/to/project"
+
+engram workflow execute-action \
+  --action-type notification \
+  --message "Code review requested for task TASK_ID"
+
+engram workflow execute-action \
+  --action-type update_entity \
+  --entity-id "$TASK_ID" \
+  --entity-type "task"
 ```
 
 ## Related Skills
 
-- `engram-orchestrator` -- full execution loop for coordinating workflows
+- `engram-orchestrator` -- coordination loop that can drive workflow transitions
 - `engram-use-engram-memory` -- command reference for storing and retrieving entities
-- `engram-delegate-to-agents` -- agent catalog and delegation patterns
-- `engram-dispatching-parallel-agents` -- running multiple subagents concurrently
 - `engram-audit-trail` -- traceability patterns for workflow auditing
+- `engram-test-driven-development` -- TDD workflow that integrates with stage-based validation
+- `engram-brainstorming` -- ideation before workflow creation
