@@ -78,6 +78,11 @@ jobs:
             ## Verification
             All binaries include SHA256 checksums for verification.
 
+      - name: Upload install.sh
+        uses: softprops/action-gh-release@v2
+        with:
+          files: install.sh
+
   build:
     name: Build - ${{ matrix.platform.name }}
     needs: create-release
