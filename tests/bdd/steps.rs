@@ -38,7 +38,7 @@ async fn given_agent_has_task_with_status(
 ) {
     world.initialize_storage(&agent);
     world.create_task(&title, "Test description", "medium");
-    // TODO: Update task status - requires implementing update functionality
+    panic!("TODO: not yet implemented");
 }
 
 #[given(expr = "{word} has a task {string} with description {string} updated at {string}")]
@@ -66,7 +66,7 @@ async fn given_agent_has_completed_sessions(world: &mut EngramWorld, agent: Stri
     world.initialize_storage(&agent);
     for i in 1..=count {
         world.create_session(&format!("Session {}", i), false);
-        // TODO: Mark sessions as completed
+        panic!("TODO: not yet implemented");
     }
 }
 
@@ -163,7 +163,7 @@ async fn when_list_tasks_for_agent(world: &mut EngramWorld, agent: String) {
 
 #[when(expr = "I update the task status to {string}")]
 async fn when_update_task_status(world: &mut EngramWorld, status: String) {
-    // TODO: Implement task update
+    panic!("TODO: not yet implemented");
     world.set_last_status(&status);
 }
 
@@ -219,12 +219,12 @@ async fn when_start_session(world: &mut EngramWorld, agent: String) {
 
 #[when(expr = "I run session status --id <session-id> --metrics")]
 async fn when_show_session_status(_world: &mut EngramWorld) {
-    // TODO: Implement session status
+    panic!("TODO: not yet implemented");
 }
 
 #[when(expr = "I run session end --id <session-id> --generate-summary")]
 async fn when_end_session_with_summary(_world: &mut EngramWorld) {
-    // TODO: Implement session end
+    panic!("TODO: not yet implemented");
 }
 
 #[when(expr = "I list sessions for agent {string}")]
@@ -340,7 +340,7 @@ async fn then_should_not_see(world: &mut EngramWorld, content: String) {
 
 #[then(expr = "the task status should be {string}")]
 async fn then_task_status_should_be(_world: &mut EngramWorld, _status: String) {
-    // TODO: Verify task status
+    panic!("TODO: not yet implemented");
 }
 
 #[then("I should see the task title")]
@@ -355,27 +355,27 @@ async fn then_should_see_assigned_agent(world: &mut EngramWorld) {
 
 #[then("I should see the creation timestamp")]
 async fn then_should_see_creation_timestamp(_world: &mut EngramWorld) {
-    // TODO: Verify timestamp in result
+    panic!("TODO: not yet implemented");
 }
 
 #[then(expr = "the task description should be {string}")]
 async fn then_task_description_should_be(_world: &mut EngramWorld, _description: String) {
-    // TODO: Verify task description
+    panic!("TODO: not yet implemented");
 }
 
 #[then(expr = "the task title should be {string}")]
 async fn then_task_title_should_be(_world: &mut EngramWorld, _title: String) {
-    // TODO: Verify task title
+    panic!("TODO: not yet implemented");
 }
 
 #[then(expr = "the task priority should be {string}")]
 async fn then_task_priority_should_be(_world: &mut EngramWorld, _priority: String) {
-    // TODO: Verify task priority
+    panic!("TODO: not yet implemented");
 }
 
 #[then(expr = "the task agent should be {string}")]
 async fn then_task_agent_should_be(_world: &mut EngramWorld, _agent: String) {
-    // TODO: Verify task agent
+    panic!("TODO: not yet implemented");
 }
 
 #[then("the context should be created successfully")]
@@ -386,12 +386,12 @@ async fn then_context_created_successfully(world: &mut EngramWorld) {
 
 #[then(expr = "the context content should be {string}")]
 async fn then_context_content_should_be(_world: &mut EngramWorld, _content: String) {
-    // TODO: Verify context content
+    panic!("TODO: not yet implemented");
 }
 
 #[then("all knowledge items should be created successfully")]
 async fn then_all_knowledge_created(_world: &mut EngramWorld) {
-    // TODO: Verify multiple knowledge items
+    panic!("TODO: not yet implemented");
 }
 
 #[then("the reasoning should be created successfully")]
@@ -402,7 +402,7 @@ async fn then_reasoning_created_successfully(world: &mut EngramWorld) {
 
 #[then("the conclusion should match the file content")]
 async fn then_conclusion_matches_file(_world: &mut EngramWorld) {
-    // TODO: Verify conclusion content
+    panic!("TODO: not yet implemented");
 }
 
 #[then("a session should be created")]
@@ -419,52 +419,52 @@ async fn then_session_has_unique_id(world: &mut EngramWorld) {
 
 #[then("auto-detection should identify Engram project work")]
 async fn then_autodetect_identifies_engram(_world: &mut EngramWorld) {
-    // TODO: Verify auto-detection flag
+    panic!("TODO: not yet implemented");
 }
 
 #[then(expr = "the session status should be {string}")]
 async fn then_session_status_should_be(_world: &mut EngramWorld, _status: String) {
-    // TODO: Verify session status
+    panic!("TODO: not yet implemented");
 }
 
 #[then("the session should not have auto-detection enabled")]
 async fn then_no_autodetect(_world: &mut EngramWorld) {
-    // TODO: Verify auto-detection is false
+    panic!("TODO: not yet implemented");
 }
 
 #[then("I should see the session details")]
 async fn then_should_see_session_details(_world: &mut EngramWorld) {
-    // TODO: Verify session details in output
+    panic!("TODO: not yet implemented");
 }
 
 #[then("I should see SPACE framework metrics")]
 async fn then_should_see_space_metrics(_world: &mut EngramWorld) {
-    // TODO: Verify SPACE metrics in output
+    panic!("TODO: not yet implemented");
 }
 
 #[then("I should see DORA metrics")]
 async fn then_should_see_dora_metrics(_world: &mut EngramWorld) {
-    // TODO: Verify DORA metrics in output
+    panic!("TODO: not yet implemented");
 }
 
 #[then("I should see the session duration")]
 async fn then_should_see_duration(_world: &mut EngramWorld) {
-    // TODO: Verify duration in output
+    panic!("TODO: not yet implemented");
 }
 
 #[then("I should see a productivity summary")]
 async fn then_should_see_productivity_summary(_world: &mut EngramWorld) {
-    // TODO: Verify summary in output
+    panic!("TODO: not yet implemented");
 }
 
 #[then("I should see the total duration")]
 async fn then_should_see_total_duration(_world: &mut EngramWorld) {
-    // TODO: Verify total duration
+    panic!("TODO: not yet implemented");
 }
 
 #[then("I should see activity counts")]
 async fn then_should_see_activity_counts(_world: &mut EngramWorld) {
-    // TODO: Verify activity counts
+    panic!("TODO: not yet implemented");
 }
 
 #[then(expr = "I should see {int} sessions")]
@@ -492,12 +492,12 @@ async fn then_should_see_n_sessions(world: &mut EngramWorld, count: i32) {
 
 #[then(expr = "all sessions should be for agent {string}")]
 async fn then_all_sessions_for_agent(_world: &mut EngramWorld, _agent: String) {
-    // TODO: Verify all sessions belong to agent
+    panic!("TODO: not yet implemented");
 }
 
 #[then("they should be the 5 most recent sessions")]
 async fn then_most_recent_sessions(_world: &mut EngramWorld) {
-    // TODO: Verify sessions are sorted by recency
+    panic!("TODO: not yet implemented");
 }
 
 #[then("the sync should succeed")]
@@ -507,57 +507,57 @@ async fn then_sync_should_succeed(world: &mut EngramWorld) {
 
 #[then(expr = "the task should have {word}'s version")]
 async fn then_task_has_version(_world: &mut EngramWorld, _agent: String) {
-    // TODO: Verify task version from specific agent
+    panic!("TODO: not yet implemented");
 }
 
 #[then("no conflicts should be reported")]
 async fn then_no_conflicts(_world: &mut EngramWorld) {
-    // TODO: Verify no conflicts in sync result
+    panic!("TODO: not yet implemented");
 }
 
 #[then("conflicts should be detected")]
 async fn then_conflicts_detected(_world: &mut EngramWorld) {
-    // TODO: Verify conflicts were detected
+    panic!("TODO: not yet implemented");
 }
 
 #[then("I should see a conflict report")]
 async fn then_should_see_conflict_report(_world: &mut EngramWorld) {
-    // TODO: Verify conflict report in output
+    panic!("TODO: not yet implemented");
 }
 
 #[then("all unique tasks should be accessible")]
 async fn then_all_unique_tasks_accessible(_world: &mut EngramWorld) {
-    // TODO: Verify all unique tasks exist
+    panic!("TODO: not yet implemented");
 }
 
 #[then("duplicate tasks should be resolved")]
 async fn then_duplicates_resolved(_world: &mut EngramWorld) {
-    // TODO: Verify no duplicate tasks
+    panic!("TODO: not yet implemented");
 }
 
 #[then("I should see a message about single agent")]
 async fn then_should_see_single_agent_message(_world: &mut EngramWorld) {
-    // TODO: Verify single agent message
+    panic!("TODO: not yet implemented");
 }
 
 #[then("no sync operations should be performed")]
 async fn then_no_sync_operations(_world: &mut EngramWorld) {
-    // TODO: Verify no sync occurred
+    panic!("TODO: not yet implemented");
 }
 
 #[then("the sync should fail")]
 async fn then_sync_should_fail(_world: &mut EngramWorld) {
-    // TODO: Verify sync failed
+    panic!("TODO: not yet implemented");
 }
 
 #[then("I should see an error about empty agents list")]
 async fn then_should_see_empty_agents_error(_world: &mut EngramWorld) {
-    // TODO: Verify error message
+    panic!("TODO: not yet implemented");
 }
 
 #[then("I should see valid strategy options")]
 async fn then_should_see_valid_strategies(_world: &mut EngramWorld) {
-    // TODO: Verify strategy options in error
+    panic!("TODO: not yet implemented");
 }
 
 #[then(expr = "I should see {int} contexts")]
@@ -573,17 +573,17 @@ async fn then_should_see_n_contexts(world: &mut EngramWorld, count: i32) {
 
 #[then("I should see the context title")]
 async fn then_should_see_context_title(_world: &mut EngramWorld) {
-    // TODO: Verify context title in output
+    panic!("TODO: not yet implemented");
 }
 
 #[then("I should see the context content")]
 async fn then_should_see_context_content(_world: &mut EngramWorld) {
-    // TODO: Verify context content in output
+    panic!("TODO: not yet implemented");
 }
 
 #[then("I should see the relevance level")]
 async fn then_should_see_relevance_level(_world: &mut EngramWorld) {
-    // TODO: Verify relevance level in output
+    panic!("TODO: not yet implemented");
 }
 
 #[then("the knowledge should be created successfully")]
@@ -599,17 +599,17 @@ async fn then_knowledge_stored_in_git(world: &mut EngramWorld) {
 
 #[then("the creation should fail")]
 async fn then_creation_should_fail(_world: &mut EngramWorld) {
-    // TODO: Verify creation failed
+    panic!("TODO: not yet implemented");
 }
 
 #[then("I should see a validation error about confidence range")]
 async fn then_should_see_confidence_error(_world: &mut EngramWorld) {
-    // TODO: Verify validation error
+    panic!("TODO: not yet implemented");
 }
 
 #[then(expr = "the knowledge confidence should be {float}")]
 async fn then_knowledge_confidence_should_be(_world: &mut EngramWorld, _confidence: f64) {
-    // TODO: Verify knowledge confidence
+    panic!("TODO: not yet implemented");
 }
 
 #[then(expr = "I should see {int} knowledge items")]
@@ -638,27 +638,27 @@ async fn then_should_see_n_knowledge(world: &mut EngramWorld, count: i32) {
 
 #[then("I should see the knowledge title")]
 async fn then_should_see_knowledge_title(_world: &mut EngramWorld) {
-    // TODO: Verify knowledge title
+    panic!("TODO: not yet implemented");
 }
 
 #[then("I should see the knowledge type")]
 async fn then_should_see_knowledge_type(_world: &mut EngramWorld) {
-    // TODO: Verify knowledge type
+    panic!("TODO: not yet implemented");
 }
 
 #[then("I should see the confidence score")]
 async fn then_should_see_confidence_score(_world: &mut EngramWorld) {
-    // TODO: Verify confidence score
+    panic!("TODO: not yet implemented");
 }
 
 #[then(expr = "the conclusion should be {string}")]
 async fn then_conclusion_should_be(_world: &mut EngramWorld, _conclusion: String) {
-    // TODO: Verify reasoning conclusion
+    panic!("TODO: not yet implemented");
 }
 
 #[then("the reasoning should reference the task ID")]
 async fn then_reasoning_references_task(_world: &mut EngramWorld) {
-    // TODO: Verify task ID reference
+    panic!("TODO: not yet implemented");
 }
 
 #[then(expr = "I should see {int} reasoning items")]
@@ -674,17 +674,17 @@ async fn then_should_see_n_reasoning(world: &mut EngramWorld, count: i32) {
 
 #[then("I should see the reasoning title")]
 async fn then_should_see_reasoning_title(_world: &mut EngramWorld) {
-    // TODO: Verify reasoning title
+    panic!("TODO: not yet implemented");
 }
 
 #[then("I should see the description")]
 async fn then_should_see_description(_world: &mut EngramWorld) {
-    // TODO: Verify description
+    panic!("TODO: not yet implemented");
 }
 
 #[then("I should see the conclusion")]
 async fn then_should_see_conclusion(_world: &mut EngramWorld) {
-    // TODO: Verify conclusion
+    panic!("TODO: not yet implemented");
 }
 
 // ============================================================================
@@ -840,12 +840,12 @@ async fn when_try_create_reverse_dependency(
 
 #[when("the relationship constraints do not allow cycles")]
 async fn when_constraints_disallow_cycles(_world: &mut EngramWorld) {
-    // TODO: Set constraint configuration
+    panic!("TODO: not yet implemented");
 }
 
 #[when("the relationship constraints allow cycles")]
 async fn when_constraints_allow_cycles(_world: &mut EngramWorld) {
-    // TODO: Set constraint configuration
+    panic!("TODO: not yet implemented");
 }
 
 #[when(expr = "I try to create a third outbound relationship from {string}")]

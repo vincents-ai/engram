@@ -7,7 +7,7 @@ use crate::bdd::EngramWorld;
 #[tokio::test]
 async fn test_task_management() {
     let runner = cucumber::Cucumber::<EngramWorld>::new()
-        .with_cli(args: &[cucumber::cli::App::new()]))
+        .with_cli(cucumber::cli::App::new().args(&["./tests/bdd/task_management.feature"]))
         .steps(task_management_steps());
     
     runner.run_and_exit("./tests/bdd/task_management.feature").await;
