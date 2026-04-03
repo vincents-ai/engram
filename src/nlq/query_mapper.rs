@@ -324,10 +324,7 @@ impl QueryMapper {
         for entity in all_tasks {
             if let Ok(task) = crate::entities::Task::from_generic(entity) {
                 if task.title.to_lowercase().contains(&query)
-                    || task
-                        .description
-                        .to_lowercase()
-                        .contains(&query)
+                    || task.description.to_lowercase().contains(&query)
                 {
                     matching_tasks.push(json!({
                         "id": task.id,
@@ -386,7 +383,8 @@ impl QueryMapper {
         }))
     }
 
-    async fn handle_search_context(        &self,
+    async fn handle_search_context(
+        &self,
         processed_query: &ProcessedQuery,
         storage: &dyn Storage,
     ) -> Result<Value, EngramError> {
