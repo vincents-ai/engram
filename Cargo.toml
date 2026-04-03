@@ -58,6 +58,9 @@ reqwest = { version = "0.11", features = ["json", "blocking"] }
 # Regular expressions
 regex = "1.10"
 
+# Diff / unified diff for skill comparison
+similar = "2.6"
+
 # Git integration
 git2 = { version = "0.19", features = ["vendored-openssl"] }
 

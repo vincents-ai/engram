@@ -267,9 +267,19 @@ pub enum SetupCommands {
         #[arg(long)]
         email: Option<String>,
     },
-    /// Install OpenCode skills
-    Skills,
-    /// Install OpenCode prompts
+    /// Install skills
+    Skills {
+        /// Overwrite skills that already exist on disk
+        #[arg(long, short)]
+        force: bool,
+        /// Install skills to this directory instead of the default
+        #[arg(long, short)]
+        dir: Option<String>,
+        /// Install to a well-known tool directory: opencode, claude, goose
+        #[arg(long, short)]
+        tool: Option<String>,
+    },
+    /// Install prompts
     Prompts {
         /// Path to prompts directory (default: ./prompts)
         #[arg(long, short)]

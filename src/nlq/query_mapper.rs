@@ -38,6 +38,9 @@ impl QueryMapper {
             QueryIntent::SearchSkills => self.handle_search_skills(processed_query).await,
             QueryIntent::ListPrompts => self.handle_list_prompts(processed_query).await,
             QueryIntent::SearchPrompts => self.handle_search_prompts(processed_query).await,
+            QueryIntent::FullTextSearch => {
+                self.handle_full_text_search(processed_query, storage).await
+            }
             QueryIntent::Unknown => Ok(json!({
                 "error": "Unable to understand the query",
                 "suggestion": "Try queries like 'show my tasks' or 'what skills are available for planning?'"
@@ -303,6 +306,80 @@ impl QueryMapper {
 
         Ok(json!({
             "error": "No task ID found in query"
+        }))
+    }
+
+    /// Full-text search across tasks, context, and reasoning for any free-form query.
+    async fn handle_full_text_search(
+        &self,
+        processed_query: &ProcessedQuery,
+        storage: &dyn Storage,
+    ) -> Result<Value, EngramError> {
+        let query = processed_query.original_query.trim().to_lowercase();
+        let agent = self.extract_agent_or_default(&processed_query.entities);
+
+        // Search tasks by title
+        let all_tasks = storage.query_by_agent(&agent, Some("task"))?;
+        let mut matching_tasks = Vec::new();
+        for entity in all_tasks {
+            if let Ok(task) = crate::entities::Task::from_generic(entity) {
+                if task.title.to_lowercase().contains(&query)
+                    || task.description.to_lowercase().contains(&query)
+                {
+                    matching_tasks.push(json!({
+                        "id": task.id,
+                        "title": task.title,
+                        "status": format!("{:?}", task.status),
+                        "priority": format!("{:?}", task.priority),
+                    }));
+                }
+            }
+        }
+
+        // Search context by title + content
+        let all_contexts = storage.query_by_agent(&agent, Some("context"))?;
+        let mut matching_contexts = Vec::new();
+        for entity in all_contexts.into_iter().take(50) {
+            if let Ok(ctx) = crate::entities::Context::from_generic(entity) {
+                if ctx.title.to_lowercase().contains(&query)
+                    || ctx.content.to_lowercase().contains(&query)
+                {
+                    matching_contexts.push(json!({
+                        "id": ctx.id,
+                        "title": ctx.title,
+                    }));
+                }
+            }
+        }
+
+        // Search reasoning by title + conclusion + step descriptions
+        let all_reasoning = storage.query_by_agent(&agent, Some("reasoning"))?;
+        let mut matching_reasoning = Vec::new();
+        for entity in all_reasoning.into_iter().take(50) {
+            if let Ok(rsn) = crate::entities::Reasoning::from_generic(entity) {
+                let matches = rsn.title.to_lowercase().contains(&query)
+                    || rsn.conclusion.to_lowercase().contains(&query)
+                    || rsn.steps.iter().any(|s| {
+                        s.description.to_lowercase().contains(&query)
+                            || s.conclusion.to_lowercase().contains(&query)
+                    });
+                if matches {
+                    matching_reasoning.push(json!({
+                        "id": rsn.id,
+                        "title": rsn.title,
+                    }));
+                }
+            }
+        }
+
+        let total = matching_tasks.len() + matching_contexts.len() + matching_reasoning.len();
+
+        Ok(json!({
+            "query": processed_query.original_query,
+            "total_matches": total,
+            "tasks": matching_tasks,
+            "contexts": matching_contexts,
+            "reasoning": matching_reasoning,
         }))
     }
 

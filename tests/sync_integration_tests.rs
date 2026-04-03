@@ -20,6 +20,7 @@ use tempfile::TempDir;
 static TEST_MUTEX: Mutex<()> = Mutex::new(());
 
 /// Test fixture for sync operations
+#[allow(dead_code)]
 struct SyncTestFixture {
     temp_dir: TempDir,
     storage: GitStorage,

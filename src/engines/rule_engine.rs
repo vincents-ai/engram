@@ -461,7 +461,6 @@ impl Default for RuleEngineBuilder {
 mod tests {
     use super::*;
     use crate::entities::{RulePriority, RuleStatus, RuleType};
-    use crate::storage::Storage;
     use serde_json::json;
 
     fn create_test_rule() -> Rule {

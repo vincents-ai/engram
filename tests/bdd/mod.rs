@@ -3,6 +3,8 @@
 //! Provides Gherkin-style testing with step definitions
 //! and support for testing Engram functionality.
 
+#![allow(dead_code, unused_assignments)]
+
 pub mod steps;
 pub mod workflow_steps;
 
@@ -1192,6 +1194,7 @@ impl Drop for EngramWorld {
 }
 
 /// BDD step definitions
+#[allow(dead_code)]
 #[async_trait(?Send)]
 pub trait EngramSteps {
     async fn given_i_have_a_workspace(&mut self);
@@ -1289,4 +1292,5 @@ impl EngramSteps for EngramWorld {
 }
 
 /// Feature file for task management
+#[allow(dead_code)]
 pub fn task_management_steps() {}

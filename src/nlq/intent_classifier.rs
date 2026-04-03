@@ -147,6 +147,12 @@ impl IntentClassifier {
             }
         }
 
+        // Any non-empty query that didn't match a structured pattern is treated as a
+        // free-text search across all entity types rather than an unknown/error.
+        if !trimmed_query.is_empty() {
+            return Ok(QueryIntent::FullTextSearch);
+        }
+
         Ok(QueryIntent::Unknown)
     }
 
@@ -215,9 +221,30 @@ mod tests {
     fn test_unknown_classification() {
         let classifier = IntentClassifier::new();
 
+        // Non-empty free-text queries now resolve to FullTextSearch, not Unknown
         assert_eq!(
             classifier.classify("random unrelated question").unwrap(),
-            QueryIntent::Unknown
+            QueryIntent::FullTextSearch
+        );
+        // Only a truly empty query yields Unknown
+        assert_eq!(classifier.classify("").unwrap(), QueryIntent::Unknown);
+    }
+
+    #[test]
+    fn test_free_text_search_classification() {
+        let classifier = IntentClassifier::new();
+
+        assert_eq!(
+            classifier
+                .classify("resume builder improvements features")
+                .unwrap(),
+            QueryIntent::FullTextSearch
+        );
+        assert_eq!(
+            classifier
+                .classify("authentication API design decisions")
+                .unwrap(),
+            QueryIntent::FullTextSearch
         );
     }
 

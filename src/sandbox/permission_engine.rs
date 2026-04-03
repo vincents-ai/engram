@@ -211,10 +211,7 @@ impl Default for PermissionEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::entities::{
-        BuiltinCommandType, CommandPattern, CommandPermission, WorkflowPermissions,
-    };
-    use std::collections::HashSet;
+    use crate::entities::{CommandPattern, CommandPermission, WorkflowPermissions};
 
     fn create_test_permissions() -> PermissionSet {
         let mut allowed_file_ops = Vec::new(); // Changed to Vec
@@ -289,7 +286,7 @@ mod tests {
         // Exact match
         let mut params = serde_json::Map::new(); // Changed to Map
         params.insert("command".to_string(), serde_json::json!("echo hello"));
-        let req_echo = SandboxRequest {
+        let _req_echo = SandboxRequest {
             operation: "execute_command".to_string(),
             parameters: serde_json::Value::Object(params), // Wrapped in Value
             agent_id: "test_agent".to_string(),

@@ -467,7 +467,7 @@ mod tests {
 
     #[test]
     fn test_config_validation() {
-        let mut config = ProgressiveGateConfig::new("".to_string(), "agent".to_string());
+        let config = ProgressiveGateConfig::new("".to_string(), "agent".to_string());
         assert!(config.validate_entity().is_err()); // Empty name
 
         let mut config = ProgressiveGateConfig::new("Name".to_string(), "agent".to_string());

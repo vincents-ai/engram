@@ -224,7 +224,7 @@ mod tests {
         other.workspace.name = "project-x".to_string();
         other.features.experimental = true;
 
-        let mut agent = AgentConfig {
+        let agent = AgentConfig {
             name: "test-agent".to_string(),
             agent_type: "general".to_string(),
             specialization: None,
@@ -245,7 +245,7 @@ mod tests {
     #[test]
     fn test_git_config_merge() {
         let mut base = GitConfig::default();
-        let mut other = GitConfig {
+        let other = GitConfig {
             author_name: "New Author".to_string(),
             author_email: "".to_string(), // Should not overwrite if empty
         };

@@ -117,8 +117,13 @@ async fn run() -> Result<(), EngramError> {
         cli::Commands::Migration => handle_migration_command()?,
         cli::Commands::Guide { command } => handle_help_command(command)?,
         cli::Commands::Skills { command } => match command {
-            cli::SkillsCommands::Setup => {
-                cli::handle_skills_command(&mut std::io::stdout(), cli::SkillsCommands::Setup)?;
+            cli::SkillsCommands::Setup { force, dir, tool } => {
+                cli::handle_skills_command(
+                    &mut std::io::stdout(),
+                    force,
+                    dir.as_deref(),
+                    tool.as_deref(),
+                )?;
             }
             cli::SkillsCommands::List { format, verbose } => {
                 cli::list_skills(&mut std::io::stdout(), &format, verbose, None)?;
@@ -219,8 +224,13 @@ fn handle_setup_command(command: cli::SetupCommands) -> Result<(), EngramError> 
                 None,
             )?;
         }
-        cli::SetupCommands::Skills => {
-            cli::handle_skills_command(&mut std::io::stdout(), cli::SkillsCommands::Setup)?;
+        cli::SetupCommands::Skills { force, dir, tool } => {
+            cli::handle_skills_command(
+                &mut std::io::stdout(),
+                force,
+                dir.as_deref(),
+                tool.as_deref(),
+            )?;
         }
         cli::SetupCommands::Prompts { path } => {
             cli::setup_prompts(path.as_deref(), None)?;
