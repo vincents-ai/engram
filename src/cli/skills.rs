@@ -422,6 +422,10 @@ pub fn handle_skills_command(
             "engram-tmux-commands",
             include_str!("../../skills/meta/tmux-commands.md"),
         ),
+        (
+            "engram-workflow-guide",
+            include_str!("../../skills/meta/workflow-guide.md"),
+        ),
     ];
 
     let mut installed_count = 0;

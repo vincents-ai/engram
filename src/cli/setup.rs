@@ -345,6 +345,10 @@ pub fn setup_skills(config_dir: Option<PathBuf>, force: bool) -> Result<(), Engr
             "engram-tmux-commands",
             include_str!("../../skills/meta/tmux-commands.md"),
         ),
+        (
+            "engram-workflow-guide",
+            include_str!("../../skills/meta/workflow-guide.md"),
+        ),
     ];
 
     let mut installed_count = 0;
