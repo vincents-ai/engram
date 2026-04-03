@@ -36,8 +36,14 @@ jobs:
           draft: false
           prerelease: false
           generate_release_notes: true
+          files: install.sh
           body: |
-            ## Installation
+            ## Quick Install
+            ```bash
+            curl -fsSL https://github.com/vincents-ai/engram/releases/download/${{ github.ref_name }}/install.sh | sh
+            ```
+
+            ## Manual Installation
 
             ### Linux (x86_64)
             ```bash
@@ -77,11 +83,6 @@ jobs:
 
             ## Verification
             All binaries include SHA256 checksums for verification.
-
-      - name: Upload install.sh
-        uses: softprops/action-gh-release@v2
-        with:
-          files: install.sh
 
   build:
     name: Build - ${{ matrix.platform.name }}
