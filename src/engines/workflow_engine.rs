@@ -5,7 +5,7 @@
 
 use crate::engines::action_executor::{ActionExecutor, ActionResult};
 use crate::engines::rule_engine::{RuleExecutionEngine, RuleValue};
-use crate::entities::{Entity, WorkflowInstance};
+use crate::entities::{Entity, Workflow, WorkflowInstance};
 use crate::error::EngramError;
 use crate::storage::Storage;
 use chrono::{DateTime, Utc};
@@ -128,7 +128,6 @@ impl fmt::Display for WorkflowStatus {
 
 /// Workflow automation engine for state machine execution
 pub struct WorkflowAutomationEngine<S: Storage> {
-    #[allow(dead_code)]
     storage: S,
     #[allow(dead_code)]
     rule_engine: RuleExecutionEngine,
@@ -298,8 +297,14 @@ impl<S: Storage> WorkflowAutomationEngine<S> {
         executing_agent: String,
         initial_variables: HashMap<String, RuleValue>,
     ) -> Result<WorkflowExecutionResult, EngramError> {
-        // TODO: Retrieve workflow definition from storage
-        // For now, create a simple workflow instance
+        let definition = self.load_workflow_definition(&workflow_id)?;
+
+        let initial_state_name = definition
+            .states
+            .iter()
+            .find(|s| s.id == definition.initial_state)
+            .map(|s| s.name.clone())
+            .unwrap_or_else(|| definition.initial_state.clone());
 
         let instance_id = Uuid::new_v4().to_string();
         let now = Utc::now();
@@ -318,7 +323,7 @@ impl<S: Storage> WorkflowAutomationEngine<S> {
             timestamp: now,
             event_type: WorkflowEventType::Started,
             from_state: None,
-            to_state: Some("initial".to_string()),
+            to_state: Some(initial_state_name.clone()),
             transition_id: None,
             agent: executing_agent.clone(),
             message: "Workflow started".to_string(),
@@ -328,7 +333,7 @@ impl<S: Storage> WorkflowAutomationEngine<S> {
         let instance = WorkflowInstance {
             id: instance_id.clone(),
             workflow_id,
-            current_state: "initial".to_string(),
+            current_state: initial_state_name.clone(),
             context,
             status: WorkflowStatus::Running,
             started_at: now,
@@ -345,7 +350,7 @@ impl<S: Storage> WorkflowAutomationEngine<S> {
         Ok(WorkflowExecutionResult {
             success: true,
             instance_id,
-            current_state: "initial".to_string(),
+            current_state: initial_state_name,
             message: "Workflow started successfully".to_string(),
             events: vec![start_event],
             variables_changed: HashMap::new(),
@@ -373,32 +378,60 @@ impl<S: Storage> WorkflowAutomationEngine<S> {
             }
         }
 
-        let current_state = {
+        let (current_state, workflow_id) = {
             let instance = self.active_instances.get(instance_id).unwrap();
-            instance.current_state.clone()
+            (instance.current_state.clone(), instance.workflow_id.clone())
         };
 
-        let new_state = self.determine_next_state(&current_state, &transition_name)?;
+        let definition = self.load_workflow_definition(&workflow_id)?;
+
+        let transition = definition
+            .transitions
+            .iter()
+            .find(|t| {
+                t.name == transition_name
+                    && definition
+                        .states
+                        .iter()
+                        .any(|s| s.id == t.from_state && s.name == current_state)
+            })
+            .ok_or_else(|| {
+                EngramError::Validation(format!(
+                    "Invalid transition '{}' from state '{}'",
+                    transition_name, current_state
+                ))
+            })?;
+
+        let target_state_name = definition
+            .states
+            .iter()
+            .find(|s| s.id == transition.to_state)
+            .map(|s| s.name.clone())
+            .unwrap_or_else(|| transition.to_state.clone());
+
+        let is_final = definition
+            .states
+            .iter()
+            .any(|s| s.id == transition.to_state && s.is_final);
 
         let instance = self.active_instances.get_mut(instance_id).unwrap();
 
-        // Create transition event
         let transition_event = WorkflowExecutionEvent {
             id: Uuid::new_v4().to_string(),
             timestamp: Utc::now(),
             event_type: WorkflowEventType::Transitioned,
             from_state: Some(current_state),
-            to_state: Some(new_state.clone()),
-            transition_id: Some(Uuid::new_v4().to_string()),
+            to_state: Some(target_state_name.clone()),
+            transition_id: Some(transition.id.clone()),
             agent: executing_agent,
             message: format!("Transitioned via {}", transition_name),
             metadata: HashMap::new(),
         };
 
-        instance.current_state = new_state.clone();
+        instance.current_state = target_state_name.clone();
         instance.updated_at = Utc::now();
         instance.execution_history.push(transition_event.clone());
-        if new_state == "final" || new_state == "completed" {
+        if is_final {
             instance.status = WorkflowStatus::Completed;
             instance.completed_at = Some(Utc::now());
         }
@@ -408,7 +441,7 @@ impl<S: Storage> WorkflowAutomationEngine<S> {
         Ok(WorkflowExecutionResult {
             success: true,
             instance_id: instance_id.to_string(),
-            current_state: new_state,
+            current_state: target_state_name,
             message: "Transition executed successfully".to_string(),
             events: vec![transition_event],
             variables_changed: HashMap::new(),
@@ -559,24 +592,13 @@ impl<S: Storage> WorkflowAutomationEngine<S> {
         Ok(results)
     }
 
-    /// Helper method to determine next state based on current state and transition
-    fn determine_next_state(
-        &self,
-        current_state: &str,
-        transition_name: &str,
-    ) -> Result<String, EngramError> {
-        // Simplified state transition logic
-        // In a real implementation, this would consult the workflow definition
-        match (current_state, transition_name) {
-            ("initial", "start") => Ok("in_progress".to_string()),
-            ("in_progress", "complete") => Ok("completed".to_string()),
-            ("in_progress", "fail") => Ok("failed".to_string()),
-            ("failed", "retry") => Ok("in_progress".to_string()),
-            _ => Err(EngramError::Validation(format!(
-                "Invalid transition '{}' from state '{}'",
-                transition_name, current_state
-            ))),
-        }
+    /// Load a workflow definition from storage and convert to engine representation
+    fn load_workflow_definition(&self, workflow_id: &str) -> Result<Workflow, EngramError> {
+        let generic = self.storage.get(workflow_id, "workflow")?.ok_or_else(|| {
+            EngramError::NotFound(format!("Workflow definition {} not found", workflow_id))
+        })?;
+
+        Workflow::from_generic(generic).map_err(|e| EngramError::Validation(e.to_string()))
     }
 }
 
@@ -587,6 +609,82 @@ mod tests {
 
     fn create_test_engine() -> WorkflowAutomationEngine<MemoryStorage> {
         WorkflowAutomationEngine::new(MemoryStorage::new("test-agent"))
+    }
+
+    fn create_test_workflow_in_storage(
+        engine: &mut WorkflowAutomationEngine<MemoryStorage>,
+    ) -> String {
+        let state_start = crate::entities::WorkflowState {
+            id: "state-start".to_string(),
+            name: "initial".to_string(),
+            state_type: crate::entities::StateType::Start,
+            description: "Start state".to_string(),
+            is_final: false,
+            prompts: None,
+            guards: vec![],
+            post_functions: vec![],
+        };
+        let state_progress = crate::entities::WorkflowState {
+            id: "state-progress".to_string(),
+            name: "in_progress".to_string(),
+            state_type: crate::entities::StateType::InProgress,
+            description: "Working".to_string(),
+            is_final: false,
+            prompts: None,
+            guards: vec![],
+            post_functions: vec![],
+        };
+        let state_done = crate::entities::WorkflowState {
+            id: "state-done".to_string(),
+            name: "completed".to_string(),
+            state_type: crate::entities::StateType::Done,
+            description: "Finished".to_string(),
+            is_final: true,
+            prompts: None,
+            guards: vec![],
+            post_functions: vec![],
+        };
+
+        let workflow_id = "test-workflow-def".to_string();
+        let mut workflow = crate::entities::Workflow::new(
+            "Test Workflow".to_string(),
+            "A test workflow".to_string(),
+            "test-agent".to_string(),
+        );
+        workflow.id = workflow_id.clone();
+        workflow.states = vec![
+            state_start.clone(),
+            state_progress.clone(),
+            state_done.clone(),
+        ];
+        workflow.transitions = vec![
+            crate::entities::WorkflowTransition {
+                id: "t-start".to_string(),
+                name: "start".to_string(),
+                from_state: state_start.id.clone(),
+                to_state: state_progress.id.clone(),
+                transition_type: crate::entities::TransitionType::Manual,
+                description: "Begin work".to_string(),
+                conditions: vec![],
+                actions: vec![],
+            },
+            crate::entities::WorkflowTransition {
+                id: "t-complete".to_string(),
+                name: "complete".to_string(),
+                from_state: state_progress.id.clone(),
+                to_state: state_done.id.clone(),
+                transition_type: crate::entities::TransitionType::Manual,
+                description: "Finish".to_string(),
+                conditions: vec![],
+                actions: vec![],
+            },
+        ];
+        workflow.initial_state = state_start.id.clone();
+        workflow.final_states = vec![state_done.id.clone()];
+        workflow.activate();
+
+        engine.storage.store(&workflow.to_generic()).unwrap();
+        workflow_id
     }
 
     #[test]
@@ -616,12 +714,13 @@ mod tests {
     #[test]
     fn test_start_workflow() {
         let mut engine = create_test_engine();
+        let workflow_id = create_test_workflow_in_storage(&mut engine);
 
         let result = engine
             .start_workflow(
-                "test-workflow".to_string(),
+                workflow_id,
                 Some("entity-123".to_string()),
-                Some("Task".to_string()),
+                Some("task".to_string()),
                 "test-agent".to_string(),
                 HashMap::new(),
             )
@@ -635,11 +734,11 @@ mod tests {
     #[test]
     fn test_execute_transition() {
         let mut engine = create_test_engine();
+        let workflow_id = create_test_workflow_in_storage(&mut engine);
 
-        // Start a workflow
         let start_result = engine
             .start_workflow(
-                "test-workflow".to_string(),
+                workflow_id,
                 None,
                 None,
                 "test-agent".to_string(),
@@ -647,7 +746,6 @@ mod tests {
             )
             .unwrap();
 
-        // Execute a transition
         let transition_result = engine
             .execute_transition(
                 &start_result.instance_id,
@@ -663,11 +761,11 @@ mod tests {
     #[test]
     fn test_workflow_completion() {
         let mut engine = create_test_engine();
+        let workflow_id = create_test_workflow_in_storage(&mut engine);
 
-        // Start workflow
         let start_result = engine
             .start_workflow(
-                "test-workflow".to_string(),
+                workflow_id,
                 None,
                 None,
                 "test-agent".to_string(),
@@ -675,7 +773,6 @@ mod tests {
             )
             .unwrap();
 
-        // Progress through states
         engine
             .execute_transition(
                 &start_result.instance_id,
@@ -703,10 +800,11 @@ mod tests {
     #[test]
     fn test_cancel_workflow() {
         let mut engine = create_test_engine();
+        let workflow_id = create_test_workflow_in_storage(&mut engine);
 
         let start_result = engine
             .start_workflow(
-                "test-workflow".to_string(),
+                workflow_id,
                 None,
                 None,
                 "test-agent".to_string(),
@@ -748,10 +846,11 @@ mod tests {
     #[test]
     fn test_invalid_transition() {
         let mut engine = create_test_engine();
+        let workflow_id = create_test_workflow_in_storage(&mut engine);
 
         let start_result = engine
             .start_workflow(
-                "test-workflow".to_string(),
+                workflow_id,
                 None,
                 None,
                 "test-agent".to_string(),
@@ -759,7 +858,6 @@ mod tests {
             )
             .unwrap();
 
-        // Try invalid transition
         let result = engine.execute_transition(
             &start_result.instance_id,
             "invalid_transition".to_string(),
@@ -776,13 +874,38 @@ mod tests {
     }
 
     #[test]
+    fn test_invalid_transition_from_wrong_state() {
+        let mut engine = create_test_engine();
+        let workflow_id = create_test_workflow_in_storage(&mut engine);
+
+        let start_result = engine
+            .start_workflow(
+                workflow_id,
+                None,
+                None,
+                "test-agent".to_string(),
+                HashMap::new(),
+            )
+            .unwrap();
+
+        // "complete" is only valid from in_progress, not from initial
+        let result = engine.execute_transition(
+            &start_result.instance_id,
+            "complete".to_string(),
+            "test-agent".to_string(),
+        );
+
+        assert!(result.is_err());
+    }
+
+    #[test]
     fn test_list_active_instances() {
         let mut engine = create_test_engine();
+        let workflow_id = create_test_workflow_in_storage(&mut engine);
 
-        // Start multiple workflows
         engine
             .start_workflow(
-                "workflow-1".to_string(),
+                workflow_id.clone(),
                 None,
                 None,
                 "agent-1".to_string(),
@@ -792,7 +915,7 @@ mod tests {
 
         engine
             .start_workflow(
-                "workflow-2".to_string(),
+                workflow_id,
                 None,
                 None,
                 "agent-2".to_string(),
