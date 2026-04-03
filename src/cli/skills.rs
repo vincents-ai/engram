@@ -6,7 +6,17 @@ use std::path::PathBuf;
 #[derive(Debug, Subcommand)]
 pub enum SkillsCommands {
     /// Install OpenCode skills
-    Setup,
+    Setup {
+        /// Overwrite skills that already exist on disk
+        #[arg(long, short)]
+        force: bool,
+        /// Install skills to this directory instead of the default
+        #[arg(long, short)]
+        dir: Option<String>,
+        /// Install to a well-known tool directory: opencode, claude, goose
+        #[arg(long, short)]
+        tool: Option<String>,
+    },
     /// List all available skills
     List {
         /// Format output (short, full)
@@ -260,19 +270,87 @@ pub fn show_skill(
     Ok(())
 }
 
+/// Resolve the target skills directory from explicit --dir, --tool shorthand, or default.
+/// Returns an error if --tool is given an unrecognised value.
+pub fn resolve_skills_dir(dir: Option<&str>, tool: Option<&str>) -> Result<PathBuf, EngramError> {
+    use std::env;
+
+    let home = env::var("HOME")
+        .map(PathBuf::from)
+        .map_err(|_| EngramError::Validation("HOME environment variable not set".to_string()))?;
+
+    if let Some(explicit) = dir {
+        // Expand a leading ~ manually — no shellexpand dependency needed
+        let expanded = if explicit.starts_with("~/") {
+            home.join(&explicit[2..])
+        } else if explicit == "~" {
+            home.clone()
+        } else {
+            PathBuf::from(explicit)
+        };
+        return Ok(expanded);
+    }
+
+    match tool {
+        Some("opencode") | None => Ok(home.join(".config").join("opencode").join("skills")),
+        Some("claude") => Ok(home.join(".claude").join("skills")),
+        Some("goose") => Ok(home.join(".config").join("goose").join("skills")),
+        Some(other) => Err(EngramError::Validation(format!(
+            "Unknown tool '{}'. Supported values: opencode, claude, goose. \
+             Use --dir to specify a custom path.",
+            other
+        ))),
+    }
+}
+
+/// Produce a compact unified diff between `old` and `new` text.
+/// Returns an empty string if the contents are identical.
+fn unified_diff(skill_name: &str, old: &str, new: &str) -> String {
+    use similar::{ChangeTag, TextDiff};
+    if old == new {
+        return String::new();
+    }
+    let diff = TextDiff::from_lines(old, new);
+    let mut out = String::new();
+    for (idx, group) in diff.grouped_ops(3).iter().enumerate() {
+        if idx > 0 {
+            out.push_str("---\n");
+        }
+        for op in group {
+            for change in diff.iter_inline_changes(op) {
+                let prefix = match change.tag() {
+                    ChangeTag::Delete => "-",
+                    ChangeTag::Insert => "+",
+                    ChangeTag::Equal => " ",
+                };
+                // Print file header on first changed line
+                if idx == 0 && change.tag() != ChangeTag::Equal {
+                    if out.is_empty() {
+                        out.push_str(&format!("--- {}/SKILL.md (on disk)\n", skill_name));
+                        out.push_str(&format!("+++ {}/SKILL.md (binary)\n", skill_name));
+                    }
+                }
+                out.push_str(prefix);
+                for (_, value) in change.iter_strings_lossy() {
+                    out.push_str(&value);
+                }
+                if change.missing_newline() {
+                    out.push('\n');
+                }
+            }
+        }
+    }
+    out
+}
+
 /// Handle setup skills command
 pub fn handle_skills_command(
     writer: &mut dyn std::io::Write,
-    _command: crate::cli::SkillsCommands,
+    force: bool,
+    dir: Option<&str>,
+    tool: Option<&str>,
 ) -> Result<(), EngramError> {
-    use std::env;
-
-    // Get OpenCode config directory
-    let opencode_dir = env::var("HOME")
-        .map(|home| PathBuf::from(home).join(".config").join("opencode"))
-        .map_err(|_| EngramError::Validation("HOME environment variable not set".to_string()))?;
-
-    let skills_dir = opencode_dir.join("skills");
+    let skills_dir = resolve_skills_dir(dir, tool)?;
     std::fs::create_dir_all(&skills_dir).map_err(EngramError::Io)?;
 
     // List of built-in Engram skills to install with their content
@@ -325,7 +403,7 @@ pub fn handle_skills_command(
             "engram-dispatching-parallel-agents",
             include_str!("../../skills/meta/dispatching-parallel-agents.md"),
         ),
-        // Orchestration Skills (2)
+        // Orchestration Skills
         (
             "engram-orchestrator",
             include_str!("../../skills/meta/engram-orchestrator.md"),
@@ -334,30 +412,62 @@ pub fn handle_skills_command(
             "engram-subagent-register",
             include_str!("../../skills/meta/engram-subagent-register.md"),
         ),
+        // Meta Skills
+        (
+            "engram-validate-skill",
+            include_str!("../../skills/meta/validate-skill.md"),
+        ),
+        (
+            "engram-author-skill",
+            include_str!("../../skills/meta/author-skill.md"),
+        ),
     ];
 
     let mut installed_count = 0;
+    let mut skipped_count = 0;
+    let mut updated_count = 0;
 
     for (skill_name, skill_content) in skills {
         let skill_dir = skills_dir.join(skill_name);
+        let skill_file = skill_dir.join("SKILL.md");
 
-        // Skip if skill already exists (user skill take precedence)
         if skill_dir.exists() {
-            writeln!(
-                writer,
-                "⚠️  Skill '{}' already exists, skipping (user skill preserved)",
-                skill_name
-            )
-            .map_err(EngramError::Io)?;
+            // Read the on-disk content for diffing
+            let on_disk = std::fs::read_to_string(&skill_file).unwrap_or_default();
+
+            if on_disk == *skill_content {
+                // Identical — nothing to do, no noise
+                writeln!(writer, "✅ Skill '{}' is up to date", skill_name)
+                    .map_err(EngramError::Io)?;
+                skipped_count += 1;
+                continue;
+            }
+
+            // Content differs — always show the diff
+            let diff = unified_diff(skill_name, &on_disk, skill_content);
+            writeln!(writer, "📝 Skill '{}' differs from binary:", skill_name)
+                .map_err(EngramError::Io)?;
+            writeln!(writer, "{}", diff).map_err(EngramError::Io)?;
+
+            if force {
+                std::fs::write(&skill_file, skill_content).map_err(EngramError::Io)?;
+                writeln!(writer, "🔄 Updated skill: {}", skill_name).map_err(EngramError::Io)?;
+                updated_count += 1;
+            } else {
+                writeln!(
+                    writer,
+                    "⚠️  Skipping '{}' — run with --force to overwrite",
+                    skill_name
+                )
+                .map_err(EngramError::Io)?;
+                skipped_count += 1;
+            }
             continue;
         }
 
+        // New skill — install unconditionally
         std::fs::create_dir_all(&skill_dir).map_err(EngramError::Io)?;
-
-        // Create SKILL.md file with embedded content
-        let skill_file = skill_dir.join("SKILL.md");
         std::fs::write(&skill_file, skill_content).map_err(EngramError::Io)?;
-
         writeln!(writer, "✅ Installed skill: {}", skill_name).map_err(EngramError::Io)?;
         installed_count += 1;
     }
@@ -365,7 +475,12 @@ pub fn handle_skills_command(
     writeln!(writer).map_err(EngramError::Io)?;
     writeln!(writer, "🎉 Skills setup complete!").map_err(EngramError::Io)?;
     writeln!(writer, "📁 Skills installed to: {:?}", skills_dir).map_err(EngramError::Io)?;
-    writeln!(writer, "📊 Total skills installed: {}", installed_count).map_err(EngramError::Io)?;
+    writeln!(
+        writer,
+        "📊 Installed: {}  Updated: {}  Skipped: {}",
+        installed_count, updated_count, skipped_count
+    )
+    .map_err(EngramError::Io)?;
     writeln!(writer).map_err(EngramError::Io)?;
     writeln!(writer, "💡 Skills are now available with 'engram:' prefix")
         .map_err(EngramError::Io)?;

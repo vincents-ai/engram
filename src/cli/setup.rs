@@ -128,7 +128,7 @@ pub fn setup_agent(
 }
 
 /// Setup OpenCode skills command
-pub fn setup_skills(config_dir: Option<PathBuf>) -> Result<(), EngramError> {
+pub fn setup_skills(config_dir: Option<PathBuf>, force: bool) -> Result<(), EngramError> {
     use std::env;
 
     // Get OpenCode config directory
@@ -332,28 +332,82 @@ pub fn setup_skills(config_dir: Option<PathBuf>) -> Result<(), EngramError> {
             "engram-subagent-register",
             include_str!("../../skills/meta/engram-subagent-register.md"),
         ),
+        // Skill authoring meta-skills (2)
+        (
+            "engram-validate-skill",
+            include_str!("../../skills/meta/validate-skill.md"),
+        ),
+        (
+            "engram-author-skill",
+            include_str!("../../skills/meta/author-skill.md"),
+        ),
     ];
 
     let mut installed_count = 0;
+    let mut skipped_count = 0;
+    let mut updated_count = 0;
 
     for (skill_name, skill_content) in skills {
         let skill_dir = skills_dir.join(skill_name);
+        let skill_file = skill_dir.join("SKILL.md");
 
-        // Skip if skill already exists (user skill takes precedence)
         if skill_dir.exists() {
-            println!(
-                "⚠️  Skill '{}' already exists, skipping (user skill preserved)",
-                skill_name
-            );
+            let on_disk = fs::read_to_string(&skill_file).unwrap_or_default();
+
+            if on_disk == *skill_content {
+                println!("✅ Skill '{}' is up to date", skill_name);
+                skipped_count += 1;
+                continue;
+            }
+
+            // Show unified diff between on-disk and binary versions
+            {
+                use similar::{ChangeTag, TextDiff};
+                let diff = TextDiff::from_lines(&on_disk, skill_content);
+                println!("📝 Skill '{}' differs from binary:", skill_name);
+                let mut header_printed = false;
+                for group in diff.grouped_ops(3) {
+                    for op in &group {
+                        for change in diff.iter_inline_changes(op) {
+                            if !header_printed && change.tag() != ChangeTag::Equal {
+                                println!("--- {}/SKILL.md (on disk)", skill_name);
+                                println!("+++ {}/SKILL.md (binary)", skill_name);
+                                header_printed = true;
+                            }
+                            let prefix = match change.tag() {
+                                ChangeTag::Delete => "-",
+                                ChangeTag::Insert => "+",
+                                ChangeTag::Equal => " ",
+                            };
+                            for (_, value) in change.iter_strings_lossy() {
+                                print!("{}{}", prefix, value);
+                            }
+                            if change.missing_newline() {
+                                println!();
+                            }
+                        }
+                    }
+                }
+            }
+
+            if force {
+                fs::write(&skill_file, skill_content).map_err(EngramError::Io)?;
+                println!("🔄 Updated skill: {}", skill_name);
+                updated_count += 1;
+            } else {
+                println!(
+                    "⚠️  Skipping '{}' — run with --force to overwrite",
+                    skill_name
+                );
+                skipped_count += 1;
+            }
             continue;
         }
 
+        // New skill — install unconditionally
         fs::create_dir_all(&skill_dir).map_err(EngramError::Io)?;
-
-        // Create SKILL.md file with embedded content
         let skill_file = skill_dir.join("SKILL.md");
         fs::write(&skill_file, skill_content).map_err(EngramError::Io)?;
-
         println!("✅ Installed skill: {}", skill_name);
         installed_count += 1;
     }
@@ -361,7 +415,10 @@ pub fn setup_skills(config_dir: Option<PathBuf>) -> Result<(), EngramError> {
     println!();
     println!("🎉 OpenCode skills setup complete!");
     println!("📁 Skills installed to: {:?}", skills_dir);
-    println!("📊 Total skills installed: {}", installed_count);
+    println!(
+        "📊 Installed: {}  Updated: {}  Skipped: {}",
+        installed_count, updated_count, skipped_count
+    );
     println!();
     println!("💡 Skills are now available in OpenCode with 'engram:' prefix");
     println!("   Example: @general can now use 'engram:use-engram-memory'");
@@ -570,7 +627,7 @@ mod tests {
         // Setup mock HOME structure
         let config_dir = root.clone();
 
-        setup_skills(Some(config_dir.clone())).unwrap();
+        setup_skills(Some(config_dir.clone()), false).unwrap();
 
         let skills_dir = config_dir.join(".config/opencode/skills");
         assert!(skills_dir.exists());
@@ -592,7 +649,7 @@ mod tests {
         let test_file = skills_dir.join("engram-use-engram-memory/SKILL.md");
         fs::write(&test_file, "modified content").unwrap();
 
-        setup_skills(Some(config_dir)).unwrap();
+        setup_skills(Some(config_dir), false).unwrap();
 
         let new_content = fs::read_to_string(test_file).unwrap();
         assert_eq!(new_content, "modified content");

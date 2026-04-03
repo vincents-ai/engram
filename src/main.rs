@@ -117,8 +117,8 @@ async fn run() -> Result<(), EngramError> {
         cli::Commands::Migration => handle_migration_command()?,
         cli::Commands::Guide { command } => handle_help_command(command)?,
         cli::Commands::Skills { command } => match command {
-            cli::SkillsCommands::Setup => {
-                cli::handle_skills_command(&mut std::io::stdout(), cli::SkillsCommands::Setup)?;
+            cli::SkillsCommands::Setup { force } => {
+                cli::handle_skills_command(&mut std::io::stdout(), force)?;
             }
             cli::SkillsCommands::List { format, verbose } => {
                 cli::list_skills(&mut std::io::stdout(), &format, verbose, None)?;
