@@ -289,7 +289,7 @@ pub fn create_context<S: Storage>(
 }
 
 use crate::cli::utils::{create_table, truncate};
-use prettytable::{cell, row};
+use prettytable::row;
 
 /// List contexts
 pub fn list_contexts<S: Storage>(

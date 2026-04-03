@@ -648,21 +648,6 @@ fn display_task(task: &Task) {
     println!();
 }
 
-/// Display task summary for lists
-// Deprecated: use list_tasks table output instead
-fn display_task_summary(task: &Task) {
-    println!(
-        "  • {} [{}] - {} ({})",
-        task.id,
-        format!("{:?}", task.status).to_lowercase(),
-        task.title,
-        task.agent
-    );
-    if let Some(outcome) = &task.outcome {
-        println!("    Outcome: {}", outcome);
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

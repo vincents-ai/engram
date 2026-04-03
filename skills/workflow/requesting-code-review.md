@@ -1,310 +1,277 @@
 ---
 name: engram-requesting-code-review
-description: "Engram-integrated version. Use when completing tasks or before merging - creates engram compliance entities for review requirements and context entities for review results."
+description: "Engram-integrated version. Use when completing tasks or before merging - stores review context in engram and dispatches reviewer subagent via task UUID."
 ---
 
-# Requesting Code Review (Engram-Integrated)
+# Requesting Code Review
 
 ## Overview
 
-Dispatch code-reviewer subagent to catch issues before they cascade. Store all review artifacts in engram for audit trail and compliance tracking.
+Dispatch a code-reviewer subagent to catch issues before they cascade. Store all review context in engram. The reviewer retrieves everything it needs from engram — you do not paste diffs inline.
 
-**Core principle:** Review early, review often. Everything documented in engram.
+**Core principle:** Review early, review often. All artifacts documented in engram.
 
-## Key Changes from Original
-
-**Original:** Review in conversation, template-based dispatch
-**Engram-integrated:** Creates engram compliance entities for review requirements, context entities for review results, reasoning entities for feedback tracking.
-
-## When to Request Review with Engram
+## When to Request Review
 
 **Mandatory:**
 - After each task in subagent-driven development
-- After completing major feature
+- After completing a major feature
 - Before merge to main
 - After `engram validate check` passes
 
-**Optional but valuable:**
+**Optional:**
 - When stuck (fresh perspective)
 - Before refactoring (baseline check)
-- After fixing complex bug
+- After fixing a complex bug
 
-## The Engram Review Pattern
+## The Pattern
 
-### Step 1: Get Review Context from Engram
+### 0. Search First
 
 ```bash
-# Get task details
-TASK_ID="[TASK_ID]"
-TASK_TITLE=$(engram task show $TASK_ID --json | jq -r '.data.title')
-TASK_DESC=$(engram task show $TASK_ID --json | jq -r '.data.description')
-
-# Get related context (design docs, requirements)
-engram relationship connected --entity-id $TASK_ID --relationship-type references
-
-# Get changes (git diff)
-BASE_SHA=$(git log --oneline -2 | tail -1 | awk '{print $1}')
-HEAD_SHA=$(git rev-parse HEAD)
-DIFF=$(git diff $BASE_SHA..$HEAD_SHA)
+engram ask query "<task or feature name> review"
+engram task show <UUID>
 ```
 
-### Step 2: Create Compliance Entity for Review Requirements
+### 1. Store Review Context in Engram
+
+Collect the diff by running git directly, then store it in engram — the reviewer will retrieve this, not receive it inline:
 
 ```bash
-# Create compliance entity for review checklist
-engram compliance create \
-  --title "Code Review: $TASK_TITLE" \
-  --category code_review \
-  --requirements "✅ Tests pass (verified via engram validate check)
-✅ Code follows project patterns
-✅ No hardcoded secrets
-✅ Error handling complete
-✅ Documentation updated
-✅ No debug code left
-✅ Edge cases handled
-✅ Performance acceptable
-✅ Security considerations met" \
-  --tags "code-review,[task-tag]"
-```
+# Run these directly in your shell:
+git diff HEAD~1..HEAD --stat
+git diff HEAD~1..HEAD
 
-### Step 3: Create Review Context Entity
-
-```bash
-# Create context entity with review details
 engram context create \
-  --title "Code Review Context: $TASK_TITLE" \
-  --content "## Task Information\n**ID:** $TASK_ID\n**Title:** $TASK_TITLE\n\n## Changes Reviewed\n**Base SHA:** $BASE_SHA\n**Head SHA:** $HEAD_SHA\n\n**Files changed:**\n\`\`\`\n$(git diff --stat $BASE_SHA..$HEAD_SHA)\n\`\`\`\n\n**Diff summary:**\n$DIFF\n\n## Requirements from Plan\n$(engram relationship connected --entity-id $TASK_ID --relationship-type references | grep -E "context|reasoning" | while read id; do engram context show $id --json | jq -r '.data.content'; done)\n\n## Review Checklist\nSee compliance entity for requirements." \
-  --source "code-review" \
-  --tags "code-review,context,[task-tag]"
+  --title "Code review request: <task title>" \
+  --content "Task: <task title>\nBase: <base SHA>\nHead: <head SHA>\n\nFiles changed:\n<git diff --stat output>\n\nDiff:\n<git diff output>\n\nRequirements from plan:\n<what this task was supposed to do>" \
+  --source "code-review-request"
+# REVIEW_CTX_UUID = ...
+
+engram relationship create \
+  --source-id <TASK_UUID> --source-type task \
+  --target-id <REVIEW_CTX_UUID> --target-type context \
+  --relationship-type relates_to --agent "<name>"
 ```
 
-### Step 4: Dispatch Code Reviewer Subagent
-
-**Update task status for review:**
+### 2. Create a Review Subtask
 
 ```bash
-# Mark task as pending review
-engram task update $TASK_ID \
-  --status pending_review \
-  --agent code-reviewer
+engram task create --title "Code Review: <task title>"
+# REVIEW_TASK_UUID = ...
+engram task update <REVIEW_TASK_UUID> --status in_progress
 
-# Create reasoning for review dispatch
+engram relationship create \
+  --source-id <TASK_UUID> --source-type task \
+  --target-id <REVIEW_TASK_UUID> --target-type task \
+  --relationship-type depends_on --agent "<name>"
+
+# Link the context to the review task so the reviewer finds it
+engram relationship create \
+  --source-id <REVIEW_TASK_UUID> --source-type task \
+  --target-id <REVIEW_CTX_UUID> --target-type context \
+  --relationship-type relates_to --agent "<name>"
+```
+
+### 3. Dispatch Reviewer — UUID Only
+
+```bash
+# Tell the reviewer subagent:
+# "Your task UUID is <REVIEW_TASK_UUID>.
+# Run: engram task show <REVIEW_TASK_UUID>
+# Use engram-subagent-register to store your findings and report back."
+```
+
+Store a record that review was dispatched:
+
+```bash
 engram reasoning create \
-  --title "[Task] Code Review Dispatched" \
-  --task-id $TASK_ID \
-  --content "**Reviewer:** code-reviewer subagent\n**Dispatched:** [timestamp]\n\n**Context provided:**\n- Task details from engram task show\n- Design context from engram relationship connected\n- Git diff from $BASE_SHA to $HEAD_SHA\n\n**Review focus:**\n1. Spec compliance (matches plan requirements)\n2. Code quality (follows patterns, clean code)\n3. Test coverage (tests pass, edge cases covered)\n4. Security (no secrets, proper validation)" \
-  --confidence 1.0 \
-  --tags "code-review,dispatch,[task-tag]"
+  --title "Review dispatched: <task title>" \
+  --task-id <TASK_UUID> \
+  --content "Code review dispatched for: <task title>. Reviewer task: <REVIEW_TASK_UUID>. Context stored: <REVIEW_CTX_UUID>. Review focus: spec compliance, code quality, test coverage, security."
+# DISPATCH_UUID = ...
+
+engram relationship create \
+  --source-id <TASK_UUID> --source-type task \
+  --target-id <DISPATCH_UUID> --target-type reasoning \
+  --relationship-type explains --agent "<name>"
 ```
 
-### Step 5: Receive and Process Review
+### 4. Collect Review Results
 
-**After reviewer completes, create review result context:**
+When the reviewer marks their task done, retrieve what they stored:
 
 ```bash
-# Create context entity for review results
+engram relationship connected --entity-id <REVIEW_TASK_UUID> --max-depth 2
+engram ask query "<task name> review results"
+```
+
+### 5. Act on Feedback
+
+If issues found, record the remediation plan:
+
+```bash
+engram reasoning create \
+  --title "Review feedback: <task title>" \
+  --task-id <TASK_UUID> \
+  --content "Review issues found:\n- Critical: <issue> → fix: <plan>\n- Important: <issue> → fix: <plan>\n- Minor: <issue> → noting for later\n\nDecision: <fix critical → re-review / fix important → continue / note minor → proceed>"
+# FEEDBACK_UUID = ...
+
+engram relationship create \
+  --source-id <TASK_UUID> --source-type task \
+  --target-id <FEEDBACK_UUID> --target-type reasoning \
+  --relationship-type explains --agent "<name>"
+```
+
+If issues require fixes, apply them in your shell and request re-review.
+
+### 6. Record Approval and Validate
+
+When the review passes:
+
+```bash
+engram reasoning create \
+  --title "Review approved: <task title>" \
+  --task-id <TASK_UUID> \
+  --content "Review APPROVED for: <task title>. Critical: 0. Important: 0. Minor: <N>. Reviewer: <subagent name>. Ready to proceed."
+# APPROVAL_UUID = ...
+
+engram relationship create \
+  --source-id <TASK_UUID> --source-type task \
+  --target-id <APPROVAL_UUID> --target-type reasoning \
+  --relationship-type explains --agent "<name>"
+
+# Validate system state before closing
+engram validate check
+```
+
+### 7. Get Next Action
+
+```bash
+engram next
+```
+
+## Terminal Commands
+
+Run terminal commands directly in your shell. Do not use `engram sandbox execute` — that command does not exist.
+
+If you need elevated permissions or human approval:
+
+```bash
+engram escalation create \
+  --agent "<name>" \
+  --operation-type "<type>" \
+  --operation "<what you need to do>" \
+  --justification "<why this is needed>"
+```
+
+## Example
+
+```
+Task: "Implement login endpoint" (TASK_UUID = abc-001)
+
+[Search first]
+engram ask query "login endpoint code review"
+
+[Collect diff — run directly in shell]
+git diff HEAD~1..HEAD --stat
+git diff HEAD~1..HEAD
+
+[Store review context]
 engram context create \
-  --title "Code Review Result: $TASK_TITLE" \
-  --content "## Review Summary\n**Completed:** [timestamp]\n**Reviewer:** code-reviewer\n\n### Critical Issues\n- [ ] [None / Issue description]\n\n### Important Issues\n- [ ] [None / Issue 1]\n- [ ] [None / Issue 2]\n\n### Minor Issues\n- [ ] [None / Issue 1]\n- [ ] [None / Issue 2]\n\n### Strengths\n- [Positive 1]\n- [Positive 2]\n\n### Assessment\n✅ **APPROVED** - Ready to proceed\n⚠️ **CONDITIONAL** - Fix important issues before proceeding\n❌ **BLOCKED** - Critical issues must be fixed\n\n## Review Details\n\n### Changes Reviewed\n\`\`\`diff\n$DIFF\n\`\`\`\n\n### Code Quality Notes\n- [Quality observation 1]\n- [Quality observation 2]\n\n### Test Coverage Notes\n- [Test observation 1]\n- [Test observation 2]\n\n### Security Notes\n- [Security observation 1]\n- [Security observation 2]" \
-  --source "code-review-result" \
-  --tags "code-review,result,[task-tag]"
-```
+  --title "Code review request: login endpoint" \
+  --content "Task: Implement login endpoint\nBase: a1b2c3d\nHead: e4f5g6h\nFiles: src/api/auth/login.rs, tests/api/auth/login_test.rs\nRequirement: POST /auth/login returns JWT on valid credentials, 401 on invalid" \
+  --source "code-review-request"
+# REVIEW_CTX_UUID = ctx-002
 
-### Step 6: Act on Feedback
+engram relationship create \
+  --source-id abc-001 --source-type task \
+  --target-id ctx-002 --target-type context \
+  --relationship-type relates_to --agent "orchestrator"
 
-**If issues found, create reasoning for tracking:**
+[Create review task]
+engram task create --title "Code Review: Login endpoint"
+# REVIEW_TASK_UUID = abc-003
+engram task update abc-003 --status in_progress
 
-```bash
-# If there are issues to fix
+engram relationship create \
+  --source-id abc-001 --source-type task \
+  --target-id abc-003 --target-type task \
+  --relationship-type depends_on --agent "orchestrator"
+
+engram relationship create \
+  --source-id abc-003 --source-type task \
+  --target-id ctx-002 --target-type context \
+  --relationship-type relates_to --agent "orchestrator"
+
+[Record dispatch]
 engram reasoning create \
-  --title "[Task] Review Feedback: Issues to Address" \
-  --task-id $TASK_ID \
-  --content "## Critical Issues (Fix Immediately)\n- [Issue 1]: [detail] → [fix plan]\n\n## Important Issues (Fix Before Proceeding)\n- [Issue 1]: [detail] → [fix plan]\n- [Issue 2]: [detail] → [fix plan]\n\n## Minor Issues (Note for Later)\n- [Issue 1]: [detail]\n\n## Decision\n[Fix critical → re-review / Fix important → continue / Note minor → proceed]" \
-  --confidence 0.9 \
-  --tags "code-review,feedback,[task-tag]"
-```
+  --title "Review dispatched: login endpoint" \
+  --task-id abc-001 \
+  --content "Review dispatched for login endpoint. Reviewer task: abc-003. Context: ctx-002."
+# DISPATCH_UUID = rsn-004
 
-**If approved, update task:**
+engram relationship create \
+  --source-id abc-001 --source-type task \
+  --target-id rsn-004 --target-type reasoning \
+  --relationship-type explains --agent "orchestrator"
 
-```bash
-# Mark task as reviewed and approved
-engram task update $TASK_ID \
-  --status reviewed \
-  --outcome "Approved - no critical issues, 0 important issues, 0 minor issues"
+[Dispatch reviewer — UUID only]
+# "Your task UUID is abc-003. Use engram-subagent-register."
 
-# Create completion reasoning
+[Collect results]
+engram relationship connected --entity-id abc-003 --max-depth 2
+
+[Reviewer found 1 important issue: missing rate limiting]
 engram reasoning create \
-  --title "[Task] Code Review Complete" \
-  --task-id $TASK_ID \
-  --content "**Review status:** ✅ APPROVED\n**Reviewed by:** code-reviewer subagent\n**Review context:** [context entity ID]\n**Review result:** [result entity ID]\n\n**Issues found:**\n- Critical: 0\n- Important: 0\n- Minor: 0\n\n**Next step:** Proceed to next task / Create PR / Merge" \
-  --confidence 1.0 \
-  --tags "code-review,complete,[task-tag]"
-```
+  --title "Review feedback: login endpoint" \
+  --task-id abc-001 \
+  --content "Review issues: Important: missing rate limiting on login endpoint → add Redis-based rate limiter before re-review. Minor: 2 style nits → will fix inline."
+# FEEDBACK_UUID = rsn-005
 
-### Step 7: Update Compliance Entity
+engram relationship create \
+  --source-id abc-001 --source-type task \
+  --target-id rsn-005 --target-type reasoning \
+  --relationship-type explains --agent "orchestrator"
 
-```bash
-# Update compliance with actual review results
-engram compliance update [COMPLIANCE_ID] \
-  --violations "Review passed - no violations" \
-  --remediation "None required"
-```
+[Fix and re-review — run tests directly in shell]
+cargo test
 
-## Integration with Engram Workflows
-
-### Subagent-Driven Development
-
-After each task in subagent-driven development:
-1. Task completes → `engram task update --status done`
-2. Immediately dispatch code review → `requesting-code-review-engram`
-3. Fix issues if found
-4. Only then proceed to next task
-
-```bash
-# In subagent-driven workflow:
-engram task update [SUBTASK] --status done --outcome "Implementation complete"
-engram compliance create --title "Code Review: [Subtask]" --category code_review
-# ... dispatch review ...
-engram task update [SUBTASK] --status reviewed --outcome "Approved"
-# Now safe to proceed to next task
-```
-
-### Writing Plans
-
-Before creating implementation plan:
-1. Create compliance entity for review requirements
-2. Include review checklist in plan
-3. After implementation, enforce review before marking done
-
-### Dispatching Parallel Agents
-
-After parallel agents complete:
-1. Create compliance entity for final integration review
-2. Review all changes together
-3. Ensure no conflicts introduced
-
-```bash
-# After parallel execution complete
-engram compliance create \
-  --title "Integration Review: [Feature]" \
-  --category code_review \
-  --requirements "✅ All domain tasks reviewed\n✅ No conflicts between changes\n✅ Full test suite passes\n✅ Integration tests pass"
-```
-
-## Querying Review History
-
-```bash
-# Get all reviews for a task
-engram relationship connected --entity-id [TASK_ID] | grep -E "context|reasoning" | grep code-review
-
-# Get all compliance entities for code review
-engram compliance list | grep code_review
-
-# Get pending reviews
-engram task list --status pending_review
-
-# Get review results for a feature
-engram context list | grep -E "code-review.*result|[feature-tag]"
-
-# Search for review feedback
-engram reasoning list | grep "Review Feedback"
-```
-
-## Example Workflow
-
-```bash
-# Task: Implement login endpoint (from writing-plans)
-
-# Step 1: Get context
-TASK=$(engram task show login-subtask --json | jq -r '.id')
-DIFF=$(git diff HEAD~1..HEAD)
-BASE_SHA=$(git rev-parse HEAD~1)
-HEAD_SHA=$(git rev-parse HEAD)
-
-# Step 2: Create compliance
-COMPLIANCE=$(engram compliance create \
-  --title "Code Review: Login Endpoint Implementation" \
-  --category code_review \
-  --requirements "✅ Tests pass\n✅ Error handling complete\n✅ No hardcoded secrets\n✅ Follows auth patterns" \
-  --tags "code-review,login,auth" \
-  --json | jq -r '.id')
-
-# Step 3: Create review context
-engram context create \
-  --title "Code Review Context: Login Endpoint" \
-  --content "Task: Implement login endpoint\nDiff: $DIFF" \
-  --source "code-review" \
-  --tags "code-review,login"
-
-# Step 4: Dispatch reviewer
-engram task update $TASK --status pending_review --agent code-reviewer
+[Re-review passes]
 engram reasoning create \
-  --title "Login Task: Review Dispatched" \
-  --task-id $TASK \
-  --content "Reviewer: code-reviewer" \
-  --confidence 1.0 \
-  --tags "code-review,dispatch"
+  --title "Review approved: login endpoint" \
+  --task-id abc-001 \
+  --content "Review APPROVED. Critical: 0, Important: 0 (rate limiting added), Minor: 0. Ready to proceed."
+# APPROVAL_UUID = rsn-006
 
-# Step 5: Receive review (after reviewer completes)
-engram context create \
-  --title "Code Review Result: Login Endpoint" \
-  --content "Critical: 0\nImportant: 1 (missing rate limiting)\nMinor: 2 (style nits)\nAssessment: CONDITIONAL - fix rate limiting" \
-  --source "code-review-result" \
-  --tags "code-review,result,login"
+engram relationship create \
+  --source-id abc-001 --source-type task \
+  --target-id rsn-006 --target-type reasoning \
+  --relationship-type explains --agent "orchestrator"
 
-# Step 6: Act on feedback
-engram reasoning create \
-  --title "Login Task: Review Feedback" \
-  --task-id $TASK \
-  --content "Issue: Missing rate limiting\nFix: Add Redis-based rate limiter\nStatus: WILL FIX" \
-  --confidence 0.9 \
-  --tags "code-review,feedback"
+[Validate]
+engram validate check
 
-# Fix rate limiting...
-
-# Step 7: Re-review and approve
-engram context create \
-  --title "Code Review Result: Login Endpoint (Re-review)" \
-  --content "Critical: 0\nImportant: 0 (rate limiting added)\nMinor: 0 (style nits fixed)\nAssessment: APPROVED" \
-  --source "code-review-result" \
-  --tags "code-review,result,login,approved"
-
-engram task update $TASK --status reviewed --outcome "Approved after fixing rate limiting"
-engram reasoning create \
-  --title "Login Task: Review Complete" \
-  --task-id $TASK \
-  --content "Status: APPROVED\nIssues: 1 important (fixed), 0 remaining" \
-  --confidence 1.0 \
-  --tags "code-review,complete"
-
-echo "Review complete. Ready for next task."
+engram next
 ```
 
-## Engram Integration Summary
+## Review Checklist (Store in Context for Reviewer)
 
-| Original Tracking | Engram Integration |
-|-------------------|-------------------|
-| Review template | engram context entity |
-| Review checklist | engram compliance entity |
-| Review results | engram context entity (result) |
-| Feedback tracking | engram reasoning entity |
-| Task status | `engram task update --status reviewed` |
-| Audit trail | Full engram history |
-
-## Benefits of Engram Integration
-
-1. **Compliance Tracking:** `engram compliance` enforces review requirements
-2. **Queryable History:** `engram context list | grep code-review` shows all reviews
-3. **Issue Tracking:** `engram reasoning list | grep feedback` shows all feedback
-4. **Integration with TDD:** Review after `engram validate check` passes
-5. **Multi-Agent Support:** Review context available to all agents
-6. **Audit Trail:** Complete review history for team learning
+```
+- Tests pass
+- Code follows project patterns
+- No hardcoded secrets
+- Error handling complete
+- Documentation updated
+- No debug code left
+- Edge cases handled
+- Performance acceptable
+- Security considerations met
+```
 
 ## Related Skills
 
-This skill integrates with:
-- `engram-use-memory` - Store review feedback for learning
-- `engram-audit-trail` - Track review process and outcomes
-- `engram-test-driven-development` - Review after tests pass
-- `engram-check-compliance` - Code review for compliance requirements
-- `engram-subagent-driven-development` - Reviews between agent tasks
+- `engram-subagent-register` — reviewer uses this to claim task and report findings
+- `engram-audit-trail` — full traceability of review process
+- `engram-test-driven-development` — review after tests pass
+- `engram-subagent-driven-development` — reviews between agent tasks

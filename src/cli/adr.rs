@@ -259,7 +259,7 @@ pub fn delete_adr<S: Storage>(storage: &mut S, id: &str) -> Result<(), EngramErr
 }
 
 use crate::cli::utils::{create_table, truncate};
-use prettytable::{cell, row};
+use prettytable::row;
 
 /// List ADRs
 pub fn list_adrs<S: Storage>(

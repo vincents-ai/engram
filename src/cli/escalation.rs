@@ -316,7 +316,7 @@ pub fn create_escalation<S: Storage>(
 }
 
 use crate::cli::utils::{create_table, truncate};
-use prettytable::{cell, row};
+use prettytable::row;
 
 /// List escalation requests
 pub fn list_escalations<S: Storage>(

@@ -325,6 +325,15 @@ pub fn handle_skills_command(
             "engram-dispatching-parallel-agents",
             include_str!("../../skills/meta/dispatching-parallel-agents.md"),
         ),
+        // Orchestration Skills (2)
+        (
+            "engram-orchestrator",
+            include_str!("../../skills/meta/engram-orchestrator.md"),
+        ),
+        (
+            "engram-subagent-register",
+            include_str!("../../skills/meta/engram-subagent-register.md"),
+        ),
     ];
 
     let mut installed_count = 0;

@@ -19,7 +19,17 @@ Use this skill when:
 
 ## The Pattern
 
-### 1. Identify Relevant Frameworks
+### 1. Search First
+
+Check for existing compliance work before starting:
+
+```bash
+engram ask query "<feature> compliance <framework>"
+engram task show <UUID>
+```
+
+### 2. Identify Relevant Frameworks
+
 Choose from available compliance areas:
 ```
 ~/code/prompts/compliance_and_certification/prompts/
@@ -36,46 +46,88 @@ Choose from available compliance areas:
 │   └── cybersecurity_policies/ # NIST CSF, RMF, ISO 27002
 ```
 
-### 2. Run Compliance Checks
-Use relevant audit prompts.
+### 3. Anchor Work
 
-### 3. Store Results in Engram
+```bash
+engram task create --title "Compliance: <feature> — <framework>"
+# TASK_UUID = ...
+engram task update <TASK_UUID> --status in_progress
+```
+
+### 4. Run Compliance Checks
+
+Use relevant audit prompts from the directory above.
+
+### 5. Store Results in Engram
 
 ```bash
 # Create compliance entity
 engram compliance create \
-  --title "Compliance: [Feature] - [Framework]" \
-  --category [security/privacy/quality] \
-  --requirements "✅ [Requirement 1]\n✅ [Requirement 2]\n❌ [Requirement 3 - gap]" \
-  --tags "compliance,[framework],[feature]"
+  --title "Compliance: <Feature> - <Framework>" \
+  --category "<security|privacy|quality>" \
+  --description "✅ <Requirement 1>\n✅ <Requirement 2>\n❌ <Requirement 3 - gap>" \
+  --agent "<name>"
+# COMPLIANCE_UUID = ...
 
-# Store detailed findings
+# Store detailed findings as context
 engram context create \
-  --title "Compliance Audit: [Feature] - [Framework]" \
-  --content "**Framework:** [Full framework name]\n**Findings:**\n- ✅ [Pass 1]\n- ❌ [Fail 1]\n- ⚠️ [Gap 1]\n\n**Remediation:**\n[What needs to be fixed]" \
+  --title "Compliance Audit: <Feature> - <Framework>" \
+  --content "**Framework:** <Full framework name>\n**Findings:**\n- ✅ <Pass 1>\n- ❌ <Fail 1>\n- ⚠️ <Gap 1>\n\n**Remediation:**\n<What needs to be fixed>" \
   --source "compliance-audit"
+# AUDIT_CTX_UUID = ...
 
 # Create reasoning for evidence
 engram reasoning create \
-  --title "Compliance Evidence: [Feature]" \
-  --task-id [TASK_ID] \
-  --content "**Framework:** [Framework]\n**Check:** [What was verified]\n**Evidence:** [Test results, code snippets, docs]\n**Status:** PASS/FAIL/GAP" \
-  --confidence [0.0-1.0]
+  --title "Compliance Evidence: <Feature>" \
+  --task-id <TASK_UUID> \
+  --content "**Framework:** <Framework>\n**Check:** <What was verified>\n**Evidence:** <Test results, code snippets, docs>\n**Status:** PASS/FAIL/GAP" \
+  --confidence 0.9
+# EVIDENCE_UUID = ...
 ```
 
-### 4. Update Task Status
-Link compliance to task:
+### 6. Link Everything
 
 ```bash
-engram task update [TASK_ID] --status pending_compliance
-# After compliance passes:
-engram task update [TASK_ID] --status compliant
+engram relationship create \
+  --source-id <TASK_UUID> --source-type task \
+  --target-id <COMPLIANCE_UUID> --target-type compliance \
+  --relationship-type relates_to --agent "<name>"
+
+engram relationship create \
+  --source-id <TASK_UUID> --source-type task \
+  --target-id <AUDIT_CTX_UUID> --target-type context \
+  --relationship-type relates_to --agent "<name>"
+
+engram relationship create \
+  --source-id <COMPLIANCE_UUID> --source-type compliance \
+  --target-id <EVIDENCE_UUID> --target-type reasoning \
+  --relationship-type relates_to --agent "<name>"
+```
+
+### 7. Update Task Status
+
+Valid statuses are: `todo`, `in_progress`, `done`, `blocked`, `cancelled`
+
+```bash
+# After all compliance checks are complete:
+engram task update <TASK_UUID> --status done --outcome "All <framework> requirements met"
+
+# If blocked by gaps requiring remediation:
+engram task update <TASK_UUID> --status blocked --reason "Gaps found: <list>"
 ```
 
 ## Example
 
 ```
 Feature: "User authentication API"
+
+[Search first]
+engram ask query "authentication API SOC2 GDPR compliance"
+
+[Anchor]
+engram task create --title "Compliance: Auth API — SOC2 + GDPR"
+# TASK_UUID = task-001
+engram task update task-001 --status in_progress
 
 [Step 1: Identify frameworks]
 - SOC2 (security criteria)
@@ -92,39 +144,69 @@ Use prompts from:
 engram compliance create \
   --title "Compliance: Auth API - SOC2" \
   --category security \
-  --requirements "✅ Access controls\n✅ Network security\n✅ Data protection\n✅ Encryption at rest\n✅ Encryption in transit"
+  --description "✅ Access controls implemented\n✅ Network security configured\n✅ Data protection in place\n✅ Encryption at rest\n✅ Encryption in transit" \
+  --agent "compliance-agent"
+# COMPLIANCE_UUID = cmp-001
 
 engram context create \
   --title "Compliance Audit: Auth API - SOC2" \
-  --content "Findings:\n- ✅ All SOC2 security criteria met\n- ✅ Access controls implemented\n- ✅ Encryption verified\nStatus: COMPLIANT"
+  --content "Framework: SOC2 Security Criteria\nFindings:\n- ✅ All SOC2 security criteria met\n- ✅ Access controls implemented\n- ✅ Encryption verified\nStatus: COMPLIANT" \
+  --source "compliance-audit"
+# AUDIT_CTX_UUID = ctx-002
 
-[Step 4: Link to task]
-engram relationship create --source-id [AUTH_TASK] --target-id [COMPLIANCE_ID] --fulfills
+engram reasoning create \
+  --title "Compliance Evidence: Auth API SOC2" \
+  --task-id task-001 \
+  --content "Framework: SOC2\nCheck: Access controls and encryption\nEvidence: JWT tokens with RS256, TLS 1.3 enforced, bcrypt password hashing\nStatus: PASS" \
+  --confidence 0.95
+# EVIDENCE_UUID = rsn-003
+
+[Step 4: Link compliance to task]
+engram relationship create \
+  --source-id task-001 --source-type task \
+  --target-id cmp-001 --target-type compliance \
+  --relationship-type relates_to --agent "compliance-agent"
+
+engram relationship create \
+  --source-id task-001 --source-type task \
+  --target-id ctx-002 --target-type context \
+  --relationship-type relates_to --agent "compliance-agent"
+
+engram relationship create \
+  --source-id cmp-001 --source-type compliance \
+  --target-id rsn-003 --target-type reasoning \
+  --relationship-type relates_to --agent "compliance-agent"
+
+[Close]
+engram validate check
+engram task update task-001 --status done --outcome "SOC2, GDPR, OWASP compliance verified"
 ```
 
 ## Integration with Engram
 
 Compliance stored in engram:
-- **Compliance**: Requirements and status
-- **Context**: Detailed audit findings
-- **Reasoning**: Evidence and confidence
+- **Compliance**: Requirements and status (`engram compliance create`)
+- **Context**: Detailed audit findings (`engram context create`)
+- **Reasoning**: Evidence and confidence (`engram reasoning create`)
 - **Relationships**: Task → Compliance linkage
 
 ## Querying Compliance
 
 ```bash
 # Get compliance status
-engram compliance list | grep "[feature]"
+engram compliance list
 
 # Get audit details
-engram context list | grep "Compliance Audit"
+engram context list
 
-# Get evidence
-engram reasoning list | grep "Compliance Evidence"
+# Get all entities connected to a task
+engram relationship connected --entity-id <TASK_UUID> --max-depth 2
 
-# Check task compliance
-engram relationship connected --entity-id [TASK] --relationship-type fulfills
+# Search for compliance records
+engram ask query "<feature> compliance audit"
 ```
+
+**Note:** `engram compliance list` may return empty results even when records exist — this is a known CLI issue. Use `engram ask query` and `engram relationship connected` to retrieve compliance records reliably.
 
 ## Common Compliance Frameworks
 
@@ -146,9 +228,8 @@ See full catalog: `ls ~/code/prompts/compliance_and_certification/prompts/audit_
 
 ## Related Skills
 
-This skill integrates with:
-- `engram-use-memory` - Store compliance findings and evidence
-- `engram-audit-trail` - Complete audit trail for compliance work
-- `engram-test-driven-development` - Tests provide compliance evidence
-- `engram-requesting-code-review` - Code review for security compliance
-- `engram-plan-feature` - Ensure compliance from planning stage
+- `engram-use-engram-memory` — store compliance findings and evidence
+- `engram-audit-trail` — complete audit trail for compliance work
+- `engram-test-driven-development` — tests provide compliance evidence
+- `engram-requesting-code-review` — code review for security compliance
+- `engram-plan-feature` — ensure compliance from planning stage

@@ -1,257 +1,325 @@
 ---
 name: engram-subagent-driven-development
-description: "Engram-integrated version. Use when executing implementation plans - tracks agent assignment and reviews via engram task.agent field and context entities."
+description: "Engram-integrated version. Use when executing implementation plans - dispatches one subagent per task, stores reviews as engram context, tracks progress via engram task UUIDs."
 ---
 
-# Subagent-Driven Development (Engram-Integrated)
+# Subagent-Driven Development
 
 ## Overview
 
-Execute plan by dispatching fresh subagent per task, with two-stage review after each: spec compliance review first, then code quality review. Track everything via engram.
+Execute an implementation plan by dispatching one fresh subagent per subtask. Review between each task. Track all progress, reviews, and outcomes in engram — not in conversation.
 
-## Key Changes from Original
+**Core principle:** The orchestrator dispatches by UUID. Subagents retrieve context from engram and report back to engram.
 
-**Original:** Track in conversation, TodoWrite
-**Engram-integrated:** Track agent assignment via `engram task --agent`, store reviews as context entities, use `engram relationship` for task relationships.
+## When to Use
 
-## The Process with Engram
+Use after `engram-writing-plans` has created a task hierarchy in engram:
+- You have a `PARENT_UUID` with subtasks ready to execute
+- Each subtask needs implementation + review before the next begins
+- You want a full audit trail of every agent action
 
-### Step 1: Read Plan and Create Task Hierarchy
+## The Pattern
+
+### 0. Search and Load the Plan
 
 ```bash
-# Get parent task (from writing-plans-engram)
-PARENT_TASK_ID="[PARENT_TASK_ID]"
-
-# Get all subtasks
-engram task list --parent $PARENT_TASK_ID --json | jq -r '.[].id' > /tmp/subtasks.txt
-
-# Create TodoWrite with engram task IDs
-while read SUBTASK_ID; do
-  SUBTASK_TITLE=$(engram task show $SUBTASK_ID --json | jq -r '.data.title')
-  echo "Task: $SUBTASK_TITLE (ID: $SUBTASK_ID)"
-done < /tmp/subtasks.txt
+engram ask query "<feature name> implementation plan"
+engram task show <PARENT_UUID>
+engram relationship connected --entity-id <PARENT_UUID> --max-depth 2
 ```
 
-### Step 2: Dispatch Implementer Subagent
+This returns all subtask UUIDs. Work through them in order.
 
-**Update task status and assign agent:**
+### 1. Dispatch Implementer Subagent
 
-```bash
-# Mark task as in progress and assign agent
-engram task update [SUBTASK_ID] \
-  --status in_progress \
-  --agent implementer-subagent
-
-# Create reasoning for dispatch
-engram reasoning create \
-  --title "[Task] Implementer Subagent Dispatched" \
-  --task-id [SUBTASK_ID] \
-  --content "**Agent:** implementer-subagent\n**Started:** [timestamp]\n**Subtask:** [task title]\n\n**Context provided:**\n- Full task text from engram task show\n- Related design context from engram relationship connected\n- Previous subtask results (if any)" \
-  --confidence 1.0 \
-  --tags "subagent,dispatch,implementer"
-```
-
-**Get full task context for subagent:**
+For the current subtask:
 
 ```bash
-# Get task details
-engram task show [SUBTASK_ID] --json | jq '.data'
-
-# Get related context (design docs)
-engram relationship connected --entity-id [SUBTASK_ID] --relationship-type references
-
-# Get step details (reasoning)
-engram reasoning list --task-id [SUBTASK_ID]
-```
-
-### Step 3: Two-Stage Review with Engram
-
-#### Spec Compliance Review
-
-```bash
-# After implementer completes, dispatch spec reviewer
-engram task update [SUBTASK_ID] \
-  --status pending_review_spec \
-  --agent spec-reviewer
-
-# Create spec review as context entity
+# Store context about the dispatch
 engram context create \
-  --title "[Task] Spec Compliance Review" \
-  --content "**Reviewer:** spec-reviewer\n**Completed:** [timestamp]\n\n**Requirements from plan:**\n- [Requirement 1]\n- [Requirement 2]\n\n**Changes implemented:**\n\`\`\`diff\n[git diff or file changes]\n\`\`\`\n\n**Compliance Check:**\n✅ [Requirement met]\n✅ [Requirement met]\n❌ [Requirement missing]: [detail]\n\n**Review Result:** PASSED / FAILED WITH ISSUES" \
-  --source "spec-review" \
-  --tags "review,spec-compliance,[task-tag]"
+  --title "Dispatch: <subtask title>" \
+  --content "Dispatching implementer for: <subtask title>\nSubtask UUID: <SUBTASK_UUID>\nAgent: implementer-subagent\nContext available via: engram task show <SUBTASK_UUID>" \
+  --source "dispatch-log"
+# DISPATCH_CTX_UUID = ...
+
+engram relationship create \
+  --source-id <SUBTASK_UUID> --source-type task \
+  --target-id <DISPATCH_CTX_UUID> --target-type context \
+  --relationship-type relates_to --agent "<name>"
 ```
 
-**If spec review fails:**
-
-```bash
-# Update task back to in_progress
-engram task update [SUBTASK_ID] \
-  --status in_progress \
-  --agent implementer-subagent
-
-# Create reasoning for issues found
-engram reasoning create \
-  --title "[Task] Spec Review Issues" \
-  --task-id [SUBTASK_ID] \
-  --content "**Issues found:**\n- [Issue 1]: [detail]\n- [Issue 2]: [detail]\n\n**Required fixes:**\n1. [Fix 1]\n2. [Fix 2]\n\n**Re-review required after fixes" \
-  --confidence 0.9 \
-  --tags "subagent,spec-review-issues"
+Tell the subagent:
+```
+Your task UUID is <SUBTASK_UUID>.
+Run: engram task show <SUBTASK_UUID>
+Use the engram-subagent-register skill.
 ```
 
-#### Code Quality Review
+### 2. Collect Implementer Results
+
+When the subagent marks the task done:
 
 ```bash
-# After spec compliance passes, dispatch code quality reviewer
-engram task update [SUBTASK_ID] \
-  --status pending_review_quality \
-  --agent code-quality-reviewer
+engram relationship connected --entity-id <SUBTASK_UUID> --max-depth 2
+engram ask query "<subtask title> implementation results"
+```
 
-# Create code quality review as context entity
+### 3. Dispatch Spec Compliance Reviewer
+
+Collect the diff and store it in engram first:
+
+```bash
+# Run git diff directly in your shell
+git diff HEAD~1..HEAD --stat
+git diff HEAD~1..HEAD
+
 engram context create \
-  --title "[Task] Code Quality Review" \
-  --content "**Reviewer:** code-quality-reviewer\n**Completed:** [timestamp]\n\n**Code Quality Check:**\n✅ Tests pass\n✅ No type errors\n✅ Error handling complete\n✅ No hardcoded secrets\n✅ Code follows project patterns\n\n**Strengths:**\n- [Positive 1]\n- [Positive 2]\n\n**Issues Found:**\n- [Critical]: [detail] - MUST FIX\n- [Major]: [detail] - SHOULD FIX\n- [Minor]: [detail] - NICE TO HAVE\n\n**Review Result:** APPROVED / CHANGES REQUESTED" \
-  --source "code-quality-review" \
-  --tags "review,code-quality,[task-tag]"
+  --title "Spec review request: <subtask title>" \
+  --content "Spec compliance review request for: <subtask title>\nSubtask UUID: <SUBTASK_UUID>\nDiff summary: <git diff --stat output>\nSpec requirements:\n- <requirement 1 from task description>\n- <requirement 2>" \
+  --source "spec-review-request"
+# SPEC_REQ_UUID = ...
+
+engram relationship create \
+  --source-id <SUBTASK_UUID> --source-type task \
+  --target-id <SPEC_REQ_UUID> --target-type context \
+  --relationship-type relates_to --agent "<name>"
 ```
 
-**If quality review fails:**
+Create review task and dispatch:
 
 ```bash
-# Update task back to in_progress
-engram task update [SUBTASK_ID] \
-  --status in_progress \
-  --agent implementer-subagent
+engram task create --title "Spec Review: <subtask title>"
+# SPEC_REVIEW_UUID = ...
+engram task update <SPEC_REVIEW_UUID> --status in_progress
 
-# Create reasoning for quality issues
+engram relationship create \
+  --source-id <SUBTASK_UUID> --source-type task \
+  --target-id <SPEC_REVIEW_UUID> --target-type task \
+  --relationship-type depends_on --agent "<name>"
+
+engram relationship create \
+  --source-id <SPEC_REVIEW_UUID> --source-type task \
+  --target-id <SPEC_REQ_UUID> --target-type context \
+  --relationship-type relates_to --agent "<name>"
+
+# Tell reviewer: "Your task UUID is <SPEC_REVIEW_UUID>. Use engram-subagent-register."
+```
+
+### 4. Collect Spec Review Results
+
+```bash
+engram relationship connected --entity-id <SPEC_REVIEW_UUID> --max-depth 1
+```
+
+**If spec review fails:** retrieve the issues, dispatch implementer again with the same `SUBTASK_UUID`. The implementer will see the review task linked to their task.
+
+**If spec review passes:** proceed to code quality review.
+
+### 5. Dispatch Code Quality Reviewer
+
+```bash
+engram task create --title "Quality Review: <subtask title>"
+# QUALITY_REVIEW_UUID = ...
+engram task update <QUALITY_REVIEW_UUID> --status in_progress
+
+engram relationship create \
+  --source-id <SUBTASK_UUID> --source-type task \
+  --target-id <QUALITY_REVIEW_UUID> --target-type task \
+  --relationship-type depends_on --agent "<name>"
+
+# Tell reviewer: "Your task UUID is <QUALITY_REVIEW_UUID>. Use engram-subagent-register."
+```
+
+### 6. Collect Quality Review Results
+
+```bash
+engram relationship connected --entity-id <QUALITY_REVIEW_UUID> --max-depth 1
+```
+
+**If quality review fails:** record issues, dispatch implementer again.
+
+**If quality review passes:** record approval and move to next subtask.
+
+### 7. Record Task Completion
+
+```bash
 engram reasoning create \
-  --title "[Task] Code Quality Issues" \
-  --task-id [SUBTASK_ID] \
-  --content "**Quality issues found:**\n- [Critical]: [detail] - MUST FIX\n- [Major]: [detail] - SHOULD FIX\n\n**Required fixes:**\n1. [Fix 1]\n2. [Fix 2]\n\n**Re-review required after fixes" \
-  --confidence 0.9 \
-  --tags "subagent,quality-review-issues"
+  --title "Subtask complete: <title>" \
+  --task-id <SUBTASK_UUID> \
+  --content "Subtask complete: <title>\nImplementer: done\nSpec review: PASSED\nQuality review: PASSED\nTests: <N>/<N> pass\nCommits: <list or count>"
+# COMPLETE_UUID = ...
+
+engram relationship create \
+  --source-id <SUBTASK_UUID> --source-type task \
+  --target-id <COMPLETE_UUID> --target-type reasoning \
+  --relationship-type explains --agent "<name>"
+
+engram task update <SUBTASK_UUID> --status done
 ```
 
-### Step 4: Mark Task Complete
+### 8. Get Next Subtask
 
 ```bash
-# After both reviews pass
-engram task update [SUBTASK_ID] \
-  --status done \
-  --outcome "Passed spec compliance and code quality review"
-
-# Create reasoning for completion
-engram reasoning create \
-  --title "[Task] Subagent Completion Report" \
-  --task-id [SUBTASK_ID] \
-  --content "**Completed by:** implementer-subagent\n**Duration:** [start to end time]\n\n**Changes committed:**\n\`\`\`\n[git log --oneline]\n\`\`\`\n\n**Spec review:** ✅ PASSED\n**Code quality review:** ✅ PASSED\n**Tests:** ✅ All pass\n\n**Files created/modified:**\n- \`[file]\`: [change]\n- \`[file]\`: [change]" \
-  --confidence 1.0 \
-  --tags "subagent,completion,[task-tag]"
+engram next
 ```
 
-### Step 5: Check for More Tasks
+This returns the next pending subtask. Repeat from step 1.
+
+### 9. Final Review
+
+After all subtasks complete:
 
 ```bash
-# Check if more subtasks remain
-REMAINING=$(engram task list --parent $PARENT_TASK_ID --status pending --json | jq 'length')
-
-if [ $REMAINING -gt 0 ]; then
-  # Get next pending task
-  NEXT_TASK=$(engram task list --parent $PARENT_TASK_ID --status pending --json | jq -r '.[0].id')
-  
-  # Dispatch next implementer
-  engram task update $NEXT_TASK --status in_progress --agent implementer-subagent
-else
-  # All tasks complete - final review
-  echo "All subtasks complete. Dispatching final code reviewer."
-fi
+engram ask query "<feature name> all subtasks complete"
+engram relationship connected --entity-id <PARENT_UUID> --max-depth 3
 ```
 
-### Step 6: Final Review (After All Tasks)
+Dispatch a final integration reviewer:
 
 ```bash
-# Create final review context
+engram task create --title "Final Review: <feature name>"
+# FINAL_REVIEW_UUID = ...
+engram task update <FINAL_REVIEW_UUID> --status in_progress
+
+engram relationship create \
+  --source-id <PARENT_UUID> --source-type task \
+  --target-id <FINAL_REVIEW_UUID> --target-type task \
+  --relationship-type depends_on --agent "<name>"
+
+# Tell reviewer: "Your task UUID is <FINAL_REVIEW_UUID>. Use engram-subagent-register."
+```
+
+### 10. Validate and Close
+
+```bash
+engram validate check
+engram task update <PARENT_UUID> --status done
+```
+
+## Terminal Commands
+
+Run terminal commands directly in your shell. Do not use `engram sandbox execute` — that command does not exist.
+
+If you need elevated permissions or human approval:
+
+```bash
+engram escalation create \
+  --agent "<name>" \
+  --operation-type "<type>" \
+  --operation "<what you need to do>" \
+  --justification "<why this is needed>"
+```
+
+## Example
+
+```
+Plan: Implement User Auth API — PARENT_UUID = auth-parent
+
+[Load plan]
+engram relationship connected --entity-id auth-parent --max-depth 2
+# Returns: login-task, register-task, refresh-task, logout-task, tests-task
+
+[Task 1: Login endpoint]
+
+Dispatch implementer:
 engram context create \
-  --title "[Feature] Final Code Review" \
-  --content "**Reviewer:** final-code-reviewer\n**Completed:** [timestamp]\n\n**All subtasks completed:**\n- [x] Task 1: [title] - ✅\n- [x] Task 2: [title] - ✅\n- [x] Task 3: [title] - ✅\n\n**Overall assessment:**\n✅ All requirements met\n✅ Code quality consistent\n✅ Tests pass\n✅ No regressions\n\n**Ready for:** superpowers:finishing-a-development-branch" \
-  --source "final-review" \
-  --tags "review,final,[feature-tag]"
+  --title "Dispatch: login endpoint" \
+  --content "Dispatching implementer for login endpoint. UUID: login-task." \
+  --source "dispatch-log"
+# CTX = ctx-001
+
+engram relationship create \
+  --source-id login-task --source-type task \
+  --target-id ctx-001 --target-type context \
+  --relationship-type relates_to --agent "orchestrator"
+# "Your task UUID is login-task. Use engram-subagent-register."
+
+Collect:
+engram relationship connected --entity-id login-task --max-depth 2
+
+Collect diff (run directly in shell):
+git diff HEAD~1..HEAD --stat
+
+Spec review:
+engram context create \
+  --title "Spec review: login endpoint" \
+  --content "Spec review: login-task. Requirements: POST /auth/login returns 200 + JWT on valid creds, 401 on invalid." \
+  --source "spec-review-request"
+# SPEC_CTX = ctx-002
+
+engram task create --title "Spec Review: Login endpoint"
+# SPEC_UUID = spec-001
+engram task update spec-001 --status in_progress
+
+engram relationship create \
+  --source-id login-task --source-type task \
+  --target-id spec-001 --target-type task \
+  --relationship-type depends_on --agent "orchestrator"
+
+engram relationship create \
+  --source-id spec-001 --source-type task \
+  --target-id ctx-002 --target-type context \
+  --relationship-type relates_to --agent "orchestrator"
+# Dispatch reviewer to spec-001
+
+[Spec passes]
+
+Quality review:
+engram task create --title "Quality Review: Login endpoint"
+# QUAL_UUID = qual-001
+engram task update qual-001 --status in_progress
+
+engram relationship create \
+  --source-id login-task --source-type task \
+  --target-id qual-001 --target-type task \
+  --relationship-type depends_on --agent "orchestrator"
+# Dispatch reviewer to qual-001
+
+[Quality passes]
+
+Record completion:
+engram reasoning create \
+  --title "Login task complete" \
+  --task-id login-task \
+  --content "Login task complete. Spec: PASSED. Quality: PASSED. Tests: 5/5."
+
+engram task update login-task --status done
+
+Get next:
+engram next
+# Returns: register-task
+
+# ... repeat for each task ...
+
+[All tasks done: Final review]
+engram task create --title "Final Review: User Auth API"
+# FINAL_UUID = final-001
+engram task update final-001 --status in_progress
+
+engram relationship create \
+  --source-id auth-parent --source-type task \
+  --target-id final-001 --target-type task \
+  --relationship-type depends_on --agent "orchestrator"
+# Dispatch reviewer to final-001
+
+[Validate and close]
+engram validate check
+engram task update auth-parent --status done
 ```
 
-## Engram Integration Summary
+## Review Status Reference
 
-| Original Tracking | Engram Integration |
-|-------------------|-------------------|
-| TodoWrite status | `engram task update --status` |
-| Agent assignment | `engram task --agent` |
-| Review notes | engram context entities |
-| Implementation history | engram reasoning entities |
-| Task relationships | `engram relationship create` |
-| Completion evidence | engram reasoning + git commit |
-
-## Querying Subagent Progress
-
-```bash
-# Get all in-progress tasks
-engram task list --status in_progress
-
-# Get all tasks by agent
-engram task list --agent implementer-subagent
-
-# Get review status for parent task
-engram relationship connected --entity-id [PARENT_TASK_ID] --relationship-type contains
-
-# Get all reviews for a feature
-engram context list | grep -E "review|[feature-tag]"
-```
-
-## Example Workflow
-
-```bash
-# Plan: Implement User Auth API (5 subtasks)
-PARENT="task-uuid-for-auth-api"
-
-# Task 1: Login endpoint
-engram task update "login-subtask" --status in_progress --agent implementer-subagent
-engram reasoning create --title "Auth Task 1: Dispatched" --task-id "login-subtask" \
-  --content "Agent: implementer-subagent" --confidence 1.0 --tags "subagent,auth"
-
-# Implementer works...
-
-# Spec review
-engram task update "login-subtask" --status pending_review_spec --agent spec-reviewer
-engram context create --title "Auth Task 1: Spec Review" \
-  --content "Review: PASSED - all requirements met" \
-  --source "spec-review" --tags "review,auth"
-
-# Code quality review
-engram task update "login-subtask" --status pending_review_quality --agent code-quality-reviewer
-engram context create --title "Auth Task 1: Code Quality Review" \
-  --content "Review: APPROVED - clean code" \
-  --source "code-quality-review" --tags "review,auth"
-
-# Complete
-engram task update "login-subtask" --status done --outcome "Approved"
-engram reasoning create --title "Auth Task 1: Complete" --task-id "login-subtask" \
-  --content "Commits: 2, Tests: 5/5 pass" --confidence 1.0 --tags "subagent,auth"
-
-# Task 2: Register endpoint
-# ... same pattern
-
-# After all tasks: Final review
-engram context create --title "Auth API: Final Review" \
-  --content "All 5 tasks complete and approved" \
-  --source "final-review" --tags "review,final,auth"
-
-Agent: "All tasks complete. Ready for finishing-a-development-branch."
-```
+| Status | Meaning | Action |
+|--------|---------|--------|
+| Spec PASSED | All requirements met | Proceed to quality review |
+| Spec FAILED | Requirements not met | Re-dispatch implementer |
+| Quality APPROVED | Code is clean | Mark task complete, next |
+| Quality CHANGES REQUESTED | Issues found | Re-dispatch implementer |
 
 ## Related Skills
 
-This skill integrates with:
-- `engram-delegate-to-agents` - Core delegation pattern
-- `engram-dispatching-parallel-agents` - Parallel task execution
-- `engram-plan-feature` - Break features into delegable tasks
-- `engram-use-memory` - Track multi-agent workflow progress
-- `engram-audit-trail` - Complete record of agent work
-- `engram-requesting-code-review` - Final review before completion
+- `engram-writing-plans` — creates the task hierarchy this skill executes
+- `engram-subagent-register` — what each dispatched subagent uses
+- `engram-requesting-code-review` — detailed review dispatch pattern
+- `engram-dispatching-parallel-agents` — for independent tasks that can run simultaneously
+- `engram-orchestrator` — the full orchestration loop

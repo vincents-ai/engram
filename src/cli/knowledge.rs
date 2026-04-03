@@ -297,7 +297,7 @@ pub fn create_knowledge<S: Storage>(
 }
 
 use crate::cli::utils::{create_table, truncate};
-use prettytable::{cell, row};
+use prettytable::row;
 
 /// List knowledge items
 pub fn list_knowledge<S: Storage>(

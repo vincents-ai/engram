@@ -27,7 +27,7 @@ pub enum ReasoningCommands {
         title: Option<String>,
 
         /// Task ID this reasoning belongs to
-        #[arg(long)]
+        #[arg(long, required_unless_present = "json")]
         task_id: Option<String>,
 
         /// Assigned agent
@@ -403,7 +403,7 @@ pub fn conclude_reasoning<S: Storage>(
 }
 
 use crate::cli::utils::{create_table, truncate};
-use prettytable::{cell, row};
+use prettytable::row;
 
 pub fn list_reasoning<S: Storage>(
     storage: &S,

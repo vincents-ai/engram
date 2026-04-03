@@ -44,7 +44,6 @@ pub struct ExternalCommandParams {
 
 /// Action executor
 pub struct ActionExecutor {
-    default_timeout: Duration,
     allow_external_commands: bool,
 }
 
@@ -52,7 +51,6 @@ impl ActionExecutor {
     /// Create a new action executor
     pub fn new(allow_external_commands: bool) -> Self {
         Self {
-            default_timeout: Duration::from_secs(300), // 5 minutes default
             allow_external_commands,
         }
     }

@@ -7,146 +7,218 @@ description: "Use engram as persistent memory for all work. Store context, decis
 
 ## Overview
 
-Engram is your persistent memory system. Every significant piece of context, decision, and reasoning should be stored in engram entities for future retrieval.
+Engram is your persistent memory system. Every significant piece of context, decision, and reasoning must be stored in engram and retrieved from engram. Your LLM context window is transient — engram is not.
 
 ## The Rule
 
-**Before completing any task, ensure all important context is stored in engram.**
+**Before acting on any task, search engram. Before finishing any task, validate via engram.**
 
 ## When to Use
 
 Use this skill when:
+- Starting any task — search before acting
 - Making design decisions
 - Writing code that implements a feature
 - Debugging issues
 - Planning work
 - Reviewing code
-- Any work that should be remembered
 
-## Engram Entity Types
+## Command Reference
 
-### Context
-Background information, design docs, requirements, architecture decisions.
+### Search & Retrieval
+
 ```bash
-engram context create --title "Design: [Feature] - [Section]" --content "[detailed content]"
+# Natural language search — run this FIRST for every new task
+engram ask query "<query>"
+
+# Full details on a specific task
+engram task show <UUID>
+
+# All connected records — run BEFORE refactoring or deleting anything
+engram relationship connected --entity-id <UUID> --max-depth <N>
 ```
 
-### Reasoning
-Decision chains, trade-off analysis, hypothesis testing, justification for choices.
+### Saving Information
+
 ```bash
-engram reasoning create --title "Decision: [Choice]" --task-id [ID] --content "[rationale]" --confidence 0.9
+# Raw facts, error logs, code snippets, observations
+# --title is required
+engram context create --title "<short title>" --content "<content>" --source "<file/url>"
+
+# Your reasoning, logic, and deductions — linked to the task
+engram reasoning create --title "<short title>" --task-id <TASK_UUID> --content "<logic>"
+
+# Major technical choices — prevents future agents reversing your work
+# --number is required (sequential integer)
+engram adr create --title "<title>" --number <N> --context "<situation and why this decision was needed>" --agent "<your-name>"
 ```
 
-### Tasks
-Work items, implementation steps, subtasks.
+### Linking — Run Immediately After Every Create
+
 ```bash
-engram task create --title "[Task description]" --parent [PARENT_ID] --priority high
+# Connect two records — always do this right after creating a new entity
+engram relationship create \
+  --source-id <SOURCE_UUID> --source-type <task|context|reasoning|adr> \
+  --target-id <TARGET_UUID> --target-type <task|context|reasoning|adr> \
+  --relationship-type <depends_on|relates_to|explains|contradicts> \
+  --agent "<your-name>"
 ```
 
-### Relationships
-Links between entities for traversal.
+### Work Management
+
 ```bash
-engram relationship create --source-id [TASK] --target-id [CONTEXT] --references
+# Anchor work at session start (no --status flag on create; default is todo)
+engram task create --title "<title>" --priority <low|medium|high|critical>
+
+# Update status after creation
+engram task update <TASK_UUID> --status <todo|in_progress|done|blocked|cancelled>
+
+# Get highest-priority next action when stuck or finishing a step
+engram next
+```
+
+### Validation — Run Before Marking Done
+
+```bash
+# Check git commit validation setup
+engram validate check
+```
+
+### Escalation (when blocked)
+
+```bash
+# If you need elevated permissions or are blocked
+engram escalation create \
+  --agent "<your-name>" \
+  --operation-type "<type>" \
+  --operation "<what you need to do>" \
+  --justification "<why you need it>"
 ```
 
 ## The Pattern
 
-### 1. Capture Context
-When starting work:
+### 1. Search Before Acting
+
 ```bash
-# Create context for the work
-engram context create --title "Context: [Work Description]" \
-  --content "[What you're working on, why, constraints]"
+engram ask query "authentication API"
+# Returns: summary + UUIDs
+
+engram task show <UUID>
+# Returns: full task details
 ```
 
-### 2. Store Decisions
-When making decisions:
+Never assume prior state. If `engram ask query` returns something relevant, read it with `engram task show` (or `context show`, `reasoning show`, etc.) before proceeding.
+
+### 2. Store Findings Immediately
+
 ```bash
-# Store decision with reasoning
-engram reasoning create --title "Decision: [What was decided]" \
-  --task-id [TASK_ID] \
-  --content "**Decision:** [What]\n**Rationale:** [Why]\n**Alternatives:** [What else was considered]\n**Confidence:** 0.9" \
-  --confidence 0.9
+# A fact you discovered (--title is required)
+engram context create \
+  --title "Token validation bug: UTC+0 expiry" \
+  --content "Token validation fails for UTC+0 expiry times" \
+  --source "src/auth/validator.rs"
+# Returns: CTX_UUID
+
+# Your interpretation of that fact
+engram reasoning create \
+  --title "Root cause: UTC normalisation missing" \
+  --task-id <TASK_UUID> \
+  --content "Root cause: naive datetime compared against UTC. Fix: normalize to UTC before comparison."
+# Returns: RSN_UUID
 ```
 
-### 3. Link Everything
-Connect entities:
-```bash
-# Link context to task
-engram relationship create --source-id [TASK] --target-id [CONTEXT] --references
+### 3. Link Every Record
 
-# Link reasoning to task
-engram relationship create --source-id [TASK] --target-id [REASONING] --documents
+```bash
+# Immediately after each create
+engram relationship create \
+  --source-id <TASK_UUID> --source-type task \
+  --target-id <CTX_UUID> --target-type context \
+  --relationship-type relates_to --agent "<your-name>"
+
+engram relationship create \
+  --source-id <TASK_UUID> --source-type task \
+  --target-id <RSN_UUID> --target-type reasoning \
+  --relationship-type explains --agent "<your-name>"
 ```
 
-### 4. Retrieve Later
-Query memory:
+Unlinked records are effectively lost — they cannot be retrieved by graph traversal.
+
+### 4. Validate Before Finishing
+
 ```bash
-# Get all context for a task
-engram relationship connected --entity-id [TASK] --relationship-type references
-
-# Get all reasoning for a task
-engram relationship connected --entity-id [TASK] --relationship-type documents
-
-# Search for specific content
-engram context list | grep "[search term]"
+engram validate check
+engram next
 ```
 
 ## Example Workflow
 
 ```
-User: "Add authentication to the API"
+Task: "Add authentication to the API"
 
-[Step 1: Create context]
-engram context create --title "Context: Auth Feature Implementation" \
-  --content "Adding JWT-based authentication to REST API.\nRequirements: stateless, refresh tokens, role-based access."
+[Step 1: Search first]
+engram ask query "authentication API design decisions"
+# Returns prior context — read it with engram task show / context show before continuing
 
-[Step 2: Create task]
-engram task create --title "Implement Auth Feature" --priority high
-# Returns: TASK_ID=abc123
+[Step 2: Anchor work]
+engram task create --title "Implement Auth Feature" --priority high --output json
+# TASK_UUID = abc-001
+engram task update abc-001 --status in_progress
 
-[Step 3: Store design decision]
-engram reasoning create --title "Decision: JWT with Refresh Tokens" \
-  --task-id abc123 \
-  --content "**Chosen:** JWT access tokens + refresh token rotation\n**Why:** Stateless, scales horizontally, refresh tokens allow revocation\n**Alternatives considered:** Session cookies (stateful, harder to scale), API keys (no expiration)" \
-  --confidence 0.9
+[Step 3: Store design fact]
+engram context create \
+  --title "JWT chosen for auth" \
+  --content "JWT stateless tokens with refresh rotation chosen over session cookies." \
+  --source "architecture-discussion"
+# CTX_UUID = ctx-002
 
-[Step 4: Link to task]
-engram relationship create --source-id abc123 --target-id [CONTEXT_ID] --references
+[Step 4: Store reasoning]
+engram reasoning create \
+  --title "JWT rationale" \
+  --task-id abc-001 \
+  --content "JWT chosen: stateless scales horizontally, refresh tokens allow revocation. Sessions rejected: stateful, hard to scale."
+# RSN_UUID = rsn-003
 
-[Later: Another agent can retrieve]
-engram relationship connected --entity-id abc123 --relationship-type references
-# Returns: Design context, architecture decisions
+[Step 5: Record the decision as an ADR]
+engram adr create \
+  --title "Use JWT with refresh token rotation for auth" \
+  --number 1 \
+  --context "Need stateless auth that scales horizontally" \
+  --agent "implementer"
+# ADR_UUID = adr-004
+
+[Step 6: Link everything]
+engram relationship create \
+  --source-id abc-001 --source-type task \
+  --target-id ctx-002 --target-type context \
+  --relationship-type relates_to --agent "implementer"
+
+engram relationship create \
+  --source-id abc-001 --source-type task \
+  --target-id rsn-003 --target-type reasoning \
+  --relationship-type explains --agent "implementer"
+
+engram relationship create \
+  --source-id abc-001 --source-type task \
+  --target-id adr-004 --target-type adr \
+  --relationship-type relates_to --agent "implementer"
+
+[Step 7: Validate before done]
+engram validate check
+engram task update abc-001 --status done --outcome "Auth feature implemented with JWT"
 ```
 
 ## Key Principles
 
-1. **Always Store Decisions** - Not just outcomes, but the reasoning
-2. **Link Everything** - Tasks without relationships are orphans
-3. **Use Confidence Scores** - Reasoning entities have confidence levels
-4. **Query Before Acting** - `engram relationship connected` before starting work
-5. **Persist, Don't Ponder** - Memory is external, not in your context window
+1. **Search first** — `engram ask query` before every task. Never assume prior state.
+2. **Save everything** — facts to `context`, logic to `reasoning`, decisions to `adr`.
+3. **Link immediately** — `engram relationship create` after every `create` command.
+4. **Validate before done** — `engram validate check` before closing tasks.
+5. **Persist, don't ponder** — memory is external, not in your context window.
 
-## Integration with Other Skills
+## Related Skills
 
-This skill integrates with:
-- `engram-plan-feature` - Plan stores as task hierarchy
-- `engram-delegate-agents` - Delegation plans stored in context
-- `engram-check-compliance` - Compliance evidence stored in context
-- `engram-run-pipeline` - Pipeline results stored as reasoning
-
-## Query Patterns
-
-```bash
-# Get full context for a feature
-engram relationship connected --entity-id [FEATURE_TASK] --relationship-type references
-
-# Get decision history
-engram relationship connected --entity-id [FEATURE_TASK] --relationship-type documents
-
-# Search for similar work
-engram reasoning list | grep -i "[keyword]"
-
-# Find related tasks
-engram task list | grep "[search term]"
-```
+- `engram-orchestrator` — full execution loop using all these commands
+- `engram-audit-trail` — traceability patterns
+- `engram-systematic-debugging` — debugging investigation loop
+- `engram-plan-feature` — planning stored as task hierarchy

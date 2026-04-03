@@ -349,7 +349,7 @@ pub fn delete_rule<S: Storage>(storage: &mut S, id: &str) -> Result<(), EngramEr
 }
 
 use crate::cli::utils::{create_table, truncate};
-use prettytable::{cell, row};
+use prettytable::row;
 
 /// List rules
 pub fn list_rules<S: Storage>(

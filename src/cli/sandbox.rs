@@ -218,7 +218,7 @@ pub fn create_sandbox<S: Storage>(
 }
 
 use crate::cli::utils::{create_table, truncate};
-use prettytable::{cell, row};
+use prettytable::row;
 
 /// List sandbox configurations
 pub fn list_sandboxes<S: Storage>(

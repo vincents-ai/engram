@@ -3,354 +3,279 @@ name: engram-dispatching-parallel-agents
 description: "Engram-integrated version. Use when facing 2+ independent tasks - creates engram workflow with parallel states instead of manual task dispatch."
 ---
 
-# Dispatching Parallel Agents (Engram-Integrated)
+# Dispatching Parallel Agents
 
 ## Overview
 
-When you have multiple unrelated failures or tasks, investigating them sequentially wastes time. Each investigation is independent and can happen in parallel using engram workflow engine.
+When you have multiple independent tasks, dispatching agents sequentially wastes time. Dispatch one agent per independent domain concurrently, using engram workflows to coordinate and engram relationships to collect results.
 
-**Core principle:** Dispatch one agent per independent problem domain via engram workflow. Let them work concurrently with full audit trail.
+**Core principle:** Dispatch by UUID. Agents pull their own context. Results are stored in engram, not returned in conversation.
 
-## Key Changes from Original
+## When to Use
 
-**Original:** Manual task dispatch, tracking in conversation
-**Engram-integrated:** Creates engram workflow with parallel states, tracks agent assignment, stores results as reasoning entities.
+Use when:
+- 2+ independent failures or tasks exist simultaneously
+- Each domain can be understood without context from the others
+- No shared mutable state between investigations
 
-## When to Use with Engram
+Do not use when:
+- Tasks are related (fixing one may fix others)
+- Agents would write to the same files
+- Quick one-off fix with no audit trail needed
 
-```dot
-digraph when_to_use_engram {
-    "Multiple failures?" [shape=diamond];
-    "Are they independent?" [shape=diamond];
-    "Need audit trail?" [shape=diamond];
-    "Use subagent-driven (sequential)" [shape=box];
-    "dispatching-parallel-agents-engram" [shape=box];
-    "Manual parallel dispatch" [shape=box];
+## The Pattern
 
-    "Multiple failures?" -> "Are they independent?" [label="yes"];
-    "Are they independent?" -> "Need audit trail?" [label="yes"];
-    "Need audit trail?" -> "dispatching-parallel-agents-engram" [label="yes - engram workflow"];
-    "Need audit trail?" -> "Manual parallel dispatch" [label="no - quick fix"];
-    "Are they independent?" -> "Use subagent-driven (sequential)" [label="no - related"];
-}
-```
-
-**Use when:**
-- 3+ test files failing with different root causes
-- Multiple subsystems broken independently
-- Need full audit trail in engram
-- Each problem can be understood without context from others
-- No shared state between investigations
-
-**Don't use when:**
-- Failures are related (fix one might fix others)
-- Need to understand full system state
-- Agents would interfere with each other
-- Quick one-off fix without needing tracking
-
-## The Engram Workflow Pattern
-
-### Step 1: Identify Independent Domains
-
-Group failures by what's broken, create engram reasoning:
+### 0. Search First
 
 ```bash
-# Create reasoning for domain analysis
+engram ask query "<domain or feature name>"
+# Returns: summary + UUIDs
+
+engram task show <UUID>
+# Returns: full record for a specific task
+```
+
+### 1. Anchor Work and Analyse Domains
+
+```bash
+engram task create --title "<Goal: description>"
+# PARENT_UUID = ...
+engram task update <PARENT_UUID> --status in_progress
+
+# Store the domain analysis
+engram context create \
+  --title "Domain analysis: <goal>" \
+  --content "## Independent Domains\n\nDomain 1: <name>\n- Scope: <what files/components>\n- Hypothesis: <root cause guess>\n\nDomain 2: <name>\n- Scope: <what files/components>\n- Hypothesis: <root cause guess>\n\n## Independence Justification\n- <why domain 1 does not affect domain 2>\n\n## Why Parallel\n- Sequential: N x <time> = <total>\n- Parallel: <time>" \
+  --source "domain-analysis"
+# ANALYSIS_UUID = ...
+
+engram relationship create \
+  --source-id <PARENT_UUID> --source-type task \
+  --target-id <ANALYSIS_UUID> --target-type context \
+  --relationship-type relates_to --agent "<name>"
+```
+
+### 2. Create a Workflow
+
+Workflows require a definition first, then an instance:
+
+```bash
+# Create the workflow definition
+engram workflow create \
+  --title "Parallel Investigation" \
+  --description "Coordinate parallel agent domains" \
+  --agent "<name>"
+# WORKFLOW_DEF_UUID = ...
+
+# Start an instance of the workflow
+engram workflow start <WORKFLOW_DEF_UUID> --agent "<name>"
+# WORKFLOW_INSTANCE_UUID = ...
+```
+
+### 3. Create Subtasks — One Per Domain
+
+```bash
+engram task create --title "<Domain 1>: <Problem description>"
+# D1_UUID = ...
+engram task update <D1_UUID> --status in_progress
+
+engram relationship create \
+  --source-id <PARENT_UUID> --source-type task \
+  --target-id <D1_UUID> --target-type task \
+  --relationship-type depends_on --agent "<name>"
+
+engram task create --title "<Domain 2>: <Problem description>"
+# D2_UUID = ...
+engram task update <D2_UUID> --status in_progress
+
+engram relationship create \
+  --source-id <PARENT_UUID> --source-type task \
+  --target-id <D2_UUID> --target-type task \
+  --relationship-type depends_on --agent "<name>"
+```
+
+Store each domain's scope and constraints in engram so agents can retrieve them:
+
+```bash
+engram context create \
+  --title "Domain 1 brief" \
+  --content "Domain 1 scope: <files/components to investigate>\nConstraints: do NOT modify domain 2 files\nGoal: <specific outcome>" \
+  --source "domain-1-brief"
+# BRIEF1_UUID = ...
+
+engram relationship create \
+  --source-id <D1_UUID> --source-type task \
+  --target-id <BRIEF1_UUID> --target-type context \
+  --relationship-type relates_to --agent "<name>"
+```
+
+### 4. Dispatch — Pass UUID Only
+
+```bash
+# Tell each subagent only their task UUID:
+# "Your task UUID is <D1_UUID>. Run: engram task show <D1_UUID>. Use engram-subagent-register."
+```
+
+Subagents retrieve their brief via:
+```bash
+engram relationship connected --entity-id <D1_UUID> --max-depth 2
+```
+
+### 5. Advance Workflow State
+
+```bash
+engram workflow transition <WORKFLOW_INSTANCE_UUID> \
+  --transition "domains-dispatched" \
+  --agent "<name>"
+```
+
+### 6. Collect Results
+
+When subagents mark their tasks done:
+
+```bash
+engram relationship connected --entity-id <D1_UUID> --max-depth 2
+engram relationship connected --entity-id <D2_UUID> --max-depth 2
+engram ask query "<feature name> parallel results"
+```
+
+### 7. Integrate and Record
+
+```bash
 engram reasoning create \
-  --title "[Feature] Parallel Domain Analysis" \
-  --task-id [PARENT_TASK_ID] \
-  --content "## Problem Domains Identified\n\n### Domain 1: [Domain Name]\n- **Tests affected:** [test file 1], [test file 2]\n- **Root cause hypothesis:** [hypothesis]\n- **Scope:** [what agent should investigate]\n\n### Domain 2: [Domain Name]\n- **Tests affected:** [test file 3]\n- **Root cause hypothesis:** [hypothesis]\n- **Scope:** [what agent should investigate]\n\n### Domain 3: [Domain Name]\n- **Tests affected:** [test file 4], [test file 5]\n- **Root cause hypothesis:** [hypothesis]\n- **Scope:** [what agent should investigate]\n\n## Independence Justification\n1. [Why domain 1 doesn't affect domain 2]\n2. [Why domain 2 doesn't affect domain 3]\n3. [Why domain 1 doesn't affect domain 3]\n\n## Expected Timeline\n- Sequential: 3 x [time per investigation] = [total]\n- Parallel: [time per investigation] = [total]" \
-  --confidence 0.8 \
-  --tags "parallel,domain-analysis,[feature-tag]"
-```
-
-### Step 2: Create Engram Workflow
-
-```bash
-# Create workflow for parallel execution
-WORKFLOW_ID=$(engram workflow create \
-  --title "[Feature] Parallel Investigation Workflow" \
-  --description "Dispatching [N] agents to investigate independent problem domains in parallel" \
-  --json | jq -r '.id')
-
-echo "Created workflow: $WORKFLOW_ID"
-```
-
-### Step 3: Add Workflow States
-
-```bash
-# Create states for each domain
-engram workflow add-state \
-  --name "planning" \
-  --workflow-id $WORKFLOW_ID
-
-engram workflow add-state \
-  --name "domain-1-investigation" \
-  --workflow-id $WORKFLOW_ID
-
-engram workflow add-state \
-  --name "domain-2-investigation" \
-  --workflow-id $WORKFLOW_ID
-
-engram workflow add-state \
-  --name "domain-3-investigation" \
-  --workflow-id $WORKFLOW_ID
-
-engram workflow add-state \
-  --name "integration" \
-  --workflow-id $WORKFLOW_ID
-
-engram workflow add-state \
-  --name "complete" \
-  --workflow-id $WORKFLOW_ID
-```
-
-### Step 4: Add Parallel Transitions
-
-```bash
-# Add parallel transitions (all investigation states run in parallel)
-engram workflow add-transition \
-  --from "planning" \
-  --to "domain-1-investigation,domain-2-investigation,domain-3-investigation" \
-  --workflow-id $WORKFLOW_ID
-
-# All investigations must complete before integration
-engram workflow add-transition \
-  --from "domain-1-investigation,domain-2-investigation,domain-3-investigation" \
-  --to "integration" \
-  --condition "all_complete" \
-  --workflow-id $WORKFLOW_ID
-
-# Integration leads to complete
-engram workflow add-transition \
-  --from "integration" \
-  --to "complete" \
-  --workflow-id $WORKFLOW_ID
-```
-
-### Step 5: Dispatch Agents via Engram
-
-For each domain, create subtask and assign agent:
-
-```bash
-# Domain 1 subtask
-DOMAIN1_TASK=$(engram task create \
-  --title "[Domain 1] Investigation: [Problem Description]" \
-  --description "**Scope:** [Specific test files/components]\n\n**Goal:** Make failing tests pass\n\n**Constraints:**\n- Focus only on [domain 1]\n- Do NOT modify [domain 2] or [domain 3]\n- Return summary of root cause and changes\n\n**Failing tests:**\n- \`[test 1]\`: [error]\n- \`[test 2]\`: [error]" \
-  --priority high \
-  --agent agent-domain-1 \
-  --json | jq -r '.id')
-
-# Domain 2 subtask
-DOMAIN2_TASK=$(engram task create \
-  --title "[Domain 2] Investigation: [Problem Description]" \
-  --description "**Scope:** [Specific test files/components]\n\n**Goal:** Make failing tests pass\n\n**Constraints:**\n- Focus only on [domain 2]\n- Do NOT modify [domain 1] or [domain 3]\n- Return summary of root cause and changes" \
-  --priority high \
-  --agent agent-domain-2 \
-  --json | jq -r '.id')
-
-# Domain 3 subtask
-DOMAIN3_TASK=$(engram task create \
-  --title "[Domain 3] Investigation: [Problem Description]" \
-  --description "**Scope:** [Specific test files/components]\n\n**Goal:** Make failing tests pass\n\n**Constraints:**\n- Focus only on [domain 3]\n- Do NOT modify [domain 1] or [domain 2]\n- Return summary of root cause and changes" \
-  --priority high \
-  --agent agent-domain-3 \
-  --json | jq -r '.id')
-
-# Link to parent
-engram relationship create \
-  --source-id [PARENT_TASK_ID] \
-  --target-id $DOMAIN1_TASK \
-  --contains --agent default
+  --title "Integration summary: <goal>" \
+  --task-id <PARENT_UUID> \
+  --content "## Integration Summary\n\nDomain 1 (<name>):\n- Root cause: <description>\n- Changes: <files modified>\n- Status: COMPLETE\n\nDomain 2 (<name>):\n- Root cause: <description>\n- Changes: <files modified>\n- Status: COMPLETE\n\n## Conflict Check\n- Domain 1 files: <list>\n- Domain 2 files: <list>\n- Conflicts: none / <describe any>"
+# SUMMARY_UUID = ...
 
 engram relationship create \
-  --source-id [PARENT_TASK_ID] \
-  --target-id $DOMAIN2_TASK \
-  --contains --agent default
-
-engram relationship create \
-  --source-id [PARENT_TASK_ID] \
-  --target-id $DOMAIN3_TASK \
-  --contains --agent default
+  --source-id <PARENT_UUID> --source-type task \
+  --target-id <SUMMARY_UUID> --target-type reasoning \
+  --relationship-type explains --agent "<name>"
 ```
 
-### Step 6: Start Workflow
+### 8. Validate and Close
 
 ```bash
-# Start the workflow
-engram workflow start \
-  --agent coordinator \
-  --entity-id [PARENT_TASK_ID] \
-  --entity-type task \
-  $WORKFLOW_ID
-
-# Get workflow instance ID
-INSTANCE_ID=$(engram workflow list --json | jq -r '.[] | select(.workflow_id == "'$WORKFLOW_ID'") | .instance_id')
-```
-
-### Step 7: Track Parallel Progress
-
-```bash
-# Monitor workflow status
-engram workflow status $INSTANCE_ID
-
-# Expected output:
-# planning → domain-1-investigation ✓, domain-2-investigation ✓, domain-3-investigation ✓
-# Waiting for all to complete...
-```
-
-### Step 8: Review and Integrate
-
-When agents complete, review results:
-
-```bash
-# Get results from each domain
-engram reasoning list --task-id $DOMAIN1_TASK | grep -E "summary|fix|result"
-engram reasoning list --task-id $DOMAIN2_TASK | grep -E "summary|fix|result"
-engram reasoning list --task-id $DOMAIN3_TASK | grep -E "summary|fix|result"
-
-# Create integration reasoning
-engram reasoning create \
-  --title "[Feature] Parallel Integration Summary" \
-  --task-id [PARENT_TASK_ID] \
-  --content "## Domain 1 Results\n**Agent:** agent-domain-1\n**Status:** ✅ COMPLETE\n**Root cause:** [description]\n**Fixes:** [files changed]\n\n## Domain 2 Results\n**Agent:** agent-domain-2\n**Status:** ✅ COMPLETE\n**Root cause:** [description]\n**Fixes:** [files changed]\n\n## Domain 3 Results\n**Agent:** agent-domain-3\n**Status:** ✅ COMPLETE\n**Root cause:** [description]\n**Fixes:** [files changed]\n\n## Conflict Check\n- Domain 1 files: [list]\n- Domain 2 files: [list]\n- Domain 3 files: [list]\n**Result:** ✅ No conflicts detected" \
-  --confidence 0.9 \
-  --tags "parallel,integration,[feature-tag]"
-
-# Final verification
 engram validate check
 
-# Mark integration complete
-engram workflow add-state-transition \
-  --instance-id $INSTANCE_ID \
-  --from "integration" \
-  --to "complete"
+engram workflow transition <WORKFLOW_INSTANCE_UUID> \
+  --transition "integration-complete" \
+  --agent "<name>"
+
+engram task update <PARENT_UUID> --status done
 ```
 
-## Engram Integration Summary
-
-| Original Tracking | Engram Integration |
-|-------------------|-------------------|
-| Manual task list | engram task hierarchy with `--parent` |
-| Agent assignment | `engram task --agent` |
-| Progress tracking | `engram workflow status` |
-| Parallel coordination | engram workflow with parallel states |
-| Results documentation | engram reasoning entities |
-| Integration summary | engram reasoning + validation |
-
-## Querying Parallel Progress
+### 9. Get Next Action When Unsure
 
 ```bash
-# Get all domain tasks
-engram task list --parent [PARENT_TASK_ID]
-
-# Get workflow status
-engram workflow status [INSTANCE_ID]
-
-# Get results from specific domain
-engram reasoning list --task-id [DOMAIN_TASK_ID]
-
-# Get all parallel results
-engram relationship connected --entity-id [PARENT_TASK_ID] --relationship-type contains
-
-# Search for parallel execution results
-engram reasoning list | grep "parallel.*result"
+engram next
 ```
 
-## Example Workflow
+## Terminal Commands
+
+Run terminal commands directly in your shell. Do not use `engram sandbox execute` — that command does not exist.
+
+If you need elevated permissions or human approval:
 
 ```bash
-# Scenario: 6 test failures across 3 independent files
+engram escalation create \
+  --agent "<name>" \
+  --operation-type "<type>" \
+  --operation "<what you need to do>" \
+  --justification "<why this is needed>"
+```
 
-# Step 1: Create parent task
-PARENT=$(engram task create \
-  --title "Fix 6 Test Failures in Parallel" \
-  --description "6 failures across 3 independent domains" \
-  --priority high \
-  --agent default \
-  --json | jq -r '.id')
+## Example
 
-# Step 2: Analyze domains
+```
+Scenario: 6 test failures across 3 independent files
+
+[Search]
+engram ask query "test failures parallel domains"
+
+[Anchor]
+engram task create --title "Fix: 6 test failures (parallel)"
+# PARENT_UUID = abc-001
+engram task update abc-001 --status in_progress
+
+[Domain analysis]
+engram context create \
+  --title "Domain analysis: 6 test failures" \
+  --content "Domain 1: agent-tool-abort.test.ts — timing issues (3 failures)\nDomain 2: batch-completion.test.ts — event structure (2 failures)\nDomain 3: tool-approval.test.ts — async wait (1 failure)\nIndependent: Yes, separate subsystems" \
+  --source "domain-analysis"
+# ANALYSIS_UUID = ctx-002
+
+engram relationship create \
+  --source-id abc-001 --source-type task \
+  --target-id ctx-002 --target-type context \
+  --relationship-type relates_to --agent "orchestrator"
+
+[Create workflow]
+engram workflow create \
+  --title "Parallel Investigation" \
+  --description "3-domain parallel fix" \
+  --agent "orchestrator"
+# WORKFLOW_DEF_UUID = wf-def-001
+
+engram workflow start wf-def-001 --agent "orchestrator"
+# WORKFLOW_INSTANCE_UUID = wf-003
+
+[Create subtasks]
+engram task create --title "Fix: agent-tool-abort.test.ts"
+# D1_UUID = abc-004
+engram task update abc-004 --status in_progress
+
+engram relationship create \
+  --source-id abc-001 --source-type task \
+  --target-id abc-004 --target-type task \
+  --relationship-type depends_on --agent "orchestrator"
+
+engram context create \
+  --title "Domain 1 brief" \
+  --content "Scope: agent-tool-abort.test.ts only. Goal: fix 3 timing failures. Do not touch batch or approval files." \
+  --source "domain-1-brief"
+# BRIEF1_UUID = ctx-005
+
+engram relationship create \
+  --source-id abc-004 --source-type task \
+  --target-id ctx-005 --target-type context \
+  --relationship-type relates_to --agent "orchestrator"
+
+# ... repeat for D2 and D3 ...
+
+[Dispatch — UUID only to each agent]
+# "Your task UUID is abc-004. Use engram-subagent-register."
+
+[Advance workflow]
+engram workflow transition wf-003 --transition "dispatched" --agent "orchestrator"
+
+[Collect results when done]
+engram relationship connected --entity-id abc-004 --max-depth 2
+engram relationship connected --entity-id abc-005 --max-depth 2
+
+[Integrate]
 engram reasoning create \
-  --title "6 Test Failures: Domain Analysis" \
-  --task-id $PARENT \
-  --content "Domain 1: agent-tool-abort.test.ts (3 failures - timing)\nDomain 2: batch-completion-behavior.test.ts (2 failures - event structure)\nDomain 3: tool-approval-race-conditions.test.ts (1 failure - async wait)\nIndependent: Yes - separate subsystems" \
-  --confidence 0.85 \
-  --tags "parallel,domain-analysis,test-fixes"
+  --title "Integration: all 3 domains resolved" \
+  --task-id abc-001 \
+  --content "All 3 domains resolved. No file conflicts. Full test suite: 47/47 pass."
+# RSN_UUID = rsn-010
 
-# Step 3: Create workflow
-WF=$(engram workflow create \
-  --title "Test Fix Parallel Workflow" \
-  --description "3 agents in parallel for 3 test files" \
-  --json | jq -r '.id')
+engram relationship create \
+  --source-id abc-001 --source-type task \
+  --target-id rsn-010 --target-type reasoning \
+  --relationship-type explains --agent "orchestrator"
 
-# Add states
-for state in planning domain1 domain2 domain3 integration complete; do
-  engram workflow add-state --name $state --workflow-id $WF
-done
-
-# Add transitions
-engram workflow add-transition --from planning --to "domain1,domain2,domain3" --workflow-id $WF
-engram workflow add-transition --from "domain1,domain2,domain3" --to integration --condition all_complete --workflow-id $WF
-engram workflow add-transition --from integration --to complete --workflow-id $WF
-
-# Step 4: Create subtasks
-TASK1=$(engram task create \
-  --title "Fix agent-tool-abort.test.ts (3 failures)" \
-  --description "Timing issues in abort logic" \
-  --parent $PARENT \
-  --priority high \
-  --agent agent-abort \
-  --json | jq -r '.id')
-
-TASK2=$(engram task create \
-  --title "Fix batch-completion-behavior.test.ts (2 failures)" \
-  --description "Event structure bugs" \
-  --parent $PARENT \
-  --priority high \
-  --agent agent-batch \
-  --json | jq -r '.id')
-
-TASK3=$(engram task create \
-  --title "Fix tool-approval-race-conditions.test.ts (1 failure)" \
-  --description "Async wait issues" \
-  --parent $PARENT \
-  --priority high \
-  --agent agent-approval \
-  --json | jq -r '.id')
-
-# Step 5: Start workflow
-engram workflow start --agent coordinator --entity-id $PARENT --entity-type task $WF
-
-# Step 6: Monitor
-engram workflow status [instance_id]
-# Output: domain1 ✓, domain2 ✓, domain3 ✓ → integration
-
-# Step 7: Integration
-engram reasoning create \
-  --title "Test Fixes: Integration Summary" \
-  --task-id $PARENT \
-  --content "Agent 1 (abort): Fixed with event-based waiting\nAgent 2 (batch): Fixed threadId in event structure\nAgent 3 (approval): Added async wait for tool execution\nConflicts: None\nFull suite: ✅ All tests pass" \
-  --confidence 1.0 \
-  --tags "parallel,integration,complete"
-
+[Validate and close]
 engram validate check
+
+engram workflow transition wf-003 --transition "complete" --agent "orchestrator"
+engram task update abc-001 --status done
 ```
-
-## Key Benefits of Engram Integration
-
-1. **Full Audit Trail:** Every dispatch, result, and integration step stored in engram
-2. **Queryable:** `engram reasoning list | grep parallel` shows all parallel executions
-3. **Reproducible:** Future agents can see what was done and why
-4. **Parallel Safety:** Workflow engine ensures proper coordination
-5. **Progress Visibility:** `engram workflow status` shows real-time progress
-6. **Conflict Detection:** All changes documented, conflicts easily spotted
 
 ## Related Skills
 
-This skill integrates with:
-- `engram-delegate-to-agents` - Core delegation pattern for task breakdown
-- `engram-subagent-driven-development` - Systematic multi-agent workflow
-- `engram-use-memory` - Store parallel execution context
-- `engram-audit-trail` - Track parallel agent work
-- `engram-plan-feature` - Break features into parallelizable tasks
+- `engram-delegate-to-agents` — single-agent delegation pattern
+- `engram-subagent-register` — what subagents use to claim tasks and report back
+- `engram-orchestrator` — full orchestration loop
+- `engram-audit-trail` — traceability of parallel agent work

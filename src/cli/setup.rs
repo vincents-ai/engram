@@ -323,6 +323,15 @@ pub fn setup_skills(config_dir: Option<PathBuf>) -> Result<(), EngramError> {
             "engram-retrospective",
             include_str!("../../skills/review/retrospective.md"),
         ),
+        // Orchestration Skills (2)
+        (
+            "engram-orchestrator",
+            include_str!("../../skills/meta/engram-orchestrator.md"),
+        ),
+        (
+            "engram-subagent-register",
+            include_str!("../../skills/meta/engram-subagent-register.md"),
+        ),
     ];
 
     let mut installed_count = 0;

@@ -298,26 +298,6 @@ fn display_compliance(compliance: &Compliance) {
     }
 }
 
-/// Display compliance requirement summary
-// Deprecated: use list_compliance table output instead
-fn display_compliance_summary(compliance: &Compliance) {
-    let status_icon = match compliance.status {
-        crate::entities::ComplianceStatus::Compliant => "✅",
-        crate::entities::ComplianceStatus::NonCompliant => "❌",
-        crate::entities::ComplianceStatus::Pending => "⏳",
-        crate::entities::ComplianceStatus::Exempt => "🔒",
-    };
-
-    println!(
-        "  {} [{}] {} - {} ({})",
-        status_icon,
-        &compliance.id[..8],
-        compliance.title,
-        compliance.category,
-        compliance.agent
-    );
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

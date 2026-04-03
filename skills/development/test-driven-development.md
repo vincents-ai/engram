@@ -3,16 +3,11 @@ name: engram-test-driven-development
 description: "Engram-integrated version. Use when implementing any feature or bugfix - integrates engram validation checkpoints at each TDD phase."
 ---
 
-# Test-Driven Development (Engram-Integrated)
+# Test-Driven Development
 
 ## Overview
 
-Write the test first. Watch it fail. Write minimal code to pass. Integrate engram validation at each phase for quality gates.
-
-## Key Changes from Original
-
-**Original:** Manual verification of RED/GREEN/REFACTOR phases
-**Engram-integrated:** Call `engram validate check` at each phase to enforce quality gates and store evidence as reasoning entities.
+Write the test first. Watch it fail. Write minimal code to pass. Store evidence at each phase in engram. Run `engram validate check` at each gate.
 
 ## The Iron Law
 
@@ -22,191 +17,270 @@ NO PRODUCTION CODE WITHOUT A FAILING TEST FIRST
 
 Write code before the test? Delete it. Start over. No exceptions.
 
-## Red-Green-Refactor with Engram
+## The Pattern
 
-### Phase 1: RED - Write Failing Test
+### 0. Search First
 
-Write one minimal test showing what should happen.
+Before starting any TDD cycle, check for existing tests or context:
 
 ```bash
-# Create reasoning entity for RED phase
-engram reasoning create \
-  --title "[Feature] TDD Phase: RED" \
-  --task-id [TASK_ID] \
-  --content "**Test written:** \`[test_name]\`\n\n**Location:** \`[test/file/path.rs]\`\n\n**Test code:**\n\`\`\`[language]\n[test code]\n\`\`\`\n\n**Expected behavior:**\n[What the test should verify]\n\n**Files created/modified:**\n- \`[test/file/path.rs]\`" \
-  --confidence 1.0 \
-  --tags "tdd,red,[feature-name]"
+engram ask query "<feature or function name> test"
+engram task show <UUID>
 ```
 
-### Phase 2: Verify RED - Watch It Fail (Engram Validation)
-
-**MANDATORY. Never skip.**
+### 1. Anchor Work
 
 ```bash
-# Run test to verify it fails
-pytest [test/path] -v
-
-# Create reasoning entity with evidence
-engram reasoning create \
-  --title "[Feature] TDD Phase: RED Verification" \
-  --task-id [TASK_ID] \
-  --content "**Command run:** \`pytest [test/path] -v\`\n\n**Output:**\n\`\`\`\n[test output showing failure]\n\`\`\`\n\n**Exit code:** [non-zero]\n\n**Verification:**\n✅ Test fails (not errors)\n✅ Failure message is expected: \"[expected message]\"\n✅ Fails because feature missing (not typos)\n\n**Status:** READY FOR GREEN PHASE" \
-  --confidence 1.0 \
-  --tags "tdd,red-verification,[feature-name]"
-
-# Enforce: validate check must pass before proceeding
-engram validate check --dry-run
+engram task create --title "TDD: <feature description>"
+# TASK_UUID = ...
+engram task update <TASK_UUID> --status in_progress
 ```
 
-**Test passes?** You're testing existing behavior. Fix test.
+### Phase 1: RED — Write the Failing Test
 
-**Test errors?** Fix error, re-run until it fails correctly.
+Write one minimal test that shows what should happen. One behaviour per test.
 
-### Phase 3: GREEN - Minimal Code
-
-Write simplest code to pass the test.
+Store evidence:
 
 ```bash
-# Create reasoning entity for GREEN phase
-engram reasoning create \
-  --title "[Feature] TDD Phase: GREEN" \
-  --task-id [TASK_ID] \
-  --content "**Implementation code:**\n\`\`\`[language]\n[minimal implementation code]\n\`\`\`\n\n**Files created/modified:**\n- \`[implementation/file.rs]\`\n\n**Justification:**\n- Only implements what test requires\n- No extra features (YAGNI)\n- No refactoring (done in REFACTOR phase)" \
-  --confidence 1.0 \
-  --tags "tdd,green,[feature-name]"
+engram context create \
+  --title "RED: <test_name>" \
+  --content "Test written: <test_name>\nLocation: <test/file/path>\nTest code:\n<full test code>\nExpected behaviour: <what this test verifies>" \
+  --source "<test-file-path>"
+# RED_CTX_UUID = ...
+
+engram relationship create \
+  --source-id <TASK_UUID> --source-type task \
+  --target-id <RED_CTX_UUID> --target-type context \
+  --relationship-type relates_to --agent "<name>"
 ```
 
-### Phase 4: Verify GREEN - Watch It Pass (Engram Validation)
+### Phase 2: Verify RED — Watch It Fail
 
-**MANDATORY.**
+**Mandatory. Never skip.**
+
+Run the test directly in your shell:
 
 ```bash
-# Run test to verify it passes
-pytest [test/path] -v
+<test runner command>
+```
 
-# Create reasoning entity with evidence
+Store the output as evidence:
+
+```bash
 engram reasoning create \
-  --title "[Feature] TDD Phase: GREEN Verification" \
-  --task-id [TASK_ID] \
-  --content "**Command run:** \`pytest [test/path] -v\`\n\n**Output:**\n\`\`\`\n[test output showing pass]\n\`\`\`\n\n**Exit code:** [0]\n\n**Verification:**\n✅ Test passes\n✅ All other tests still pass\n✅ Output pristine (no errors, warnings)\n\n**Status:** READY FOR REFACTOR PHASE" \
-  --confidence 1.0 \
-  --tags "tdd,green-verification,[feature-name]"
+  --title "RED verification: <test_name>" \
+  --task-id <TASK_UUID> \
+  --content "RED verification:\nCommand: <test command>\nOutput:\n<full test output showing failure>\nExit code: non-zero\nVerification:\n- Test fails (not errors): YES\n- Failure message is expected: YES\n- Fails because feature missing (not typos): YES\nStatus: READY FOR GREEN"
+# RED_VERIFY_UUID = ...
 
-# Enforce: validate check must pass before proceeding
+engram relationship create \
+  --source-id <TASK_UUID> --source-type task \
+  --target-id <RED_VERIFY_UUID> --target-type reasoning \
+  --relationship-type explains --agent "<name>"
+```
+
+Run the quality gate:
+
+```bash
 engram validate check
 ```
 
-**Test fails?** Fix code, not test.
+**Test passes?** You are testing existing behaviour. Fix the test.
+**Test errors?** Fix the error. Re-run until it fails correctly.
 
-**Other tests fail?** Fix now.
+### Phase 3: GREEN — Minimal Code
 
-### Phase 5: REFACTOR - Clean Up
+Write the simplest code that makes the test pass. No extra features (YAGNI).
 
-After green only:
+Run the test directly in your shell:
 
 ```bash
-# Create reasoning entity for REFACTOR phase
-engram reasoning create \
-  --title "[Feature] TDD Phase: REFACTOR" \
-  --task-id [TASK_ID] \
-  --content "**Refactoring changes:**\n- Removed duplication: [what was extracted]\n- Improved names: [what was renamed]\n- Extracted helpers: [what was created]\n\n**Code after refactor:**\n\`\`\`[language]\n[refactored code]\n\`\`\`\n\n**Verification:**\n✅ Tests still pass after refactor\n✅ No new behavior added\n✅ Code is cleaner" \
-  --confidence 1.0 \
-  --tags "tdd,refactor,[feature-name]"
+<test runner command>
+```
 
-# Final validation
+Store the implementation:
+
+```bash
+engram context create \
+  --title "GREEN: <test_name>" \
+  --content "Implementation:\n<minimal implementation code>\nFiles modified:\n- <file>: <what changed>\nJustification: implements only what the test requires, no extra logic." \
+  --source "<implementation-file-path>"
+# GREEN_CTX_UUID = ...
+
+engram relationship create \
+  --source-id <TASK_UUID> --source-type task \
+  --target-id <GREEN_CTX_UUID> --target-type context \
+  --relationship-type relates_to --agent "<name>"
+```
+
+Store the verification:
+
+```bash
+engram reasoning create \
+  --title "GREEN verification: <test_name>" \
+  --task-id <TASK_UUID> \
+  --content "GREEN verification:\nCommand: <test command>\nOutput:\n<full test output showing pass>\nExit code: 0\nAll other tests pass: YES\nStatus: READY FOR REFACTOR"
+# GREEN_VERIFY_UUID = ...
+
+engram relationship create \
+  --source-id <TASK_UUID> --source-type task \
+  --target-id <GREEN_VERIFY_UUID> --target-type reasoning \
+  --relationship-type explains --agent "<name>"
+```
+
+Run the quality gate:
+
+```bash
 engram validate check
+```
+
+**Test fails?** Fix the code, not the test.
+**Other tests fail?** Fix them now before proceeding.
+
+### Phase 4: REFACTOR — Clean Up
+
+Only after green. Do not add behaviour.
+
+Run the full test suite directly in your shell:
+
+```bash
+<test runner command>
+```
+
+```bash
+engram reasoning create \
+  --title "REFACTOR: <test_name>" \
+  --task-id <TASK_UUID> \
+  --content "REFACTOR:\nChanges made:\n- Removed duplication: <what>\n- Improved names: <what>\n- Extracted helpers: <what>\nCode after:\n<refactored code>\nVerification: tests still pass after refactor: YES\nNew behaviour added: NO"
+# REFACTOR_UUID = ...
+
+engram relationship create \
+  --source-id <TASK_UUID> --source-type task \
+  --target-id <REFACTOR_UUID> --target-type reasoning \
+  --relationship-type explains --agent "<name>"
+```
+
+Run final gate:
+
+```bash
+engram validate check
+```
+
+### Phase 5: Validate and Next Step
+
+```bash
+engram task update <TASK_UUID> --status done
+engram next
+```
+
+## Terminal Commands
+
+Run terminal commands directly in your shell. Do not use `engram sandbox execute` — that command does not exist.
+
+If you need elevated permissions or human approval:
+
+```bash
+engram escalation create \
+  --agent "<name>" \
+  --operation-type "<type>" \
+  --operation "<what you need to do>" \
+  --justification "<why this is needed>"
 ```
 
 ## Good Tests
 
 | Quality | Good | Bad |
 |---------|------|-----|
-| **Minimal** | One behavior. "and" in name? Split it. | `test('validates email and domain and whitespace')` |
-| **Clear** | Name describes behavior | `test('test1')` |
-| **Shows intent** | Demonstrates desired API | Obscures what code should do |
+| **Minimal** | One behaviour. "and" in name? Split it. | `test_validates_email_and_domain_and_whitespace` |
+| **Clear** | Name describes the behaviour | `test1` |
+| **Shows intent** | Demonstrates the desired API | Obscures what code should do |
 
-## Why Engram Integration Matters
+## Example
 
-1. **Audit Trail:** Every TDD phase is documented in engram
-2. **Evidence-Based:** Verification outputs stored as reasoning
-3. **Queryable:** `engram reasoning list --task-id [ID]` shows full TDD history
-4. **Quality Gates:** `engram validate check` enforced at each phase
-5. **Prevents Regression:** Full history prevents "just this once" shortcuts
-
-## Example Workflow
-
-```bash
-# TDD Cycle 1: User login
-
-# RED
-engram reasoning create \
-  --title "Auth TDD: RED - Login rejects invalid password" \
-  --task-id $TASK \
-  --content "Test: login_rejects_invalid_password\nCode: [test code]" \
-  --confidence 1.0 \
-  --tags "tdd,red,auth"
-
-# Verify RED
-pytest tests/auth/login_test.py::login_rejects_invalid_password -v
-
-engram reasoning create \
-  --title "Auth TDD: RED Verification" \
-  --task-id $TASK \
-  --content "Output: FAILED\nExpected: Password mismatch error\nStatus: CORRECT FAILURE" \
-  --confidence 1.0 \
-  --tags "tdd,red,auth"
-
-engram validate check --dry-run
-
-# GREEN
-engram reasoning create \
-  --title "Auth TDD: GREEN - Minimal password check" \
-  --task-id $TASK \
-  --content "Code: [minimal implementation]" \
-  --confidence 1.0 \
-  --tags "tdd,green,auth"
-
-# Verify GREEN
-pytest tests/auth/login_test.py::login_rejects_invalid_password -v
-
-engram reasoning create \
-  --title "Auth TDD: GREEN Verification" \
-  --task-id $TASK \
-  --content "Output: PASSED\nAll tests: 15/15 passed\nStatus: CORRECT" \
-  --confidence 1.0 \
-  --tags "tdd,green,auth"
-
-engram validate check
-
-# REFACTOR
-engram reasoning create \
-  --title "Auth TDD: REFACTOR - Extracted validation helper" \
-  --task-id $TASK \
-  --content "Extracted validate_password function\nTests still pass: YES" \
-  --confidence 1.0 \
-  --tags "tdd,refactor,auth"
-
-engram validate check
 ```
+Feature: "User login rejects invalid password"
 
-## Querying TDD History
+[Search first]
+engram ask query "login password validation test"
 
-```bash
-# Get all TDD phases for a task
-engram reasoning list --task-id [TASK_ID] | grep tdd
+[Anchor]
+engram task create --title "TDD: Login rejects invalid password"
+# TASK_UUID = task-001
+engram task update task-001 --status in_progress
 
-# Get specific phase
-engram reasoning show [REASONING_ID]
+[RED: Write failing test]
+engram context create \
+  --title "RED: login_rejects_invalid_password" \
+  --content "Test: login_rejects_invalid_password\nLocation: tests/auth/login_test.rs\nCode:\n#[tokio::test]\nasync fn login_rejects_invalid_password() {\n    let resp = post(\"/auth/login\", json!({\"password\":\"wrong\"})).await;\n    assert_eq!(resp.status(), 401);\n}\nExpected: returns 401 Unauthorized on wrong password" \
+  --source "tests/auth/login_test.rs"
+# RED_CTX_UUID = ctx-002
 
-# Get all phases with evidence
-engram relationship connected --entity-id [TASK_ID] --relationship-type documents | grep -E "tdd|TDD"
+engram relationship create \
+  --source-id task-001 --source-type task \
+  --target-id ctx-002 --target-type context \
+  --relationship-type relates_to --agent "developer"
+
+[Verify RED — run directly in shell]
+cargo test login_rejects_invalid_password -- --nocapture
+
+engram reasoning create \
+  --title "RED verification: login_rejects_invalid_password" \
+  --task-id task-001 \
+  --content "RED verification:\nCommand: cargo test login_rejects_invalid_password\nOutput: FAILED — cannot find function 'post'\nFails because feature missing: YES\nStatus: READY FOR GREEN"
+# RED_VERIFY_UUID = rsn-003
+
+engram relationship create \
+  --source-id task-001 --source-type task \
+  --target-id rsn-003 --target-type reasoning \
+  --relationship-type explains --agent "developer"
+
+engram validate check
+
+[GREEN: Minimal implementation]
+cargo test login_rejects_invalid_password -- --nocapture
+
+engram context create \
+  --title "GREEN: login_rejects_invalid_password" \
+  --content "Implementation: added post() helper and login handler returning 401 on bcrypt mismatch.\nFiles: src/api/auth/login.rs, tests/auth/helpers.rs" \
+  --source "src/api/auth/login.rs"
+# GREEN_CTX_UUID = ctx-004
+
+engram relationship create \
+  --source-id task-001 --source-type task \
+  --target-id ctx-004 --target-type context \
+  --relationship-type relates_to --agent "developer"
+
+engram reasoning create \
+  --title "GREEN verification: login_rejects_invalid_password" \
+  --task-id task-001 \
+  --content "GREEN verification:\nOutput: PASSED — 1 test passed\nAll other tests: 15/15 pass\nStatus: READY FOR REFACTOR"
+# GREEN_VERIFY_UUID = rsn-005
+
+engram relationship create \
+  --source-id task-001 --source-type task \
+  --target-id rsn-005 --target-type reasoning \
+  --relationship-type explains --agent "developer"
+
+engram validate check
+
+[REFACTOR]
+cargo test
+
+engram reasoning create \
+  --title "REFACTOR: login_rejects_invalid_password" \
+  --task-id task-001 \
+  --content "REFACTOR: extracted validate_credentials() helper from handler. No new behaviour. Tests: 16/16 pass."
+
+engram validate check
+
+[Close]
+engram task update task-001 --status done
+engram next
 ```
 
 ## Related Skills
 
-This skill integrates with:
-- `engram-testing` - Track test execution and coverage
-- `engram-use-memory` - Store TDD cycles for learning
-- `engram-audit-trail` - Complete record of red-green-refactor cycles
-- `engram-check-compliance` - TDD provides test evidence for compliance
-- `engram-systematic-debugging` - Debug failing tests systematically
+- `engram-systematic-debugging` — debug failing tests systematically
+- `engram-audit-trail` — complete record of TDD cycles
+- `engram-subagent-driven-development` — execute TDD plan with subagents
