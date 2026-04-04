@@ -709,7 +709,9 @@ impl EngramWorld {
         use engram::entities::knowledge::KnowledgeType;
 
         if !(0.0..=1.0).contains(&confidence) {
-            self.last_result = Some(Err("Validation error: confidence must be between 0.0 and 1.0".to_string()));
+            self.last_result = Some(Err(
+                "Validation error: confidence must be between 0.0 and 1.0".to_string(),
+            ));
             return;
         }
 
@@ -855,7 +857,11 @@ impl EngramWorld {
         self.storage.as_ref()?.get(id, entity_type).ok()?
     }
 
-    pub fn get_last_entity_field(&self, entity_type: &str, field: &str) -> Option<serde_json::Value> {
+    pub fn get_last_entity_field(
+        &self,
+        entity_type: &str,
+        field: &str,
+    ) -> Option<serde_json::Value> {
         let entity = self.get_last_entity(entity_type)?;
         entity.data.get(field).cloned()
     }
@@ -891,9 +897,9 @@ impl EngramWorld {
 
     pub fn complete_last_session(&mut self) {
         let now = chrono::Utc::now().to_rfc3339();
-        let start_time = self.get_last_entity_field("session", "start_time").and_then(|v| {
-            v.as_str().map(|s| s.to_string())
-        });
+        let start_time = self
+            .get_last_entity_field("session", "start_time")
+            .and_then(|v| v.as_str().map(|s| s.to_string()));
 
         let duration = if let Some(ref start) = start_time {
             chrono::DateTime::parse_from_rfc3339(start)
@@ -912,11 +918,8 @@ impl EngramWorld {
             "status",
             serde_json::Value::String("completed".to_string()),
         );
-        let _ = self.update_last_entity_field(
-            "session",
-            "end_time",
-            serde_json::Value::String(now),
-        );
+        let _ =
+            self.update_last_entity_field("session", "end_time", serde_json::Value::String(now));
         if let Some(dur) = duration {
             let _ = self.update_last_entity_field(
                 "session",
@@ -932,8 +935,14 @@ impl EngramWorld {
             let id = entity.id.clone();
             let title = data.get("title").and_then(|v| v.as_str()).unwrap_or("N/A");
             let status = data.get("status").and_then(|v| v.as_str()).unwrap_or("N/A");
-            let start_time = data.get("start_time").and_then(|v| v.as_str()).unwrap_or("N/A");
-            let end_time = data.get("end_time").and_then(|v| v.as_str()).unwrap_or("N/A");
+            let start_time = data
+                .get("start_time")
+                .and_then(|v| v.as_str())
+                .unwrap_or("N/A");
+            let end_time = data
+                .get("end_time")
+                .and_then(|v| v.as_str())
+                .unwrap_or("N/A");
             let duration = data.get("duration_seconds").map(|v| format!("{}", v));
             let space_metrics = data.get("space_metrics").map(|v| format!("{:?}", v));
             let dora_metrics = data.get("dora_metrics").map(|v| format!("{:?}", v));
@@ -1152,13 +1161,26 @@ impl EngramWorld {
             }
         };
 
-        let _agent = self.current_agent.clone().unwrap_or_else(|| "default".to_string());
+        let _agent = self
+            .current_agent
+            .clone()
+            .unwrap_or_else(|| "default".to_string());
         let mut stored_ids = Vec::new();
 
         for value in &values {
-            let title = value.get("title").and_then(|v| v.as_str()).unwrap_or("Untitled").to_string();
-            let knowledge_type_str = value.get("knowledge_type").and_then(|v| v.as_str()).unwrap_or("fact");
-            let confidence = value.get("confidence").and_then(|v| v.as_f64()).unwrap_or(0.8);
+            let title = value
+                .get("title")
+                .and_then(|v| v.as_str())
+                .unwrap_or("Untitled")
+                .to_string();
+            let knowledge_type_str = value
+                .get("knowledge_type")
+                .and_then(|v| v.as_str())
+                .unwrap_or("fact");
+            let confidence = value
+                .get("confidence")
+                .and_then(|v| v.as_f64())
+                .unwrap_or(0.8);
 
             self.create_knowledge(&title, knowledge_type_str, confidence);
             if let Some(ids) = self.created_entities.get("knowledge") {
@@ -1170,7 +1192,10 @@ impl EngramWorld {
             }
         }
 
-        self.last_result = Some(Ok(format!("{} knowledge items created from JSON", stored_ids.len())));
+        self.last_result = Some(Ok(format!(
+            "{} knowledge items created from JSON",
+            stored_ids.len()
+        )));
     }
 
     pub async fn list_sessions_for_agent(&mut self, agent: &str) {
@@ -1241,11 +1266,18 @@ impl EngramWorld {
         let normalized = strategy.trim().to_lowercase().replace("-", "_");
         if !valid_strategies.contains(&normalized.as_str()) {
             let available = valid_strategies.join(", ");
-            self.last_result = Some(Err(format!("Invalid strategy '{}'. Valid strategies: {}", strategy, available)));
+            self.last_result = Some(Err(format!(
+                "Invalid strategy '{}'. Valid strategies: {}",
+                strategy, available
+            )));
             return;
         }
 
-        let agent_list: Vec<&str> = agents.split(',').map(|s| s.trim()).filter(|s| !s.is_empty()).collect();
+        let agent_list: Vec<&str> = agents
+            .split(',')
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty())
+            .collect();
 
         if agent_list.len() <= 1 {
             self.last_sync_conflicts.clear();
@@ -1262,10 +1294,7 @@ impl EngramWorld {
                     for task in tasks {
                         let task_id = task.id.clone();
                         if all_tasks.contains_key(&task_id) {
-                            conflicts.push(format!(
-                                "Task {} exists for both agents",
-                                task_id
-                            ));
+                            conflicts.push(format!("Task {} exists for both agents", task_id));
                         } else {
                             all_tasks.insert(task_id, task);
                         }

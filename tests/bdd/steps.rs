@@ -342,10 +342,15 @@ async fn then_should_not_see(world: &mut EngramWorld, content: String) {
 
 #[then(expr = "the task status should be {string}")]
 async fn then_task_status_should_be(world: &mut EngramWorld, _status: String) {
-    let actual = world.get_last_entity_field("task", "status")
+    let actual = world
+        .get_last_entity_field("task", "status")
         .and_then(|v| v.as_str().map(String::from))
         .unwrap_or_default();
-    assert_eq!(actual, _status.to_lowercase().replace("-", "_"), "Task status mismatch");
+    assert_eq!(
+        actual,
+        _status.to_lowercase().replace("-", "_"),
+        "Task status mismatch"
+    );
 }
 
 #[then("I should see the task title")]
@@ -363,7 +368,9 @@ async fn then_should_see_creation_timestamp(world: &mut EngramWorld) {
     let entity = world.get_last_entity("task");
     assert!(entity.is_some(), "No entity found");
     let entity = entity.unwrap();
-    let timestamp = entity.data.get("created_at")
+    let timestamp = entity
+        .data
+        .get("created_at")
         .or_else(|| entity.data.get("start_time"))
         .and_then(|v| v.as_str());
     assert!(timestamp.is_some(), "No creation timestamp found");
@@ -371,7 +378,8 @@ async fn then_should_see_creation_timestamp(world: &mut EngramWorld) {
 
 #[then(expr = "the task description should be {string}")]
 async fn then_task_description_should_be(world: &mut EngramWorld, _description: String) {
-    let actual = world.get_last_entity_field("task", "description")
+    let actual = world
+        .get_last_entity_field("task", "description")
         .and_then(|v| v.as_str().map(String::from))
         .unwrap_or_default();
     assert_eq!(actual, _description, "Task description mismatch");
@@ -379,7 +387,8 @@ async fn then_task_description_should_be(world: &mut EngramWorld, _description: 
 
 #[then(expr = "the task title should be {string}")]
 async fn then_task_title_should_be(world: &mut EngramWorld, _title: String) {
-    let actual = world.get_last_entity_field("task", "title")
+    let actual = world
+        .get_last_entity_field("task", "title")
         .and_then(|v| v.as_str().map(String::from))
         .unwrap_or_default();
     assert_eq!(actual, _title, "Task title mismatch");
@@ -387,7 +396,8 @@ async fn then_task_title_should_be(world: &mut EngramWorld, _title: String) {
 
 #[then(expr = "the task priority should be {string}")]
 async fn then_task_priority_should_be(world: &mut EngramWorld, _priority: String) {
-    let actual = world.get_last_entity_field("task", "priority")
+    let actual = world
+        .get_last_entity_field("task", "priority")
         .and_then(|v| v.as_str().map(String::from))
         .unwrap_or_default();
     assert_eq!(actual, _priority.to_lowercase(), "Task priority mismatch");
@@ -395,7 +405,8 @@ async fn then_task_priority_should_be(world: &mut EngramWorld, _priority: String
 
 #[then(expr = "the task agent should be {string}")]
 async fn then_task_agent_should_be(world: &mut EngramWorld, _agent: String) {
-    let actual = world.get_last_entity_field("task", "agent")
+    let actual = world
+        .get_last_entity_field("task", "agent")
         .and_then(|v| v.as_str().map(String::from))
         .unwrap_or_default();
     assert_eq!(actual, _agent, "Task agent mismatch");
@@ -409,7 +420,8 @@ async fn then_context_created_successfully(world: &mut EngramWorld) {
 
 #[then(expr = "the context content should be {string}")]
 async fn then_context_content_should_be(world: &mut EngramWorld, _content: String) {
-    let actual = world.get_last_entity_field("context", "content")
+    let actual = world
+        .get_last_entity_field("context", "content")
         .and_then(|v| v.as_str().map(String::from))
         .unwrap_or_default();
     assert_eq!(actual, _content, "Context content mismatch");
@@ -429,7 +441,8 @@ async fn then_reasoning_created_successfully(world: &mut EngramWorld) {
 
 #[then("the conclusion should match the file content")]
 async fn then_conclusion_matches_file(world: &mut EngramWorld) {
-    let conclusion = world.get_last_entity_field("reasoning", "conclusion")
+    let conclusion = world
+        .get_last_entity_field("reasoning", "conclusion")
         .and_then(|v| v.as_str().map(String::from))
         .unwrap_or_default();
     assert!(!conclusion.is_empty(), "Reasoning has no conclusion");
@@ -449,14 +462,18 @@ async fn then_session_has_unique_id(world: &mut EngramWorld) {
 
 #[then("auto-detection should identify Engram project work")]
 async fn then_autodetect_identifies_engram(world: &mut EngramWorld) {
-    assert!(world.last_auto_detect.unwrap_or(false), "Auto-detection should be enabled");
+    assert!(
+        world.last_auto_detect.unwrap_or(false),
+        "Auto-detection should be enabled"
+    );
     let result = world.get_last_result();
     assert!(result.is_some(), "No result available");
 }
 
 #[then(expr = "the session status should be {string}")]
 async fn then_session_status_should_be(world: &mut EngramWorld, _status: String) {
-    let actual = world.get_last_entity_field("session", "status")
+    let actual = world
+        .get_last_entity_field("session", "status")
         .and_then(|v| v.as_str().map(String::from))
         .unwrap_or_default();
     let expected = _status.to_lowercase();
@@ -465,13 +482,19 @@ async fn then_session_status_should_be(world: &mut EngramWorld, _status: String)
 
 #[then("the session should not have auto-detection enabled")]
 async fn then_no_autodetect(world: &mut EngramWorld) {
-    assert!(!world.last_auto_detect.unwrap_or(true), "Auto-detection should not be enabled");
+    assert!(
+        !world.last_auto_detect.unwrap_or(true),
+        "Auto-detection should not be enabled"
+    );
 }
 
 #[then("I should see the session details")]
 async fn then_should_see_session_details(world: &mut EngramWorld) {
     if let Some(Ok(result)) = world.get_last_result() {
-        assert!(result.contains("session") || result.contains("Session"), "Expected session details in result");
+        assert!(
+            result.contains("session") || result.contains("Session"),
+            "Expected session details in result"
+        );
     }
 }
 
@@ -480,7 +503,10 @@ async fn then_should_see_space_metrics(world: &mut EngramWorld) {
     let entity = world.get_last_entity("session");
     assert!(entity.is_some(), "No session entity found");
     let entity = entity.unwrap();
-    assert!(entity.data.get("space_metrics").is_some(), "Session should have space_metrics");
+    assert!(
+        entity.data.get("space_metrics").is_some(),
+        "Session should have space_metrics"
+    );
 }
 
 #[then("I should see DORA metrics")]
@@ -488,27 +514,38 @@ async fn then_should_see_dora_metrics(world: &mut EngramWorld) {
     let entity = world.get_last_entity("session");
     assert!(entity.is_some(), "No session entity found");
     let entity = entity.unwrap();
-    assert!(entity.data.get("dora_metrics").is_some(), "Session should have dora_metrics");
+    assert!(
+        entity.data.get("dora_metrics").is_some(),
+        "Session should have dora_metrics"
+    );
 }
 
 #[then("I should see the session duration")]
 async fn then_should_see_duration(world: &mut EngramWorld) {
     let entity = world.get_last_entity("session");
-    let has_duration = entity.map(|e| e.data.get("duration_seconds").is_some()).unwrap_or(false);
+    let has_duration = entity
+        .map(|e| e.data.get("duration_seconds").is_some())
+        .unwrap_or(false);
     assert!(has_duration, "Session should have duration");
 }
 
 #[then("I should see a productivity summary")]
 async fn then_should_see_productivity_summary(world: &mut EngramWorld) {
     if let Some(Ok(result)) = world.get_last_result() {
-        assert!(result.contains("duration") || result.contains("Duration"), "Expected productivity summary");
+        assert!(
+            result.contains("duration") || result.contains("Duration"),
+            "Expected productivity summary"
+        );
     }
 }
 
 #[then("I should see the total duration")]
 async fn then_should_see_total_duration(world: &mut EngramWorld) {
     if let Some(Ok(result)) = world.get_last_result() {
-        assert!(result.contains("duration") || result.contains("Duration"), "Expected total duration");
+        assert!(
+            result.contains("duration") || result.contains("Duration"),
+            "Expected total duration"
+        );
     }
 }
 
@@ -552,7 +589,10 @@ async fn then_all_sessions_for_agent(world: &mut EngramWorld, _agent: String) {
 #[then("they should be the 5 most recent sessions")]
 async fn then_most_recent_sessions(world: &mut EngramWorld) {
     if let Some(Ok(result)) = world.get_last_result() {
-        assert!(result.contains("session") || result.contains("Session"), "Expected session list");
+        assert!(
+            result.contains("session") || result.contains("Session"),
+            "Expected session list"
+        );
     }
 }
 
@@ -566,24 +606,35 @@ async fn then_task_has_version(world: &mut EngramWorld, _agent: String) {
     let result = world.get_last_result();
     assert!(result.is_some(), "No sync result available");
     if let Some(Ok(msg)) = &result {
-        assert!(msg.contains("synced") || msg.contains("Synced") || msg.contains("task"), "Expected version info in sync result");
+        assert!(
+            msg.contains("synced") || msg.contains("Synced") || msg.contains("task"),
+            "Expected version info in sync result"
+        );
     }
 }
 
 #[then("no conflicts should be reported")]
 async fn then_no_conflicts(world: &mut EngramWorld) {
-    assert!(world.last_sync_conflicts.is_empty(), "Expected no conflicts, but found: {:?}", world.last_sync_conflicts);
+    assert!(
+        world.last_sync_conflicts.is_empty(),
+        "Expected no conflicts, but found: {:?}",
+        world.last_sync_conflicts
+    );
 }
 
 #[then("conflicts should be detected")]
 async fn then_conflicts_detected(world: &mut EngramWorld) {
-    assert!(!world.last_sync_conflicts.is_empty(), "Expected conflicts to be detected");
+    assert!(
+        !world.last_sync_conflicts.is_empty(),
+        "Expected conflicts to be detected"
+    );
 }
 
 #[then("I should see a conflict report")]
 async fn then_should_see_conflict_report(world: &mut EngramWorld) {
     if let Some(Ok(result)) = world.get_last_result() {
-        let has_conflicts = !world.last_sync_conflicts.is_empty() || result.to_lowercase().contains("conflict");
+        let has_conflicts =
+            !world.last_sync_conflicts.is_empty() || result.to_lowercase().contains("conflict");
         assert!(has_conflicts, "Expected conflict report in result");
     }
 }
@@ -605,7 +656,11 @@ async fn then_duplicates_resolved(world: &mut EngramWorld) {
 async fn then_should_see_single_agent_message(world: &mut EngramWorld) {
     if let Some(Err(msg)) = world.get_last_result() {
         let lower = msg.to_lowercase();
-        assert!(lower.contains("single") || lower.contains("one agent") || lower.contains("no-op"), "Expected single agent message, got: {}", msg);
+        assert!(
+            lower.contains("single") || lower.contains("one agent") || lower.contains("no-op"),
+            "Expected single agent message, got: {}",
+            msg
+        );
     }
 }
 
@@ -613,7 +668,11 @@ async fn then_should_see_single_agent_message(world: &mut EngramWorld) {
 async fn then_no_sync_operations(world: &mut EngramWorld) {
     if let Some(Err(msg)) = world.get_last_result() {
         let lower = msg.to_lowercase();
-        assert!(lower.contains("single") || lower.contains("no-op") || lower.contains("no sync"), "Expected no sync operations message, got: {}", msg);
+        assert!(
+            lower.contains("single") || lower.contains("no-op") || lower.contains("no sync"),
+            "Expected no sync operations message, got: {}",
+            msg
+        );
     }
 }
 
@@ -626,7 +685,11 @@ async fn then_sync_should_fail(world: &mut EngramWorld) {
 async fn then_should_see_empty_agents_error(world: &mut EngramWorld) {
     if let Some(Err(msg)) = world.get_last_result() {
         let lower = msg.to_lowercase();
-        assert!(lower.contains("empty") || lower.contains("no agent") || lower.contains("single"), "Expected empty agents error, got: {}", msg);
+        assert!(
+            lower.contains("empty") || lower.contains("no agent") || lower.contains("single"),
+            "Expected empty agents error, got: {}",
+            msg
+        );
     } else {
         panic!("Expected error about empty agents list");
     }
@@ -636,7 +699,10 @@ async fn then_should_see_empty_agents_error(world: &mut EngramWorld) {
 async fn then_should_see_valid_strategies(world: &mut EngramWorld) {
     if let Some(Ok(result)) = world.get_last_result() {
         let lower = result.to_lowercase();
-        assert!(lower.contains("strategy") || lower.contains("merge") || lower.contains("latest"), "Expected valid strategy options in result");
+        assert!(
+            lower.contains("strategy") || lower.contains("merge") || lower.contains("latest"),
+            "Expected valid strategy options in result"
+        );
     }
 }
 
@@ -653,7 +719,8 @@ async fn then_should_see_n_contexts(world: &mut EngramWorld, count: i32) {
 
 #[then("I should see the context title")]
 async fn then_should_see_context_title(world: &mut EngramWorld) {
-    let title = world.get_last_entity_field("context", "title")
+    let title = world
+        .get_last_entity_field("context", "title")
         .and_then(|v| v.as_str().map(String::from))
         .unwrap_or_default();
     assert!(!title.is_empty(), "Context title should not be empty");
@@ -661,7 +728,8 @@ async fn then_should_see_context_title(world: &mut EngramWorld) {
 
 #[then("I should see the context content")]
 async fn then_should_see_context_content(world: &mut EngramWorld) {
-    let content = world.get_last_entity_field("context", "content")
+    let content = world
+        .get_last_entity_field("context", "content")
         .and_then(|v| v.as_str().map(String::from))
         .unwrap_or_default();
     assert!(!content.is_empty(), "Context content should not be empty");
@@ -669,7 +737,8 @@ async fn then_should_see_context_content(world: &mut EngramWorld) {
 
 #[then("I should see the relevance level")]
 async fn then_should_see_relevance_level(world: &mut EngramWorld) {
-    let relevance = world.get_last_entity_field("context", "relevance")
+    let relevance = world
+        .get_last_entity_field("context", "relevance")
         .and_then(|v| v.as_str().map(String::from))
         .unwrap_or_default();
     assert!(!relevance.is_empty(), "Relevance level should be present");
@@ -688,14 +757,21 @@ async fn then_knowledge_stored_in_git(world: &mut EngramWorld) {
 
 #[then("the creation should fail")]
 async fn then_creation_should_fail(world: &mut EngramWorld) {
-    assert!(!world.last_operation_succeeded(), "Expected creation to fail");
+    assert!(
+        !world.last_operation_succeeded(),
+        "Expected creation to fail"
+    );
 }
 
 #[then("I should see a validation error about confidence range")]
 async fn then_should_see_confidence_error(world: &mut EngramWorld) {
     if let Some(Err(msg)) = world.get_last_result() {
         let lower = msg.to_lowercase();
-        assert!(lower.contains("confidence") || lower.contains("range") || lower.contains("validation"), "Expected confidence validation error, got: {}", msg);
+        assert!(
+            lower.contains("confidence") || lower.contains("range") || lower.contains("validation"),
+            "Expected confidence validation error, got: {}",
+            msg
+        );
     } else {
         panic!("Expected error about confidence range");
     }
@@ -703,10 +779,16 @@ async fn then_should_see_confidence_error(world: &mut EngramWorld) {
 
 #[then(expr = "the knowledge confidence should be {float}")]
 async fn then_knowledge_confidence_should_be(world: &mut EngramWorld, _confidence: f64) {
-    let actual = world.get_last_entity_field("knowledge", "confidence")
+    let actual = world
+        .get_last_entity_field("knowledge", "confidence")
         .and_then(|v| v.as_f64())
         .unwrap_or(0.0);
-    assert!((actual - _confidence).abs() < 0.01, "Confidence mismatch: expected {}, got {}", _confidence, actual);
+    assert!(
+        (actual - _confidence).abs() < 0.01,
+        "Confidence mismatch: expected {}, got {}",
+        _confidence,
+        actual
+    );
 }
 
 #[then(expr = "I should see {int} knowledge items")]
@@ -735,7 +817,8 @@ async fn then_should_see_n_knowledge(world: &mut EngramWorld, count: i32) {
 
 #[then("I should see the knowledge title")]
 async fn then_should_see_knowledge_title(world: &mut EngramWorld) {
-    let title = world.get_last_entity_field("knowledge", "title")
+    let title = world
+        .get_last_entity_field("knowledge", "title")
         .and_then(|v| v.as_str().map(String::from))
         .unwrap_or_default();
     assert!(!title.is_empty(), "Knowledge title should be present");
@@ -743,7 +826,8 @@ async fn then_should_see_knowledge_title(world: &mut EngramWorld) {
 
 #[then("I should see the knowledge type")]
 async fn then_should_see_knowledge_type(world: &mut EngramWorld) {
-    let ktype = world.get_last_entity_field("knowledge", "knowledge_type")
+    let ktype = world
+        .get_last_entity_field("knowledge", "knowledge_type")
         .and_then(|v| v.as_str().map(String::from))
         .unwrap_or_default();
     assert!(!ktype.is_empty(), "Knowledge type should be present");
@@ -757,7 +841,8 @@ async fn then_should_see_confidence_score(world: &mut EngramWorld) {
 
 #[then(expr = "the conclusion should be {string}")]
 async fn then_conclusion_should_be(world: &mut EngramWorld, _conclusion: String) {
-    let actual = world.get_last_entity_field("reasoning", "conclusion")
+    let actual = world
+        .get_last_entity_field("reasoning", "conclusion")
         .and_then(|v| v.as_str().map(String::from))
         .unwrap_or_default();
     assert_eq!(actual, _conclusion, "Reasoning conclusion mismatch");
@@ -768,10 +853,18 @@ async fn then_reasoning_references_task(world: &mut EngramWorld) {
     let task_ids = world.get_created_entities("task");
     assert!(!task_ids.is_empty(), "No tasks created to reference");
     let task_id = task_ids.last().unwrap();
-    let reasoning_task_id = world.get_last_entity_field("reasoning", "task_id")
+    let reasoning_task_id = world
+        .get_last_entity_field("reasoning", "task_id")
         .and_then(|v| v.as_str().map(String::from));
-    assert!(reasoning_task_id.is_some(), "Reasoning should reference a task");
-    assert_eq!(reasoning_task_id.unwrap(), *task_id, "Reasoning should reference the correct task");
+    assert!(
+        reasoning_task_id.is_some(),
+        "Reasoning should reference a task"
+    );
+    assert_eq!(
+        reasoning_task_id.unwrap(),
+        *task_id,
+        "Reasoning should reference the correct task"
+    );
 }
 
 #[then(expr = "I should see {int} reasoning items")]
@@ -787,7 +880,8 @@ async fn then_should_see_n_reasoning(world: &mut EngramWorld, count: i32) {
 
 #[then("I should see the reasoning title")]
 async fn then_should_see_reasoning_title(world: &mut EngramWorld) {
-    let title = world.get_last_entity_field("reasoning", "title")
+    let title = world
+        .get_last_entity_field("reasoning", "title")
         .and_then(|v| v.as_str().map(String::from))
         .unwrap_or_default();
     assert!(!title.is_empty(), "Reasoning title should be present");
@@ -795,7 +889,8 @@ async fn then_should_see_reasoning_title(world: &mut EngramWorld) {
 
 #[then("I should see the description")]
 async fn then_should_see_description(world: &mut EngramWorld) {
-    let steps = world.get_last_entity_field("reasoning", "steps")
+    let steps = world
+        .get_last_entity_field("reasoning", "steps")
         .and_then(|v| v.as_array().cloned())
         .unwrap_or_default();
     let has_desc = steps.iter().any(|s| {
@@ -809,10 +904,14 @@ async fn then_should_see_description(world: &mut EngramWorld) {
 
 #[then("I should see the conclusion")]
 async fn then_should_see_conclusion(world: &mut EngramWorld) {
-    let conclusion = world.get_last_entity_field("reasoning", "conclusion")
+    let conclusion = world
+        .get_last_entity_field("reasoning", "conclusion")
         .and_then(|v| v.as_str().map(String::from))
         .unwrap_or_default();
-    assert!(!conclusion.is_empty(), "Reasoning conclusion should be present");
+    assert!(
+        !conclusion.is_empty(),
+        "Reasoning conclusion should be present"
+    );
 }
 
 // ============================================================================
