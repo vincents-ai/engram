@@ -450,7 +450,9 @@ impl QueryMapper {
                     || t.design_rationale.iter().any(|(k, v)| {
                         k.to_lowercase().contains(&query) || v.to_lowercase().contains(&query)
                     })
-                    || t.invariants.iter().any(|i| i.to_lowercase().contains(&query));
+                    || t.invariants
+                        .iter()
+                        .any(|i| i.to_lowercase().contains(&query));
                 if matches {
                     matching_theories.push(json!({
                         "id": t.id,
