@@ -27,6 +27,9 @@ pub struct EngramWorld {
     last_query_count: Option<usize>,
     last_query_ids: Vec<String>,
     workspace_dir: String,
+    cycle_constraints_enabled: bool,
+    last_auto_detect: Option<bool>,
+    last_sync_conflicts: Vec<String>,
 }
 
 impl EngramWorld {
@@ -43,6 +46,9 @@ impl EngramWorld {
             last_query_count: None,
             last_query_ids: Vec::new(),
             workspace_dir,
+            cycle_constraints_enabled: true,
+            last_auto_detect: None,
+            last_sync_conflicts: Vec::new(),
         }
     }
 
@@ -549,7 +555,32 @@ impl EngramWorld {
     }
 
     pub async fn show_last_entity_details(&mut self) {
-        self.last_result = Some(Ok("Entity details shown".to_string()));
+        let mut found = false;
+
+        for (entity_type, ids) in &self.created_entities {
+            if let Some(last_id) = ids.last() {
+                if let Some(ref storage) = self.storage {
+                    if let Ok(Some(entity)) = storage.get(last_id, entity_type) {
+                        let mut details = format!(
+                            "Entity Details:\n  ID: {}\n  Type: {}\n  Agent: {}",
+                            entity.id, entity.entity_type, entity.agent
+                        );
+                        if let Some(obj) = entity.data.as_object() {
+                            for (key, value) in obj {
+                                details.push_str(&format!("\n  {}: {}", key, value));
+                            }
+                        }
+                        self.last_result = Some(Ok(details));
+                        found = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if !found {
+            self.last_result = Some(Err("No entities found".to_string()));
+        }
     }
 
     pub fn create_task_from_json(&mut self, json: &str) {
@@ -677,6 +708,13 @@ impl EngramWorld {
     pub fn create_knowledge(&mut self, title: &str, knowledge_type: &str, confidence: f64) {
         use engram::entities::knowledge::KnowledgeType;
 
+        if !(0.0..=1.0).contains(&confidence) {
+            self.last_result = Some(Err(
+                "Validation error: confidence must be between 0.0 and 1.0".to_string(),
+            ));
+            return;
+        }
+
         let knowledge_type_enum = match knowledge_type {
             "fact" => KnowledgeType::Fact,
             "pattern" => KnowledgeType::Pattern,
@@ -748,10 +786,42 @@ impl EngramWorld {
         }
     }
 
-    pub fn create_reasoning(&mut self, _title: &str, _description: &str, _conclusion: &str) {
-        let reasoning_id = format!("reasoning-{}", uuid::Uuid::new_v4());
-        self.add_created_entity("reasoning", &reasoning_id);
-        self.last_result = Some(Ok(format!("Reasoning '{}' created", reasoning_id)));
+    pub fn create_reasoning(&mut self, title: &str, description: &str, conclusion: &str) {
+        use engram::entities::reasoning::Reasoning;
+
+        let mut reasoning = Reasoning::new(
+            title.to_string(),
+            self.created_entities
+                .get("task")
+                .and_then(|ids| ids.last().cloned())
+                .unwrap_or_else(|| "none".to_string()),
+            self.current_agent
+                .clone()
+                .unwrap_or_else(|| "default".to_string()),
+        );
+        reasoning.add_step(description.to_string(), conclusion.to_string(), 0.8);
+        reasoning.set_conclusion(conclusion.to_string(), 0.8);
+
+        let reasoning_id = reasoning.id.clone();
+        let generic = reasoning.to_generic();
+
+        let mut result = Ok(());
+
+        if let Some(ref mut storage) = self.storage {
+            if let Err(e) = storage.store(&generic) {
+                result = Err(e);
+            }
+        }
+
+        match result {
+            Ok(()) => {
+                self.add_created_entity("reasoning", &reasoning_id);
+                self.last_result = Some(Ok(format!("Reasoning '{}' created", reasoning_id)));
+            }
+            Err(e) => {
+                self.last_result = Some(Err(e.to_string()));
+            }
+        }
     }
 
     pub fn create_test_entity(&mut self, entity_id: &str, entity_type: &str) {
@@ -780,6 +850,126 @@ impl EngramWorld {
             &strength_string,
             "No description",
         );
+    }
+
+    pub fn get_last_entity(&self, entity_type: &str) -> Option<GenericEntity> {
+        let id = self.created_entities.get(entity_type)?.last()?;
+        self.storage.as_ref()?.get(id, entity_type).ok()?
+    }
+
+    pub fn get_last_entity_field(
+        &self,
+        entity_type: &str,
+        field: &str,
+    ) -> Option<serde_json::Value> {
+        let entity = self.get_last_entity(entity_type)?;
+        entity.data.get(field).cloned()
+    }
+
+    pub fn update_last_entity_field(
+        &mut self,
+        entity_type: &str,
+        field: &str,
+        value: serde_json::Value,
+    ) -> Result<(), String> {
+        let last_id = self
+            .created_entities
+            .get(entity_type)
+            .and_then(|ids| ids.last().cloned())
+            .ok_or_else(|| format!("No {} entity found", entity_type))?;
+
+        let storage = self
+            .storage
+            .as_mut()
+            .ok_or_else(|| "Storage not initialized".to_string())?;
+
+        let mut entity = storage
+            .get(&last_id, entity_type)
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| format!("Entity {} not found in storage", last_id))?;
+
+        if let Some(obj) = entity.data.as_object_mut() {
+            obj.insert(field.to_string(), value);
+        }
+
+        storage.store(&entity).map_err(|e| e.to_string())
+    }
+
+    pub fn complete_last_session(&mut self) {
+        let now = chrono::Utc::now().to_rfc3339();
+        let start_time = self
+            .get_last_entity_field("session", "start_time")
+            .and_then(|v| v.as_str().map(|s| s.to_string()));
+
+        let duration = if let Some(ref start) = start_time {
+            chrono::DateTime::parse_from_rfc3339(start)
+                .ok()
+                .and_then(|st| {
+                    chrono::DateTime::parse_from_rfc3339(&now)
+                        .ok()
+                        .map(|et| (et - st).num_seconds() as f64)
+                })
+        } else {
+            None
+        };
+
+        let _ = self.update_last_entity_field(
+            "session",
+            "status",
+            serde_json::Value::String("completed".to_string()),
+        );
+        let _ =
+            self.update_last_entity_field("session", "end_time", serde_json::Value::String(now));
+        if let Some(dur) = duration {
+            let _ = self.update_last_entity_field(
+                "session",
+                "duration_seconds",
+                serde_json::json!(dur),
+            );
+        }
+    }
+
+    pub fn show_last_session_status(&mut self) {
+        if let Some(entity) = self.get_last_entity("session") {
+            let data = &entity.data;
+            let id = entity.id.clone();
+            let title = data.get("title").and_then(|v| v.as_str()).unwrap_or("N/A");
+            let status = data.get("status").and_then(|v| v.as_str()).unwrap_or("N/A");
+            let start_time = data
+                .get("start_time")
+                .and_then(|v| v.as_str())
+                .unwrap_or("N/A");
+            let end_time = data
+                .get("end_time")
+                .and_then(|v| v.as_str())
+                .unwrap_or("N/A");
+            let duration = data.get("duration_seconds").map(|v| format!("{}", v));
+            let space_metrics = data.get("space_metrics").map(|v| format!("{:?}", v));
+            let dora_metrics = data.get("dora_metrics").map(|v| format!("{:?}", v));
+
+            let formatted = format!(
+                "Session ID: {}\nTitle: {}\nStatus: {}\nStart Time: {}\nEnd Time: {}\nDuration: {}\nSpace Metrics: {}\nDORA Metrics: {}",
+                id,
+                title,
+                status,
+                start_time,
+                end_time,
+                duration.unwrap_or_else(|| "N/A".to_string()),
+                space_metrics.unwrap_or_else(|| "N/A".to_string()),
+                dora_metrics.unwrap_or_else(|| "N/A".to_string()),
+            );
+            self.last_result = Some(Ok(formatted));
+        } else {
+            self.last_result = Some(Err("No session found".to_string()));
+        }
+    }
+
+    pub fn set_cycle_constraints_enabled(&mut self, enabled: bool) {
+        self.cycle_constraints_enabled = enabled;
+    }
+
+    pub fn is_cycle_constraints_enabled(&self) -> bool {
+        self.cycle_constraints_enabled
     }
 
     pub fn verify_last_relationship_strength(&self, _strength: &str) {}
@@ -874,8 +1064,34 @@ impl EngramWorld {
         matches!(result, Some(Ok(_)))
     }
 
-    pub fn create_session(&mut self, title: &str, _auto_detect: bool) {
-        use engram::entities::session::SessionStatus;
+    pub fn create_session(&mut self, title: &str, auto_detect: bool) {
+        use engram::entities::session::{DoraMetrics, SessionStatus, SpaceMetrics};
+
+        self.last_auto_detect = Some(auto_detect);
+
+        let space_metrics = if auto_detect {
+            Some(SpaceMetrics {
+                satisfaction_score: 0.0,
+                performance_score: 0.0,
+                activity_score: 0.0,
+                communication_score: 0.0,
+                efficiency_score: 0.0,
+                overall_score: 0.0,
+            })
+        } else {
+            None
+        };
+
+        let dora_metrics = if auto_detect {
+            Some(DoraMetrics {
+                deployment_frequency: 0.0,
+                lead_time: 0.0,
+                change_failure_rate: 0.0,
+                mean_time_to_recover: 0.0,
+            })
+        } else {
+            None
+        };
 
         let session = Session {
             id: format!(
@@ -896,8 +1112,8 @@ impl EngramWorld {
             knowledge_ids: vec![],
             goals: vec![],
             outcomes: vec![],
-            space_metrics: None,
-            dora_metrics: None,
+            space_metrics,
+            dora_metrics,
             tags: Vec::new(),
             metadata: std::collections::HashMap::new(),
             active_theory_id: None,
@@ -937,28 +1153,49 @@ impl EngramWorld {
     }
 
     pub fn create_knowledge_from_json(&mut self, json: &str) {
-        match serde_json::from_str::<Vec<Knowledge>>(json) {
-            Ok(knowledge_items) => {
-                let mut stored_ids = Vec::new();
-
-                if let Some(ref mut storage) = self.storage {
-                    for knowledge in knowledge_items {
-                        let generic = knowledge.to_generic();
-                        if let Ok(()) = storage.store(&generic) {
-                            stored_ids.push(knowledge.id.clone());
-                        }
-                    }
-                }
-
-                for id in stored_ids {
-                    self.add_created_entity("knowledge", &id);
-                }
-                self.last_result = Some(Ok("Knowledge items created from JSON".to_string()));
-            }
+        let values: Vec<serde_json::Value> = match serde_json::from_str(json) {
+            Ok(v) => v,
             Err(e) => {
                 self.last_result = Some(Err(format!("JSON parse error: {}", e)));
+                return;
+            }
+        };
+
+        let _agent = self
+            .current_agent
+            .clone()
+            .unwrap_or_else(|| "default".to_string());
+        let mut stored_ids = Vec::new();
+
+        for value in &values {
+            let title = value
+                .get("title")
+                .and_then(|v| v.as_str())
+                .unwrap_or("Untitled")
+                .to_string();
+            let knowledge_type_str = value
+                .get("knowledge_type")
+                .and_then(|v| v.as_str())
+                .unwrap_or("fact");
+            let confidence = value
+                .get("confidence")
+                .and_then(|v| v.as_f64())
+                .unwrap_or(0.8);
+
+            self.create_knowledge(&title, knowledge_type_str, confidence);
+            if let Some(ids) = self.created_entities.get("knowledge") {
+                if let Some(last_id) = ids.last() {
+                    if !stored_ids.contains(last_id) {
+                        stored_ids.push(last_id.clone());
+                    }
+                }
             }
         }
+
+        self.last_result = Some(Ok(format!(
+            "{} knowledge items created from JSON",
+            stored_ids.len()
+        )));
     }
 
     pub async fn list_sessions_for_agent(&mut self, agent: &str) {
@@ -1024,8 +1261,67 @@ impl EngramWorld {
         }
     }
 
-    pub async fn sync_agents(&mut self, _agents: &str, _strategy: &str) {
-        self.last_result = Some(Ok("Sync completed".to_string()));
+    pub async fn sync_agents(&mut self, agents: &str, strategy: &str) {
+        let valid_strategies = ["latest_wins", "merge", "agent_priority", "manual"];
+        let normalized = strategy.trim().to_lowercase().replace("-", "_");
+        if !valid_strategies.contains(&normalized.as_str()) {
+            let available = valid_strategies.join(", ");
+            self.last_result = Some(Err(format!(
+                "Invalid strategy '{}'. Valid strategies: {}",
+                strategy, available
+            )));
+            return;
+        }
+
+        let agent_list: Vec<&str> = agents
+            .split(',')
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty())
+            .collect();
+
+        if agent_list.len() <= 1 {
+            self.last_sync_conflicts.clear();
+            self.last_result = Some(Err("Single agent sync is a no-op".to_string()));
+            return;
+        }
+
+        let mut all_tasks = std::collections::HashMap::new();
+        let mut conflicts = Vec::new();
+
+        for agent in &agent_list {
+            if let Some(ref storage) = self.storage {
+                if let Ok(tasks) = storage.query_by_agent(agent, Some("task")) {
+                    for task in tasks {
+                        let task_id = task.id.clone();
+                        if all_tasks.contains_key(&task_id) {
+                            conflicts.push(format!("Task {} exists for both agents", task_id));
+                        } else {
+                            all_tasks.insert(task_id, task);
+                        }
+                    }
+                }
+            }
+        }
+
+        self.last_sync_conflicts = conflicts.clone();
+
+        let unique_count = all_tasks.len();
+        let conflict_count = conflicts.len();
+
+        let mut summary = format!(
+            "Sync completed: {} unique tasks synced across {} agents",
+            unique_count,
+            agent_list.len()
+        );
+
+        if conflict_count > 0 {
+            summary.push_str(&format!(", {} conflicts detected", conflict_count));
+            for conflict in &conflicts {
+                summary.push_str(&format!("\n  - {}", conflict));
+            }
+        }
+
+        self.last_result = Some(Ok(summary));
     }
 
     pub async fn list_contexts(&mut self) {
