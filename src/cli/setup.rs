@@ -349,6 +349,51 @@ pub fn setup_skills(config_dir: Option<PathBuf>, force: bool) -> Result<(), Engr
             "engram-workflow-guide",
             include_str!("../../skills/meta/workflow-guide.md"),
         ),
+        // Screenplay Skills (11)
+        (
+            "screenplay-session-start",
+            include_str!("../../skills/screenplay/session-start.md"),
+        ),
+        (
+            "screenplay-beat-sheet-builder",
+            include_str!("../../skills/screenplay/beat-sheet-builder.md"),
+        ),
+        (
+            "screenplay-outliner",
+            include_str!("../../skills/screenplay/outliner.md"),
+        ),
+        (
+            "screenplay-logline-writer",
+            include_str!("../../skills/screenplay/logline-writer.md"),
+        ),
+        (
+            "screenplay-theme-developer",
+            include_str!("../../skills/screenplay/theme-developer.md"),
+        ),
+        (
+            "screenplay-world-builder",
+            include_str!("../../skills/screenplay/world-builder.md"),
+        ),
+        (
+            "screenplay-character-developer",
+            include_str!("../../skills/screenplay/character-developer.md"),
+        ),
+        (
+            "screenplay-scene-writer",
+            include_str!("../../skills/screenplay/scene-writer.md"),
+        ),
+        (
+            "screenplay-dialogue-refiner",
+            include_str!("../../skills/screenplay/dialogue-refiner.md"),
+        ),
+        (
+            "screenplay-plot-hole-finder",
+            include_str!("../../skills/screenplay/plot-hole-finder.md"),
+        ),
+        (
+            "screenplay-rewriter",
+            include_str!("../../skills/screenplay/rewriter.md"),
+        ),
     ];
 
     let mut installed_count = 0;
