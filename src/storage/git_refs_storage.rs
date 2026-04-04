@@ -79,6 +79,15 @@ impl GitRefsStorage {
         registry.register::<crate::entities::EntityRelationship>();
         registry.register::<crate::entities::Theory>();
         registry.register::<crate::entities::StateReflection>();
+        registry.register::<crate::entities::Rule>();
+        registry.register::<crate::entities::Standard>();
+        registry.register::<crate::entities::ADR>();
+        registry.register::<crate::entities::Workflow>();
+        registry.register::<crate::entities::WorkflowInstance>();
+        registry.register::<crate::entities::AgentSandbox>();
+        registry.register::<crate::entities::EscalationRequest>();
+        registry.register::<crate::entities::ExecutionResult>();
+        registry.register::<crate::entities::ProgressiveGateConfig>();
 
         let mut storage = GitRefsStorage {
             repository: Arc::new(Mutex::new(repository)),
@@ -567,8 +576,19 @@ impl Storage for GitRefsStorage {
             "context".to_string(),
             "reasoning".to_string(),
             "knowledge".to_string(),
-            "session".to_string(),
+            "rule".to_string(),
+            "standard".to_string(),
+            "adr".to_string(),
+            "theory".to_string(),
             "compliance".to_string(),
+            "session".to_string(),
+            "state_reflection".to_string(),
+            "workflow".to_string(),
+            "workflow_instance".to_string(),
+            "agent_sandbox".to_string(),
+            "escalation_request".to_string(),
+            "execution_result".to_string(),
+            "progressive_gate_config".to_string(),
         ];
         let search_types = entity_types.unwrap_or(&default_types);
 

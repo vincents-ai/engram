@@ -4,7 +4,7 @@ This directory contains skills for working with Engram memory system. Skills are
 
 ## Overview
 
-**Total Skills: 46**
+**Total Skills: 57**
 
 Skills are organized by category and use Engram's entity system (context, reasoning, tasks, relationships) to create persistent, queryable memory across agent sessions.
 
@@ -103,6 +103,21 @@ Skills for product strategy, market validation, and launch execution:
 - **market-validation** (`go-to-market/market-validation.md`) - Validate product ideas through interactive discovery and agent-driven research
 - **gtm-strategy** (`go-to-market/gtm-strategy.md`) - Define ICP, positioning, pricing, channels, and success metrics
 - **launch-execution** (`go-to-market/launch-execution.md`) - Build tactical launch plans with content calendar, outreach, and runbook
+
+### Screenplay Skills (11)
+Skills for writing screenplays with a co-writer using engram as persistent project memory:
+
+- **session-start** (`screenplay/session-start.md`) - Start a session: load project context, confirm the goal, enforce co-writer rules
+- **beat-sheet-builder** (`screenplay/beat-sheet-builder.md`) - Build and maintain the Save the Cat! 15-beat structure
+- **outliner** (`screenplay/outliner.md`) - Build a scene-level outline from the beat sheet before drafting
+- **logline-writer** (`screenplay/logline-writer.md`) - Craft and test the single-sentence story spine
+- **theme-developer** (`screenplay/theme-developer.md`) - Develop and track the central theme throughout the script
+- **world-builder** (`screenplay/world-builder.md`) - Define and maintain the rules, locations, and systems of the story world
+- **character-developer** (`screenplay/character-developer.md`) - Build deep, consistent characters with arc, flaw, and voice
+- **scene-writer** (`screenplay/scene-writer.md`) - Write individual scenes in correct Fountain format
+- **dialogue-refiner** (`screenplay/dialogue-refiner.md`) - Polish dialogue for authenticity, subtext, and distinct character voice
+- **plot-hole-finder** (`screenplay/plot-hole-finder.md`) - Systematically find and fix logic, motivation, and structural inconsistencies
+- **rewriter** (`screenplay/rewriter.md`) - Guide the rewrite process through sequential passes
 
 ## Skill Format
 
@@ -308,8 +323,8 @@ Skills integrate with Engram's core features:
 
 ## Skill Statistics
 
-- **Total Skills**: 46
-- **Total Lines**: ~14,000
+- **Total Skills**: 57
+- **Total Lines**: ~17,000
 - **Shortest**: planning/roadmap-planning.md (126 lines)
 - **Longest**: review/code-quality.md (1,007 lines)
 - **Average**: ~300 lines per skill
@@ -327,6 +342,8 @@ Skills integrate with Engram's core features:
 - **v0.4.0** (2026-03-29) - Added 3 go-to-market skills (46 total)
   - Go-to-Market Skills: 3 (market-validation, gtm-strategy, launch-execution)
   - Corresponding pipelines: 101-market-validation, 102-gtm-strategy, 103-launch-execution
+- **v0.5.0** (2026-04-04) - Added 11 screenplay skills (57 total)
+  - Screenplay Skills: 11 (session-start, beat-sheet-builder, outliner, logline-writer, theme-developer, world-builder, character-developer, scene-writer, dialogue-refiner, plot-hole-finder, rewriter)
 
 ## Resources
 

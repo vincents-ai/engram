@@ -372,7 +372,273 @@ impl QueryMapper {
             }
         }
 
-        let total = matching_tasks.len() + matching_contexts.len() + matching_reasoning.len();
+        // Search knowledge by title + content
+        let all_knowledge = storage.query_by_agent(&agent, Some("knowledge"))?;
+        let mut matching_knowledge = Vec::new();
+        for entity in all_knowledge.into_iter().take(50) {
+            if let Ok(k) = crate::entities::Knowledge::from_generic(entity) {
+                if k.title.to_lowercase().contains(&query)
+                    || k.content.to_lowercase().contains(&query)
+                {
+                    matching_knowledge.push(json!({
+                        "id": k.id,
+                        "title": k.title,
+                    }));
+                }
+            }
+        }
+
+        // Search rules by title + description
+        let all_rules = storage.query_by_agent(&agent, Some("rule"))?;
+        let mut matching_rules = Vec::new();
+        for entity in all_rules.into_iter().take(50) {
+            if let Ok(r) = crate::entities::Rule::from_generic(entity) {
+                if r.title.to_lowercase().contains(&query)
+                    || r.description.to_lowercase().contains(&query)
+                {
+                    matching_rules.push(json!({
+                        "id": r.id,
+                        "title": r.title,
+                    }));
+                }
+            }
+        }
+
+        // Search standards by title + description
+        let all_standards = storage.query_by_agent(&agent, Some("standard"))?;
+        let mut matching_standards = Vec::new();
+        for entity in all_standards.into_iter().take(50) {
+            if let Ok(s) = crate::entities::Standard::from_generic(entity) {
+                if s.title.to_lowercase().contains(&query)
+                    || s.description.to_lowercase().contains(&query)
+                {
+                    matching_standards.push(json!({
+                        "id": s.id,
+                        "title": s.title,
+                    }));
+                }
+            }
+        }
+
+        // Search ADRs by title + context + decision
+        let all_adrs = storage.query_by_agent(&agent, Some("adr"))?;
+        let mut matching_adrs = Vec::new();
+        for entity in all_adrs.into_iter().take(50) {
+            if let Ok(adr) = crate::entities::ADR::from_generic(entity) {
+                if adr.title.to_lowercase().contains(&query)
+                    || adr.context.to_lowercase().contains(&query)
+                    || adr.decision.to_lowercase().contains(&query)
+                {
+                    matching_adrs.push(json!({
+                        "id": adr.id,
+                        "title": adr.title,
+                        "number": adr.number,
+                    }));
+                }
+            }
+        }
+
+        // Search theories by domain_name + concepts + rationale
+        let all_theories = storage.query_by_agent(&agent, Some("theory"))?;
+        let mut matching_theories = Vec::new();
+        for entity in all_theories.into_iter().take(50) {
+            if let Ok(t) = crate::entities::Theory::from_generic(entity) {
+                let matches = t.domain_name.to_lowercase().contains(&query)
+                    || t.conceptual_model.iter().any(|(k, v)| {
+                        k.to_lowercase().contains(&query) || v.to_lowercase().contains(&query)
+                    })
+                    || t.design_rationale.iter().any(|(k, v)| {
+                        k.to_lowercase().contains(&query) || v.to_lowercase().contains(&query)
+                    })
+                    || t.invariants
+                        .iter()
+                        .any(|i| i.to_lowercase().contains(&query));
+                if matches {
+                    matching_theories.push(json!({
+                        "id": t.id,
+                        "title": t.domain_name,
+                    }));
+                }
+            }
+        }
+
+        // Search compliance by title + description
+        let all_compliance = storage.query_by_agent(&agent, Some("compliance"))?;
+        let mut matching_compliance = Vec::new();
+        for entity in all_compliance.into_iter().take(50) {
+            if let Ok(c) = crate::entities::Compliance::from_generic(entity) {
+                if c.title.to_lowercase().contains(&query)
+                    || c.description.to_lowercase().contains(&query)
+                {
+                    matching_compliance.push(json!({
+                        "id": c.id,
+                        "title": c.title,
+                    }));
+                }
+            }
+        }
+
+        // Search sessions by title + goals + outcomes
+        let all_sessions = storage.query_by_agent(&agent, Some("session"))?;
+        let mut matching_sessions = Vec::new();
+        for entity in all_sessions.into_iter().take(50) {
+            if let Ok(s) = crate::entities::Session::from_generic(entity) {
+                let matches = s.title.to_lowercase().contains(&query)
+                    || s.goals.iter().any(|g| g.to_lowercase().contains(&query))
+                    || s.outcomes.iter().any(|o| o.to_lowercase().contains(&query));
+                if matches {
+                    matching_sessions.push(json!({
+                        "id": s.id,
+                        "title": s.title,
+                    }));
+                }
+            }
+        }
+
+        // Search state reflections by observed_state + cognitive_dissonance + proposed_theory_updates
+        let all_reflections = storage.query_by_agent(&agent, Some("state_reflection"))?;
+        let mut matching_reflections = Vec::new();
+        for entity in all_reflections.into_iter().take(50) {
+            if let Ok(r) = crate::entities::StateReflection::from_generic(entity) {
+                let matches = r.observed_state.to_lowercase().contains(&query)
+                    || r.cognitive_dissonance
+                        .iter()
+                        .any(|d| d.to_lowercase().contains(&query))
+                    || r.proposed_theory_updates
+                        .iter()
+                        .any(|u| u.to_lowercase().contains(&query));
+                if matches {
+                    matching_reflections.push(json!({
+                        "id": r.id,
+                        "title": format!("Reflection on theory {}", &r.theory_id[..8.min(r.theory_id.len())]),
+                    }));
+                }
+            }
+        }
+
+        // Search workflows by title + description
+        let all_workflows = storage.query_by_agent(&agent, Some("workflow"))?;
+        let mut matching_workflows = Vec::new();
+        for entity in all_workflows.into_iter().take(50) {
+            if let Ok(w) = crate::entities::Workflow::from_generic(entity) {
+                if w.title.to_lowercase().contains(&query)
+                    || w.description.to_lowercase().contains(&query)
+                {
+                    matching_workflows.push(json!({
+                        "id": w.id,
+                        "title": w.title,
+                    }));
+                }
+            }
+        }
+
+        // Search workflow instances by current_state + workflow_id
+        let all_instances = storage.query_by_agent(&agent, Some("workflow_instance"))?;
+        let mut matching_instances = Vec::new();
+        for entity in all_instances.into_iter().take(50) {
+            if let Ok(wi) = crate::entities::WorkflowInstance::from_generic(entity) {
+                if wi.current_state.to_lowercase().contains(&query)
+                    || wi.workflow_id.to_lowercase().contains(&query)
+                {
+                    matching_instances.push(json!({
+                        "id": wi.id,
+                        "title": format!("Instance of workflow {} ({})", &wi.workflow_id[..8.min(wi.workflow_id.len())], wi.current_state),
+                    }));
+                }
+            }
+        }
+
+        // Search agent sandboxes by agent_id
+        let all_sandboxes = storage.query_by_agent(&agent, Some("agent_sandbox"))?;
+        let mut matching_sandboxes = Vec::new();
+        for entity in all_sandboxes.into_iter().take(50) {
+            if let Ok(sb) = crate::entities::AgentSandbox::from_generic(entity) {
+                if sb.agent_id.to_lowercase().contains(&query) {
+                    matching_sandboxes.push(json!({
+                        "id": sb.id,
+                        "title": format!("Sandbox for agent {}", sb.agent_id),
+                    }));
+                }
+            }
+        }
+
+        // Search escalation requests by justification + impact_if_denied + operation
+        let all_escalations = storage.query_by_agent(&agent, Some("escalation_request"))?;
+        let mut matching_escalations = Vec::new();
+        for entity in all_escalations.into_iter().take(50) {
+            if let Ok(er) = crate::entities::EscalationRequest::from_generic(entity) {
+                let matches = er.justification.to_lowercase().contains(&query)
+                    || er
+                        .impact_if_denied
+                        .as_deref()
+                        .unwrap_or("")
+                        .to_lowercase()
+                        .contains(&query)
+                    || er
+                        .operation_context
+                        .operation
+                        .to_lowercase()
+                        .contains(&query);
+                if matches {
+                    matching_escalations.push(json!({
+                        "id": er.id,
+                        "title": format!("Escalation: {}", er.operation_context.operation),
+                    }));
+                }
+            }
+        }
+
+        // Search execution results by command + stdout + stderr + workflow_stage
+        let all_results = storage.query_by_agent(&agent, Some("execution_result"))?;
+        let mut matching_results = Vec::new();
+        for entity in all_results.into_iter().take(50) {
+            if let Ok(er) = crate::entities::ExecutionResult::from_generic(entity) {
+                let matches = er.command.to_lowercase().contains(&query)
+                    || er.stdout.to_lowercase().contains(&query)
+                    || er.stderr.to_lowercase().contains(&query)
+                    || er.workflow_stage.to_lowercase().contains(&query);
+                if matches {
+                    matching_results.push(json!({
+                        "id": er.id,
+                        "title": format!("Execution: {}", er.command),
+                    }));
+                }
+            }
+        }
+
+        // Search progressive gate configs by name + description
+        let all_gate_configs = storage.query_by_agent(&agent, Some("progressive_gate_config"))?;
+        let mut matching_gate_configs = Vec::new();
+        for entity in all_gate_configs.into_iter().take(50) {
+            if let Ok(pgc) = crate::entities::ProgressiveGateConfig::from_generic(entity) {
+                if pgc.name.to_lowercase().contains(&query)
+                    || pgc.description.to_lowercase().contains(&query)
+                {
+                    matching_gate_configs.push(json!({
+                        "id": pgc.id,
+                        "title": pgc.name,
+                    }));
+                }
+            }
+        }
+
+        let total = matching_tasks.len()
+            + matching_contexts.len()
+            + matching_reasoning.len()
+            + matching_knowledge.len()
+            + matching_rules.len()
+            + matching_standards.len()
+            + matching_adrs.len()
+            + matching_theories.len()
+            + matching_compliance.len()
+            + matching_sessions.len()
+            + matching_reflections.len()
+            + matching_workflows.len()
+            + matching_instances.len()
+            + matching_sandboxes.len()
+            + matching_escalations.len()
+            + matching_results.len()
+            + matching_gate_configs.len();
 
         Ok(json!({
             "query": processed_query.original_query,
@@ -380,6 +646,20 @@ impl QueryMapper {
             "tasks": matching_tasks,
             "contexts": matching_contexts,
             "reasoning": matching_reasoning,
+            "knowledge": matching_knowledge,
+            "rules": matching_rules,
+            "standards": matching_standards,
+            "adrs": matching_adrs,
+            "theories": matching_theories,
+            "compliance": matching_compliance,
+            "sessions": matching_sessions,
+            "state_reflections": matching_reflections,
+            "workflows": matching_workflows,
+            "workflow_instances": matching_instances,
+            "agent_sandboxes": matching_sandboxes,
+            "escalation_requests": matching_escalations,
+            "execution_results": matching_results,
+            "progressive_gate_configs": matching_gate_configs,
         }))
     }
 

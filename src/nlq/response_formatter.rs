@@ -347,6 +347,220 @@ impl ResponseFormatter {
             }
         }
 
+        let knowledge = data["knowledge"].as_array().unwrap_or(&empty_vec);
+        if !knowledge.is_empty() {
+            response.push_str("\nKnowledge:\n");
+            for (i, k) in knowledge.iter().enumerate() {
+                let title = k["title"].as_str().unwrap_or("Untitled");
+                let id = k["id"].as_str().unwrap_or("");
+                response.push_str(&format!(
+                    "  {}. [{}] {}\n",
+                    i + 1,
+                    &id[..8.min(id.len())],
+                    title
+                ));
+            }
+        }
+
+        let rules = data["rules"].as_array().unwrap_or(&empty_vec);
+        if !rules.is_empty() {
+            response.push_str("\nRules:\n");
+            for (i, r) in rules.iter().enumerate() {
+                let title = r["title"].as_str().unwrap_or("Untitled");
+                let id = r["id"].as_str().unwrap_or("");
+                response.push_str(&format!(
+                    "  {}. [{}] {}\n",
+                    i + 1,
+                    &id[..8.min(id.len())],
+                    title
+                ));
+            }
+        }
+
+        let standards = data["standards"].as_array().unwrap_or(&empty_vec);
+        if !standards.is_empty() {
+            response.push_str("\nStandards:\n");
+            for (i, s) in standards.iter().enumerate() {
+                let title = s["title"].as_str().unwrap_or("Untitled");
+                let id = s["id"].as_str().unwrap_or("");
+                response.push_str(&format!(
+                    "  {}. [{}] {}\n",
+                    i + 1,
+                    &id[..8.min(id.len())],
+                    title
+                ));
+            }
+        }
+
+        let adrs = data["adrs"].as_array().unwrap_or(&empty_vec);
+        if !adrs.is_empty() {
+            response.push_str("\nADRs:\n");
+            for (i, adr) in adrs.iter().enumerate() {
+                let title = adr["title"].as_str().unwrap_or("Untitled");
+                let id = adr["id"].as_str().unwrap_or("");
+                let number = adr["number"].as_u64().unwrap_or(0);
+                response.push_str(&format!(
+                    "  {}. [{}] ADR-{}: {}\n",
+                    i + 1,
+                    &id[..8.min(id.len())],
+                    number,
+                    title
+                ));
+            }
+        }
+
+        let theories = data["theories"].as_array().unwrap_or(&empty_vec);
+        if !theories.is_empty() {
+            response.push_str("\nTheories:\n");
+            for (i, t) in theories.iter().enumerate() {
+                let title = t["title"].as_str().unwrap_or("Untitled");
+                let id = t["id"].as_str().unwrap_or("");
+                response.push_str(&format!(
+                    "  {}. [{}] {}\n",
+                    i + 1,
+                    &id[..8.min(id.len())],
+                    title
+                ));
+            }
+        }
+
+        let compliance = data["compliance"].as_array().unwrap_or(&empty_vec);
+        if !compliance.is_empty() {
+            response.push_str("\nCompliance:\n");
+            for (i, c) in compliance.iter().enumerate() {
+                let title = c["title"].as_str().unwrap_or("Untitled");
+                let id = c["id"].as_str().unwrap_or("");
+                response.push_str(&format!(
+                    "  {}. [{}] {}\n",
+                    i + 1,
+                    &id[..8.min(id.len())],
+                    title
+                ));
+            }
+        }
+
+        let sessions = data["sessions"].as_array().unwrap_or(&empty_vec);
+        if !sessions.is_empty() {
+            response.push_str("\nSessions:\n");
+            for (i, s) in sessions.iter().enumerate() {
+                let title = s["title"].as_str().unwrap_or("Untitled");
+                let id = s["id"].as_str().unwrap_or("");
+                response.push_str(&format!(
+                    "  {}. [{}] {}\n",
+                    i + 1,
+                    &id[..8.min(id.len())],
+                    title
+                ));
+            }
+        }
+
+        let reflections = data["state_reflections"].as_array().unwrap_or(&empty_vec);
+        if !reflections.is_empty() {
+            response.push_str("\nState Reflections:\n");
+            for (i, r) in reflections.iter().enumerate() {
+                let title = r["title"].as_str().unwrap_or("Untitled");
+                let id = r["id"].as_str().unwrap_or("");
+                response.push_str(&format!(
+                    "  {}. [{}] {}\n",
+                    i + 1,
+                    &id[..8.min(id.len())],
+                    title
+                ));
+            }
+        }
+
+        let workflows = data["workflows"].as_array().unwrap_or(&empty_vec);
+        if !workflows.is_empty() {
+            response.push_str("\nWorkflows:\n");
+            for (i, w) in workflows.iter().enumerate() {
+                let title = w["title"].as_str().unwrap_or("Untitled");
+                let id = w["id"].as_str().unwrap_or("");
+                response.push_str(&format!(
+                    "  {}. [{}] {}\n",
+                    i + 1,
+                    &id[..8.min(id.len())],
+                    title
+                ));
+            }
+        }
+
+        let instances = data["workflow_instances"].as_array().unwrap_or(&empty_vec);
+        if !instances.is_empty() {
+            response.push_str("\nWorkflow Instances:\n");
+            for (i, wi) in instances.iter().enumerate() {
+                let title = wi["title"].as_str().unwrap_or("Untitled");
+                let id = wi["id"].as_str().unwrap_or("");
+                response.push_str(&format!(
+                    "  {}. [{}] {}\n",
+                    i + 1,
+                    &id[..8.min(id.len())],
+                    title
+                ));
+            }
+        }
+
+        let sandboxes = data["agent_sandboxes"].as_array().unwrap_or(&empty_vec);
+        if !sandboxes.is_empty() {
+            response.push_str("\nAgent Sandboxes:\n");
+            for (i, sb) in sandboxes.iter().enumerate() {
+                let title = sb["title"].as_str().unwrap_or("Untitled");
+                let id = sb["id"].as_str().unwrap_or("");
+                response.push_str(&format!(
+                    "  {}. [{}] {}\n",
+                    i + 1,
+                    &id[..8.min(id.len())],
+                    title
+                ));
+            }
+        }
+
+        let escalations = data["escalation_requests"].as_array().unwrap_or(&empty_vec);
+        if !escalations.is_empty() {
+            response.push_str("\nEscalation Requests:\n");
+            for (i, er) in escalations.iter().enumerate() {
+                let title = er["title"].as_str().unwrap_or("Untitled");
+                let id = er["id"].as_str().unwrap_or("");
+                response.push_str(&format!(
+                    "  {}. [{}] {}\n",
+                    i + 1,
+                    &id[..8.min(id.len())],
+                    title
+                ));
+            }
+        }
+
+        let exec_results = data["execution_results"].as_array().unwrap_or(&empty_vec);
+        if !exec_results.is_empty() {
+            response.push_str("\nExecution Results:\n");
+            for (i, er) in exec_results.iter().enumerate() {
+                let title = er["title"].as_str().unwrap_or("Untitled");
+                let id = er["id"].as_str().unwrap_or("");
+                response.push_str(&format!(
+                    "  {}. [{}] {}\n",
+                    i + 1,
+                    &id[..8.min(id.len())],
+                    title
+                ));
+            }
+        }
+
+        let gate_configs = data["progressive_gate_configs"]
+            .as_array()
+            .unwrap_or(&empty_vec);
+        if !gate_configs.is_empty() {
+            response.push_str("\nProgressive Gate Configs:\n");
+            for (i, pgc) in gate_configs.iter().enumerate() {
+                let title = pgc["title"].as_str().unwrap_or("Untitled");
+                let id = pgc["id"].as_str().unwrap_or("");
+                response.push_str(&format!(
+                    "  {}. [{}] {}\n",
+                    i + 1,
+                    &id[..8.min(id.len())],
+                    title
+                ));
+            }
+        }
+
         Ok(response)
     }
 
