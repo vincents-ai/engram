@@ -708,6 +708,11 @@ impl EngramWorld {
     pub fn create_knowledge(&mut self, title: &str, knowledge_type: &str, confidence: f64) {
         use engram::entities::knowledge::KnowledgeType;
 
+        if !(0.0..=1.0).contains(&confidence) {
+            self.last_result = Some(Err("Validation error: confidence must be between 0.0 and 1.0".to_string()));
+            return;
+        }
+
         let knowledge_type_enum = match knowledge_type {
             "fact" => KnowledgeType::Fact,
             "pattern" => KnowledgeType::Pattern,
@@ -1139,28 +1144,33 @@ impl EngramWorld {
     }
 
     pub fn create_knowledge_from_json(&mut self, json: &str) {
-        match serde_json::from_str::<Vec<Knowledge>>(json) {
-            Ok(knowledge_items) => {
-                let mut stored_ids = Vec::new();
-
-                if let Some(ref mut storage) = self.storage {
-                    for knowledge in knowledge_items {
-                        let generic = knowledge.to_generic();
-                        if let Ok(()) = storage.store(&generic) {
-                            stored_ids.push(knowledge.id.clone());
-                        }
-                    }
-                }
-
-                for id in stored_ids {
-                    self.add_created_entity("knowledge", &id);
-                }
-                self.last_result = Some(Ok("Knowledge items created from JSON".to_string()));
-            }
+        let values: Vec<serde_json::Value> = match serde_json::from_str(json) {
+            Ok(v) => v,
             Err(e) => {
                 self.last_result = Some(Err(format!("JSON parse error: {}", e)));
+                return;
+            }
+        };
+
+        let _agent = self.current_agent.clone().unwrap_or_else(|| "default".to_string());
+        let mut stored_ids = Vec::new();
+
+        for value in &values {
+            let title = value.get("title").and_then(|v| v.as_str()).unwrap_or("Untitled").to_string();
+            let knowledge_type_str = value.get("knowledge_type").and_then(|v| v.as_str()).unwrap_or("fact");
+            let confidence = value.get("confidence").and_then(|v| v.as_f64()).unwrap_or(0.8);
+
+            self.create_knowledge(&title, knowledge_type_str, confidence);
+            if let Some(ids) = self.created_entities.get("knowledge") {
+                if let Some(last_id) = ids.last() {
+                    if !stored_ids.contains(last_id) {
+                        stored_ids.push(last_id.clone());
+                    }
+                }
             }
         }
+
+        self.last_result = Some(Ok(format!("{} knowledge items created from JSON", stored_ids.len())));
     }
 
     pub async fn list_sessions_for_agent(&mut self, agent: &str) {
@@ -1226,7 +1236,15 @@ impl EngramWorld {
         }
     }
 
-    pub async fn sync_agents(&mut self, agents: &str, _strategy: &str) {
+    pub async fn sync_agents(&mut self, agents: &str, strategy: &str) {
+        let valid_strategies = ["latest_wins", "merge", "agent_priority", "manual"];
+        let normalized = strategy.trim().to_lowercase().replace("-", "_");
+        if !valid_strategies.contains(&normalized.as_str()) {
+            let available = valid_strategies.join(", ");
+            self.last_result = Some(Err(format!("Invalid strategy '{}'. Valid strategies: {}", strategy, available)));
+            return;
+        }
+
         let agent_list: Vec<&str> = agents.split(',').map(|s| s.trim()).filter(|s| !s.is_empty()).collect();
 
         if agent_list.len() <= 1 {

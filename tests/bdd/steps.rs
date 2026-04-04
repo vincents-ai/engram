@@ -795,10 +795,16 @@ async fn then_should_see_reasoning_title(world: &mut EngramWorld) {
 
 #[then("I should see the description")]
 async fn then_should_see_description(world: &mut EngramWorld) {
-    let desc = world.get_last_entity_field("reasoning", "description")
-        .and_then(|v| v.as_str().map(String::from))
+    let steps = world.get_last_entity_field("reasoning", "steps")
+        .and_then(|v| v.as_array().cloned())
         .unwrap_or_default();
-    assert!(!desc.is_empty(), "Reasoning description should be present");
+    let has_desc = steps.iter().any(|s| {
+        s.get("description")
+            .and_then(|d| d.as_str())
+            .map(|d| !d.is_empty())
+            .unwrap_or(false)
+    });
+    assert!(has_desc, "Reasoning should have a step with description");
 }
 
 #[then("I should see the conclusion")]
