@@ -137,4 +137,65 @@ mod tests {
 
         assert_eq!(emb1, emb2);
     }
+
+    #[tokio::test]
+    async fn test_mock_provider_different_texts() {
+        let provider = MockEmbeddingProvider::new(64);
+
+        let emb1 = provider.embed("text A").await.unwrap();
+        let emb2 = provider.embed("text B").await.unwrap();
+
+        assert_ne!(emb1, emb2);
+    }
+
+    #[tokio::test]
+    async fn test_mock_provider_dimensions() {
+        let provider = MockEmbeddingProvider::new(10);
+        assert_eq!(provider.dimensions(), 10);
+    }
+
+    #[tokio::test]
+    async fn test_mock_provider_model_name() {
+        let provider = MockEmbeddingProvider::new(128);
+        assert_eq!(provider.model_name(), "mock-embeddings");
+    }
+
+    #[tokio::test]
+    async fn test_mock_provider_type() {
+        let provider = MockEmbeddingProvider::new(64);
+        assert_eq!(provider.provider_type(), ProviderType::Mock);
+    }
+
+    #[tokio::test]
+    async fn test_mock_batch_empty() {
+        let provider = MockEmbeddingProvider::new(64);
+        let texts: Vec<&str> = vec![];
+        let embeddings = provider.embed_batch(&texts).await.unwrap();
+        assert!(embeddings.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_mock_provider_single_dimension() {
+        let provider = MockEmbeddingProvider::new(1);
+        let embedding = provider.embed("test").await.unwrap();
+        assert_eq!(embedding.len(), 1);
+        let norm: f32 = embedding.iter().map(|x| x * x).sum::<f32>().sqrt();
+        assert!((norm - 1.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_provider_type_display() {
+        assert_eq!(format!("{}", ProviderType::LocalOnnx), "local_onnx");
+        assert_eq!(format!("{}", ProviderType::LocalCandle), "local_candle");
+        assert_eq!(format!("{}", ProviderType::OpenAI), "openai");
+        assert_eq!(format!("{}", ProviderType::Cohere), "cohere");
+        assert_eq!(format!("{}", ProviderType::Voyage), "voyage");
+        assert_eq!(format!("{}", ProviderType::Mock), "mock");
+    }
+
+    #[test]
+    fn test_provider_type_equality() {
+        assert_eq!(ProviderType::LocalOnnx, ProviderType::LocalOnnx);
+        assert_ne!(ProviderType::LocalOnnx, ProviderType::OpenAI);
+    }
 }

@@ -467,12 +467,6 @@ mod tests {
         assert_eq!(analysis.analyze(130), "high");
     }
 
-    // We can't easily test TaskDurationReport or BottleneckReport generation here
-    // because they depend on Storage containing Tasks, and populating MemoryStorage with
-    // Tasks that implement Entity trait (which they do) requires generic conversion logic.
-    // However, the logic inside `generate` is straightforward filtering and aggregation.
-
-    // Let's at least test the calculation logic for productivity score with different durations.
     #[test]
     fn test_productivity_score_duration_impact() {
         let mut metrics = SessionAnalytics {
@@ -515,6 +509,399 @@ mod tests {
         let score_very_long = metrics.calculate_productivity_score();
         // 1.0 * (0.3 + 0.4*0.7 + 0.3) = 1.0 * (0.6 + 0.28) = 0.88
         assert!((score_very_long - 0.88).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_productivity_score_no_end_time() {
+        let metrics = SessionAnalytics {
+            session_id: "test".to_string(),
+            agent_name: "test".to_string(),
+            start_time: Utc::now(),
+            end_time: None,
+            space_metrics: SpaceMetrics {
+                satisfaction_score: 1.0,
+                performance_score: 1.0,
+                activity_score: 1.0,
+                communication_score: 1.0,
+                efficiency_score: 1.0,
+                overall_score: 1.0,
+            },
+            dora_metrics: DoraMetrics {
+                deployment_frequency: 0,
+                lead_time: 0.0,
+                change_failure_rate: 0.0,
+                mean_time_to_recover: 0.0,
+            },
+            tasks_completed: 5,
+            context_items_created: 10,
+            reasoning_steps_taken: 50,
+            knowledge_items_added: 2,
+        };
+
+        let score = metrics.calculate_productivity_score();
+        let expected = 1.0 * (0.3 + 0.4 * 0.5 + 0.3);
+        assert!((score - expected).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_generate_summary_ongoing() {
+        let metrics = SessionAnalytics {
+            session_id: "sess-1".to_string(),
+            agent_name: "agent-a".to_string(),
+            start_time: Utc::now(),
+            end_time: None,
+            space_metrics: SpaceMetrics {
+                satisfaction_score: 0.5,
+                performance_score: 0.5,
+                activity_score: 0.5,
+                communication_score: 0.5,
+                efficiency_score: 0.5,
+                overall_score: 0.5,
+            },
+            dora_metrics: DoraMetrics {
+                deployment_frequency: 0,
+                lead_time: 0.0,
+                change_failure_rate: 0.0,
+                mean_time_to_recover: 0.0,
+            },
+            tasks_completed: 0,
+            context_items_created: 0,
+            reasoning_steps_taken: 0,
+            knowledge_items_added: 0,
+        };
+
+        let summary = metrics.generate_summary();
+        assert!(summary.contains("sess-1"));
+        assert!(summary.contains("agent-a"));
+        assert!(summary.contains("ongoing"));
+    }
+
+    #[test]
+    fn test_generate_summary_ended() {
+        let end = Utc::now();
+        let metrics = SessionAnalytics {
+            session_id: "sess-2".to_string(),
+            agent_name: "agent-b".to_string(),
+            start_time: end - chrono::Duration::minutes(30),
+            end_time: Some(end),
+            space_metrics: SpaceMetrics {
+                satisfaction_score: 0.7,
+                performance_score: 0.7,
+                activity_score: 0.7,
+                communication_score: 0.7,
+                efficiency_score: 0.7,
+                overall_score: 0.7,
+            },
+            dora_metrics: DoraMetrics {
+                deployment_frequency: 0,
+                lead_time: 0.0,
+                change_failure_rate: 0.0,
+                mean_time_to_recover: 0.0,
+            },
+            tasks_completed: 3,
+            context_items_created: 5,
+            reasoning_steps_taken: 10,
+            knowledge_items_added: 1,
+        };
+
+        let summary = metrics.generate_summary();
+        assert!(summary.contains("ended at"));
+        assert!(!summary.contains("ongoing"));
+    }
+
+    #[test]
+    fn test_fatigue_analysis_boundary() {
+        let analysis = FatigueAnalysis {
+            optimal_session_length: 60,
+            current_session_length: 0,
+            fatigue_risk_level: "low".to_string(),
+            recommendation: "none".to_string(),
+        };
+
+        assert_eq!(analysis.analyze(60), "low");
+        assert_eq!(analysis.analyze(61), "medium");
+        assert_eq!(analysis.analyze(120), "medium");
+        assert_eq!(analysis.analyze(121), "high");
+    }
+
+    #[test]
+    fn test_fatigue_analysis_zero_optimal() {
+        let analysis = FatigueAnalysis {
+            optimal_session_length: 0,
+            current_session_length: 0,
+            fatigue_risk_level: "low".to_string(),
+            recommendation: "none".to_string(),
+        };
+
+        assert_eq!(analysis.analyze(0), "low");
+        assert_eq!(analysis.analyze(1), "high");
+    }
+
+    #[test]
+    fn test_bottleneck_report_default() {
+        let report = BottleneckReport::default();
+        assert_eq!(report.period_days, 0);
+        assert_eq!(report.overall_metrics.total_tasks_created, 0);
+        assert!(report.task_bottlenecks.is_empty());
+        assert!(report.workflow_bottlenecks.is_empty());
+        assert!(report.recommendations.is_empty());
+    }
+
+    use crate::entities::task::{TaskPriority, TaskStatus};
+    use crate::entities::Task;
+    use crate::storage::MemoryStorage;
+
+    #[test]
+    fn test_task_duration_report_empty_storage() {
+        let storage = MemoryStorage::new("test-agent");
+        let report = TaskDurationReport::generate(&storage, 7).unwrap();
+        assert_eq!(report.period_days, 7);
+        assert_eq!(report.total_tasks, 0);
+        assert_eq!(report.completed_tasks, 0);
+        assert_eq!(report.avg_completion_time_seconds, 0.0);
+        assert_eq!(report.median_completion_time_seconds, 0.0);
+        assert_eq!(report.min_completion_time_seconds, 0.0);
+        assert_eq!(report.max_completion_time_seconds, 0.0);
+        assert!(report.tasks_by_agent.is_empty());
+        assert!(report.tasks_by_priority.is_empty());
+    }
+
+    #[test]
+    fn test_task_duration_report_with_tasks() {
+        let mut storage = MemoryStorage::new("test-agent");
+
+        let mut task1 = Task::new(
+            "Task 1".to_string(),
+            "Desc".to_string(),
+            "agent-a".to_string(),
+            TaskPriority::High,
+            None,
+        );
+        task1.start_time = Utc::now() - chrono::Duration::minutes(30);
+        task1.status = TaskStatus::Done;
+        task1.end_time = Some(Utc::now() - chrono::Duration::minutes(10));
+        let _ = storage.store(&task1.to_generic());
+
+        let mut task2 = Task::new(
+            "Task 2".to_string(),
+            "Desc".to_string(),
+            "agent-b".to_string(),
+            TaskPriority::Medium,
+            None,
+        );
+        task2.start_time = Utc::now() - chrono::Duration::minutes(20);
+        task2.status = TaskStatus::Done;
+        task2.end_time = Some(Utc::now() - chrono::Duration::minutes(5));
+        let _ = storage.store(&task2.to_generic());
+
+        let mut task3 = Task::new(
+            "Task 3".to_string(),
+            "Desc".to_string(),
+            "agent-a".to_string(),
+            TaskPriority::Low,
+            None,
+        );
+        task3.start_time = Utc::now() - chrono::Duration::minutes(60);
+        let _ = storage.store(&task3.to_generic());
+
+        let report = TaskDurationReport::generate(&storage, 1).unwrap();
+        assert_eq!(report.total_tasks, 3);
+        assert_eq!(report.completed_tasks, 2);
+        assert_eq!(report.tasks_by_agent.len(), 2);
+        assert_eq!(report.tasks_by_priority.len(), 2);
+        assert!(report.throughput_per_day > 0.0);
+        assert!(report.max_completion_time_seconds >= report.min_completion_time_seconds);
+    }
+
+    #[test]
+    fn test_task_duration_report_no_completed() {
+        let mut storage = MemoryStorage::new("test-agent");
+
+        let task = Task::new(
+            "Todo Task".to_string(),
+            "Desc".to_string(),
+            "agent-a".to_string(),
+            TaskPriority::High,
+            None,
+        );
+        let _ = storage.store(&task.to_generic());
+
+        let report = TaskDurationReport::generate(&storage, 7).unwrap();
+        assert_eq!(report.total_tasks, 1);
+        assert_eq!(report.completed_tasks, 0);
+        assert_eq!(report.avg_completion_time_seconds, 0.0);
+    }
+
+    #[test]
+    fn test_bottleneck_report_generate_empty() {
+        let storage = MemoryStorage::new("test-agent");
+        let report = BottleneckReport::generate(storage, 7).unwrap();
+        assert_eq!(report.period_days, 7);
+        assert_eq!(report.overall_metrics.total_tasks_created, 0);
+        assert_eq!(report.overall_metrics.total_tasks_completed, 0);
+        assert!(report.recommendations.is_empty());
+    }
+
+    #[test]
+    fn test_bottleneck_report_with_done_tasks() {
+        let mut storage = MemoryStorage::new("test-agent");
+
+        let mut task1 = Task::new(
+            "Done Task 1".to_string(),
+            "Desc".to_string(),
+            "agent-a".to_string(),
+            TaskPriority::High,
+            None,
+        );
+        task1.start_time = Utc::now() - chrono::Duration::minutes(60);
+        task1.status = TaskStatus::Done;
+        task1.end_time = Some(Utc::now() - chrono::Duration::minutes(30));
+        let _ = storage.store(&task1.to_generic());
+
+        let report = BottleneckReport::generate(storage, 1).unwrap();
+        assert_eq!(report.overall_metrics.total_tasks_created, 1);
+        assert_eq!(report.overall_metrics.total_tasks_completed, 1);
+        assert!((report.overall_metrics.completion_rate - 1.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_bottleneck_report_with_blocked_tasks() {
+        let mut storage = MemoryStorage::new("test-agent");
+
+        let mut blocked_task = Task::new(
+            "Blocked Task".to_string(),
+            "Desc".to_string(),
+            "agent-a".to_string(),
+            TaskPriority::High,
+            None,
+        );
+        blocked_task.start_time = Utc::now() - chrono::Duration::days(2);
+        blocked_task.status = TaskStatus::Blocked;
+        let _ = storage.store(&blocked_task.to_generic());
+
+        let report = BottleneckReport::generate(storage, 7).unwrap();
+        assert_eq!(report.overall_metrics.total_tasks_created, 1);
+        assert_eq!(report.overall_metrics.total_tasks_completed, 0);
+        assert!(report.overall_metrics.blocked_task_rate > 0.0);
+    }
+
+    #[test]
+    fn test_bottleneck_report_with_old_in_progress() {
+        let mut storage = MemoryStorage::new("test-agent");
+
+        let mut old_task = Task::new(
+            "Old InProgress".to_string(),
+            "Desc".to_string(),
+            "agent-a".to_string(),
+            TaskPriority::Medium,
+            None,
+        );
+        old_task.start_time = Utc::now() - chrono::Duration::days(4);
+        old_task.status = TaskStatus::InProgress;
+        let _ = storage.store(&old_task.to_generic());
+
+        let report = BottleneckReport::generate(storage, 7).unwrap();
+        assert!(!report.task_bottlenecks.is_empty());
+        assert_eq!(report.task_bottlenecks[0].status, "InProgress");
+    }
+
+    #[test]
+    fn test_bottleneck_report_truncates_to_10() {
+        let mut storage = MemoryStorage::new("test-agent");
+
+        for i in 0..15 {
+            let mut task = Task::new(
+                format!("Old Task {}", i),
+                "Desc".to_string(),
+                "agent-a".to_string(),
+                TaskPriority::High,
+                None,
+            );
+            task.start_time = Utc::now() - chrono::Duration::days(5);
+            task.status = TaskStatus::InProgress;
+            let _ = storage.store(&task.to_generic());
+        }
+
+        let report = BottleneckReport::generate(storage, 7).unwrap();
+        assert!(report.task_bottlenecks.len() <= 10);
+    }
+
+    #[test]
+    fn test_space_metrics_serialization() {
+        let metrics = SpaceMetrics {
+            satisfaction_score: 0.9,
+            performance_score: 0.8,
+            activity_score: 0.7,
+            communication_score: 0.6,
+            efficiency_score: 0.5,
+            overall_score: 0.7,
+        };
+
+        let json = serde_json::to_string(&metrics).unwrap();
+        let parsed: SpaceMetrics = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.satisfaction_score, 0.9);
+        assert_eq!(parsed.overall_score, 0.7);
+    }
+
+    #[test]
+    fn test_dora_metrics_serialization() {
+        let metrics = DoraMetrics {
+            deployment_frequency: 5,
+            lead_time: 3600.0,
+            change_failure_rate: 0.1,
+            mean_time_to_recover: 7200.0,
+        };
+
+        let json = serde_json::to_string(&metrics).unwrap();
+        let parsed: DoraMetrics = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.deployment_frequency, 5);
+        assert!((parsed.lead_time - 3600.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_task_duration_report_median_even_count() {
+        let mut storage = MemoryStorage::new("test-agent");
+
+        let durations: Vec<i64> = vec![100, 200, 300, 400];
+        for (i, &dur) in durations.iter().enumerate() {
+            let mut task = Task::new(
+                format!("Task {}", i),
+                "Desc".to_string(),
+                "agent-a".to_string(),
+                TaskPriority::High,
+                None,
+            );
+            task.start_time = Utc::now() - chrono::Duration::seconds(dur);
+            task.status = TaskStatus::Done;
+            task.end_time = Some(Utc::now());
+            let _ = storage.store(&task.to_generic());
+        }
+
+        let report = TaskDurationReport::generate(&storage, 1).unwrap();
+        assert_eq!(report.completed_tasks, 4);
+        assert_eq!(report.median_completion_time_seconds, 300.0);
+    }
+
+    #[test]
+    fn test_task_duration_report_throughput_calculation() {
+        let mut storage = MemoryStorage::new("test-agent");
+
+        for i in 0..3 {
+            let mut task = Task::new(
+                format!("Task {}", i),
+                "Desc".to_string(),
+                "agent-a".to_string(),
+                TaskPriority::Medium,
+                None,
+            );
+            task.start_time = Utc::now() - chrono::Duration::minutes(10);
+            task.status = TaskStatus::Done;
+            task.end_time = Some(Utc::now());
+            let _ = storage.store(&task.to_generic());
+        }
+
+        let report = TaskDurationReport::generate(&storage, 3).unwrap();
+        assert!((report.throughput_per_day - 1.0).abs() < 0.001);
     }
 }
 

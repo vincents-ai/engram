@@ -101,6 +101,201 @@ mod tests {
         assert_eq!(client.search_url(), "http://test:3179/search/query");
         assert_eq!(client.blob_url("abc"), "http://test:3179/blobs/abc");
     }
+
+    #[test]
+    fn test_perkeep_config_with_auth() {
+        let config = PerkeepConfig {
+            server_url: "http://example:3179".to_string(),
+            auth_token: Some("secret-token".to_string()),
+            verify_tls: false,
+        };
+        assert_eq!(config.auth_token, Some("secret-token".to_string()));
+        assert!(!config.verify_tls);
+    }
+
+    #[test]
+    fn test_perkeep_config_verify_tls() {
+        let config = PerkeepConfig {
+            server_url: "https://secure:3179".to_string(),
+            auth_token: None,
+            verify_tls: true,
+        };
+        assert!(config.verify_tls);
+    }
+
+    #[test]
+    fn test_blob_ref_serialization() {
+        let blob = BlobRef {
+            blobref: "sha256-abc123".to_string(),
+            size: 1024,
+            sha256: "abc123".to_string(),
+        };
+
+        let json = serde_json::to_string(&blob).unwrap();
+        let parsed: BlobRef = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.blobref, "sha256-abc123");
+        assert_eq!(parsed.size, 1024);
+        assert_eq!(parsed.sha256, "abc123");
+    }
+
+    #[test]
+    fn test_schema_object_serialization() {
+        let schema = SchemaObject {
+            camli_type: "perkeep.net/schema/blob/ref".to_string(),
+            base_value_ref: None,
+            file_name: Some("test.txt".to_string()),
+            mime_type: Some("text/plain".to_string()),
+            size: Some(256),
+            title: None,
+            description: None,
+            creation_time: None,
+            custom_attributes: None,
+        };
+
+        let json = serde_json::to_string(&schema).unwrap();
+        let parsed: SchemaObject = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.camli_type, "perkeep.net/schema/blob/ref");
+        assert_eq!(parsed.file_name, Some("test.txt".to_string()));
+        assert_eq!(parsed.mime_type, Some("text/plain".to_string()));
+        assert_eq!(parsed.size, Some(256));
+    }
+
+    #[test]
+    fn test_schema_object_with_all_fields() {
+        let mut attrs = HashMap::new();
+        attrs.insert("key1".to_string(), serde_json::json!("value1"));
+
+        let schema = SchemaObject {
+            camli_type: "file".to_string(),
+            base_value_ref: Some(BlobRef {
+                blobref: "sha256-def".to_string(),
+                size: 512,
+                sha256: "def".to_string(),
+            }),
+            file_name: Some("doc.pdf".to_string()),
+            mime_type: Some("application/pdf".to_string()),
+            size: Some(2048),
+            title: Some("Test Document".to_string()),
+            description: Some("A test PDF".to_string()),
+            creation_time: Some("2024-01-01T00:00:00Z".to_string()),
+            custom_attributes: Some(attrs),
+        };
+
+        let json = serde_json::to_string(&schema).unwrap();
+        let parsed: SchemaObject = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.title, Some("Test Document".to_string()));
+        assert_eq!(parsed.description, Some("A test PDF".to_string()));
+        assert!(parsed.custom_attributes.is_some());
+    }
+
+    #[test]
+    fn test_schema_object_default_fields() {
+        let schema = SchemaObject {
+            camli_type: "empty".to_string(),
+            base_value_ref: None,
+            file_name: None,
+            mime_type: None,
+            size: None,
+            title: None,
+            description: None,
+            creation_time: None,
+            custom_attributes: None,
+        };
+
+        assert!(schema.base_value_ref.is_none());
+        assert!(schema.file_name.is_none());
+        assert!(schema.custom_attributes.is_none());
+    }
+
+    #[test]
+    fn test_backup_metadata_serialization() {
+        let mut refs = HashMap::new();
+        refs.insert("task-1".to_string(), "sha256-aaa".to_string());
+
+        let metadata = EngramBackupMetadata::new(
+            5,
+            vec!["task".to_string()],
+            refs,
+            2048,
+            "test".to_string(),
+        );
+
+        let json = serde_json::to_string(&metadata).unwrap();
+        let parsed: EngramBackupMetadata = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.entity_count, 5);
+        assert_eq!(parsed.version, "1.0.0");
+        assert_eq!(parsed.agent, "test");
+        assert_eq!(parsed.total_size, 2048);
+    }
+
+    #[test]
+    fn test_client_url_construction_with_path() {
+        let config = PerkeepConfig {
+            server_url: "http://example.com/perkeep".to_string(),
+            auth_token: Some("tok".to_string()),
+            verify_tls: true,
+        };
+
+        let client = PerkeepClient::new(config).unwrap();
+        assert_eq!(client.server_url(), "http://example.com/perkeep");
+        assert_eq!(client.upload_url(), "http://example.com/perkeep/blob/upload");
+        assert_eq!(client.search_url(), "http://example.com/perkeep/search/query");
+    }
+
+    #[test]
+    fn test_blob_url_with_complex_ref() {
+        let config = PerkeepConfig {
+            server_url: "http://localhost:3179".to_string(),
+            auth_token: None,
+            verify_tls: true,
+        };
+        let client = PerkeepClient::new(config).unwrap();
+
+        let long_ref = "sha256-abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789";
+        assert_eq!(
+            client.blob_url(long_ref),
+            format!("http://localhost:3179/blobs/{}", long_ref)
+        );
+    }
+
+    #[test]
+    fn test_client_creation_with_tls_disabled() {
+        let config = PerkeepConfig {
+            server_url: "http://localhost:3179".to_string(),
+            auth_token: None,
+            verify_tls: false,
+        };
+        let client = PerkeepClient::new(config);
+        assert!(client.is_ok());
+    }
+
+    #[test]
+    fn test_backup_metadata_empty_types() {
+        let metadata = EngramBackupMetadata::new(
+            0,
+            vec![],
+            HashMap::new(),
+            0,
+            "agent".to_string(),
+        );
+        assert_eq!(metadata.entity_count, 0);
+        assert!(metadata.entity_types.is_empty());
+        assert!(metadata.entity_blob_refs.is_empty());
+        assert_eq!(metadata.total_size, 0);
+    }
+
+    #[test]
+    fn test_backup_metadata_timestamp_format() {
+        let metadata = EngramBackupMetadata::new(
+            1,
+            vec!["context".to_string()],
+            HashMap::new(),
+            100,
+            "agent".to_string(),
+        );
+        let parsed: chrono::DateTime<chrono::Utc> = metadata.timestamp.parse().unwrap();
+        assert!(parsed.timestamp() > 0);
+    }
 }
 
 /// Perkeep blob reference

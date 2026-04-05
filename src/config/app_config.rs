@@ -255,4 +255,156 @@ mod tests {
         assert_eq!(base.author_name, "New Author");
         assert_eq!(base.author_email, "user@engram.ai"); // Kept default
     }
+
+    #[test]
+    fn test_storage_config_merge_empty_overwrites() {
+        let mut base = StorageConfig::default();
+        let other = StorageConfig {
+            storage_type: "".to_string(),
+            base_path: "".to_string(),
+            sync_strategy: "".to_string(),
+        };
+
+        base.merge(other);
+        assert_eq!(base.storage_type, "git");
+        assert_eq!(base.base_path, ".engram");
+        assert_eq!(base.sync_strategy, "merge_with_conflict_resolution");
+    }
+
+    #[test]
+    fn test_storage_config_merge_partial() {
+        let mut base = StorageConfig::default();
+        let other = StorageConfig {
+            storage_type: "sqlite".to_string(),
+            base_path: "".to_string(),
+            sync_strategy: "force".to_string(),
+        };
+
+        base.merge(other);
+        assert_eq!(base.storage_type, "sqlite");
+        assert_eq!(base.base_path, ".engram");
+        assert_eq!(base.sync_strategy, "force");
+    }
+
+    #[test]
+    fn test_feature_flags_merge() {
+        let mut flags = FeatureFlags::default();
+        let other = FeatureFlags {
+            plugins: false,
+            analytics: false,
+            experimental: true,
+        };
+
+        flags.merge(other);
+        assert!(!flags.plugins);
+        assert!(!flags.analytics);
+        assert!(flags.experimental);
+    }
+
+    #[test]
+    fn test_feature_flags_validate_always_ok() {
+        let flags = FeatureFlags::default();
+        assert!(flags.validate().is_ok());
+
+        let flags = FeatureFlags {
+            plugins: false,
+            analytics: false,
+            experimental: true,
+        };
+        assert!(flags.validate().is_ok());
+    }
+
+    #[test]
+    fn test_app_config_validate_delegates() {
+        let mut config = AppConfig::default();
+        assert!(config.validate().is_ok());
+
+        config.storage.storage_type = "".to_string();
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_app_config_merge_replaces_agents() {
+        let mut base = AppConfig::default();
+        let mut other = AppConfig::default();
+
+        let agent1 = AgentConfig {
+            name: "agent1".to_string(),
+            agent_type: "type1".to_string(),
+            specialization: Some("spec1".to_string()),
+            email: Some("a1@test.com".to_string()),
+        };
+        other.agents.insert("agent1".to_string(), agent1);
+
+        let agent2 = AgentConfig {
+            name: "agent2".to_string(),
+            agent_type: "type2".to_string(),
+            specialization: None,
+            email: None,
+        };
+        base.agents.insert("agent2".to_string(), agent2);
+
+        base.merge(other);
+        assert!(base.agents.contains_key("agent1"));
+        assert!(base.agents.contains_key("agent2"));
+    }
+
+    #[test]
+    fn test_git_config_merge_both_empty() {
+        let mut base = GitConfig::default();
+        let other = GitConfig {
+            author_name: "".to_string(),
+            author_email: "".to_string(),
+        };
+
+        base.merge(other);
+        assert_eq!(base.author_name, "Engram User");
+        assert_eq!(base.author_email, "user@engram.ai");
+    }
+
+    #[test]
+    fn test_git_config_merge_both_nonempty() {
+        let mut base = GitConfig::default();
+        let other = GitConfig {
+            author_name: "New".to_string(),
+            author_email: "new@test.com".to_string(),
+        };
+
+        base.merge(other);
+        assert_eq!(base.author_name, "New");
+        assert_eq!(base.author_email, "new@test.com");
+    }
+
+    #[test]
+    fn test_bdd_config_default() {
+        let config = BddConfig::default();
+        assert!(config.features.is_empty());
+        assert!(config.steps.is_empty());
+    }
+
+    #[test]
+    fn test_app_settings_default() {
+        let settings = AppSettings::default();
+        assert_eq!(settings.workspace.name, "default");
+    }
+
+    #[test]
+    fn test_app_settings_merge() {
+        let mut settings = AppSettings::default();
+        let mut other = AppSettings::default();
+        other.workspace.name = "new-ws".to_string();
+
+        settings.merge(other);
+        assert_eq!(settings.workspace.name, "new-ws");
+    }
+
+    #[test]
+    fn test_storage_config_validation_both_empty() {
+        let config = StorageConfig {
+            storage_type: "".to_string(),
+            base_path: "".to_string(),
+            sync_strategy: "sync".to_string(),
+        };
+        assert!(config.validate().is_err());
+    }
 }

@@ -646,4 +646,257 @@ mod tests {
         assert_eq!(escalation.status, EscalationStatus::Denied);
         assert!(escalation.decision.is_some());
     }
+
+    #[tokio::test]
+    async fn test_cancel() {
+        let (s, _t) = create_test_storage();
+        let mut h = EscalationHandler::new(s);
+        let req = SandboxRequest { agent_id: "a".into(), operation: "file_write".into(), resource_type: "/f".into(), parameters: serde_json::json!({}), timestamp: Utc::now(), session_id: Some("s".into()) };
+        let id = h.create_escalation(&req, "b".into(), EscalationOperationType::FileSystemAccess, EscalationPriority::Normal).await.unwrap();
+        h.cancel_escalation(&id, Some("no longer needed".into())).await.unwrap();
+        let esc = h.get_escalation(&id).await.unwrap();
+        assert_eq!(esc.status, EscalationStatus::Cancelled);
+        assert!(esc.metadata.contains_key("cancellation_reason"));
+    }
+
+    #[tokio::test]
+    async fn test_cancel_no_reason() {
+        let (s, _t) = create_test_storage();
+        let mut h = EscalationHandler::new(s);
+        let req = SandboxRequest { agent_id: "a".into(), operation: "file_write".into(), resource_type: "/f".into(), parameters: serde_json::json!({}), timestamp: Utc::now(), session_id: None };
+        let id = h.create_escalation(&req, "b".into(), EscalationOperationType::FileSystemAccess, EscalationPriority::Normal).await.unwrap();
+        h.cancel_escalation(&id, None).await.unwrap();
+        assert_eq!(h.get_escalation(&id).await.unwrap().status, EscalationStatus::Cancelled);
+    }
+
+    #[tokio::test]
+    async fn test_cancel_approved_fails() {
+        let (s, _t) = create_test_storage();
+        let mut h = EscalationHandler::new(s);
+        let req = SandboxRequest { agent_id: "a".into(), operation: "net".into(), resource_type: "x".into(), parameters: serde_json::json!({}), timestamp: Utc::now(), session_id: None };
+        let id = h.create_escalation(&req, "b".into(), EscalationOperationType::NetworkAccess, EscalationPriority::Normal).await.unwrap();
+        let rev = ReviewerInfo { reviewer_id: "r".into(), reviewer_name: "R".into(), reviewer_email: None, department: None };
+        h.approve_escalation(&id, rev, "ok".into(), vec![], None, false).await.unwrap();
+        assert!(h.cancel_escalation(&id, None).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_get_not_found() {
+        let (s, _t) = create_test_storage();
+        let mut h = EscalationHandler::new(s);
+        assert!(h.get_escalation("nonexistent").await.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_list_pending() {
+        let (s, _t) = create_test_storage();
+        let mut h = EscalationHandler::new(s);
+        let req = SandboxRequest { agent_id: "a".into(), operation: "file_delete".into(), resource_type: "/f".into(), parameters: serde_json::json!({}), timestamp: Utc::now(), session_id: None };
+        h.create_escalation(&req, "b".into(), EscalationOperationType::FileSystemAccess, EscalationPriority::Normal).await.unwrap();
+        assert_eq!(h.list_pending_escalations().await.unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_list_by_status() {
+        let (s, _t) = create_test_storage();
+        let mut h = EscalationHandler::new(s);
+        let req = SandboxRequest { agent_id: "a".into(), operation: "file_delete".into(), resource_type: "/f".into(), parameters: serde_json::json!({}), timestamp: Utc::now(), session_id: None };
+        let id1 = h.create_escalation(&req, "b".into(), EscalationOperationType::FileSystemAccess, EscalationPriority::Critical).await.unwrap();
+        let id2 = h.create_escalation(&req, "b".into(), EscalationOperationType::FileSystemAccess, EscalationPriority::Low).await.unwrap();
+        assert_eq!(h.list_escalations_by_status(EscalationStatus::Pending).await.unwrap().len(), 2);
+        let rev = ReviewerInfo { reviewer_id: "r".into(), reviewer_name: "R".into(), reviewer_email: None, department: None };
+        h.approve_escalation(&id1, rev.clone(), "ok".into(), vec![], None, false).await.unwrap();
+        assert_eq!(h.list_escalations_by_status(EscalationStatus::Pending).await.unwrap().len(), 1);
+        assert_eq!(h.list_escalations_by_status(EscalationStatus::Approved).await.unwrap().len(), 1);
+        h.cancel_escalation(&id2, None).await.unwrap();
+        assert_eq!(h.list_escalations_by_status(EscalationStatus::Cancelled).await.unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_list_sorted_priority() {
+        let (s, _t) = create_test_storage();
+        let mut h = EscalationHandler::new(s);
+        let req = SandboxRequest { agent_id: "a".into(), operation: "op".into(), resource_type: "r".into(), parameters: serde_json::json!({}), timestamp: Utc::now(), session_id: None };
+        h.create_escalation(&req, "b".into(), EscalationOperationType::Custom("op".into()), EscalationPriority::Low).await.unwrap();
+        h.create_escalation(&req, "b".into(), EscalationOperationType::Custom("op".into()), EscalationPriority::Critical).await.unwrap();
+        h.create_escalation(&req, "b".into(), EscalationOperationType::Custom("op".into()), EscalationPriority::Normal).await.unwrap();
+        let p = h.list_pending_escalations().await.unwrap();
+        assert_eq!(p.len(), 3);
+        assert_eq!(p[0].priority, EscalationPriority::Critical);
+        assert_eq!(p[1].priority, EscalationPriority::Normal);
+        assert_eq!(p[2].priority, EscalationPriority::Low);
+    }
+
+    #[tokio::test]
+    async fn test_list_agent() {
+        let (s, _t) = create_test_storage();
+        let mut h = EscalationHandler::new(s);
+        let r1 = SandboxRequest { agent_id: "agent-1".into(), operation: "op1".into(), resource_type: "r".into(), parameters: serde_json::json!({}), timestamp: Utc::now(), session_id: None };
+        let r2 = SandboxRequest { agent_id: "agent-2".into(), operation: "op2".into(), resource_type: "r".into(), parameters: serde_json::json!({}), timestamp: Utc::now(), session_id: None };
+        h.create_escalation(&r1, "b".into(), EscalationOperationType::Custom("op1".into()), EscalationPriority::Normal).await.unwrap();
+        h.create_escalation(&r1, "b".into(), EscalationOperationType::Custom("op1".into()), EscalationPriority::Normal).await.unwrap();
+        h.create_escalation(&r2, "b".into(), EscalationOperationType::Custom("op2".into()), EscalationPriority::Normal).await.unwrap();
+        assert_eq!(h.list_agent_escalations("agent-1").await.unwrap().len(), 2);
+        assert_eq!(h.list_agent_escalations("agent-2").await.unwrap().len(), 1);
+        assert!(h.list_agent_escalations("agent-3").await.unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_process_expired() {
+        let (s, _t) = create_test_storage();
+        let mut h = EscalationHandler::new(s);
+        let req = SandboxRequest { agent_id: "a".into(), operation: "file_delete".into(), resource_type: "/f".into(), parameters: serde_json::json!({}), timestamp: Utc::now(), session_id: None };
+        let id = h.create_escalation(&req, "b".into(), EscalationOperationType::FileSystemAccess, EscalationPriority::Normal).await.unwrap();
+        let mut esc = h.get_escalation(&id).await.unwrap();
+        esc.expires_at = Utc::now() - chrono::Duration::hours(1);
+        h.update_escalation(&esc).await.unwrap();
+        assert_eq!(h.process_expired_escalations().await.unwrap(), 1);
+        assert_eq!(h.get_escalation(&id).await.unwrap().status, EscalationStatus::Expired);
+    }
+
+    #[tokio::test]
+    async fn test_process_none_expired() {
+        let (s, _t) = create_test_storage();
+        let mut h = EscalationHandler::new(s);
+        let req = SandboxRequest { agent_id: "a".into(), operation: "file_delete".into(), resource_type: "/f".into(), parameters: serde_json::json!({}), timestamp: Utc::now(), session_id: None };
+        h.create_escalation(&req, "b".into(), EscalationOperationType::FileSystemAccess, EscalationPriority::Normal).await.unwrap();
+        assert_eq!(h.process_expired_escalations().await.unwrap(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_statistics() {
+        let (s, _t) = create_test_storage();
+        let mut h = EscalationHandler::new(s);
+        let req = SandboxRequest { agent_id: "a".into(), operation: "file_delete".into(), resource_type: "/f".into(), parameters: serde_json::json!({}), timestamp: Utc::now(), session_id: None };
+        let id = h.create_escalation(&req, "b".into(), EscalationOperationType::FileSystemAccess, EscalationPriority::Normal).await.unwrap();
+        let rev = ReviewerInfo { reviewer_id: "r".into(), reviewer_name: "R".into(), reviewer_email: None, department: None };
+        h.approve_escalation(&id, rev, "ok".into(), vec![], Some(3600), false).await.unwrap();
+        h.create_escalation(&req, "b".into(), EscalationOperationType::FileSystemAccess, EscalationPriority::Normal).await.unwrap();
+        let stats = h.get_statistics().await.unwrap();
+        assert_eq!(stats.total_requests, 2);
+        assert_eq!(stats.approved_count, 1);
+        assert_eq!(stats.pending_count, 1);
+        assert_eq!(stats.denied_count, 0);
+        assert!(stats.reviewed_count > 0);
+        assert_eq!(stats.average_approval_duration_seconds, 3600);
+    }
+
+    #[tokio::test]
+    async fn test_statistics_empty() {
+        let (s, _t) = create_test_storage();
+        let mut h = EscalationHandler::new(s);
+        let stats = h.get_statistics().await.unwrap();
+        assert_eq!(stats.total_requests, 0);
+        assert_eq!(stats.average_response_time_seconds, 0);
+    }
+
+    #[tokio::test]
+    async fn test_active_approval_no_dur() {
+        let (s, _t) = create_test_storage();
+        let mut h = EscalationHandler::new(s);
+        let req = SandboxRequest { agent_id: "a".into(), operation: "file_delete".into(), resource_type: "/f".into(), parameters: serde_json::json!({}), timestamp: Utc::now(), session_id: None };
+        let id = h.create_escalation(&req, "b".into(), EscalationOperationType::FileSystemAccess, EscalationPriority::Normal).await.unwrap();
+        let rev = ReviewerInfo { reviewer_id: "r".into(), reviewer_name: "R".into(), reviewer_email: None, department: None };
+        h.approve_escalation(&id, rev, "ok".into(), vec![], None, false).await.unwrap();
+        assert!(h.has_active_approval("a", "file_delete").await.unwrap().is_some());
+    }
+
+    #[tokio::test]
+    async fn test_active_approval_with_dur() {
+        let (s, _t) = create_test_storage();
+        let mut h = EscalationHandler::new(s);
+        let req = SandboxRequest { agent_id: "a".into(), operation: "file_delete".into(), resource_type: "/f".into(), parameters: serde_json::json!({}), timestamp: Utc::now(), session_id: None };
+        let id = h.create_escalation(&req, "b".into(), EscalationOperationType::FileSystemAccess, EscalationPriority::Normal).await.unwrap();
+        let rev = ReviewerInfo { reviewer_id: "r".into(), reviewer_name: "R".into(), reviewer_email: None, department: None };
+        h.approve_escalation(&id, rev, "ok".into(), vec![], Some(3600), false).await.unwrap();
+        assert!(h.has_active_approval("a", "file_delete").await.unwrap().is_some());
+    }
+
+    #[tokio::test]
+    async fn test_active_approval_no_match() {
+        let (s, _t) = create_test_storage();
+        let mut h = EscalationHandler::new(s);
+        let req = SandboxRequest { agent_id: "a".into(), operation: "file_delete".into(), resource_type: "/f".into(), parameters: serde_json::json!({}), timestamp: Utc::now(), session_id: None };
+        h.create_escalation(&req, "b".into(), EscalationOperationType::FileSystemAccess, EscalationPriority::Normal).await.unwrap();
+        assert!(h.has_active_approval("a", "other_op").await.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn test_active_approval_no_agent() {
+        let (s, _t) = create_test_storage();
+        let mut h = EscalationHandler::new(s);
+        assert!(h.has_active_approval("nonexistent", "op").await.unwrap().is_none());
+    }
+
+    #[test]
+    fn test_suggest_alts() {
+        let (s, _t) = create_test_storage(); let h = EscalationHandler::new(s);
+        assert_eq!(h.suggest_alternatives("file_delete").len(), 2);
+        assert_eq!(h.suggest_alternatives("network_request").len(), 2);
+        assert_eq!(h.suggest_alternatives("execute_command").len(), 2);
+        assert_eq!(h.suggest_alternatives("other").len(), 1);
+    }
+
+    #[test]
+    fn test_assess_risk() {
+        let (s, _t) = create_test_storage(); let h = EscalationHandler::new(s);
+        assert!(h.assess_risk("delete_file").contains("High risk"));
+        assert!(h.assess_risk("remove_item").contains("High risk"));
+        assert!(h.assess_risk("network_request").contains("Medium risk"));
+        assert!(h.assess_risk("execute_command").contains("High risk"));
+        assert!(h.assess_risk("run_command").contains("High risk"));
+        assert!(h.assess_risk("write_file").contains("Medium risk"));
+        assert!(h.assess_risk("modify_entity").contains("Medium risk"));
+        assert!(h.assess_risk("read_file").contains("Low risk"));
+    }
+
+    #[test]
+    fn test_clear_cache() {
+        let (s, _t) = create_test_storage();
+        let mut h = EscalationHandler::new(s);
+        let ctx = OperationContext { operation: "op".into(), parameters: HashMap::new(), resource: None, block_reason: "t".into(), alternatives: vec![], risk_assessment: None };
+        let esc = EscalationRequest::new("a".into(), EscalationOperationType::Custom("op".into()), ctx, "t".into(), EscalationPriority::Normal, "a".into());
+        h.escalation_cache.insert(esc.id.clone(), esc);
+        h.clear_cache();
+        assert!(h.escalation_cache.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_approve_non_pending() {
+        let (s, _t) = create_test_storage();
+        let mut h = EscalationHandler::new(s);
+        let req = SandboxRequest { agent_id: "a".into(), operation: "op".into(), resource_type: "r".into(), parameters: serde_json::json!({}), timestamp: Utc::now(), session_id: None };
+        let id = h.create_escalation(&req, "b".into(), EscalationOperationType::Custom("op".into()), EscalationPriority::Normal).await.unwrap();
+        let rev = ReviewerInfo { reviewer_id: "r".into(), reviewer_name: "R".into(), reviewer_email: None, department: None };
+        h.deny_escalation(&id, rev, "no".into(), None).await.unwrap();
+        let rev2 = ReviewerInfo { reviewer_id: "r2".into(), reviewer_name: "R2".into(), reviewer_email: None, department: None };
+        assert!(h.approve_escalation(&id, rev2, "ok".into(), vec![], None, false).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_deny_non_pending() {
+        let (s, _t) = create_test_storage();
+        let mut h = EscalationHandler::new(s);
+        let req = SandboxRequest { agent_id: "a".into(), operation: "op".into(), resource_type: "r".into(), parameters: serde_json::json!({}), timestamp: Utc::now(), session_id: None };
+        let id = h.create_escalation(&req, "b".into(), EscalationOperationType::Custom("op".into()), EscalationPriority::Normal).await.unwrap();
+        let rev = ReviewerInfo { reviewer_id: "r".into(), reviewer_name: "R".into(), reviewer_email: None, department: None };
+        h.approve_escalation(&id, rev, "ok".into(), vec![], None, false).await.unwrap();
+        let rev2 = ReviewerInfo { reviewer_id: "r2".into(), reviewer_name: "R2".into(), reviewer_email: None, department: None };
+        assert!(h.deny_escalation(&id, rev2, "no".into(), None).await.is_err());
+    }
+
+    #[test]
+    fn test_stats_default() { let s = EscalationStatistics::default(); assert_eq!(s.total_requests, 0); }
+
+    #[tokio::test]
+    async fn test_create_caches() {
+        let (s, _t) = create_test_storage();
+        let mut h = EscalationHandler::new(s);
+        let req = SandboxRequest { agent_id: "test-agent".into(), operation: "file_write".into(), resource_type: "/f".into(), parameters: serde_json::json!({"key": "value"}), timestamp: Utc::now(), session_id: Some("s1".into()) };
+        let id = h.create_escalation(&req, "b".into(), EscalationOperationType::FileSystemAccess, EscalationPriority::Normal).await.unwrap();
+        assert!(h.escalation_cache.contains_key(&id));
+        let c = h.get_escalation(&id).await.unwrap();
+        assert_eq!(c.agent_id, "test-agent");
+        assert_eq!(c.session_id, Some("s1".into()));
+    }
 }

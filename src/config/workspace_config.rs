@@ -106,4 +106,81 @@ mod tests {
         assert!(base.agents.contains_key("agent1"));
         assert!(base.agents.contains_key("agent2"));
     }
+
+    #[test]
+    fn test_workspace_config_merge_empty_fields() {
+        let mut base = WorkspaceConfig::default();
+        let other = WorkspaceConfig {
+            name: "".to_string(),
+            default_agent: "".to_string(),
+            agents: HashMap::new(),
+            sync_strategy: "".to_string(),
+        };
+
+        base.merge(other);
+        assert_eq!(base.name, "default");
+        assert_eq!(base.default_agent, "default");
+        assert_eq!(base.sync_strategy, "merge_with_conflict_resolution");
+    }
+
+    #[test]
+    fn test_workspace_config_merge_overwrites_agents() {
+        let mut base = WorkspaceConfig::default();
+        let mut other = WorkspaceConfig::default();
+
+        base.agents.insert(
+            "agent-a".to_string(),
+            AgentConfig {
+                name: "original".to_string(),
+                agent_type: "type1".to_string(),
+                specialization: None,
+                email: None,
+            },
+        );
+
+        other.agents.insert(
+            "agent-a".to_string(),
+            AgentConfig {
+                name: "replaced".to_string(),
+                agent_type: "type2".to_string(),
+                specialization: Some("new".to_string()),
+                email: None,
+            },
+        );
+
+        base.merge(other);
+        let merged_agent = base.agents.get("agent-a").unwrap();
+        assert_eq!(merged_agent.name, "replaced");
+    }
+
+    #[test]
+    fn test_workspace_config_validate_empty_name() {
+        let config = WorkspaceConfig {
+            name: "".to_string(),
+            default_agent: "agent".to_string(),
+            agents: HashMap::new(),
+            sync_strategy: "sync".to_string(),
+        };
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_workspace_config_validate_nonempty_name() {
+        let config = WorkspaceConfig {
+            name: "my-workspace".to_string(),
+            default_agent: "".to_string(),
+            agents: HashMap::new(),
+            sync_strategy: "sync".to_string(),
+        };
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_workspace_config_default_values() {
+        let config = WorkspaceConfig::default();
+        assert_eq!(config.name, "default");
+        assert_eq!(config.default_agent, "default");
+        assert!(config.agents.is_empty());
+        assert_eq!(config.sync_strategy, "merge_with_conflict_resolution");
+    }
 }

@@ -319,4 +319,198 @@ mod tests {
         storage.delete_embedding("entity1", "test").unwrap();
         assert!(storage.get_embedding("entity1", "test").unwrap().is_none());
     }
+
+    #[test]
+    fn test_store_and_retrieve_multiple_models() {
+        let storage = SqliteVectorStorage::memory().unwrap();
+
+        storage
+            .store_embedding("e1", "task", &[1.0, 0.0], "model-a")
+            .unwrap();
+        storage
+            .store_embedding("e1", "task", &[0.0, 1.0], "model-b")
+            .unwrap();
+
+        let a = storage.get_embedding("e1", "model-a").unwrap();
+        let b = storage.get_embedding("e1", "model-b").unwrap();
+
+        assert!(a.is_some());
+        assert!(b.is_some());
+        assert!((a.unwrap()[0] - 1.0).abs() < 0.001);
+        assert!((b.unwrap()[0] - 0.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_get_embedding_nonexistent() {
+        let storage = SqliteVectorStorage::memory().unwrap();
+        let result = storage.get_embedding("nonexistent", "model").unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_delete_nonexistent_embedding() {
+        let storage = SqliteVectorStorage::memory().unwrap();
+        let result = storage.delete_embedding("nonexistent", "model");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_count_embeddings_after_stores() {
+        let storage = SqliteVectorStorage::memory().unwrap();
+        assert_eq!(storage.count_embeddings().unwrap(), 0);
+
+        storage.store_embedding("e1", "task", &[0.1], "m1").unwrap();
+        assert_eq!(storage.count_embeddings().unwrap(), 1);
+
+        storage.store_embedding("e2", "task", &[0.2], "m1").unwrap();
+        assert_eq!(storage.count_embeddings().unwrap(), 2);
+
+        storage.store_embedding("e1", "task", &[0.3], "m2").unwrap();
+        assert_eq!(storage.count_embeddings().unwrap(), 3);
+    }
+
+    #[test]
+    fn test_search_similar_empty_storage() {
+        let storage = SqliteVectorStorage::memory().unwrap();
+        let query = vec![1.0, 0.0, 0.0];
+        let results = storage.search_similar(&query, None, 10, 0.5).unwrap();
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn test_search_similar_with_type_filter() {
+        let storage = SqliteVectorStorage::memory().unwrap();
+
+        storage
+            .store_embedding("e1", "task", &[1.0, 0.0, 0.0], "m")
+            .unwrap();
+        storage
+            .store_embedding("e2", "context", &[1.0, 0.0, 0.0], "m")
+            .unwrap();
+
+        let query = vec![1.0, 0.0, 0.0];
+        let results = storage
+            .search_similar(&query, Some("task"), 10, 0.9)
+            .unwrap();
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].entity_id, "e1");
+        assert_eq!(results[0].entity_type, "task");
+    }
+
+    #[test]
+    fn test_search_similar_high_threshold() {
+        let storage = SqliteVectorStorage::memory().unwrap();
+
+        storage
+            .store_embedding("e1", "task", &[1.0, 0.0, 0.0], "m")
+            .unwrap();
+        storage
+            .store_embedding("e2", "task", &[0.0, 1.0, 0.0], "m")
+            .unwrap();
+
+        let query = vec![1.0, 0.0, 0.0];
+        let results = storage.search_similar(&query, None, 10, 0.99).unwrap();
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].entity_id, "e1");
+    }
+
+    #[test]
+    fn test_search_similar_limit_truncates() {
+        let storage = SqliteVectorStorage::memory().unwrap();
+
+        for i in 0..5 {
+            let angle = i as f32 * 0.1;
+            let vec = vec![angle.cos(), angle.sin()];
+            storage
+                .store_embedding(&format!("e{}", i), "task", &vec, "m")
+                .unwrap();
+        }
+
+        let query = vec![1.0, 0.0];
+        let results = storage.search_similar(&query, None, 2, 0.0).unwrap();
+        assert!(results.len() <= 2);
+    }
+
+    #[test]
+    fn test_search_results_sorted_by_score() {
+        let storage = SqliteVectorStorage::memory().unwrap();
+
+        storage
+            .store_embedding("e1", "task", &[0.0, 1.0, 0.0], "m")
+            .unwrap();
+        storage
+            .store_embedding("e2", "task", &[0.9, 0.1, 0.0], "m")
+            .unwrap();
+        storage
+            .store_embedding("e3", "task", &[1.0, 0.0, 0.0], "m")
+            .unwrap();
+
+        let query = vec![1.0, 0.0, 0.0];
+        let results = storage
+            .search_similar(&query, Some("task"), 10, 0.0)
+            .unwrap();
+
+        for i in 0..results.len() - 1 {
+            assert!(results[i].score >= results[i + 1].score);
+        }
+    }
+
+    #[test]
+    fn test_register_model_switch_default() {
+        let storage = SqliteVectorStorage::memory().unwrap();
+
+        storage
+            .register_model("model1", "local", 384, true)
+            .unwrap();
+        assert_eq!(
+            storage.get_default_model().unwrap(),
+            Some("model1".to_string())
+        );
+
+        storage
+            .register_model("model2", "local", 512, true)
+            .unwrap();
+        assert_eq!(
+            storage.get_default_model().unwrap(),
+            Some("model2".to_string())
+        );
+    }
+
+    #[test]
+    fn test_get_default_model_none() {
+        let storage = SqliteVectorStorage::memory().unwrap();
+        assert_eq!(storage.get_default_model().unwrap(), None);
+    }
+
+    #[test]
+    fn test_store_embedding_replaces_existing() {
+        let storage = SqliteVectorStorage::memory().unwrap();
+
+        storage
+            .store_embedding("e1", "task", &[1.0, 0.0], "m")
+            .unwrap();
+        storage
+            .store_embedding("e1", "task", &[0.0, 1.0], "m")
+            .unwrap();
+
+        let retrieved = storage.get_embedding("e1", "m").unwrap().unwrap();
+        assert!((retrieved[0] - 0.0).abs() < 0.001);
+        assert!((retrieved[1] - 1.0).abs() < 0.001);
+        assert_eq!(storage.count_embeddings().unwrap(), 1);
+    }
+
+    #[test]
+    fn test_search_result_contains_model() {
+        let storage = SqliteVectorStorage::memory().unwrap();
+
+        storage
+            .store_embedding("e1", "task", &[1.0, 0.0], "test-model")
+            .unwrap();
+
+        let results = storage.search_similar(&[1.0, 0.0], None, 10, 0.5).unwrap();
+
+        assert_eq!(results[0].model, Some("test-model".to_string()));
+    }
 }

@@ -463,4 +463,97 @@ mod tests {
         monitor.clear_agent_data(agent_id);
         assert!(monitor.get_current_usage(agent_id).is_none());
     }
+
+    #[test] fn test_default() { let _ = ResourceMonitor::default(); }
+
+    #[test]
+    fn test_usage_new() {
+        let u = AgentResourceUsage::new();
+        assert_eq!(u.memory_mb, 0.0);
+        assert_eq!(u.cpu_percentage, 0.0);
+        assert_eq!(u.disk_space_mb, 0.0);
+        assert_eq!(u.active_operations, 0);
+        assert!(u.execution_start.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_check_limits_passes() {
+        let mut m = ResourceMonitor::new();
+        assert!(m.check_limits("t", &create_test_request("read_file"), &create_test_limits()).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_file_size_within_limit() {
+        let mut m = ResourceMonitor::new();
+        let mut p = serde_json::Map::new(); p.insert("file_size_mb".into(), serde_json::json!(5.0));
+        let r = SandboxRequest { operation: "write_file".into(), parameters: serde_json::Value::Object(p), agent_id: "t".into(), resource_type: "f".into(), session_id: None, timestamp: Utc::now() };
+        assert!(m.check_limits("t", &r, &create_test_limits()).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_file_size_non_numeric() {
+        let mut m = ResourceMonitor::new();
+        let mut p = serde_json::Map::new(); p.insert("file_size_mb".into(), serde_json::json!("not_a_number"));
+        let r = SandboxRequest { operation: "write_file".into(), parameters: serde_json::Value::Object(p), agent_id: "t".into(), resource_type: "f".into(), session_id: None, timestamp: Utc::now() };
+        assert!(m.check_limits("t", &r, &create_test_limits()).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_end_nonexistent() {
+        let mut m = ResourceMonitor::new();
+        m.end_operation("nonexistent", "op1");
+        assert!(m.get_current_usage("nonexistent").is_none());
+    }
+
+    #[tokio::test]
+    async fn test_start_multiple() {
+        let mut m = ResourceMonitor::new();
+        m.start_operation("a", "op1"); m.start_operation("a", "op2"); m.start_operation("a", "op3");
+        assert_eq!(m.get_current_usage("a").unwrap().active_operations, 3);
+    }
+
+    #[tokio::test]
+    async fn test_end_no_negative() {
+        let mut m = ResourceMonitor::new();
+        m.start_operation("a", "op1"); m.end_operation("a", "op1"); m.end_operation("a", "op1");
+        assert_eq!(m.get_current_usage("a").unwrap().active_operations, 0);
+    }
+
+    #[test] fn test_usage_none() { assert!(ResourceMonitor::new().get_current_usage("x").is_none()); }
+
+    #[test] fn test_all_agents_empty() { assert!(ResourceMonitor::new().get_all_agents().is_empty()); }
+
+    #[test]
+    fn test_all_agents() {
+        let mut m = ResourceMonitor::new();
+        m.start_operation("a1", "op"); m.start_operation("a2", "op"); m.start_operation("a3", "op");
+        assert_eq!(m.get_all_agents().len(), 3);
+    }
+
+    #[test] fn test_clear_nonexistent() { ResourceMonitor::new().clear_agent_data("x"); }
+
+    #[test]
+    fn test_snapshot() {
+        let s = ResourceUsageSnapshot { memory_mb: 100.0, cpu_percentage: 50.0, disk_space_mb: 200.0, active_operations: 3, network_requests_this_minute: 10 };
+        assert_eq!(s.memory_mb, 100.0);
+        assert_eq!(s.active_operations, 3);
+    }
+
+    #[test]
+    fn test_exec_start_end() {
+        let mut m = ResourceMonitor::new();
+        m.start_operation("a", "execute_command");
+        assert_eq!(m.get_current_usage("a").unwrap().active_operations, 1);
+        m.end_operation("a", "execute_command");
+        assert_eq!(m.get_current_usage("a").unwrap().active_operations, 0);
+    }
+
+    #[test]
+    fn test_non_exec_start_end() {
+        let mut m = ResourceMonitor::new();
+        m.start_operation("a", "read_file");
+        assert_eq!(m.get_current_usage("a").unwrap().active_operations, 1);
+        m.end_operation("a", "read_file");
+        assert_eq!(m.get_current_usage("a").unwrap().active_operations, 0);
+    }
 }

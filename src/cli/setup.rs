@@ -370,15 +370,30 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let root = temp_dir.path().to_path_buf();
 
-        // Setup mock HOME structure
-        let config_dir = root.clone();
+        let source_dir = root.join("skills");
+        fs::create_dir_all(source_dir.join("meta")).unwrap();
+        fs::write(
+            source_dir.join("meta/use-engram-memory.md"),
+            "# Use Engram Memory\nTest content",
+        )
+        .unwrap();
+        fs::create_dir_all(source_dir.join("development")).unwrap();
+        fs::write(
+            source_dir.join("development/test-driven-development.md"),
+            "# Test Driven Development\nTest content",
+        )
+        .unwrap();
+
+        let config_dir = root.join("config_root");
+        let prev_cwd = std::env::current_dir().unwrap();
+        let prev_env = std::env::var("ENGRAM_SKILLS_SOURCE").ok();
+        std::env::set_current_dir(&root).unwrap();
+        std::env::set_var("ENGRAM_SKILLS_SOURCE", source_dir.as_os_str());
 
         setup_skills(Some(config_dir.clone()), false).unwrap();
 
         let skills_dir = config_dir.join(".config/opencode/skills");
         assert!(skills_dir.exists());
-
-        // Check for a few expected skills
         assert!(skills_dir
             .join("engram-use-engram-memory/SKILL.md")
             .exists());
@@ -386,19 +401,23 @@ mod tests {
             .join("engram-test-driven-development/SKILL.md")
             .exists());
 
-        // Verify content
         let skill_content =
             fs::read_to_string(skills_dir.join("engram-use-engram-memory/SKILL.md")).unwrap();
         assert!(!skill_content.is_empty());
 
-        // Verify existing skills are not overwritten
         let test_file = skills_dir.join("engram-use-engram-memory/SKILL.md");
         fs::write(&test_file, "modified content").unwrap();
 
-        setup_skills(Some(config_dir), false).unwrap();
+        setup_skills(Some(config_dir.clone()), false).unwrap();
 
         let new_content = fs::read_to_string(test_file).unwrap();
         assert_eq!(new_content, "modified content");
+
+        std::env::set_current_dir(&prev_cwd).unwrap();
+        match prev_env {
+            Some(v) => std::env::set_var("ENGRAM_SKILLS_SOURCE", v),
+            None => std::env::remove_var("ENGRAM_SKILLS_SOURCE"),
+        }
     }
 
     #[test]
