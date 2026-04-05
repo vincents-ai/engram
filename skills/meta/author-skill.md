@@ -266,38 +266,23 @@ engram relationship create \
   --relationship-type relates_to --agent "<your-agent-name>"
 ```
 
-### 7. Register the Skill in the Binary
+### 7. Install and Validate
 
-The skill is embedded in the binary at compile time via `include_str!()`. To make it installable via `engram skills setup`, it must be registered in two source files:
+Skills are auto-discovered from the `./skills/` directory at runtime — no manual registration in source code needed.
 
-**File 1:** `src/cli/skills.rs` — the `engram skills setup` command (installs the 14 core skills).
-
-Add an entry to the skills vector:
-
-```rust
-SkillDefinition {
-    name: "engram-<skill-name>".to_string(),
-    content: include_str!("../../skills/<category>/<skill-name>.md").to_string(),
-},
-```
-
-**File 2:** `src/cli/setup.rs` — the `engram setup skills` command (installs all 44+ skills).
-
-Add a matching entry in the same format.
-
-After adding both entries, rebuild:
+Install the skill:
 
 ```bash
-cargo build --bin engram
+engram skills setup --force
 ```
 
-### 8. Install and Validate
+This scans `./skills/` recursively, finds your new `.md` file, and installs it to the target directory. Use `--source <path>` if your skills live elsewhere, or set `ENGRAM_SKILLS_SOURCE`.
 
-Install the newly built binary's skills:
-
-```bash
-engram skills setup
-```
+**Naming convention** (how the scanner derives the installed skill name):
+- Filename `skill.md` or `SKILL.md` → skill name = parent directory name
+- Any other `.md` file → skill name = filename without extension
+- Names not starting with `engram-` or `screenplay-` are auto-prefixed with `engram-`
+- `README.md` is always skipped
 
 Then run `engram-validate-skill` on the new skill:
 
@@ -309,15 +294,15 @@ Then run `engram-validate-skill` on the new skill:
 # 4. Store the result as engram context
 ```
 
-If the validate skill reports any FAILs, fix the skill source file and repeat from step 7.
+If the validate skill reports any FAILs, fix the skill source file and repeat.
 
-### 9. Close the Task
+### 8. Close the Task
 
 ```bash
 engram reasoning create \
   --title "Skill authoring complete: engram-<skill-name>" \
   --task-id <AUTHOR_TASK_UUID> \
-  --content "Skill written and validated. Commands tested: <N>. All pass. Registered in skills.rs and setup.rs. Installed via engram skills setup."
+  --content "Skill written and validated. Commands tested: <N>. All pass. Installed via engram skills setup."
 
 engram relationship create \
   --source-id <AUTHOR_TASK_UUID> --source-type task \
@@ -326,7 +311,7 @@ engram relationship create \
 
 engram validate check
 engram task update <AUTHOR_TASK_UUID> --status done \
-  --outcome "engram-<skill-name> written, validated, and registered"
+  --outcome "engram-<skill-name> written, validated, and installed"
 ```
 
 ## Example
@@ -377,12 +362,8 @@ rm -rf "$SANDBOX"
 # skills/workflow/deploy-workflow.md
 # ... (follows canonical format with confirmed commands)
 
-[Register in binary]
-# Add to src/cli/skills.rs and src/cli/setup.rs
-# cargo build --bin engram
-
 [Install and validate]
-engram skills setup
+engram skills setup --force
 # Run engram-validate-skill on engram-deploy-workflow
 
 [Record ADR]
@@ -402,11 +383,11 @@ engram relationship create \
 engram reasoning create \
   --title "Skill authoring complete: engram-deploy-workflow" \
   --task-id task-001 \
-  --content "Skill written and validated. 18 commands tested in sandbox, all pass. Registered in skills.rs and setup.rs."
+  --content "Skill written and validated. 18 commands tested in sandbox, all pass. Installed via engram skills setup."
 
 engram validate check
 engram task update task-001 --status done \
-  --outcome "engram-deploy-workflow written, validated, and registered"
+  --outcome "engram-deploy-workflow written, validated, and installed"
 ```
 
 ## Checklist
@@ -417,15 +398,15 @@ Before considering the skill done:
 - [ ] No prohibited patterns used (see Step 5)
 - [ ] Skill has: Search First, Anchor, Store, Link, Validate, Close sections
 - [ ] YAML frontmatter has `name` and `description`
-- [ ] Registered in `src/cli/skills.rs` (if it's a core skill)
-- [ ] Registered in `src/cli/setup.rs`
+- [ ] Skill file placed in correct category directory under `skills/`
+- [ ] `engram skills setup --force` picks up the new skill
 - [ ] `engram-validate-skill` run on the installed skill — all commands PASS
 - [ ] Design stored as ADR in engram
 - [ ] Author task marked done
 
 ## Related Skills
 
-- `engram-validate-skill` — validates every command in a skill file against the live binary; called in step 8
+- `engram-validate-skill` — validates every command in a skill file against the live binary; called in step 7
 - `engram-brainstorming` — design the skill's workflow before authoring
 - `engram-use-engram-memory` — reference for engram entity creation patterns
 - `engram-audit-trail` — full traceability of authoring decisions

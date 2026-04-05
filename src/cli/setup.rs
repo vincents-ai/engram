@@ -129,9 +129,8 @@ pub fn setup_agent(
 
 /// Setup OpenCode skills command
 pub fn setup_skills(config_dir: Option<PathBuf>, force: bool) -> Result<(), EngramError> {
-    use std::env;
+    use crate::cli::skills::{install_skills, resolve_skills_source, scan_skills_from_dir};
 
-    // Get OpenCode config directory
     let opencode_dir = if let Some(dir) = config_dir {
         dir.join(".config").join("opencode")
     } else {
@@ -141,334 +140,30 @@ pub fn setup_skills(config_dir: Option<PathBuf>, force: bool) -> Result<(), Engr
     };
 
     let skills_dir = opencode_dir.join("skills");
-    fs::create_dir_all(&skills_dir).map_err(EngramError::Io)?;
+    let source_dir = resolve_skills_source(None);
 
-    // List of built-in Engram skills to install with their content
-    let skills: &[(&str, &str)] = &[
-        // Meta Skills
-        (
-            "engram-use-engram-memory",
-            include_str!("../../skills/meta/use-engram-memory.md"),
-        ),
-        (
-            "engram-delegate-to-agents",
-            include_str!("../../skills/meta/delegate-to-agents.md"),
-        ),
-        (
-            "engram-audit-trail",
-            include_str!("../../skills/meta/audit-trail.md"),
-        ),
-        (
-            "engram-dispatching-parallel-agents",
-            include_str!("../../skills/meta/dispatching-parallel-agents.md"),
-        ),
-        // Workflow Skills
-        (
-            "engram-brainstorming",
-            include_str!("../../skills/workflow/brainstorming.md"),
-        ),
-        (
-            "engram-writing-plans",
-            include_str!("../../skills/workflow/writing-plans.md"),
-        ),
-        (
-            "engram-plan-feature",
-            include_str!("../../skills/workflow/plan-feature.md"),
-        ),
-        (
-            "engram-requesting-code-review",
-            include_str!("../../skills/workflow/requesting-code-review.md"),
-        ),
-        // Development Skills
-        (
-            "engram-test-driven-development",
-            include_str!("../../skills/development/test-driven-development.md"),
-        ),
-        (
-            "engram-subagent-driven-development",
-            include_str!("../../skills/development/subagent-driven-development.md"),
-        ),
-        // Debugging Skills
-        (
-            "engram-systematic-debugging",
-            include_str!("../../skills/debugging/systematic-debugging.md"),
-        ),
-        // Compliance Skills
-        (
-            "engram-check-compliance",
-            include_str!("../../skills/compliance/check-compliance.md"),
-        ),
-        // Planning Skills (7)
-        (
-            "engram-risk-assessment",
-            include_str!("../../skills/planning/risk-assessment.md"),
-        ),
-        (
-            "engram-spike-investigation",
-            include_str!("../../skills/planning/spike-investigation.md"),
-        ),
-        (
-            "engram-dependency-mapping",
-            include_str!("../../skills/planning/dependency-mapping.md"),
-        ),
-        (
-            "engram-capacity-planning",
-            include_str!("../../skills/planning/capacity-planning.md"),
-        ),
-        (
-            "engram-release-planning",
-            include_str!("../../skills/planning/release-planning.md"),
-        ),
-        (
-            "engram-backlog-refinement",
-            include_str!("../../skills/planning/backlog-refinement.md"),
-        ),
-        (
-            "engram-roadmap-planning",
-            include_str!("../../skills/planning/roadmap-planning.md"),
-        ),
-        // Documentation Skills (6)
-        (
-            "engram-adr",
-            include_str!("../../skills/documentation/adr.md"),
-        ),
-        (
-            "engram-api-docs",
-            include_str!("../../skills/documentation/api-docs.md"),
-        ),
-        (
-            "engram-knowledge-transfer",
-            include_str!("../../skills/documentation/knowledge-transfer.md"),
-        ),
-        (
-            "engram-runbooks",
-            include_str!("../../skills/documentation/runbooks.md"),
-        ),
-        (
-            "engram-changelog",
-            include_str!("../../skills/documentation/changelog.md"),
-        ),
-        (
-            "engram-technical-writing",
-            include_str!("../../skills/documentation/technical-writing.md"),
-        ),
-        // Architecture Skills (8)
-        (
-            "engram-system-design",
-            include_str!("../../skills/architecture/system-design.md"),
-        ),
-        (
-            "engram-security-architecture",
-            include_str!("../../skills/architecture/security-architecture.md"),
-        ),
-        (
-            "engram-data-modeling",
-            include_str!("../../skills/architecture/data-modeling.md"),
-        ),
-        (
-            "engram-api-design",
-            include_str!("../../skills/architecture/api-design.md"),
-        ),
-        (
-            "engram-scalability-analysis",
-            include_str!("../../skills/architecture/scalability-analysis.md"),
-        ),
-        (
-            "engram-refactoring-strategy",
-            include_str!("../../skills/architecture/refactoring-strategy.md"),
-        ),
-        (
-            "engram-observability-design",
-            include_str!("../../skills/architecture/observability-design.md"),
-        ),
-        (
-            "engram-integration-patterns",
-            include_str!("../../skills/architecture/integration-patterns.md"),
-        ),
-        // Quality Skills (5)
-        (
-            "engram-assumption-validation",
-            include_str!("../../skills/quality/assumption-validation.md"),
-        ),
-        (
-            "engram-edge-cases",
-            include_str!("../../skills/quality/edge-cases.md"),
-        ),
-        (
-            "engram-tech-debt",
-            include_str!("../../skills/quality/tech-debt.md"),
-        ),
-        (
-            "engram-performance-analysis",
-            include_str!("../../skills/quality/performance-analysis.md"),
-        ),
-        (
-            "engram-accessibility",
-            include_str!("../../skills/quality/accessibility.md"),
-        ),
-        // Review Skills (4)
-        (
-            "engram-security-review",
-            include_str!("../../skills/review/security-review.md"),
-        ),
-        (
-            "engram-code-quality",
-            include_str!("../../skills/review/code-quality.md"),
-        ),
-        (
-            "engram-post-mortem",
-            include_str!("../../skills/review/post-mortem.md"),
-        ),
-        (
-            "engram-retrospective",
-            include_str!("../../skills/review/retrospective.md"),
-        ),
-        // Orchestration Skills (2)
-        (
-            "engram-orchestrator",
-            include_str!("../../skills/meta/engram-orchestrator.md"),
-        ),
-        (
-            "engram-subagent-register",
-            include_str!("../../skills/meta/engram-subagent-register.md"),
-        ),
-        // Skill authoring meta-skills (2)
-        (
-            "engram-validate-skill",
-            include_str!("../../skills/meta/validate-skill.md"),
-        ),
-        (
-            "engram-author-skill",
-            include_str!("../../skills/meta/author-skill.md"),
-        ),
-        (
-            "engram-tmux-commands",
-            include_str!("../../skills/meta/tmux-commands.md"),
-        ),
-        (
-            "engram-workflow-guide",
-            include_str!("../../skills/meta/workflow-guide.md"),
-        ),
-        // Screenplay Skills (11)
-        (
-            "screenplay-session-start",
-            include_str!("../../skills/screenplay/session-start.md"),
-        ),
-        (
-            "screenplay-beat-sheet-builder",
-            include_str!("../../skills/screenplay/beat-sheet-builder.md"),
-        ),
-        (
-            "screenplay-outliner",
-            include_str!("../../skills/screenplay/outliner.md"),
-        ),
-        (
-            "screenplay-logline-writer",
-            include_str!("../../skills/screenplay/logline-writer.md"),
-        ),
-        (
-            "screenplay-theme-developer",
-            include_str!("../../skills/screenplay/theme-developer.md"),
-        ),
-        (
-            "screenplay-world-builder",
-            include_str!("../../skills/screenplay/world-builder.md"),
-        ),
-        (
-            "screenplay-character-developer",
-            include_str!("../../skills/screenplay/character-developer.md"),
-        ),
-        (
-            "screenplay-scene-writer",
-            include_str!("../../skills/screenplay/scene-writer.md"),
-        ),
-        (
-            "screenplay-dialogue-refiner",
-            include_str!("../../skills/screenplay/dialogue-refiner.md"),
-        ),
-        (
-            "screenplay-plot-hole-finder",
-            include_str!("../../skills/screenplay/plot-hole-finder.md"),
-        ),
-        (
-            "screenplay-rewriter",
-            include_str!("../../skills/screenplay/rewriter.md"),
-        ),
-    ];
+    println!("📂 Scanning skills from: {:?}", source_dir);
+    let skills = scan_skills_from_dir(&source_dir)?;
 
-    let mut installed_count = 0;
-    let mut skipped_count = 0;
-    let mut updated_count = 0;
-
-    for (skill_name, skill_content) in skills {
-        let skill_dir = skills_dir.join(skill_name);
-        let skill_file = skill_dir.join("SKILL.md");
-
-        if skill_dir.exists() {
-            let on_disk = fs::read_to_string(&skill_file).unwrap_or_default();
-
-            if on_disk == *skill_content {
-                println!("✅ Skill '{}' is up to date", skill_name);
-                skipped_count += 1;
-                continue;
-            }
-
-            // Show unified diff between on-disk and binary versions
-            {
-                use similar::{ChangeTag, TextDiff};
-                let diff = TextDiff::from_lines(on_disk.as_str(), *skill_content);
-                println!("📝 Skill '{}' differs from binary:", skill_name);
-                let mut header_printed = false;
-                for group in diff.grouped_ops(3) {
-                    for op in &group {
-                        for change in diff.iter_changes(op) {
-                            if !header_printed && change.tag() != ChangeTag::Equal {
-                                println!("--- {}/SKILL.md (on disk)", skill_name);
-                                println!("+++ {}/SKILL.md (binary)", skill_name);
-                                header_printed = true;
-                            }
-                            let prefix = match change.tag() {
-                                ChangeTag::Delete => "-",
-                                ChangeTag::Insert => "+",
-                                ChangeTag::Equal => " ",
-                            };
-                            print!("{}{}", prefix, change.value());
-                            if change.missing_newline() {
-                                println!();
-                            }
-                        }
-                    }
-                }
-            }
-
-            if force {
-                fs::write(&skill_file, skill_content).map_err(EngramError::Io)?;
-                println!("🔄 Updated skill: {}", skill_name);
-                updated_count += 1;
-            } else {
-                println!(
-                    "⚠️  Skipping '{}' — run with --force to overwrite",
-                    skill_name
-                );
-                skipped_count += 1;
-            }
-            continue;
-        }
-
-        // New skill — install unconditionally
-        fs::create_dir_all(&skill_dir).map_err(EngramError::Io)?;
-        let skill_file = skill_dir.join("SKILL.md");
-        fs::write(&skill_file, skill_content).map_err(EngramError::Io)?;
-        println!("✅ Installed skill: {}", skill_name);
-        installed_count += 1;
+    if skills.is_empty() {
+        println!("⚠️  No skill files found in {:?}", source_dir);
+        return Ok(());
     }
+
+    println!("📦 Found {} skills", skills.len());
+    println!();
+
+    let mut writer = Vec::new();
+    let (installed, updated, skipped) = install_skills(&mut writer, &skills, &skills_dir, force)?;
+    let output = String::from_utf8(writer).map_err(|e| EngramError::Validation(e.to_string()))?;
+    print!("{}", output);
 
     println!();
     println!("🎉 OpenCode skills setup complete!");
     println!("📁 Skills installed to: {:?}", skills_dir);
     println!(
         "📊 Installed: {}  Updated: {}  Skipped: {}",
-        installed_count, updated_count, skipped_count
+        installed, updated, skipped
     );
     println!();
     println!("💡 Skills are now available in OpenCode with 'engram:' prefix");
