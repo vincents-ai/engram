@@ -92,6 +92,16 @@ pub fn handle_input(app: &mut AppState) -> (bool, Option<Action>) {
                         if len > 0 {
                             app.contexts_selected = (app.contexts_selected + 1).min(len - 1);
                         }
+                    } else if app.active_view == ActiveView::Adrs {
+                        let len = app.all_adrs.len();
+                        if len > 0 {
+                            app.adrs_selected = (app.adrs_selected + 1).min(len - 1);
+                        }
+                    } else if app.active_view == ActiveView::Theories {
+                        let len = app.all_theories.len();
+                        if len > 0 {
+                            app.theories_selected = (app.theories_selected + 1).min(len - 1);
+                        }
                     } else {
                         app.select_next();
                     }
@@ -103,6 +113,10 @@ pub fn handle_input(app: &mut AppState) -> (bool, Option<Action>) {
                         app.relationship_selected = app.relationship_selected.saturating_sub(1);
                     } else if app.active_view == ActiveView::Contexts {
                         app.contexts_selected = app.contexts_selected.saturating_sub(1);
+                    } else if app.active_view == ActiveView::Adrs {
+                        app.adrs_selected = app.adrs_selected.saturating_sub(1);
+                    } else if app.active_view == ActiveView::Theories {
+                        app.theories_selected = app.theories_selected.saturating_sub(1);
                     } else {
                         app.select_prev();
                     }
@@ -114,6 +128,10 @@ pub fn handle_input(app: &mut AppState) -> (bool, Option<Action>) {
                         app.relationship_selected = 0;
                     } else if app.active_view == ActiveView::Contexts {
                         app.contexts_selected = 0;
+                    } else if app.active_view == ActiveView::Adrs {
+                        app.adrs_selected = 0;
+                    } else if app.active_view == ActiveView::Theories {
+                        app.theories_selected = 0;
                     } else {
                         app.selected_index = 0;
                     }
@@ -133,6 +151,16 @@ pub fn handle_input(app: &mut AppState) -> (bool, Option<Action>) {
                         let len = app.contexts.len();
                         if len > 0 {
                             app.contexts_selected = len - 1;
+                        }
+                    } else if app.active_view == ActiveView::Adrs {
+                        let len = app.all_adrs.len();
+                        if len > 0 {
+                            app.adrs_selected = len - 1;
+                        }
+                    } else if app.active_view == ActiveView::Theories {
+                        let len = app.all_theories.len();
+                        if len > 0 {
+                            app.theories_selected = len - 1;
                         }
                     } else {
                         let len = app.recent_tasks.len();

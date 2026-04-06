@@ -496,6 +496,7 @@ mod tests {
                 agent_type: "general".to_string(),
                 specialization: None,
                 email: None,
+                persona: None,
             },
         );
         other.agents = other_agents;
@@ -613,6 +614,7 @@ mod tests {
                 agent_type: "type1".to_string(),
                 specialization: None,
                 email: None,
+                persona: None,
             },
         );
 
@@ -624,6 +626,7 @@ mod tests {
                 agent_type: "type2".to_string(),
                 specialization: None,
                 email: None,
+                persona: None,
             },
         );
 

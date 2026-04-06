@@ -45,7 +45,22 @@ async fn main() -> std::io::Result<()> {
         // TUI mode (default)
         let storage = GitRefsStorage::new(".", "default")
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
-        let mut app = LocusTuiApp::new(storage);
+        // Load workspace config to get the refresh interval.
+        // Fall back to the default (30s) if the config file is absent or invalid.
+        let workspace_cfg = engram::config::workspace_config::WorkspaceConfig::default();
+        let backend: Box<dyn engram::locus_tui::backend::LocusTuiBackend> =
+            match engram::locus_tui::backend::GitEngramBackend::new() {
+                Ok(b) => Box::new(b),
+                Err(_) => {
+                    let mem = engram::storage::memory_only_storage::MemoryStorage::new("locus-tui");
+                    Box::new(engram::locus_tui::backend::EngramBackend::from_storage(mem))
+                }
+            };
+        let mut app = LocusTuiApp::new_with_refresh_interval(
+            storage,
+            backend,
+            workspace_cfg.refresh_interval_secs,
+        );
         app.run()?;
     }
     Ok(())

@@ -4,13 +4,13 @@
 //! the real engram storage layer. The trait is object-safe so
 //! callers can hold `Box<dyn LocusTuiBackend>`.
 
-use crate::entities::{Context, EntityRelationship, Reasoning, Task};
+use crate::entities::{Context, EntityRelationship, Reasoning, Task, Theory, ADR};
 use crate::error::EngramError;
 use crate::storage::{RelationshipStorage, Storage};
 
 /// Object-safe trait for TUI data access.
 ///
-/// Implementations retrieve the four core entity collections that
+/// Implementations retrieve the core entity collections that
 /// the Locus TUI needs to display. Returning `EngramError` lets
 /// callers distinguish storage failures from empty results.
 pub trait LocusTuiBackend: Send {
@@ -18,6 +18,8 @@ pub trait LocusTuiBackend: Send {
     fn list_contexts(&self) -> Result<Vec<Context>, EngramError>;
     fn list_reasoning(&self) -> Result<Vec<Reasoning>, EngramError>;
     fn list_relationships(&self) -> Result<Vec<EntityRelationship>, EngramError>;
+    fn list_adrs(&self) -> Result<Vec<ADR>, EngramError>;
+    fn list_theories(&self) -> Result<Vec<Theory>, EngramError>;
 }
 
 /// Generic backend backed by any `Storage + RelationshipStorage`.
@@ -71,6 +73,24 @@ impl<S: Storage + RelationshipStorage + Send> LocusTuiBackend for EngramBackend<
             .collect();
         Ok(relationships)
     }
+
+    fn list_adrs(&self) -> Result<Vec<ADR>, EngramError> {
+        let entities = self.storage.get_all("adr")?;
+        let adrs = entities
+            .into_iter()
+            .filter_map(|e| serde_json::from_value::<ADR>(e.data).ok())
+            .collect();
+        Ok(adrs)
+    }
+
+    fn list_theories(&self) -> Result<Vec<Theory>, EngramError> {
+        let entities = self.storage.get_all("theory")?;
+        let theories = entities
+            .into_iter()
+            .filter_map(|e| serde_json::from_value::<Theory>(e.data).ok())
+            .collect();
+        Ok(theories)
+    }
 }
 
 /// Convenience type alias for the production git-backed backend.
@@ -105,7 +125,7 @@ impl GitEngramBackend {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::entities::{ContextRelevance, Reasoning, Task, TaskPriority};
+    use crate::entities::{ContextRelevance, Reasoning, Task, TaskPriority, Theory, ADR};
     use crate::storage::memory_only_storage::MemoryStorage;
     use crate::storage::{RelationshipStorage, Storage};
 
@@ -244,5 +264,62 @@ mod tests {
         // The call must succeed (no panic / Err), even if the count is 0.
         let result = backend.list_relationships();
         assert!(result.is_ok());
+    }
+
+    // ── list_adrs ─────────────────────────────────────────────────────────
+    #[test]
+    fn test_list_adrs_empty() {
+        let backend = make_backend();
+        assert!(backend.list_adrs().unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_list_adrs_returns_stored_adrs() {
+        let mut storage = MemoryStorage::new("test-agent");
+        let adr = ADR::new(
+            "Use Rust".to_string(),
+            1,
+            "test-agent".to_string(),
+            "Need a systems language".to_string(),
+        );
+        let entity = crate::entities::GenericEntity {
+            id: adr.id.clone(),
+            entity_type: "adr".to_string(),
+            agent: adr.agent.clone(),
+            timestamp: adr.created_at,
+            data: serde_json::to_value(&adr).unwrap(),
+        };
+        storage.store(&entity).unwrap();
+
+        let backend = EngramBackend::from_storage(storage);
+        let adrs = backend.list_adrs().unwrap();
+        assert_eq!(adrs.len(), 1);
+        assert_eq!(adrs[0].title, "Use Rust");
+    }
+
+    // ── list_theories ─────────────────────────────────────────────────────
+    #[test]
+    fn test_list_theories_empty() {
+        let backend = make_backend();
+        assert!(backend.list_theories().unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_list_theories_returns_stored_theories() {
+        let mut storage = MemoryStorage::new("test-agent");
+        let theory = Theory::new("Storage".to_string(), "test-agent".to_string());
+        let entity = crate::entities::GenericEntity {
+            id: theory.id.clone(),
+            entity_type: "theory".to_string(),
+            agent: theory.agent.clone(),
+            timestamp: theory.created_at,
+            data: serde_json::to_value(&theory).unwrap(),
+        };
+        storage.store(&entity).unwrap();
+
+        let backend = EngramBackend::from_storage(storage);
+        let theories = backend.list_theories().unwrap();
+        assert_eq!(theories.len(), 1);
+        assert_eq!(theories[0].domain_name, "Storage");
     }
 }

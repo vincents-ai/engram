@@ -41,6 +41,8 @@ pub fn draw<S: Storage + RelationshipStorage>(
         ActiveView::Reasoning => "Reasoning",
         ActiveView::Relationships => "Relationships",
         ActiveView::Contexts => "Contexts",
+        ActiveView::Adrs => "ADRs",
+        ActiveView::Theories => "Theories",
         ActiveView::Search => "Search",
     };
     let title_text = format!(
@@ -76,6 +78,16 @@ pub fn draw<S: Storage + RelationshipStorage>(
             let theme = app_state.theme.as_theme();
             let border_style = Style::default().fg(theme.border());
             draw_contexts_view(f, chunks[1], app_state, border_style);
+        }
+        ActiveView::Adrs => {
+            let theme = app_state.theme.as_theme();
+            let border_style = Style::default().fg(theme.border());
+            draw_adrs_view(f, chunks[1], app_state, border_style);
+        }
+        ActiveView::Theories => {
+            let theme = app_state.theme.as_theme();
+            let border_style = Style::default().fg(theme.border());
+            draw_theories_view(f, chunks[1], app_state, border_style);
         }
         ActiveView::Search => {
             let theme = app_state.theme.as_theme();
@@ -683,6 +695,217 @@ fn draw_search_view(
     };
     let help = Paragraph::new(help_text).style(Style::default().fg(Color::DarkGray));
     f.render_widget(help, vert[2]);
+}
+
+fn draw_adrs_view(f: &mut ratatui::Frame<'_>, area: Rect, app: &mut AppState, border_style: Style) {
+    use crate::entities::AdrStatus;
+    let theme = app.theme.as_theme();
+
+    // Layout: list (flex) | detail pane (10) | help (1)
+    let vert = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Min(5),
+            Constraint::Length(10),
+            Constraint::Length(1),
+        ])
+        .split(area);
+
+    // ── ADR list ──────────────────────────────────────────────────────────────
+    let selected = app.adrs_selected;
+    let header_cells = ["#", "Title", "Status", "Agent", "Created"]
+        .map(|h| Cell::from(h).style(theme.header_row()));
+    let header = Row::new(header_cells).height(1);
+
+    let rows: Vec<Row> = app
+        .all_adrs
+        .iter()
+        .enumerate()
+        .map(|(i, adr)| {
+            let style = if i == selected {
+                theme.selected_row()
+            } else {
+                theme.normal_row()
+            };
+            let status = match adr.status {
+                AdrStatus::Proposed => "proposed",
+                AdrStatus::Accepted => "accepted",
+                AdrStatus::Deprecated => "deprecated",
+                AdrStatus::Superseded => "superseded",
+            };
+            Row::new([
+                Cell::from(adr.number.to_string()),
+                Cell::from(adr.title.clone()),
+                Cell::from(status),
+                Cell::from(adr.agent.chars().take(20).collect::<String>()),
+                Cell::from(adr.created_at.format("%Y-%m-%d").to_string()),
+            ])
+            .style(style)
+        })
+        .collect();
+
+    let table_title = format!("ADRs ({})", app.all_adrs.len());
+    let table = Table::new(
+        rows,
+        [
+            Constraint::Length(5),
+            Constraint::Min(30),
+            Constraint::Length(12),
+            Constraint::Length(20),
+            Constraint::Length(12),
+        ],
+    )
+    .header(header)
+    .block(
+        Block::default()
+            .title(table_title)
+            .borders(Borders::ALL)
+            .border_style(border_style),
+    )
+    .row_highlight_style(theme.selected_row());
+
+    let mut table_state = TableState::default();
+    table_state.select(Some(selected));
+    f.render_stateful_widget(table, vert[0], &mut table_state);
+
+    // ── Detail pane: selected ADR context + decision ──────────────────────────
+    let detail_text = app
+        .all_adrs
+        .get(selected)
+        .map(|adr| {
+            let decision = if adr.decision.is_empty() {
+                "(none yet)".to_string()
+            } else {
+                adr.decision.clone()
+            };
+            let consequences = if adr.consequences.is_empty() {
+                "(none yet)".to_string()
+            } else {
+                adr.consequences.clone()
+            };
+            format!(
+                "Context:\n{}\n\nDecision:\n{}\n\nConsequences:\n{}",
+                adr.context, decision, consequences,
+            )
+        })
+        .unwrap_or_else(|| "No ADR selected".to_string());
+
+    let detail = Paragraph::new(detail_text)
+        .wrap(Wrap { trim: true })
+        .style(Style::default().fg(theme.fg()))
+        .block(
+            Block::default()
+                .title("Detail")
+                .borders(Borders::ALL)
+                .border_style(border_style),
+        );
+    f.render_widget(detail, vert[1]);
+
+    // ── Help row ─────────────────────────────────────────────────────────────
+    let help = Paragraph::new("  j/k: navigate   Tab: next view")
+        .style(Style::default().fg(Color::DarkGray));
+    f.render_widget(help, vert[2]);
+}
+
+fn draw_theories_view(
+    f: &mut ratatui::Frame<'_>,
+    area: Rect,
+    app: &mut AppState,
+    border_style: Style,
+) {
+    let theme = app.theme.as_theme();
+
+    // Horizontal split: left 40% list, right 60% detail
+    let horiz = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(40), Constraint::Percentage(60)])
+        .split(area);
+
+    // ── Left pane: Theory list ────────────────────────────────────────────────
+    let selected = app.theories_selected;
+    let theory_items: Vec<ListItem> = app
+        .all_theories
+        .iter()
+        .enumerate()
+        .map(|(i, theory)| {
+            let label = format!("{} (iter: {})", theory.domain_name, theory.iteration_count);
+            let style = if i == selected {
+                theme.selected_row()
+            } else {
+                theme.normal_row()
+            };
+            ListItem::new(Line::from(vec![Span::styled(label, style)]))
+        })
+        .collect();
+
+    let list_title = format!("Theories ({})", app.all_theories.len());
+    let theory_list = List::new(theory_items).block(
+        Block::default()
+            .title(list_title)
+            .borders(Borders::ALL)
+            .border_style(border_style),
+    );
+    f.render_widget(theory_list, horiz[0]);
+
+    // ── Right pane: Detail + help ─────────────────────────────────────────────
+    let right_vert = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Min(3), Constraint::Length(1)])
+        .split(horiz[1]);
+
+    let detail_text = app
+        .all_theories
+        .get(selected)
+        .map(|theory| {
+            let mut lines = vec![
+                format!("Domain:    {}", theory.domain_name),
+                format!("Agent:     {}", theory.agent),
+                format!("Iteration: {}", theory.iteration_count),
+                format!("Updated:   {}", theory.last_updated.format("%Y-%m-%d")),
+                String::new(),
+            ];
+
+            if !theory.conceptual_model.is_empty() {
+                lines.push("Conceptual Model:".to_string());
+                for (k, v) in &theory.conceptual_model {
+                    lines.push(format!("  {}: {}", k, v));
+                }
+                lines.push(String::new());
+            }
+
+            if !theory.design_rationale.is_empty() {
+                lines.push("Design Rationale:".to_string());
+                for (k, v) in &theory.design_rationale {
+                    lines.push(format!("  {}: {}", k, v));
+                }
+                lines.push(String::new());
+            }
+
+            if !theory.invariants.is_empty() {
+                lines.push("Invariants:".to_string());
+                for inv in &theory.invariants {
+                    lines.push(format!("  - {}", inv));
+                }
+            }
+
+            lines.join("\n")
+        })
+        .unwrap_or_else(|| "No theory selected".to_string());
+
+    let detail = Paragraph::new(detail_text)
+        .wrap(Wrap { trim: true })
+        .style(Style::default().fg(theme.fg()))
+        .block(
+            Block::default()
+                .title("Detail")
+                .borders(Borders::ALL)
+                .border_style(border_style),
+        );
+    f.render_widget(detail, right_vert[0]);
+
+    let help = Paragraph::new("  j/k: navigate   Tab: next view")
+        .style(Style::default().fg(Color::DarkGray));
+    f.render_widget(help, right_vert[1]);
 }
 
 /// Render the task detail modal overlay centered on the screen.

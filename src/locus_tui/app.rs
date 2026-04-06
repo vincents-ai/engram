@@ -1,5 +1,6 @@
-use crate::entities::{Context, EntityRelationship, Reasoning, Task, TaskStatus};
+use crate::entities::{Context, EntityRelationship, Reasoning, Task, TaskStatus, Theory, ADR};
 use std::collections::HashMap;
+use std::time::Instant;
 
 /// A directed edge in the relationships graph.
 #[derive(Debug, Clone)]
@@ -95,6 +96,8 @@ pub enum ActiveView {
     Reasoning,
     Relationships,
     Contexts,
+    Adrs,
+    Theories,
     Search,
 }
 
@@ -102,7 +105,16 @@ impl ActiveView {
     /// All variants in cycle order.
     fn all() -> &'static [ActiveView] {
         use ActiveView::*;
-        &[Dashboard, Tasks, Reasoning, Relationships, Contexts, Search]
+        &[
+            Dashboard,
+            Tasks,
+            Reasoning,
+            Relationships,
+            Contexts,
+            Adrs,
+            Theories,
+            Search,
+        ]
     }
 
     fn index(&self) -> usize {
@@ -145,12 +157,25 @@ pub struct AppState {
     pub relationship_selected: usize,
     /// Selected index within the contexts view list.
     pub contexts_selected: usize,
+    /// All ADR entities loaded from backend.
+    pub all_adrs: Vec<ADR>,
+    /// Selected index within the ADRs view list.
+    pub adrs_selected: usize,
+    /// All Theory entities loaded from backend.
+    pub all_theories: Vec<Theory>,
+    /// Selected index within the Theories view list.
+    pub theories_selected: usize,
     /// Task detail overlay (None = not shown).
     pub task_detail: Option<TaskDetail>,
     /// Whether the app is in search input mode.
     pub search_mode: bool,
     /// Search results.
     pub search_results: Vec<SearchResultRow>,
+    /// Auto-refresh interval in seconds (0 = disabled).
+    /// Driven by `WorkspaceConfig::refresh_interval_secs`.
+    pub refresh_interval_secs: u64,
+    /// Instant of the last data refresh (used for tick-based auto-refresh).
+    pub last_refresh: Instant,
 }
 
 impl AppState {
@@ -174,9 +199,15 @@ impl AppState {
             relationship_nodes: Vec::new(),
             relationship_selected: 0,
             contexts_selected: 0,
+            all_adrs: Vec::new(),
+            adrs_selected: 0,
+            all_theories: Vec::new(),
+            theories_selected: 0,
             task_detail: None,
             search_mode: false,
             search_results: Vec::new(),
+            refresh_interval_secs: 30,
+            last_refresh: Instant::now(),
         }
     }
 
@@ -248,6 +279,26 @@ impl AppState {
     /// Signal that the application should quit.
     pub fn quit(&mut self) {
         self.should_quit = true;
+    }
+
+    /// Return `true` if auto-refresh is enabled and the interval has elapsed.
+    /// Resets `last_refresh` to now when it returns `true`.
+    pub fn should_auto_refresh(&mut self) -> bool {
+        if self.refresh_interval_secs == 0 {
+            return false;
+        }
+        let elapsed = self.last_refresh.elapsed().as_secs();
+        if elapsed >= self.refresh_interval_secs {
+            self.last_refresh = Instant::now();
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Reset the auto-refresh timer (called after a manual or automatic refresh).
+    pub fn reset_refresh_timer(&mut self) {
+        self.last_refresh = Instant::now();
     }
 
     /// Set a status bar message.
@@ -502,6 +553,10 @@ mod tests {
         state.next_view();
         assert_eq!(state.active_view, ActiveView::Contexts);
         state.next_view();
+        assert_eq!(state.active_view, ActiveView::Adrs);
+        state.next_view();
+        assert_eq!(state.active_view, ActiveView::Theories);
+        state.next_view();
         assert_eq!(state.active_view, ActiveView::Search);
         // Should wrap back to Dashboard
         state.next_view();
@@ -515,6 +570,10 @@ mod tests {
         // Going backward from Dashboard should wrap to Search
         state.prev_view();
         assert_eq!(state.active_view, ActiveView::Search);
+        state.prev_view();
+        assert_eq!(state.active_view, ActiveView::Theories);
+        state.prev_view();
+        assert_eq!(state.active_view, ActiveView::Adrs);
         state.prev_view();
         assert_eq!(state.active_view, ActiveView::Contexts);
         state.prev_view();
@@ -1173,5 +1232,49 @@ mod tests {
         state.search_query = String::new();
         state.run_search();
         assert!(state.search_results.is_empty());
+    }
+
+    // ── Auto-refresh tests ───────────────────────────────────────────────────
+
+    #[test]
+    fn test_should_auto_refresh_disabled_when_zero() {
+        let mut state = AppState::new();
+        state.refresh_interval_secs = 0;
+        assert!(!state.should_auto_refresh());
+    }
+
+    #[test]
+    fn test_should_auto_refresh_not_fired_before_interval() {
+        let mut state = AppState::new();
+        state.refresh_interval_secs = 9999; // very long interval
+                                            // last_refresh was just set to Instant::now() in new()
+        assert!(!state.should_auto_refresh());
+    }
+
+    #[test]
+    fn test_reset_refresh_timer_updates_last_refresh() {
+        use std::time::Duration;
+        let mut state = AppState::new();
+        // Backdate last_refresh so it looks stale
+        state.last_refresh = std::time::Instant::now()
+            .checked_sub(Duration::from_secs(100))
+            .unwrap_or(std::time::Instant::now());
+        state.refresh_interval_secs = 30;
+        // Should fire once
+        assert!(state.should_auto_refresh());
+        // After firing, timer is reset — should not fire again immediately
+        assert!(!state.should_auto_refresh());
+    }
+
+    #[test]
+    fn test_should_auto_refresh_fires_when_interval_elapsed() {
+        use std::time::Duration;
+        let mut state = AppState::new();
+        state.refresh_interval_secs = 30;
+        // Backdate by more than the interval
+        state.last_refresh = std::time::Instant::now()
+            .checked_sub(Duration::from_secs(60))
+            .unwrap_or(std::time::Instant::now());
+        assert!(state.should_auto_refresh());
     }
 }

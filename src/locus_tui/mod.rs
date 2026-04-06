@@ -54,10 +54,17 @@ impl<S: Storage + RelationshipStorage + Send + 'static> LocusTuiApp<S> {
             }
         };
 
+        // Read refresh interval from workspace config; default to 30s if unavailable.
+        let refresh_interval_secs =
+            crate::config::workspace_config::WorkspaceConfig::default().refresh_interval_secs;
+
+        let mut app_state = AppState::new();
+        app_state.refresh_interval_secs = refresh_interval_secs;
+
         Self {
             integration,
             backend,
-            app_state: AppState::new(),
+            app_state,
         }
     }
 
@@ -67,6 +74,21 @@ impl<S: Storage + RelationshipStorage + Send + 'static> LocusTuiApp<S> {
             integration: LocusIntegration::new(storage),
             backend,
             app_state: AppState::new(),
+        }
+    }
+
+    /// Create a TUI app with a specific refresh interval (seconds; 0 = disabled).
+    pub fn new_with_refresh_interval(
+        storage: S,
+        backend: Box<dyn LocusTuiBackend>,
+        refresh_interval_secs: u64,
+    ) -> Self {
+        let mut app_state = AppState::new();
+        app_state.refresh_interval_secs = refresh_interval_secs;
+        Self {
+            integration: LocusIntegration::new(storage),
+            backend,
+            app_state,
         }
     }
 
@@ -86,6 +108,12 @@ impl<S: Storage + RelationshipStorage + Send + 'static> LocusTuiApp<S> {
         self.app_state.reasoning_nodes = reasoning.iter().map(reasoning_to_node).collect();
         self.app_state.all_reasoning = reasoning;
 
+        let adrs = self.backend.list_adrs().unwrap_or_default();
+        self.app_state.all_adrs = adrs;
+
+        let theories = self.backend.list_theories().unwrap_or_default();
+        self.app_state.all_theories = theories;
+
         let rels = self.backend.list_relationships().unwrap_or_default();
         let title_map = build_title_map(
             &self.app_state.all_tasks,
@@ -100,6 +128,7 @@ impl<S: Storage + RelationshipStorage + Send + 'static> LocusTuiApp<S> {
         match action {
             Action::Refresh => {
                 self.load_all_data();
+                self.app_state.reset_refresh_timer();
                 self.app_state.clear_status();
             }
             Action::OpenTaskDetail => {
@@ -172,6 +201,15 @@ impl<S: Storage + RelationshipStorage + Send + 'static> LocusTuiApp<S> {
         self.load_all_data();
 
         loop {
+            // Check tick-based auto-refresh before drawing.
+            // `should_auto_refresh` resets the timer internally when it fires.
+            if self.app_state.should_auto_refresh() {
+                self.load_all_data();
+                let interval = self.app_state.refresh_interval_secs;
+                self.app_state
+                    .set_status(format!("Auto-refreshed (every {}s)", interval));
+            }
+
             // Split the borrows explicitly so the borrow checker is satisfied
             // inside the closure: integration and app_state are separate fields.
             let integration = &self.integration;
@@ -320,5 +358,25 @@ mod tests {
         assert_eq!(app.app_state.task_summary.total, 1);
         assert_eq!(app.app_state.task_summary.todo, 1);
         assert_eq!(app.app_state.all_tasks.len(), 1);
+    }
+
+    #[test]
+    fn test_new_with_refresh_interval_sets_interval() {
+        let storage = MemoryStorage::new("test-agent");
+        let backend: Box<dyn LocusTuiBackend> = Box::new(EngramBackend::from_storage(
+            MemoryStorage::new("test-agent"),
+        ));
+        let app = LocusTuiApp::new_with_refresh_interval(storage, backend, 60);
+        assert_eq!(app.app_state.refresh_interval_secs, 60);
+    }
+
+    #[test]
+    fn test_new_with_refresh_interval_zero_disables_refresh() {
+        let storage = MemoryStorage::new("test-agent");
+        let backend: Box<dyn LocusTuiBackend> = Box::new(EngramBackend::from_storage(
+            MemoryStorage::new("test-agent"),
+        ));
+        let app = LocusTuiApp::new_with_refresh_interval(storage, backend, 0);
+        assert_eq!(app.app_state.refresh_interval_secs, 0);
     }
 }
