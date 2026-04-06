@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#020617" />
+      <stop offset="100%" stop-color="#0f172a" />
+    </linearGradient>
+
+    <radialGradient id="emeraldGlow" cx="25%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#10b981" stop-opacity="0.15" />
+      <stop offset="100%" stop-color="#020617" stop-opacity="0" />
+    </radialGradient>
+
+    <pattern id="dotGrid" x="0" y="0" width="32" height="32" patternUnits="userSpaceOnUse">
+      <circle fill="#ffffff" fill-opacity="0.04" cx="16" cy="16" r="1.5"></circle>
+    </pattern>
+  </defs>
+
+  <rect width="1280" height="640" fill="url(#bgGrad)" />
+  <rect width="1280" height="640" fill="url(#dotGrid)" />
+  <rect width="1280" height="640" fill="url(#emeraldGlow)" />
+
+  <g stroke="#334155" stroke-width="2" fill="none" stroke-linecap="round" stroke-opacity="0.7">
+    <path d="M 60 80 L 60 60 L 80 60" />
+    <path d="M 1220 80 L 1220 60 L 1200 60" />
+    <path d="M 60 560 L 60 580 L 80 580" />
+    <path d="M 1220 560 L 1220 580 L 1200 580" />
+  </g>
+
+  <g transform="translate(850, -80) scale(7)" stroke="#10b981" stroke-opacity="0.03" fill="none">
+    <circle cx="50" cy="50" r="15" stroke-width="1" stroke-dasharray="43 10" />
+    <circle cx="50" cy="50" r="23" stroke-width="2" stroke-dasharray="43 15" />
+    <circle cx="50" cy="50" r="31" stroke-width="3" stroke-dasharray="43 20" />
+    <circle cx="50" cy="50" r="39" stroke-width="4" stroke-dasharray="43 25" />
+    <circle cx="50" cy="50" r="47" stroke-width="5" stroke-dasharray="43 30" />
+  </g>
+
+  <g transform="translate(120, 120) scale(4)" stroke="#10b981" fill="none">
+    <circle cx="50" cy="50" r="15" stroke-width="1" stroke-dasharray="43 10" stroke-opacity="1"/>
+    <circle cx="50" cy="50" r="23" stroke-width="2" stroke-dasharray="43 15" stroke-opacity="0.8"/>
+    <circle cx="50" cy="50" r="31" stroke-width="3" stroke-dasharray="43 20" stroke-opacity="0.6"/>
+    <circle cx="50" cy="50" r="39" stroke-width="4" stroke-dasharray="43 25" stroke-opacity="0.4"/>
+    <circle cx="50" cy="50" r="47" stroke-width="5" stroke-dasharray="43 30" stroke-opacity="0.2"/>
+
+    <g stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M 50,50 L 50,26 M 50,50 L 29.2,62 M 50,50 L 70.8,62" stroke-opacity="0.8"/>
+      <path d="M 50,26 L 36.2,18 M 50,26 L 63.8,18" stroke-opacity="0.5"/>
+      <path d="M 29.2,62 L 15.4,54 M 29.2,62 L 29.2,78" stroke-opacity="0.5"/>
+      <path d="M 70.8,62 L 84.6,54 M 70.8,62 L 70.8,78" stroke-opacity="0.5"/>
+    </g>
+
+    <circle cx="50" cy="50" r="4.5" fill="#10b981" stroke="none"/>
+    <circle cx="50" cy="26" r="3" fill="#10b981" fill-opacity="0.9" stroke="none"/>
+    <circle cx="29.2" cy="62" r="3" fill="#10b981" fill-opacity="0.9" stroke="none"/>
+    <circle cx="70.8" cy="62" r="3" fill="#10b981" fill-opacity="0.9" stroke="none"/>
+    <circle cx="36.2" cy="18" r="1.5" fill="#10b981" fill-opacity="0.6" stroke="none"/>
+    <circle cx="63.8" cy="18" r="1.5" fill="#10b981" fill-opacity="0.6" stroke="none"/>
+    <circle cx="15.4" cy="54" r="1.5" fill="#10b981" fill-opacity="0.6" stroke="none"/>
+    <circle cx="29.2" cy="78" r="1.5" fill="#10b981" fill-opacity="0.6" stroke="none"/>
+    <circle cx="84.6" cy="54" r="1.5" fill="#10b981" fill-opacity="0.6" stroke="none"/>
+    <circle cx="70.8" cy="78" r="1.5" fill="#10b981" fill-opacity="0.6" stroke="none"/>
+  </g>
+
+  <!--
+  <g transform="translate(620, 205)">
+    <rect x="0" y="0" width="135" height="36" rx="18" fill="#10b981" fill-opacity="0.1" stroke="#10b981" stroke-width="1.5" stroke-opacity="0.4" />
+    <text x="67.5" y="23" font-family="monospace, Consolas, Courier New" font-size="14" fill="#10b981" text-anchor="middle" font-weight="bold" letter-spacing="1">vincents.ai</text>
+  </g>
+  -->
+  <text x="616" y="340" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="108" fill="#ffffff" font-weight="900" letter-spacing="-3">engram</text>
+
+  <text x="620" y="410" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="28" fill="#94a3b8" font-weight="500" letter-spacing="-0.5">Agentic framework for contextual memory,</text>
+  <text x="620" y="450" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="28" fill="#94a3b8" font-weight="500" letter-spacing="-0.5">knowledge graphs, and complex reasoning.</text>
+
+  <text x="620" y="570" font-family="monospace, Consolas, Courier New" font-size="15" fill="#334155" font-weight="600" letter-spacing="0.5">> engram setup workspace</text>
+  <text x="1050" y="570" font-family="monospace, Consolas, Courier New" font-size="15" fill="#334155" font-weight="600" letter-spacing="0.5">SYS_STATE: ONLINE</text>
+
+</svg>

@@ -1,0 +1,2458 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Engram - Distributed Memory for AI Agents</title>
+        <meta name="robots" content="noindex">
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="A second brain for your software projects - capture context, reasoning, and knowledge">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon.svg">
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="docs/theme/engram.css">
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "";
+            const default_light_theme = "light";
+            const default_dark_theme = "coal";
+            window.path_to_searchindex_js = "searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Engram - Distributed Memory for AI Agents</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="engram---rust-implementation"><a class="header" href="#engram---rust-implementation">Engram - Rust Implementation</a></h1>
+<p>A distributed memory system for AI agents, implemented in Rust with extensible architecture and BDD testing.</p>
+<h2 id="features"><a class="header" href="#features">Features</a></h2>
+<h3 id="core-architecture"><a class="header" href="#core-architecture">Core Architecture</a></h3>
+<ul>
+<li><strong>Extensible Entity System</strong>: Trait-based entity architecture supporting dynamic model loading</li>
+<li><strong>Git-based Storage</strong>: Content-addressable storage with multi-agent synchronization</li>
+<li><strong>Modular CLI</strong>: Command-line interface with subcommands for all operations</li>
+<li><strong>BDD Testing</strong>: Gherkin-style behavior-driven development testing</li>
+<li><strong>Configuration System</strong>: Extensible configuration with validation</li>
+<li><strong>Plugin Support</strong>: Dynamic plugin loading for custom extensions</li>
+</ul>
+<h3 id="entity-types"><a class="header" href="#entity-types">Entity Types</a></h3>
+<ul>
+<li><strong>Tasks</strong>: Work items with status tracking, priority, and hierarchy</li>
+<li><strong>Context</strong>: Background information with relevance scoring and source tracking</li>
+<li><strong>Reasoning</strong>: Decision chains with confidence levels and evidence tracking</li>
+<li><strong>Knowledge</strong>: Information storage with usage metrics and categorization</li>
+<li><strong>Sessions</strong>: Agent sessions with SPACE framework and DORA metrics</li>
+<li><strong>Compliance</strong>: Requirements tracking with violations and remediation</li>
+<li><strong>Rules</strong>: System rules with execution history and conditions</li>
+<li><strong>Standards</strong>: Team standards with versioning and relationships</li>
+<li><strong>ADRs</strong>: Architectural Decision Records with alternatives and outcomes</li>
+<li><strong>Workflows</strong>: State machines with transitions and permission schemes</li>
+<li><strong>Relationships</strong>: Entity relationships with graph operations and path finding</li>
+<li><strong>Commit Validation</strong>: Pre-commit hook system with task relationship requirements</li>
+</ul>
+<h3 id="relationship-management"><a class="header" href="#relationship-management">Relationship Management</a></h3>
+<p>The relationship system provides powerful graph-based operations for modeling connections between entities:</p>
+<h4 id="relationship-types"><a class="header" href="#relationship-types">Relationship Types</a></h4>
+<ul>
+<li><strong>DependsOn</strong>: Entity dependencies and prerequisites</li>
+<li><strong>Contains</strong>: Hierarchical containment relationships</li>
+<li><strong>References</strong>: Cross-references and citations</li>
+<li><strong>Fulfills</strong>: Implementation and completion relationships</li>
+<li><strong>Implements</strong>: Technical implementation relationships</li>
+<li><strong>Supersedes</strong>: Version and replacement relationships</li>
+<li><strong>AssociatedWith</strong>: General associations</li>
+<li><strong>Influences</strong>: Impact and influence relationships</li>
+<li><strong>Custom</strong>: User-defined relationship types</li>
+</ul>
+<h4 id="relationship-features"><a class="header" href="#relationship-features">Relationship Features</a></h4>
+<ul>
+<li><strong>Bidirectional/Unidirectional</strong>: Configurable relationship directions</li>
+<li><strong>Weighted Connections</strong>: Relationship strength (Weak, Medium, Strong, Critical)</li>
+<li><strong>Graph Traversal</strong>: BFS, DFS, and Dijkstra pathfinding algorithms</li>
+<li><strong>Relationship Constraints</strong>: Validation rules and cardinality limits</li>
+<li><strong>Analytics</strong>: Connection statistics and graph metrics</li>
+</ul>
+<h3 id="storage-features"><a class="header" href="#storage-features">Storage Features</a></h3>
+<ul>
+<li><strong>Content-addressable</strong>: SHA-256 hashing for integrity verification</li>
+<li><strong>Multi-agent</strong>: Collaboration with conflict resolution strategies</li>
+<li><strong>Git Integration</strong>: Full Git history, branching, and merging</li>
+<li><strong>Performance</strong>: Efficient querying and indexing</li>
+</ul>
+<h3 id="cli-commands"><a class="header" href="#cli-commands">CLI Commands</a></h3>
+<pre><code class="language-bash"># Setup
+engram setup workspace
+engram setup agent --name alice --type coder
+
+# Task Management
+engram task create --title "Implement auth" --priority high
+engram task list --agent alice
+engram task update &lt;id&gt; --status done
+
+# Context Management
+engram context create --title "API docs" --source "documentation"
+engram context list
+
+# Reasoning Chains
+engram reasoning create --title "Authentication approach" --task-id &lt;id&gt;
+
+# Knowledge Management
+engram knowledge create --title "OAuth2 flows" --type pattern
+
+# Session Management
+engram session start --agent alice --auto-detect
+engram session status --id &lt;session-id&gt; --metrics
+
+# Compliance &amp; Standards
+engram compliance create --title "Security requirements" --category security
+engram standard create --title "Coding standards" --category coding
+
+# ADRs
+engram adr create --title "Database choice" --number 001
+
+# Workflows
+engram workflow create --title "Development pipeline"
+
+### Skills Integration
+
+Engram ships with specialized skills for common workflows:
+
+```bash
+# Use skills from ./engram/skills/
+cat ./engram/skills/meta/use-engram-memory.md      # Core memory skill
+cat ./engram/skills/meta/delegate-to-agents.md     # Agent delegation
+cat ./engram/skills/workflow/plan-feature.md       # Feature planning
+cat ./engram/skills/compliance/check-compliance.md # Compliance checking
+</code></pre>
+<h3 id="prompts-library"><a class="header" href="#prompts-library">Prompts Library</a></h3>
+<p>Engram includes a comprehensive prompt library for agent orchestration:</p>
+<pre><code class="language-bash"># Agent prompts (170+)
+ls ./engram/prompts/agents/
+
+# Pipeline templates (100+)
+ls ./engram/prompts/ai/pipelines/
+
+# Compliance prompts (250+)
+ls ./engram/prompts/compliance_and_certification/prompts/audit_checkpoints/
+</code></pre>
+<h3 id="engram-adapted-prompts"><a class="header" href="#engram-adapted-prompts">Engram-Adapted Prompts</a></h3>
+<p>Core agents and pipelines are adapted for engram integration:</p>
+<ul>
+<li><code>01-the-one.yaml</code> - Orchestrator with engram task creation</li>
+<li><code>03-the-architect.yaml</code> - Architecture with engram context storage</li>
+<li><code>05-the-deconstructor.yaml</code> - Task breakdown with engram subtasks</li>
+<li><code>01-greenfield-feature-launch.yaml</code> - Engram workflow orchestration</li>
+</ul>
+<p>All adapted prompts include:</p>
+<ul>
+<li><code>task_id</code> parameter for engram tracking</li>
+<li><code>engram reasoning create</code> for progress storage</li>
+<li><code>engram context create</code> for result storage</li>
+<li><code>engram relationship create</code> for entity linking</li>
+<li>JSON response with engram entity IDs</li>
+</ul>
+<h3 id="using-skills-and-prompts"><a class="header" href="#using-skills-and-prompts">Using Skills and Prompts</a></h3>
+<pre><code class="language-bash"># Check available skills
+ls ./engram/skills/
+
+# Use a skill
+cat ./engram/skills/meta/use-engram-memory.md
+
+# Use an adapted agent prompt
+cat ./engram/prompts/agents/01-the-one.yaml
+
+# Use a pipeline template
+cat ./engram/prompts/ai/pipelines/01-greenfield-feature-launch.yaml
+</code></pre>
+<h3 id="documentation"><a class="header" href="#documentation">Documentation</a></h3>
+<ul>
+<li><a href="development/../skills/using-engram.html">Using Engram</a> - Core workflow protocol</li>
+<li><a href="development/../skills/prompt_guide.html">Prompt Engineering Guide</a> - Prompt construction patterns</li>
+</ul>
+<h1 id="relationship-management-1"><a class="header" href="#relationship-management-1">Relationship Management</a></h1>
+<pre><code class="language-bash">engram relationship create --source-id task1 --source-type task --target-id task2 --target-type task --relationship-type depends-on --agent alice
+engram relationship list --agent alice
+engram relationship get `&lt;relationship-id&gt;`
+engram relationship find-path --source-id task1 --target-id task3 --algorithm dijkstra
+engram relationship connected --entity-id task1 --relationship-type depends-on
+engram relationship stats --agent alice
+engram relationship delete `&lt;relationship-id&gt;`
+</code></pre>
+<h1 id="commit-validation-and-hooks"><a class="header" href="#commit-validation-and-hooks">Commit Validation and Hooks</a></h1>
+<pre><code class="language-bash">engram validation commit --message "feat: implement user authentication [TASK-123]"
+engram validation commit --message "test commit" --dry-run
+engram validation hook install
+engram validation hook uninstall
+engram validation hook status
+engram validation check
+</code></pre>
+<h1 id="synchronization"><a class="header" href="#synchronization">Synchronization</a></h1>
+<pre><code class="language-bash">engram sync --agents "alice,bob" --strategy intelligent_merge
+</code></pre>
+<h1 id="perkeep-backup-and-restore"><a class="header" href="#perkeep-backup-and-restore">Perkeep Backup and Restore</a></h1>
+<pre><code class="language-bash">engram perkeep backup --description "Full backup"
+engram perkeep backup --entity-type task --include-relationships
+engram perkeep list --detailed
+engram perkeep restore --blobref "sha256-..."
+engram perkeep health
+engram perkeep config --server "http://localhost:3179"
+</code></pre>
+<h2 id="perkeep-integration"><a class="header" href="#perkeep-integration">Perkeep Integration</a></h2>
+<p>Engram supports backing up and restoring entities using <a href="https://perkeep.org">Perkeep</a>, a personal data store for content-addressable storage.</p>
+<h3 id="configuration"><a class="header" href="#configuration">Configuration</a></h3>
+<p>Set environment variables to configure Perkeep:</p>
+<pre><code class="language-bash">export PERKEEP_SERVER="http://localhost:3179"  # Default: http://localhost:3179
+export PERKEEP_AUTH_TOKEN="your-token"         # Optional: for authenticated servers
+</code></pre>
+<h3 id="backup-commands"><a class="header" href="#backup-commands">Backup Commands</a></h3>
+<pre><code class="language-bash"># Backup all entity types
+engram perkeep backup
+
+# Backup specific entity type
+engram perkeep backup --entity-type task
+
+# Backup with description
+engram perkeep backup --description "Weekly backup"
+
+# Include relationships in backup (default: true)
+engram perkeep backup --include-relationships
+</code></pre>
+<h3 id="restore-commands"><a class="header" href="#restore-commands">Restore Commands</a></h3>
+<pre><code class="language-bash"># Restore from most recent backup
+engram perkeep restore
+
+# Restore from specific backup blobref
+engram perkeep restore --blobref "sha256-abc123..."
+
+# Dry run (preview what would be restored)
+engram perkeep restore --dry-run
+
+# Restore with agent override
+engram perkeep restore --agent default
+</code></pre>
+<h3 id="management-commands"><a class="header" href="#management-commands">Management Commands</a></h3>
+<pre><code class="language-bash"># List available backups
+engram perkeep list
+engram perkeep list --detailed
+
+# Check server health
+engram perkeep health
+
+# Configure settings
+engram perkeep config --server "http://localhost:3179"
+</code></pre>
+<h3 id="how-it-works"><a class="header" href="#how-it-works">How It Works</a></h3>
+<ol>
+<li><strong>Content-Addressable Storage</strong>: Entities are serialized to JSON and uploaded as blobs to Perkeep</li>
+<li><strong>Backup Metadata</strong>: A schema object tracks all entity blobrefs, timestamps, and counts</li>
+<li><strong>Entity Types</strong>: task, context, reasoning, knowledge, session, and relationship entities</li>
+<li><strong>Restore Process</strong>: Fetches backup metadata, retrieves all entity blobs, and stores them</li>
+</ol>
+<h2 id="development"><a class="header" href="#development">Development</a></h2>
+<h3 id="building"><a class="header" href="#building">Building</a></h3>
+<pre><code class="language-bash">cargo build --release
+</code></pre>
+<h3 id="testing"><a class="header" href="#testing">Testing</a></h3>
+<pre><code class="language-bash"># Run BDD tests
+cargo test --test bdd
+
+# Run unit tests
+cargo test
+
+# Run with specific feature
+cargo test --features plugins
+</code></pre>
+<h3 id="examples"><a class="header" href="#examples">Examples</a></h3>
+<p>See the <code>examples/</code> directory for usage examples:</p>
+<pre><code class="language-bash">cargo run --example basic_usage
+</code></pre>
+<h2 id="configuration-1"><a class="header" href="#configuration-1">Configuration</a></h2>
+<p>Engram supports YAML/TOML configuration with the following structure:</p>
+<pre><code class="language-yaml">app:
+  log_level: info
+  default_agent: default
+  git:
+    author_name: Your Name
+    author_email: your.email@example.com
+
+workspace:
+  agents:
+    coder:
+      type: implementation
+      description: "Handles code changes"
+
+storage:
+  storage_type: git
+  base_path: .engram
+  sync_strategy: intelligent_merge
+
+features:
+  plugins: true
+  analytics: true
+  experimental: false
+</code></pre>
+<h2 id="architecture"><a class="header" href="#architecture">Architecture</a></h2>
+<h3 id="extensible-models"><a class="header" href="#extensible-models">Extensible Models</a></h3>
+<p>The Rust implementation uses trait-based architecture for extensibility:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub trait Entity: Serialize + for&lt;'de&gt; Deserialize&lt;'de&gt; + Send + Sync {
+    fn entity_type() -&gt; &amp;'static str;
+    fn id(&amp;self) -&gt; &amp;str;
+    fn validate(&amp;self) -&gt; Result&lt;(), String&gt;;
+    // ... other methods
+}
+<span class="boring">}</span></code></pre></pre>
+<h3 id="plugin-system"><a class="header" href="#plugin-system">Plugin System</a></h3>
+<p>Custom entity types can be added dynamically:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// Register new entity type
+registry.register::&lt;CustomEntity&gt;();
+
+// Create from generic representation
+let entity = registry.create(generic_entity)?;
+<span class="boring">}</span></code></pre></pre>
+<h3 id="commit-validation-and-pre-commit-hooks"><a class="header" href="#commit-validation-and-pre-commit-hooks">Commit Validation and Pre-commit Hooks</a></h3>
+<p>The validation system enforces disciplined development practices by ensuring all commits follow established patterns and reference proper tasks with required relationships.</p>
+<h4 id="key-features"><a class="header" href="#key-features">Key Features:</a></h4>
+<ul>
+<li><strong>Task Reference Validation</strong>: Commits must reference existing tasks in multiple formats</li>
+<li><strong>Relationship Requirements</strong>: Tasks must have reasoning and context relationships</li>
+<li><strong>File Scope Validation</strong>: Changed files must match planned task scope</li>
+<li><strong>Exemption Support</strong>: Configurable exemptions for chore, docs, fixup commits</li>
+<li><strong>Performance Optimized</strong>: Caching and parallel validation support</li>
+</ul>
+<h4 id="supported-task-id-formats"><a class="header" href="#supported-task-id-formats">Supported Task ID Formats:</a></h4>
+<ul>
+<li><code>[TASK-123]</code> - Brackets format</li>
+<li><code>[task:auth-impl-001]</code> - Colon format</li>
+<li><code>Refs: #456</code> - Reference format</li>
+</ul>
+<h4 id="validation-rules"><a class="header" href="#validation-rules">Validation Rules:</a></h4>
+<pre><code class="language-bash"># Validate a commit
+engram validation commit --message "feat: implement authentication [TASK-123]"
+
+# Check hook status
+engram validation hook status
+
+# Install validation hook
+engram validation hook install
+</code></pre>
+<h4 id="configuration-2"><a class="header" href="#configuration-2">Configuration:</a></h4>
+<p>Configuration via <code>.engram/validation.yaml</code>:</p>
+<pre><code class="language-yaml">enabled: true
+require_task_reference: true
+require_reasoning_relationship: true
+require_context_relationship: true
+task_id_patterns:
+  - pattern: '\[([A-Z]+-\d+)\]'
+    name: "Brackets format"
+    example: "[TASK-123]"
+exemptions:
+  - message_pattern: '^(chore|docs):'
+    skip_specific: ["require_task_reference"]
+performance:
+  cache_ttl_seconds: 300
+  enable_parallel_validation: true
+</code></pre>
+<h3 id="plugin-system-1"><a class="header" href="#plugin-system-1">Plugin System</a></h3>
+<h3 id="storage-layer"><a class="header" href="#storage-layer">Storage Layer</a></h3>
+<p>The storage layer supports multiple backends through the <code>Storage</code> trait:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub trait Storage: Send + Sync {
+    fn store(&amp;mut self, entity: &amp;dyn Entity) -&gt; Result&lt;(), EngramError&gt;;
+    fn get(&amp;self, id: &amp;str, entity_type: &amp;str) -&gt; Result&lt;Option&lt;Box&lt;dyn Entity&gt;&gt;, EngramError&gt;;
+    // ... other methods
+}
+<span class="boring">}</span></code></pre></pre>
+<h2 id="bdd-testing"><a class="header" href="#bdd-testing">BDD Testing</a></h2>
+<p>Behavior-driven development testing with Gherkin syntax:</p>
+<pre><code class="language-gherkin">Feature: Task Management
+  Scenario: Create a new task
+    Given I have a workspace
+    And I am logged in as agent "test-agent"
+    When I create a new task "Implement login feature"
+    Then the task should be created successfully
+</code></pre>
+<h2 id="performance"><a class="header" href="#performance">Performance</a></h2>
+<ul>
+<li><strong>Memory Efficient</strong>: Content-addressable storage prevents duplication</li>
+<li><strong>Fast Queries</strong>: Indexed storage with agent-based filtering</li>
+<li><strong>Scalable</strong>: Git handles large repositories efficiently</li>
+<li><strong>Concurrent Safe</strong>: Thread-safe storage operations</li>
+</ul>
+<h2 id="enterprise-features"><a class="header" href="#enterprise-features">Enterprise Features</a></h2>
+<ul>
+<li><strong>Multi-tenant</strong>: Isolated workspaces with shared memory</li>
+<li><strong>Audit Trails</strong>: Complete Git history for compliance</li>
+<li><strong>Conflict Resolution</strong>: Multiple strategies for team collaboration</li>
+<li><strong>Analytics</strong>: SPACE framework and DORA metrics</li>
+<li><strong>Security</strong>: Content integrity verification with SHA-256</li>
+</ul>
+<h2 id="migration-from-go"><a class="header" href="#migration-from-go">Migration from Go</a></h2>
+<p>The Rust implementation is designed as a drop-in replacement for the Go version:</p>
+<ol>
+<li>Same CLI commands and arguments</li>
+<li>Compatible data formats (JSON/YAML)</li>
+<li>Same Git storage structure</li>
+<li>Enhanced performance and features</li>
+</ol>
+<h2 id="contributing"><a class="header" href="#contributing">Contributing</a></h2>
+<p>The Rust implementation welcomes contributions for:</p>
+<ul>
+<li>New entity types</li>
+<li>Storage backends</li>
+<li>CLI commands</li>
+<li>BDD test scenarios</li>
+<li>Plugin examples</li>
+</ul>
+<h2 id="license"><a class="header" href="#license">License</a></h2>
+<p>AGPL-3.0-or-later OR Commercial - dual-licensed for open source and commercial use</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="getting-started-with-engram"><a class="header" href="#getting-started-with-engram">Getting Started with Engram</a></h1>
+<p>Engram is a distributed memory system for AI agents and human operators. It acts as a “second brain” for your software projects.</p>
+<h2 id="installation"><a class="header" href="#installation">Installation</a></h2>
+<pre><code class="language-bash"># Clone the repository
+git clone https://github.com/vincents-ai/engram.git
+cd engram
+
+# Build the binary
+cargo build --release
+
+# Add to PATH
+export PATH="$PWD/target/release:$PATH"
+</code></pre>
+<h2 id="quick-setup"><a class="header" href="#quick-setup">Quick Setup</a></h2>
+<pre><code class="language-bash"># Initialize workspace
+./target/release/engram setup workspace
+
+# Create your profile
+./target/release/engram setup agent --name "Your Name" --agent-type operator
+</code></pre>
+<h2 id="core-workflow"><a class="header" href="#core-workflow">Core Workflow</a></h2>
+<p>The Engram workflow follows a simple cycle: <strong>Plan → Execute → Remember</strong>.</p>
+<h3 id="1-plan"><a class="header" href="#1-plan">1. Plan</a></h3>
+<pre><code class="language-bash"># Create a task
+./target/release/engram task create --title "Add user authentication" --priority high
+</code></pre>
+<h3 id="2-execute--document"><a class="header" href="#2-execute--document">2. Execute &amp; Document</a></h3>
+<pre><code class="language-bash"># Store context
+./target/release/engram context create --title "OAuth2 Spec" --source "https://oauth.net/2/"
+
+# Link to task
+./target/release/engram relationship create --source-id &lt;TASK_ID&gt; --target-id &lt;CONTEXT_ID&gt; --type references
+</code></pre>
+<h3 id="3-remember"><a class="header" href="#3-remember">3. Remember</a></h3>
+<pre><code class="language-bash"># Record a decision
+./target/release/engram reasoning create --title "Chose JWT for stateless auth" --task-id &lt;TASK_ID&gt;
+</code></pre>
+<h2 id="next-steps"><a class="header" href="#next-steps">Next Steps</a></h2>
+<ul>
+<li><a href="user-guide.html">User Guide</a> - Full workflow documentation</li>
+<li><a href="features/theory-building.html">Theory Building</a> - Capture mental models</li>
+<li><a href="reference/cli.html">CLI Reference</a> - Command reference</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="engram-user-guide"><a class="header" href="#engram-user-guide">Engram User Guide</a></h1>
+<p>Welcome to Engram! This guide is written for <strong>human operators</strong>—developers, product managers, and architects who want to use Engram to manage their software projects.</p>
+<h2 id="what-is-engram"><a class="header" href="#what-is-engram">What is Engram?</a></h2>
+<p>Engram is a “second brain” for your code. While Git tracks <em>what</em> changed (the code), Engram tracks <em>why</em> it changed (the reasoning), <em>how</em> you planned it (the tasks), and <em>what</em> you learned along the way (the context).</p>
+<p>It lives inside your repository but doesn’t clutter your files. Engram stores data directly in your <code>.git</code> database using custom references (<code>refs/engram/</code>). This means your project management is version-controlled without you ever having to <code>git add</code> a task file.</p>
+<h2 id="getting-started"><a class="header" href="#getting-started">Getting Started</a></h2>
+<p>Follow these steps to initialize Engram in your project.</p>
+<h3 id="1-initialize-workspace"><a class="header" href="#1-initialize-workspace">1. Initialize Workspace</a></h3>
+<p>Run this in the root of your git repository. It creates the necessary internal structures in <code>.git/</code>.</p>
+<pre><code class="language-bash">engram setup workspace
+</code></pre>
+<h3 id="2-create-your-identity-agent-profile"><a class="header" href="#2-create-your-identity-agent-profile">2. Create Your Identity (Agent Profile)</a></h3>
+<p>Tell Engram who you are. This creates a “human” agent profile so your actions are attributed correctly.</p>
+<pre><code class="language-bash">engram setup agent --name "Your Name" --agent-type operator
+</code></pre>
+<ul>
+<li><code>--name</code>: Your display name.</li>
+<li><code>--agent-type</code>: Use <code>operator</code> for humans. (Other types like <code>coder</code> or <code>reviewer</code> are for AI agents).</li>
+</ul>
+<h3 id="3-install-validation-hook-recommended"><a class="header" href="#3-install-validation-hook-recommended">3. Install Validation Hook (Recommended)</a></h3>
+<p>The pre-commit hook ensures you never commit code without linking it to a task. This keeps your history clean and traceable.</p>
+<pre><code class="language-bash"># Check if hook is already installed
+engram validate hook status
+
+# Install the hook
+engram validate hook install
+</code></pre>
+<p>Once installed, if you try <code>git commit -m "fix bug"</code> without a task ID, the commit will be rejected. You’ll need to use: <code>git commit -m "fix bug [TASK-123]"</code>.</p>
+<h2 id="core-concepts"><a class="header" href="#core-concepts">Core Concepts</a></h2>
+<h3 id="1-tasks"><a class="header" href="#1-tasks">1. Tasks</a></h3>
+<p>Tasks are the units of work. Unlike a simple todo list, Engram tasks are hierarchical and stateful.</p>
+<ul>
+<li><strong>Use for</strong>: Planning features, tracking bugs, organizing research.</li>
+<li><strong>Example</strong>: “Implement OAuth2 Login” (Parent) -&gt; “Design DB Schema” (Child).</li>
+</ul>
+<h3 id="2-context"><a class="header" href="#2-context">2. Context</a></h3>
+<p>Context represents the raw materials of your knowledge work. It’s where you dump information so you (and your AI agents) don’t have to hold it in your head.</p>
+<ul>
+<li><strong>Use for</strong>: Storing documentation URLs, code snippets, error logs, meeting notes.</li>
+<li><strong>Example</strong>: “Stripe API Docs - Payment Intents”, “Error Log from Production Crash”.</li>
+</ul>
+<h3 id="3-reasoning"><a class="header" href="#3-reasoning">3. Reasoning</a></h3>
+<p>This is Engram’s superpower. A Reasoning entity captures the <em>decision-making process</em>.</p>
+<ul>
+<li><strong>Use for</strong>: Explaining why you chose a library, why you refactored a class, or why you closed a bug as “wontfix”.</li>
+<li><strong>Example</strong>: “Chose PostgreSQL over Mongo because we need relational integrity for transactions.”</li>
+</ul>
+<h3 id="4-relationships"><a class="header" href="#4-relationships">4. Relationships</a></h3>
+<p>Entities don’t live in isolation. You link them together to create a knowledge graph.</p>
+<ul>
+<li><strong>Common links</strong>:
+<ul>
+<li>Task <code>depends_on</code> Task</li>
+<li>Task <code>references</code> Context</li>
+<li>Reasoning <code>justifies</code> Task</li>
+</ul>
+</li>
+</ul>
+<h2 id="day-to-day-workflow"><a class="header" href="#day-to-day-workflow">Day-to-Day Workflow</a></h2>
+<h3 id="step-1-start-your-day-session"><a class="header" href="#step-1-start-your-day-session">Step 1: Start Your Day (Session)</a></h3>
+<p>Tell Engram you’re starting work. This helps track metrics and context switches.</p>
+<pre><code class="language-bash">engram session start --agent human
+</code></pre>
+<h3 id="step-2-plan-your-work"><a class="header" href="#step-2-plan-your-work">Step 2: Plan Your Work</a></h3>
+<p>Before you code, define what “done” looks like.</p>
+<pre><code class="language-bash"># Create a task
+engram task create --title "Fix login timeout bug" --priority high
+
+# Create a subtask for investigation
+engram task create --title "Reproduce timeout locally" --parent-id [TASK-ID]
+</code></pre>
+<h3 id="step-3-capture-context"><a class="header" href="#step-3-capture-context">Step 3: Capture Context</a></h3>
+<p>Found a relevant StackOverflow answer? Don’t just bookmark it—save it.</p>
+<pre><code class="language-bash">engram context create --title "JWT Expiration Solution" --source "https://stackoverflow.com/..."
+engram relationship create --source-id [TASK-ID] --target-id [CONTEXT-ID] --type references
+</code></pre>
+<h3 id="step-4-log-decisions"><a class="header" href="#step-4-log-decisions">Step 4: Log Decisions</a></h3>
+<p>You decided to increase the timeout to 30 minutes. Record why.</p>
+<pre><code class="language-bash">engram reasoning create --title "Increased session timeout" --description "User feedback indicates 15m is too short for complex forms." --task-id [TASK-ID]
+</code></pre>
+<h3 id="step-5-query-history"><a class="header" href="#step-5-query-history">Step 5: Query History</a></h3>
+<p>Need to remember why you did something last month?</p>
+<pre><code class="language-bash"># Search for reasoning related to "timeout"
+engram reasoning list --search "timeout"
+</code></pre>
+<h2 id="working-with-ai-agents"><a class="header" href="#working-with-ai-agents">Working with AI Agents</a></h2>
+<p>Engram shines when you work with AI. Because your context and plans are structured, an AI agent can read your Engram workspace and immediately understand the project state.</p>
+<p><strong>To hand off work to an agent:</strong></p>
+<ol>
+<li><strong>Be Explicit in Titles</strong>: Use “Implement…” or “Refactor…” verbs.</li>
+<li><strong>Add Context Links</strong>: Explicitly link relevant <code>Context</code> entities to the <code>Task</code>. The agent will read these first.</li>
+<li><strong>Define Acceptance Criteria</strong>: Put this in the task description.</li>
+</ol>
+<p><em>Example Agent Handoff:</em></p>
+<blockquote>
+<p>“I created task [TASK-123] ‘Refactor Auth Middleware’. I’ve linked the [Context-456] ‘New Security Standards’ doc. Please pick this up.”</p>
+</blockquote>
+<h2 id="theory-building"><a class="header" href="#theory-building">Theory Building</a></h2>
+<p>Based on Peter Naur’s “Programming as Theory Building” (1985), capture the mental model behind your code.</p>
+<pre><code class="language-bash"># Create a theory about a domain
+engram theory create "User Authentication" --agent your-agent
+
+# Add conceptual model (concepts + definitions)
+engram theory update --id &lt;ID&gt; --concept "User: A person who authenticates to the system"
+engram theory update --id &lt;ID&gt; --concept "Session: A period of authenticated access"
+
+# Add system mappings (how concepts map to code)
+engram theory update --id &lt;ID&gt; --mapping "User: src/entities/user.rs (struct User)"
+engram theory update --id &lt;ID&gt; --mapping "Session: src/entities/session.rs (struct Session)"
+
+# Add design rationale (why decisions were made)
+engram theory update --id &lt;ID&gt; --rationale "JWT Tokens: Stateless auth to avoid session storage"
+
+# Add invariants (must-be-true statements)
+engram theory update --id &lt;ID&gt; --invariant "User email must be unique"
+</code></pre>
+<h2 id="state-reflection"><a class="header" href="#state-reflection">State Reflection</a></h2>
+<p>When code behavior conflicts with your theory, use reflection to detect and resolve the dissonance.</p>
+<pre><code class="language-bash"># Create a reflection when you encounter unexpected behavior
+engram reflect create \
+  --theory &lt;THEORY_ID&gt; \
+  --observed "Test failed: expected User but got None" \
+  --trigger-type test_failure
+
+# Record specific dissonance points
+engram reflect record-dissonance \
+  --id &lt;REFLECTION_ID&gt; \
+  --description "Theory claims User always exists, but code allows null"
+
+# Propose theory updates
+engram reflect propose-update \
+  --id &lt;REFLECTION_ID&gt; \
+  --update "Make User optional in Session, update invariant"
+
+# Check if mutation required (dissonance &gt;= 0.7)
+engram reflect requires-mutation --id &lt;REFLECTION_ID&gt;
+# Exit 0 = theory must be updated before code fixes
+</code></pre>
+<p>The 0.7 threshold enforces Naur’s insight: bugs often indicate flawed mental models, not just typos.</p>
+<h2 id="tips--tricks"><a class="header" href="#tips--tricks">Tips &amp; Tricks</a></h2>
+<ul>
+<li><strong>Automatic Storage</strong>: Engram saves data instantly to your git repo’s database (<code>.git/objects</code>). You do <strong>not</strong> need to <code>git add</code> or commit Engram data manually; it’s handled automatically via <code>git refs</code>.</li>
+<li><strong>Share with Team</strong>: Since Engram uses standard git refs, you can push/pull them to share context with your team (requires configuring your git fetch/push refspecs).</li>
+<li><strong>Hook Usage</strong>: With the hook installed, use <code>engram task list --status inprogress</code> to find your active task ID before committing.</li>
+<li><strong>Keep it Granular</strong>: It’s better to have 5 small tasks than 1 giant one. It makes reasoning easier to attach.</li>
+<li><strong>Be Specific with AI</strong>: When creating tasks for AI agents, include explicit file paths, expected outcomes, and success criteria. This prevents the “tool calling loop” issue where agents over-investigate instead of acting. See <a href="./known-issues/README.html">Known Issues</a> for details.</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="architecture-overview"><a class="header" href="#architecture-overview">Architecture Overview</a></h1>
+<h2 id="system-design"><a class="header" href="#system-design">System Design</a></h2>
+<p>Engram is a distributed memory system that stores entity data in Git refs.</p>
+<h2 id="core-components"><a class="header" href="#core-components">Core Components</a></h2>
+<pre><code>┌─────────────────────────────────────────┐
+│              CLI Layer                  │
+│  (src/cli/*.rs)                        │
+└────────────────┬────────────────────────┘
+                 │
+┌────────────────▼────────────────────────┐
+│            Entity Layer                 │
+│  (src/entities/*.rs)                   │
+│  - Task, Context, Reasoning, Knowledge  │
+│  - Theory, StateReflection              │
+│  - Session, Workflow, Relationship      │
+└────────────────┬────────────────────────┘
+                 │
+┌────────────────▼────────────────────────┐
+│           Storage Layer                │
+│  (src/storage/*.rs)                    │
+│  - GitStorage                          │
+│  - MemoryStorage                       │
+└─────────────────────────────────────────┘
+</code></pre>
+<h2 id="storage-backends"><a class="header" href="#storage-backends">Storage Backends</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Backend</th><th>Description</th></tr></thead><tbody>
+<tr><td>GitStorage</td><td>Persists to <code>.git/refs/engram/</code></td></tr>
+<tr><td>MemoryStorage</td><td>In-memory for testing</td></tr>
+</tbody></table>
+</div>
+<h2 id="entity-flow"><a class="header" href="#entity-flow">Entity Flow</a></h2>
+<ol>
+<li>User creates entity via CLI</li>
+<li>Entity is validated</li>
+<li>Converted to GenericEntity</li>
+<li>Stored in storage backend</li>
+<li>Can be retrieved, listed, updated, deleted</li>
+</ol>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="tasks"><a class="header" href="#tasks">Tasks</a></h1>
+<p>Tasks are the fundamental unit of work in Engram. They are hierarchical and stateful.</p>
+<h2 id="cli-usage"><a class="header" href="#cli-usage">CLI Usage</a></h2>
+<pre><code class="language-bash"># Create a task
+engram task create --title "Implement OAuth2 Login" --priority high
+
+# Create subtask
+engram task create --title "Design DB Schema" --parent-id &lt;PARENT_TASK_ID&gt;
+
+# Update status
+engram task update --id &lt;TASK_ID&gt; --status in_progress
+
+# List tasks
+engram task list
+engram task list --status pending
+</code></pre>
+<h2 id="attributes"><a class="header" href="#attributes">Attributes</a></h2>
+<ul>
+<li><strong>title</strong>: Short description</li>
+<li><strong>description</strong>: Detailed requirements</li>
+<li><strong>priority</strong>: high, medium, low</li>
+<li><strong>status</strong>: pending, in_progress, completed, blocked</li>
+<li><strong>parent_id</strong>: For hierarchical tasks</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="context"><a class="header" href="#context">Context</a></h1>
+<p>Context represents the raw materials for your work—documentation, code snippets, URLs, notes.</p>
+<h2 id="cli-usage-1"><a class="header" href="#cli-usage-1">CLI Usage</a></h2>
+<pre><code class="language-bash"># Create context
+engram context create --title "Stripe API Docs" --source "https://stripe.com/docs/api"
+
+# Create with content
+engram context create --title "Error Log" --content "$(cat error.log)"
+
+# List context
+engram context list
+</code></pre>
+<h2 id="use-cases"><a class="header" href="#use-cases">Use Cases</a></h2>
+<ul>
+<li>Documentation URLs</li>
+<li>Code snippets</li>
+<li>Error logs</li>
+<li>Meeting notes</li>
+<li>External resources</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="reasoning"><a class="header" href="#reasoning">Reasoning</a></h1>
+<p>Reasoning captures the <em>decision-making process</em>—the “why” behind your choices.</p>
+<h2 id="cli-usage-2"><a class="header" href="#cli-usage-2">CLI Usage</a></h2>
+<pre><code class="language-bash"># Record a decision
+engram reasoning create \
+  --title "Chose JWT for stateless auth" \
+  --description "Session storage adds overhead. JWT allows stateless verification." \
+  --task-id &lt;TASK_ID&gt;
+
+# List reasoning
+engram reasoning list
+engram reasoning list --task-id &lt;TASK_ID&gt;
+</code></pre>
+<h2 id="why-it-matters"><a class="header" href="#why-it-matters">Why It Matters</a></h2>
+<ul>
+<li><strong>Context preservation</strong>: Future developers understand why decisions were made</li>
+<li><strong>Agent onboarding</strong>: AI agents can understand project history</li>
+<li><strong>Audit trail</strong>: Complete record of decision rationale</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="knowledge"><a class="header" href="#knowledge">Knowledge</a></h1>
+<p>Knowledge represents reusable patterns and learnings that transcend individual tasks.</p>
+<h2 id="cli-usage-3"><a class="header" href="#cli-usage-3">CLI Usage</a></h2>
+<pre><code class="language-bash"># Create knowledge
+engram knowledge create \
+  --title "PostgreSQL Connection Pooling" \
+  --content "Use r2d2 pool for PostgreSQL connections. Max 10 connections per worker." \
+  --type pattern
+
+# Knowledge types: fact, pattern, rule, concept, procedure, heuristic
+
+# List knowledge
+engram knowledge list
+engram knowledge list --type pattern
+</code></pre>
+<h2 id="types"><a class="header" href="#types">Types</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><strong>fact</strong></td><td>Verifiable statements</td></tr>
+<tr><td><strong>pattern</strong></td><td>Recurring solutions</td></tr>
+<tr><td><strong>rule</strong></td><td>Constraints or requirements</td></tr>
+<tr><td><strong>concept</strong></td><td>Domain definitions</td></tr>
+<tr><td><strong>procedure</strong></td><td>Step-by-step processes</td></tr>
+<tr><td><strong>heuristic</strong></td><td>Guidelines based on experience</td></tr>
+</tbody></table>
+</div><div style="break-before: page; page-break-before: always;"></div><h1 id="relationships"><a class="header" href="#relationships">Relationships</a></h1>
+<p>Relationships link entities together to create a knowledge graph.</p>
+<h2 id="cli-usage-4"><a class="header" href="#cli-usage-4">CLI Usage</a></h2>
+<pre><code class="language-bash"># Create relationship
+engram relationship create \
+  --source-id &lt;TASK_ID&gt; \
+  --target-id &lt;CONTEXT_ID&gt; \
+  --type references
+
+# Common types:
+# - references: Task uses context
+# - implements: Task fulfills requirement
+# - depends_on: Task requires another task
+# - justifies: Reasoning supports a decision
+# - related: General connection
+
+# List relationships
+engram relationship list --source-id &lt;ID&gt;
+engram relationship list --target-id &lt;ID&gt;
+</code></pre>
+<h2 id="why-relationships-matter"><a class="header" href="#why-relationships-matter">Why Relationships Matter</a></h2>
+<ul>
+<li><strong>Context graph</strong>: See all context relevant to a task</li>
+<li><strong>Impact analysis</strong>: Understand how changes affect other work</li>
+<li><strong>Traceability</strong>: Link decisions to requirements</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="theory-building-1"><a class="header" href="#theory-building-1">Theory Building</a></h1>
+<blockquote>
+<p>Based on Peter Naur’s “Programming as Theory Building” (1985)</p>
+</blockquote>
+<h2 id="overview"><a class="header" href="#overview">Overview</a></h2>
+<p>A program is not just its source text; it is the living theory built in the mind of the developer. Without this theory, code becomes incomprehensible—even if every statement is understood.</p>
+<p>Engram captures this by allowing agents to build formal <strong>Theory</strong> entities that represent their mental model of a system domain.</p>
+<h2 id="what-is-a-theory"><a class="header" href="#what-is-a-theory">What is a Theory?</a></h2>
+<p>A Theory consists of:</p>
+<div class="table-wrapper"><table><thead><tr><th>Component</th><th>Description</th></tr></thead><tbody>
+<tr><td><strong>Domain</strong></td><td>The problem space being modeled</td></tr>
+<tr><td><strong>Conceptual Model</strong></td><td>Core concepts (nouns/verbs) with definitions</td></tr>
+<tr><td><strong>System Mapping</strong></td><td>How concepts map to code (file:line)</td></tr>
+<tr><td><strong>Design Rationale</strong></td><td>The “why” behind design decisions</td></tr>
+<tr><td><strong>Invariants</strong></td><td>What must always be true (the “laws”)</td></tr>
+</tbody></table>
+</div>
+<h2 id="cli-usage-5"><a class="header" href="#cli-usage-5">CLI Usage</a></h2>
+<h3 id="create-a-theory"><a class="header" href="#create-a-theory">Create a Theory</a></h3>
+<pre><code class="language-bash"># Basic creation
+./target/release/engram theory create "Workflow Engine"
+
+# With agent and task
+./target/release/engram theory create "Authentication" -a "the-architect" -t "task-123"
+
+# From JSON
+./target/release/engram theory create --json --json-file theory.json
+</code></pre>
+<h3 id="add-concepts"><a class="header" href="#add-concepts">Add Concepts</a></h3>
+<pre><code class="language-bash">./target/release/engram theory update --id &lt;ID&gt; --concept "User: A person who interacts with the system"
+./target/release/engram theory update --id &lt;ID&gt; --concept "Session: A context for a user's interaction"
+</code></pre>
+<h3 id="add-system-mappings"><a class="header" href="#add-system-mappings">Add System Mappings</a></h3>
+<pre><code class="language-bash">./target/release/engram theory update --id &lt;ID&gt; --mapping "User: src/entities/user.rs:42 (struct User)"
+./target/release/engram theory update --id &lt;ID&gt; --mapping "Session: src/entities/session.rs:28 (struct Session)"
+</code></pre>
+<h3 id="add-design-rationale"><a class="header" href="#add-design-rationale">Add Design Rationale</a></h3>
+<pre><code class="language-bash">./target/release/engram theory update --id &lt;ID&gt; --rationale "JWT Tokens: Stateless auth avoids session storage overhead"
+</code></pre>
+<h3 id="add-invariants"><a class="header" href="#add-invariants">Add Invariants</a></h3>
+<pre><code class="language-bash">./target/release/engram theory update --id &lt;ID&gt; --invariant "User email must be unique"
+./target/release/engram theory update --id &lt;ID&gt; --invariant "Session expires after 24 hours"
+</code></pre>
+<h3 id="list-and-show"><a class="header" href="#list-and-show">List and Show</a></h3>
+<pre><code class="language-bash"># List all theories
+./target/release/engram theory list
+
+# Filter by agent
+./target/release/engram theory list -a "the-architect"
+
+# Show details with metrics
+./target/release/engram theory show --id &lt;ID&gt; --show-metrics
+</code></pre>
+<h2 id="agent-persona"><a class="header" href="#agent-persona">Agent Persona</a></h2>
+<p>Use the <strong>The Theorist</strong> agent to automatically extract theories from code:</p>
+<pre><code class="language-bash"># Use with your AI agent
+prompts/agents/168-the-theorist.yaml
+</code></pre>
+<p>See <a href="features/../pipelines/00-theory-building.yaml">Pipeline: Theory Building</a> for the full workflow.</p>
+<h2 id="integration-with-state-reflection"><a class="header" href="#integration-with-state-reflection">Integration with State Reflection</a></h2>
+<p>Theory entities work with <a href="features/state-reflection.html">State Reflection</a> to detect when your mental model conflicts with reality.</p>
+<p>When dissonance is detected (score ≥ 0.7), the theory must be updated before code fixes are attempted.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="state-reflection-1"><a class="header" href="#state-reflection-1">State Reflection</a></h1>
+<blockquote>
+<p>Cognitive Dissonance Detection for AI Agents</p>
+</blockquote>
+<h2 id="overview-1"><a class="header" href="#overview-1">Overview</a></h2>
+<p>When an agent’s theory conflicts with observed reality, this is “cognitive dissonance.” State Reflection captures this gap and enforces that the theory is updated before code is modified.</p>
+<p><strong>Key principle</strong>: Bugs often indicate a flawed mental model, not just a typo. Fix the theory first, then fix the code.</p>
+<h2 id="the-dissonance-threshold"><a class="header" href="#the-dissonance-threshold">The Dissonance Threshold</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Score</th><th>Action Required</th></tr></thead><tbody>
+<tr><td>&lt; 0.7</td><td>Minor adjustments to theory may suffice</td></tr>
+<tr><td>≥ 0.7</td><td><strong>Theory mutation required</strong> before code fixes</td></tr>
+</tbody></table>
+</div>
+<h2 id="cli-usage-6"><a class="header" href="#cli-usage-6">CLI Usage</a></h2>
+<h3 id="create-a-reflection"><a class="header" href="#create-a-reflection">Create a Reflection</a></h3>
+<pre><code class="language-bash">./target/release/engram reflect create \
+  --theory &lt;THEORY_ID&gt; \
+  --observed "Test failed: expected User, got None" \
+  --trigger-type test_failure \
+  --agent "the-architect"
+</code></pre>
+<h3 id="record-dissonance"><a class="header" href="#record-dissonance">Record Dissonance</a></h3>
+<pre><code class="language-bash">./target/release/engram reflect record-dissonance \
+  --id &lt;REFLECTION_ID&gt; \
+  --description "Theory claims User is always created before Session, but code allows Session without User"
+</code></pre>
+<h3 id="propose-theory-update"><a class="header" href="#propose-theory-update">Propose Theory Update</a></h3>
+<pre><code class="language-bash">./target/release/engram reflect propose-update \
+  --id &lt;REFLECTION_ID&gt; \
+  --update "Add invariant: Session.user_id is optional; remove requirement that User must exist"
+</code></pre>
+<h3 id="check-if-mutation-required"><a class="header" href="#check-if-mutation-required">Check if Mutation Required</a></h3>
+<pre><code class="language-bash">./target/release/engram reflect requires-mutation --id &lt;REFLECTION_ID&gt;
+# Exit code 0 = mutation required (dissonance &gt;= 0.7)
+# Exit code 1 = mutation not required
+</code></pre>
+<h3 id="resolve-reflection"><a class="header" href="#resolve-reflection">Resolve Reflection</a></h3>
+<pre><code class="language-bash"># After updating the theory
+./target/release/engram reflect resolve \
+  --id &lt;REFLECTION_ID&gt; \
+  --new-theory-id &lt;UPDATED_THEORY_ID&gt;
+</code></pre>
+<h2 id="session-integration"><a class="header" href="#session-integration">Session Integration</a></h2>
+<p>Sessions can be bound to theories, and will enter <code>Reflecting</code> state when dissonance is detected:</p>
+<pre><code class="language-bash"># Bind theory to session
+./target/release/engram session bind-theory &lt;SESSION_ID&gt; --theory &lt;THEORY_ID&gt;
+
+# Session automatically enters Reflecting state when reflection is triggered
+./target/release/engram session trigger-reflection &lt;SESSION_ID&gt;
+</code></pre>
+<h2 id="integration-with-theory-building"><a class="header" href="#integration-with-theory-building">Integration with Theory Building</a></h2>
+<p>State Reflection is the validation mechanism for <a href="features/theory-building.html">Theory Building</a>:</p>
+<ol>
+<li>Agent builds a theory about a domain</li>
+<li>Agent encounters test failure or unexpected behavior</li>
+<li>Agent creates a StateReflection to analyze the dissonance</li>
+<li>If dissonance ≥ 0.7, agent <strong>must</strong> update the theory</li>
+<li>Only after theory is updated can code fixes be attempted</li>
+</ol>
+<p>This enforces Naur’s insight: the bug is often in the mental model, not the code.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="example-workflows"><a class="header" href="#example-workflows">Example Workflows</a></h1>
+<p>This section provides complete end-to-end examples of how to use Engram’s features together.</p>
+<h2 id="example-1-basic-development-workflow"><a class="header" href="#example-1-basic-development-workflow">Example 1: Basic Development Workflow</a></h2>
+<p>A human developer working on a feature.</p>
+<pre><code class="language-bash"># 1. Start a session
+SESSION_ID=$(engram session start --agent developer --json | jq -r '.id')
+echo "Started session: $SESSION_ID"
+
+# 2. Create a task
+TASK_ID=$(engram task create \
+  --title "Implement user login endpoint" \
+  --priority high \
+  --json | jq -r '.id')
+echo "Created task: $TASK_ID"
+
+# 3. Add context (research)
+CONTEXT_ID=$(engram context create \
+  --title "OAuth2 Password Grant Flow" \
+  --source "https://oauth.net/2/grant-types/password/" \
+  --json | jq -r '.id')
+echo "Created context: $CONTEXT_ID"
+
+# 4. Link context to task
+engram relationship create \
+  --source-id $TASK_ID \
+  --target-id $CONTEXT_ID \
+  --type references
+
+# 5. Implement and make a decision
+REASONING_ID=$(engram reasoning create \
+  --title "Use bcrypt for password hashing" \
+  --description "bcrypt has built-in salting and adjustable cost factor. Scrypt or Argon2 would also work but bcrypt is more widely supported." \
+  --task-id $TASK_ID \
+  --json | jq -r '.id')
+echo "Recorded reasoning: $REASONING_ID"
+
+# 6. Complete the task
+engram task update --id $TASK_ID --status completed
+</code></pre>
+<h2 id="example-2-theory-building-for-codebase"><a class="header" href="#example-2-theory-building-for-codebase">Example 2: Theory Building for Codebase</a></h2>
+<p>An AI agent extracting mental models from a new codebase.</p>
+<pre><code class="language-bash"># 1. Start session as theorist agent
+SESSION_ID=$(engram session start --agent the-theorist --json | jq -r '.id')
+
+# 2. Create theories for major domains
+THEORY_ID=$(engram theory create "Authentication System" --agent the-theorist --json | jq -r '.id')
+
+# 3. Add conceptual model
+engram theory update --id $THEORY_ID \
+  --concept "User: An entity that can authenticate to the system with credentials"
+engram theory update --id $THEORY_ID \
+  --concept "Credential: Proof of identity (password, API key, OAuth token)"
+engram theory update --id $THEORY_ID \
+  --concept "Session: An authenticated context with a timeout"
+
+# 4. Add system mappings
+engram theory update --id $THEORY_ID \
+  --mapping "User: src/entities/user.rs:42 (struct User)"
+engram theory update --id $THEORY_ID \
+  --mapping "Credential: src/entities/credential.rs:15 (enum CredentialType)"
+engram theory update --id $THEORY_ID \
+  --mapping "Session: src/entities/session.rs:28 (struct Session)"
+
+# 5. Add design rationale
+engram theory update --id $THEORY_ID \
+  --rationale "Password hashing: Use bcrypt with cost factor 12 - balances security vs performance"
+engram theory update --id $THEORY_ID \
+  --rationale "Token expiry: 24 hours for access, 7 days for refresh - standard security practice"
+
+# 6. Add invariants
+engram theory update --id $THEORY_ID \
+  --invariant "User.password_hash must never be NULL for users with PASSWORD credential type"
+engram theory update --id $THEORY_ID \
+  --invariant "Session.expires_at must be in the future for active sessions"
+engram theory update --id $THEORY_ID \
+  --invariant "A User may have multiple Credentials but at most one verified email"
+
+# 7. Bind theory to session for future work
+engram session bind-theory $SESSION_ID --theory $THEORY_ID
+
+# 8. View the theory
+engram theory show --id $THEORY_ID --show-metrics
+</code></pre>
+<h2 id="example-3-state-reflection-workflow"><a class="header" href="#example-3-state-reflection-workflow">Example 3: State Reflection Workflow</a></h2>
+<p>When code behavior conflicts with theory, use reflection.</p>
+<pre><code class="language-bash"># Assume we have a theory about authentication
+THEORY_ID="abc123"
+
+# 1. Agent encounters test failure
+# Test claims: "User without password should not be able to login"
+# Code behavior: Users without password CAN authenticate with empty string
+
+# 2. Create a reflection
+REFLECTION_ID=$(engram reflect create \
+  --theory $THEORY_ID \
+  --observed "Test failed: test_login_without_password() - expected auth failure but succeeded" \
+  --trigger-type test_failure \
+  --agent the-architect \
+  --json | jq -r '.id')
+
+# 3. Record the dissonance
+engram reflect record-dissonance \
+  --id $REFLECTION_ID \
+  --description "Theory invariant states 'User.password_hash must never be NULL' but code allows empty string which passes validation"
+
+# 4. Propose theory updates
+engram reflect propose-update \
+  --id $REFLECTION_ID \
+  --update "Either: (1) Enforce password_hash NOT NULL at DB level, OR (2) Update invariant to 'Empty password_hash rejects authentication'"
+
+# 5. Check if mutation required
+engram reflect requires-mutation --id $REFLECTION_ID
+# If exit code 0, theory mutation is REQUIRED
+
+# 6. After fixing (either update code or theory), resolve
+engram reflect resolve --id $REFLECTION_ID --new-theory-id $UPDATED_THEORY_ID
+</code></pre>
+<h2 id="example-4-full-ai-agent-workflow"><a class="header" href="#example-4-full-ai-agent-workflow">Example 4: Full AI Agent Workflow</a></h2>
+<p>Complete workflow from task creation to theory building to code implementation.</p>
+<pre><code class="language-bash">#!/bin/bash
+# Full AI Agent Workflow Example
+
+set -e
+
+AGENT="assistant-001"
+echo "=== Starting AI Agent Workflow ==="
+
+# PHASE 1: Task Analysis
+echo "Phase 1: Analyzing task requirements..."
+
+TASK_ID=$(engram task create \
+  --title "Add password reset feature" \
+  --description "Implement password reset via email with time-limited tokens" \
+  --priority high \
+  --agent $AGENT \
+  --json | jq -r '.id')
+
+# PHASE 2: Research &amp; Context
+echo "Phase 2: Capturing research context..."
+
+CONTEXT_IDS=()
+
+# Store relevant docs
+DOC_ID=$(engram context create \
+  --title "JWT RFC 7519" \
+  --source "https://datatracker.ietf.org/doc/html/rfc7519" \
+  --agent $AGENT \
+  --json | jq -r '.id')
+CONTEXT_IDS+=($DOC_ID)
+
+DOC_ID=$(engram context create \
+  --title "Email Security Best Practices" \
+  --source "https://example.com/email-security" \
+  --agent $AGENT \
+  --json | jq -r '.id')
+CONTEXT_IDS+=($DOC_ID)
+
+# Link contexts to task
+for ctx_id in "${CONTEXT_IDS[@]}"; do
+  engram relationship create \
+    --source-id $TASK_ID \
+    --target-id $ctx_id \
+    --type references
+done
+
+# PHASE 3: Theory Building
+echo "Phase 3: Building mental model..."
+
+# Check if theory exists for relevant domain
+THEORY_ID=$(engram theory list --agent $AGENT --json | jq -r '.[] | select(.domain_name == "Authentication") | .id' 2&gt;/dev/null || echo "")
+
+if [ -z "$THEORY_ID" ]; then
+  THEORY_ID=$(engram theory create "Authentication" --agent $AGENT --json | jq -r '.id')
+  
+  engram theory update --id $THEORY_ID \
+    --concept "User: Entity with authentication credentials"
+  engram theory update --id $THEORY_ID \
+    --concept "PasswordResetToken: Time-limited token for password reset"
+  engram theory update --id $THEORY_ID \
+    --concept "EmailNotification: Outbound email with reset link"
+  engram theory update --id $THEORY_ID \
+    --invariant "PasswordResetToken expires after 1 hour"
+  engram theory update --id $THEORY_ID \
+    --invariant "PasswordResetToken can only be used once"
+fi
+
+# Bind theory to session
+SESSION_ID=$(engram session start --agent $AGENT --json | jq -r '.id')
+engram session bind-theory $SESSION_ID --theory $THEORY_ID
+
+# PHASE 4: Implementation
+echo "Phase 4: Implementing feature..."
+
+# Create subtasks
+SUBTASK_1=$(engram task create \
+  --title "Create PasswordResetToken entity" \
+  --parent-id $TASK_ID \
+  --agent $AGENT \
+  --json | jq -r '.id')
+
+SUBTASK_2=$(engram task create \
+  --title "Implement token generation and validation" \
+  --parent-id $TASK_ID \
+  --agent $AGENT \
+  --json | jq -r '.id')
+
+SUBTASK_3=$(engram task create \
+  --title "Add reset email template and sending" \
+  --parent-id $TASK_ID \
+  --agent $AGENT \
+  --json | jq -r '.id')
+
+# Record design decisions
+engram reasoning create \
+  --title "Use cryptographically secure random tokens" \
+  --description "Tokens must be 32 bytes, URL-safe base64 encoded. Cannot use UUID as it's predictable." \
+  --task-id $SUBTASK_2 \
+  --agent $AGENT
+
+engram reasoning create \
+  --title "Store tokens as hash, not plain text" \
+  --description "Prevents token leakage if database is compromised. Use same hashing as passwords." \
+  --task-id $SUBTASK_2 \
+  --agent $AGENT
+
+# Update theory with new invariant discovered during implementation
+engram theory update --id $THEORY_ID \
+  --invariant "PasswordResetToken must be hashed before storage"
+
+# PHASE 5: Verification
+echo "Phase 5: Verifying implementation..."
+
+# Run tests - if they fail, use reflection
+TEST_RESULT=$(cargo test password_reset 2&gt;&amp;1 || true)
+
+if echo "$TEST_RESULT" | grep -q "FAILED"; then
+  echo "Tests failed - creating state reflection..."
+  
+  REFLECTION_ID=$(engram reflect create \
+    --theory $THEORY_ID \
+    --observed "$TEST_RESULT" \
+    --trigger-type test_failure \
+    --agent $AGENT \
+    --json | jq -r '.id')
+  
+  engram reflect record-dissonance \
+    --id $REFLECTION_ID \
+    --description "Theory claims tokens expire in 1 hour but test expects 30 minutes"
+  
+  # Check if major theory update needed
+  if engram reflect requires-mutation --id $REFLECTION_ID; then
+    echo "Theory must be updated before fixing code"
+    # Update theory...
+  fi
+fi
+
+# PHASE 6: Complete
+echo "Phase 6: Completing task..."
+
+engram task update --id $SUBTASK_1 --status completed
+engram task update --id $SUBTASK_2 --status completed
+engram task update --id $SUBTASK_3 --status completed
+engram task update --id $TASK_ID --status completed
+
+echo "=== Workflow Complete ==="
+echo "Task: $TASK_ID"
+echo "Theory: $THEORY_ID"
+echo "Session: $SESSION_ID"
+</code></pre>
+<h2 id="example-5-multi-agent-collaboration"><a class="header" href="#example-5-multi-agent-collaboration">Example 5: Multi-Agent Collaboration</a></h2>
+<p>Multiple agents working on the same codebase.</p>
+<pre><code class="language-bash"># Agent 1: The Architect - defines the theory
+ARCHITECT_SESSION=$(engram session start --agent the-architect --json | jq -r '.id')
+
+THEORY_ID=$(engram theory create "Payment Processing" --agent the-architect --json | jq -r '.id')
+
+engram theory update --id $THEORY_ID \
+  --concept "Payment: Money transfer request with amount, currency, status"
+engram theory update --id $THEORY_ID \
+  --invariant "Payment.amount must be positive"
+engram theory update --id $THEORY_ID \
+  --invariant "Payment.status must transition: pending -&gt; processing -&gt; completed|failed"
+
+# Agent 2: The Developer - implements and may find dissonance
+DEV_SESSION=$(engram session start --agent developer-001 --json | jq -r '.id')
+
+# Developer binds to existing theory
+engram session bind-theory $DEV_SESSION --theory $THEORY_ID
+
+# Developer finds issue during implementation
+REFLECTION_ID=$(engram reflect create \
+  --theory $THEORY_ID \
+  --observed "Business requirement: refunds must be possible within 30 days" \
+  --trigger-type manual_observation \
+  --agent developer-001 \
+  --json | jq -r '.id')
+
+engram reflect propose-update \
+  --id $REFLECTION_ID \
+  --update "Add invariant: Payment can only be refunded within 30 days of completion"
+
+# Architect reviews and resolves
+engram reflect resolve --id $REFLECTION_ID --new-theory-id $THEORY_ID
+
+# Now both agents work with updated theory
+</code></pre>
+<p>These examples demonstrate how all Engram features integrate: Tasks, Context, Reasoning, Knowledge, Theory, StateReflection, Sessions, and Relationships.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="workflows"><a class="header" href="#workflows">Workflows</a></h1>
+<p>Workflows define state machines for processes, enabling complex multi-step operations.</p>
+<h2 id="cli-usage-7"><a class="header" href="#cli-usage-7">CLI Usage</a></h2>
+<pre><code class="language-bash"># Create workflow
+engram workflow create --title "Code Review" --description "Code review process"
+
+# Add states
+engram workflow add-state --name pending --workflow-id &lt;ID&gt;
+engram workflow add-state --name review --workflow-id &lt;ID&gt;
+engram workflow add-state --name approved --workflow-id &lt;ID&gt;
+engram workflow add-state --name rejected --workflow-id &lt;ID&gt;
+
+# Add transitions
+engram workflow add-transition --from pending --to review --workflow-id &lt;ID&gt;
+engram workflow add-transition --from review --to approved --workflow-id &lt;ID&gt;
+engram workflow add-transition --from review --to rejected --workflow-id &lt;ID&gt;
+
+# Update state
+engram workflow transition --to review --id &lt;ID&gt;
+</code></pre>
+<h2 id="use-cases-1"><a class="header" href="#use-cases-1">Use Cases</a></h2>
+<ul>
+<li>Code review processes</li>
+<li>Incident response stages</li>
+<li>Deployment pipelines</li>
+<li>Task approval flows</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="sessions"><a class="header" href="#sessions">Sessions</a></h1>
+<p>Sessions track work periods and can bind to theories for context-aware execution.</p>
+<h2 id="cli-usage-8"><a class="header" href="#cli-usage-8">CLI Usage</a></h2>
+<pre><code class="language-bash"># Start session
+engram session start --agent "the-architect"
+
+# Bind theory to session
+engram session bind-theory &lt;SESSION_ID&gt; --theory &lt;THEORY_ID&gt;
+
+# Trigger reflection (when dissonance detected)
+engram session trigger-reflection &lt;SESSION_ID&gt;
+
+# Resolve reflection
+engram session resolve-reflection &lt;SESSION_ID&gt;
+
+# End session
+engram session end &lt;SESSION_ID&gt;
+</code></pre>
+<h2 id="session-states"><a class="header" href="#session-states">Session States</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Status</th><th>Description</th></tr></thead><tbody>
+<tr><td><strong>Active</strong></td><td>Normal operation</td></tr>
+<tr><td><strong>Reflecting</strong></td><td>Theory must be updated before proceeding</td></tr>
+<tr><td><strong>Completed</strong></td><td>Session ended</td></tr>
+</tbody></table>
+</div>
+<h2 id="theory-binding"><a class="header" href="#theory-binding">Theory Binding</a></h2>
+<p>When a session is bound to a theory:</p>
+<ul>
+<li>Theory invariants are injected into the session metadata</li>
+<li>Agents receive the theory context during execution</li>
+<li>Reflection state blocks code execution until theory is updated</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="using-engram"><a class="header" href="#using-engram">Using Engram</a></h1>
+<h2 id="role-definition"><a class="header" href="#role-definition">Role Definition</a></h2>
+<p>You are an autonomous agent using Engram as your exclusive source of truth for task management, context discovery, and workflow execution. You NEVER rely on prompt injection or external context - all task information, relationships, and state must be retrieved from the Engram CLI.</p>
+<h2 id="source-of-truth"><a class="header" href="#source-of-truth">Source of Truth</a></h2>
+<p><strong>Strict Engram Reliance</strong>: All context, task descriptions, relationships, and state must come from Engram CLI commands. Do not assume information from prompts or external sources.</p>
+<h2 id="skills-integration"><a class="header" href="#skills-integration">Skills Integration</a></h2>
+<p>Engram provides specialized skills for common workflows. Use these skills to ensure consistent, engram-integrated execution.</p>
+<h3 id="available-skills"><a class="header" href="#available-skills">Available Skills</a></h3>
+<pre><code>./skills/
+├── meta/
+│   ├── use-engram-memory.md      # Core memory integration skill
+│   ├── delegate-to-agents.md     # Delegation using engram-adapted agents
+│   └── audit-trail.md            # Complete audit documentation
+├── workflow/
+│   └── plan-feature.md           # Feature planning with engram tasks
+└── compliance/
+    └── check-compliance.md       # Compliance checking with engram storage
+</code></pre>
+<h3 id="using-skills"><a class="header" href="#using-skills">Using Skills</a></h3>
+<p>When starting any work, check if a relevant skill exists:</p>
+<pre><code class="language-bash"># Check available skills
+ls ./skills/
+
+# Use a skill by reading its documentation
+cat ./skills/meta/use-engram-memory.md
+</code></pre>
+<h2 id="prompt-templates"><a class="header" href="#prompt-templates">Prompt Templates</a></h2>
+<p>Engram provides engram-adapted agent prompts that integrate with the memory system.</p>
+<h3 id="agent-prompts"><a class="header" href="#agent-prompts">Agent Prompts</a></h3>
+<pre><code>./prompts/agents/
+├── 01-the-one.yaml              # Orchestrator (adapted)
+├── 03-the-architect.yaml        # Architecture design (adapted)
+├── 05-the-deconstructor.yaml    # Task breakdown (adapted)
+├── _template-engram-adapted.yaml # Template for adapting agents
+└── [160+ specialized agents]
+</code></pre>
+<h3 id="pipeline-templates"><a class="header" href="#pipeline-templates">Pipeline Templates</a></h3>
+<pre><code>./prompts/ai/pipelines/
+├── 01-greenfield-feature-launch.yaml  # Feature development pipeline (adapted)
+├── _template-engram-adapted.yaml       # Template for adapting pipelines
+└── [100+ specialized pipelines]
+</code></pre>
+<h3 id="compliance-prompts"><a class="header" href="#compliance-prompts">Compliance Prompts</a></h3>
+<pre><code>./prompts/compliance_and_certification/
+└── prompts/audit_checkpoints/
+    ├── igaming/           # Gaming compliance (GLI, MGA, UKGC)
+    ├── saas_it/           # SOC2, ISO27001, PCI DSS
+    ├── data_protection/   # GDPR, CCPA, PIPEDA
+    ├── eu_regulations/    # DSA, DMA, AI Act, NIS2, DORA
+    ├── gaming_certification/  # RNG, RTP, Fairness
+    ├── software_development/  # OWASP, SDL, ISO 12207
+    ├── german_compliance/     # GoBD, DSGVO, BSI
+    ├── medical_device/        # IEC 62304
+    ├── cross_compliance/      # Multi-framework integration
+    └── cybersecurity_policies/ # NIST CSF, RMF, ISO 27002
+</code></pre>
+<h2 id="workflow-protocol"><a class="header" href="#workflow-protocol">Workflow Protocol</a></h2>
+<h3 id="1-task-initialization"><a class="header" href="#1-task-initialization">1. Task Initialization</a></h3>
+<pre><code class="language-bash"># Update status to in_progress
+engram task update {{TASK_ID}} --status inprogress
+
+# Discover all related context
+engram relationship connected --entity-id {{TASK_ID}}
+
+# Read task description
+engram task show {{TASK_ID}}
+</code></pre>
+<h3 id="2-context-discovery"><a class="header" href="#2-context-discovery">2. Context Discovery</a></h3>
+<pre><code class="language-bash"># Find all references (context, docs, designs)
+engram relationship connected --entity-id {{TASK_ID}} --relationship-type references
+
+# Find reasoning (decisions, trade-offs)
+engram relationship connected --entity-id {{TASK_ID}} --relationship-type documents
+
+# Find subtasks (if task has children)
+engram relationship connected --entity-id {{TASK_ID}} --relationship-type contains
+
+# Get specific entity details
+engram context show [CONTEXT_ID]
+engram reasoning show [REASONING_ID]
+</code></pre>
+<h3 id="3-execution-phase"><a class="header" href="#3-execution-phase">3. Execution Phase</a></h3>
+<pre><code class="language-bash"># Locate files via relationships
+engram relationship connected --entity-id {{TASK_ID}} | grep -E "context|reasoning"
+
+# Perform work (coding, writing, etc.)
+
+# Store progress as reasoning
+engram reasoning create \
+  --title "[Work] Progress: [What was done]" \
+  --task-id {{TASK_ID}} \
+  --content "[Details of work completed]"
+
+# Store final result as context
+engram context create \
+  --title "[Result] [Work Description]" \
+  --content "[Output, findings, or artifact summary]"
+
+# Link result to task
+engram relationship create \
+  --source-id {{TASK_ID}} \
+  --target-id [RESULT_CONTEXT_ID] \
+  --produces
+
+# Commit with task reference
+git commit -m "type: description [{{TASK_ID}}]"
+</code></pre>
+<h3 id="4-completion"><a class="header" href="#4-completion">4. Completion</a></h3>
+<pre><code class="language-bash"># Validate workflow compliance
+engram validate check
+
+# Update task status
+engram task update {{TASK_ID}} --status done --outcome "[Summary of work]"
+
+# Output summary
+echo "Task {{TASK_ID}} completed. Entities created: [CONTEXT_ID], [REASONING_ID]"
+</code></pre>
+<h2 id="optimization-principles"><a class="header" href="#optimization-principles">Optimization Principles</a></h2>
+<ul>
+<li><strong>Context-First</strong>: Always gather complete context via Engram before starting execution</li>
+<li><strong>Relationship Navigation</strong>: Use relationship traversal as the primary discovery mechanism</li>
+<li><strong>Entity Linking</strong>: Link all created artifacts back to tasks for future discoverability</li>
+<li><strong>Progress Tracking</strong>: Store progress as reasoning entities, not just in conversation</li>
+<li><strong>Skills Usage</strong>: Check for relevant skills before starting work</li>
+</ul>
+<h2 id="error-handling"><a class="header" href="#error-handling">Error Handling</a></h2>
+<ul>
+<li>If a task ID is invalid: Stop and report the error</li>
+<li>If required relationships are missing: Create them or request clarification</li>
+<li>If context is incomplete: Use relationship traversal to find more information</li>
+<li>Never proceed without full Engram-validated context</li>
+</ul>
+<h2 id="integration-with-external-prompts"><a class="header" href="#integration-with-external-prompts">Integration with External Prompts</a></h2>
+<p>When using external prompts (from <code>./prompts/</code>), always adapt them:</p>
+<ol>
+<li><strong>Add task_id parameter</strong> to all prompts</li>
+<li><strong>Include engram commands</strong> in the prompt body</li>
+<li><strong>Update response schema</strong> to return engram entity IDs</li>
+<li><strong>Link outputs</strong> to the parent task via relationships</li>
+</ol>
+<p>Example adaptation pattern:</p>
+<pre><code class="language-yaml"># Original parameter
+parameters:
+  properties:
+    context:
+      type: string
+      description: "The context"
+
+# Adapted parameter
+parameters:
+  properties:
+    task_id:
+      type: string
+      description: "The engram task ID for this work"
+    context:
+      type: string
+      description: "The context"
+  required:
+    - task_id
+    - context
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="engram-prompt-engineering-guide"><a class="header" href="#engram-prompt-engineering-guide">Engram Prompt Engineering Guide</a></h1>
+<p>This guide explains how to construct effective prompts for agents using the Engram CLI. The goal is to create deterministic, context-rich workflows where agents rely exclusively on Engram as their source of truth.</p>
+<h2 id="philosophy"><a class="header" href="#philosophy">Philosophy</a></h2>
+<ul>
+<li><strong>Single Source of Truth</strong>: Agents should look up task context via <code>engram task show</code> and <code>engram relationship</code>, not rely on prompt injection.</li>
+<li><strong>Atomic Operations</strong>: Workflows should be broken down into discrete steps tracked by Engram tasks.</li>
+<li><strong>Evidence-Based Validation</strong>: Every step must be verifiable via <code>engram validate</code> with provide evidence-based validation for all final claims instead of unsubstantiated assertions.</li>
+<li><strong>Skills First</strong>: Check for existing skills before creating new prompts.</li>
+</ul>
+<h2 id="available-prompts"><a class="header" href="#available-prompts">Available Prompts</a></h2>
+<p>Engram provides pre-built engram-adapted prompts for common workflows.</p>
+<h3 id="agent-prompts-170"><a class="header" href="#agent-prompts-170">Agent Prompts (170+)</a></h3>
+<p>Location: <code>./engram/prompts/agents/</code></p>
+<div class="table-wrapper"><table><thead><tr><th>Category</th><th>Count</th><th>Examples</th></tr></thead><tbody>
+<tr><td>Core Orchestration</td><td>3</td><td>01-the-one, 03-the-architect, 05-the-deconstructor</td></tr>
+<tr><td>Development</td><td>50+</td><td>rustacean, gopher, type-safe, api-designer</td></tr>
+<tr><td>Testing &amp; Quality</td><td>20+</td><td>tester, qa-strategist, troubleshooter</td></tr>
+<tr><td>Infrastructure</td><td>30+</td><td>devops-engineer, rustacean, gopher</td></tr>
+<tr><td>Specialization</td><td>60+</td><td>accessibility-advocate, security-auditor, technical-writer</td></tr>
+</tbody></table>
+</div>
+<h3 id="pipeline-templates-100"><a class="header" href="#pipeline-templates-100">Pipeline Templates (100+)</a></h3>
+<p>Location: <code>./engram/prompts/ai/pipelines/</code></p>
+<div class="table-wrapper"><table><thead><tr><th>Category</th><th>Count</th><th>Examples</th></tr></thead><tbody>
+<tr><td>Feature Development</td><td>10+</td><td>greenfield-feature-launch, ui-overhaul-refresh</td></tr>
+<tr><td>Bug Fixing</td><td>5+</td><td>bug-hunt-triage</td></tr>
+<tr><td>Infrastructure</td><td>20+</td><td>nixos-immutable-deploy, k8s-cluster-upgrade</td></tr>
+<tr><td>Security</td><td>10+</td><td>security-penetration-test, red-team-exercise</td></tr>
+<tr><td>Compliance</td><td>15+</td><td>gdpr-compliance, soc2-audit</td></tr>
+</tbody></table>
+</div>
+<h3 id="compliance-prompts-250"><a class="header" href="#compliance-prompts-250">Compliance Prompts (250+)</a></h3>
+<p>Location: <code>./engram/prompts/compliance_and_certification/prompts/audit_checkpoints/</code></p>
+<div class="table-wrapper"><table><thead><tr><th>Framework</th><th>Coverage</th></tr></thead><tbody>
+<tr><td>iGaming</td><td>GLI, MGA, UKGC, G4 Standards</td></tr>
+<tr><td>SaaS/IT</td><td>SOC2, ISO27001, PCI DSS</td></tr>
+<tr><td>Data Protection</td><td>GDPR, CCPA, PIPEDA</td></tr>
+<tr><td>EU Regulations</td><td>DSA, DMA, AI Act, NIS2, DORA, CSRD</td></tr>
+<tr><td>Gaming Certification</td><td>RNG, RTP, Fairness</td></tr>
+<tr><td>Software Development</td><td>OWASP, Microsoft SDL, ISO 12207</td></tr>
+<tr><td>German Compliance</td><td>GoBD, DSGVO, BSI IT-Grundschutz</td></tr>
+<tr><td>Medical Device</td><td>IEC 62304</td></tr>
+<tr><td>Cybersecurity</td><td>NIST CSF, RMF, ISO 27002, CIS Controls</td></tr>
+</tbody></table>
+</div>
+<h2 id="evidence-based-validation-requirements"><a class="header" href="#evidence-based-validation-requirements">Evidence-Based Validation Requirements</a></h2>
+<p><strong>CRITICAL</strong>: All prompts must enforce evidence-based validation for all final claims instead of unsubstantiated assertions.</p>
+<h3 id="required-evidence-types"><a class="header" href="#required-evidence-types">Required Evidence Types</a></h3>
+<p>Every assertion or claim must be supported by at least one of:</p>
+<ol>
+<li>
+<p><strong>Code Evidence</strong></p>
+<ul>
+<li>Specific function names, file paths, and line numbers</li>
+<li>Actual code snippets demonstrating the claim</li>
+<li>Test results showing behavior</li>
+</ul>
+</li>
+<li>
+<p><strong>Execution Evidence</strong></p>
+<ul>
+<li>Command outputs with timestamps</li>
+<li>Log files or error messages</li>
+<li>Performance metrics or benchmarks</li>
+</ul>
+</li>
+<li>
+<p><strong>Documentation Evidence</strong></p>
+<ul>
+<li>Citations from official documentation</li>
+<li>Links to specifications or standards</li>
+<li>References to established patterns or frameworks</li>
+</ul>
+</li>
+<li>
+<p><strong>Measurement Evidence</strong></p>
+<ul>
+<li>Quantifiable metrics (e.g., “reduced from 500ms to 120ms”)</li>
+<li>Test coverage percentages</li>
+<li>Before/after comparisons</li>
+</ul>
+</li>
+</ol>
+<h3 id="evidence-format-requirements"><a class="header" href="#evidence-format-requirements">Evidence Format Requirements</a></h3>
+<pre><code>## Claim: [Your assertion]
+
+### Evidence:
+- **Code Reference**: `src/file.rs:123` - Function `process_data()` shows...
+- **Test Results**: `cargo test` output showing 100% pass rate
+- **Execution Log**: `[2024-01-26 10:15:32] Successfully processed 1,247 records`
+- **Documentation**: https://docs.rust-lang.org/std/result/enum.Result.html
+</code></pre>
+<h3 id="invalid-examples"><a class="header" href="#invalid-examples">Invalid Examples</a></h3>
+<p>❌ “The code is more efficient”
+❌ “This improves security”
+❌ “The refactoring is better”</p>
+<h3 id="valid-examples"><a class="header" href="#valid-examples">Valid Examples</a></h3>
+<p>✅ “Reduced processing time from 500ms to 120ms (60% improvement) as measured by <code>hyperfine</code> benchmarks”
+✅ “Fixed buffer overflow vulnerability in <code>src/parser.rs:45</code> by adding bounds check, verified by <code>cargo-audit</code> scan”
+✅ “Increased test coverage from 72% to 95% in <code>src/utils/</code> module, confirmed by <code>cargo tarpaulin</code> report”</p>
+<h2 id="standard-prompt-template"><a class="header" href="#standard-prompt-template">Standard Prompt Template</a></h2>
+<p>Use this template to instruct agents. Replace <code>{{TASK_ID}}</code> with the actual UUID.</p>
+<pre><code class="language-markdown">You are an autonomous agent using Engram for state management.
+**Task ID**: `{{TASK_ID}}`
+
+### Protocol
+
+1. **Initialize**:
+   ```bash
+   engram task update {{TASK_ID}} --status inprogress
+   engram relationship connected --entity-id {{TASK_ID}} to find related context/reasoning.
+</code></pre>
+<ol start="2">
+<li>
+<p><strong>Execute</strong>:</p>
+<ul>
+<li>Read the task description: <code>engram task show {{TASK_ID}}</code></li>
+<li>Access linked contexts: <code>engram context show [CONTEXT_ID]</code></li>
+<li>Store progress: <code>engram reasoning create --title "[Progress]" --task-id {{TASK_ID}} --content "[Details]"</code></li>
+</ul>
+</li>
+<li>
+<p><strong>Validate</strong>:</p>
+<ul>
+<li>Run <code>engram validate check</code></li>
+<li>Run tests/linters as required by the task</li>
+<li><strong>Evidence-Based Validation</strong>: Provide evidence-based validation for all final claims instead of unsubstantiated assertions. Every assertion must be supported by:
+<ul>
+<li>Concrete evidence from code, tests, logs, or documentation</li>
+<li>Verifiable measurements or test results</li>
+<li>Specific examples or citations</li>
+<li>Quantifiable metrics where applicable</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>
+<p><strong>Complete</strong>:</p>
+<ul>
+<li>Store result: <code>engram context create --title "[Result]" --content "[Output]"</code></li>
+<li>Link result: <code>engram relationship create --source-id {{TASK_ID}} --target-id [RESULT_ID] --produces</code></li>
+<li>Update status: <code>engram task update {{TASK_ID}} --status done</code></li>
+</ul>
+</li>
+</ol>
+<pre><code>
+## Engram-Adapted Prompt Pattern
+
+All engram-adapted prompts follow this pattern:
+
+### 1. Parameters Include task_id
+
+```yaml
+parameters:
+  properties:
+    task_id:
+      type: string
+      description: "The engram task ID for this work"
+    context:
+      type: string
+      description: "Additional context"
+  required:
+    - task_id
+    - context
+</code></pre>
+<h3 id="2-engram-commands-in-prompt-body"><a class="header" href="#2-engram-commands-in-prompt-body">2. Engram Commands in Prompt Body</a></h3>
+<pre><code class="language-markdown">YOUR WORK:
+
+STEP 1: Retrieve task
+```bash
+engram task show {{task_id}}
+</code></pre>
+<p>STEP 2: Get related context</p>
+<pre><code class="language-bash">engram relationship connected --entity-id {{task_id}} --references
+</code></pre>
+<p>STEP 3: Store progress</p>
+<pre><code class="language-bash">engram reasoning create --title "[Work] Progress" --task-id {{task_id}} --content "[What you did]"
+</code></pre>
+<p>STEP 4: Complete</p>
+<pre><code class="language-bash">engram context create --title "[Result]" --content "[Output]"
+engram relationship create --source-id {{task_id}} --target-id [RESULT_ID] --produces
+engram task update {{task_id}} --status done --outcome "[Summary]"
+</code></pre>
+<pre><code>
+### 3. Response Includes Entity IDs
+
+```yaml
+response:
+  format: json
+  schema:
+    type: object
+    properties:
+      task_id:
+        type: string
+        description: "The task ID (echoed for confirmation)"
+      status:
+        type: string
+        enum: ["completed", "in_progress"]
+        description: "Status of work"
+      result_context_id:
+        type: string
+        description: "The engram context ID for the result"
+    required:
+      - task_id
+      - status
+      - result_context_id
+</code></pre>
+<h2 id="workflow-examples"><a class="header" href="#workflow-examples">Workflow Examples</a></h2>
+<h3 id="1-research--planning"><a class="header" href="#1-research--planning">1. Research &amp; Planning</a></h3>
+<p>For tasks requiring investigation before implementation.</p>
+<pre><code class="language-markdown">**Phase**: Research
+**Goal**: Analyze requirements and create a plan.
+
+1. Initialize:
+   ```bash
+   engram task update {{TASK_ID}} --status inprogress
+</code></pre>
+<ol start="2">
+<li>
+<p>Gather Info:</p>
+<pre><code class="language-bash">engram relationship connected --entity-id {{TASK_ID}} --references
+engram context list | grep -i [keyword]
+</code></pre>
+</li>
+<li>
+<p>Document Plan:</p>
+<pre><code class="language-bash">engram reasoning create \
+  --title "Research: [Topic] - Findings" \
+  --task-id {{TASK_ID}} \
+  --content "[Research findings]"
+
+engram context create \
+  --title "Plan: [Feature] Implementation" \
+  --content "[Implementation approach]"
+
+engram relationship create \
+  --source-id {{TASK_ID}} \
+  --target-id [PLAN_CONTEXT_ID] \
+  --references
+</code></pre>
+</li>
+<li>
+<p>Complete:</p>
+<pre><code class="language-bash">engram task update {{TASK_ID}} --status done --outcome "Research complete, plan created"
+</code></pre>
+</li>
+</ol>
+<h3 id="2-using-engram-adapted-agent"><a class="header" href="#2-using-engram-adapted-agent">2. Using Engram-Adapted Agent</a></h3>
+<p>For delegating work to specialized agents.</p>
+<pre><code class="language-markdown">**Agent**: [Agent Name from ./engram/prompts/agents/]
+**Task ID**: {{TASK_ID}}
+
+1. The agent should retrieve its task:
+   ```bash
+   engram task show {{TASK_ID}}
+</code></pre>
+<ol start="2">
+<li>
+<p>The agent should get context:</p>
+<pre><code class="language-bash">engram relationship connected --entity-id {{TASK_ID}} --references
+</code></pre>
+</li>
+<li>
+<p>The agent should store progress:</p>
+<pre><code class="language-bash">engram reasoning create --title "[Agent] Progress" --task-id {{TASK_ID}} --content "[What was done]"
+</code></pre>
+</li>
+<li>
+<p>The agent should complete:</p>
+<pre><code class="language-bash">engram context create --title "[Agent] Result" --content "[Output]"
+engram relationship create --source-id {{TASK_ID}} --target-id [RESULT_ID] --produces
+engram task update {{TASK_ID}} --status done --outcome "[Summary]"
+</code></pre>
+</li>
+</ol>
+<p>Example agents:</p>
+<ul>
+<li><strong>Architecture</strong>: Use <code>./engram/prompts/agents/03-the-architect.yaml</code></li>
+<li><strong>Task Breakdown</strong>: Use <code>./engram/prompts/agents/05-the-deconstructor.yaml</code></li>
+<li><strong>Testing</strong>: Use <code>./engram/prompts/agents/15-the-tester.yaml</code></li>
+<li><strong>Documentation</strong>: Use <code>./engram/prompts/agents/41-the-technical-writer.yaml</code></li>
+</ul>
+<h3 id="3-using-pipeline"><a class="header" href="#3-using-pipeline">3. Using Pipeline</a></h3>
+<p>For multi-stage workflows.</p>
+<pre><code class="language-markdown">**Pipeline**: Feature Development
+**Template**: ./engram/prompts/ai/pipelines/01-greenfield-feature-launch.yaml
+
+1. Creates engram workflow with stages: strategy → architecture → breakdown
+2. Calls engram-adapted agents for each stage
+3. Stores all outputs in engram entities
+4. Returns workflow ID and created entity IDs
+
+Parameters:
+- feature_idea: "Description of feature"
+- parent_task_id: "{{TASK_ID}}"
+</code></pre>
+<h3 id="4-compliance-checking"><a class="header" href="#4-compliance-checking">4. Compliance Checking</a></h3>
+<p>For verifying work against compliance frameworks.</p>
+<pre><code class="language-markdown">**Compliance Check**: [Framework]
+**Prompts**: ./engram/prompts/compliance_and_certification/prompts/audit_checkpoints/[framework]/
+
+1. Get context:
+   ```bash
+   engram context list | grep [compliance-area]
+</code></pre>
+<ol start="2">
+<li>
+<p>Run compliance check:</p>
+<pre><code class="language-bash"># Use relevant compliance prompts from:
+# ./engram/prompts/compliance_and_certification/prompts/audit_checkpoints/
+</code></pre>
+</li>
+<li>
+<p>Store results:</p>
+<pre><code class="language-bash">engram compliance create \
+  --title "Compliance: [Feature] - [Framework]" \
+  --category [security/privacy/quality] \
+  --requirements "✅ [Requirement 1]\n✅ [Requirement 2]"
+
+engram context create \
+  --title "Audit: [Feature] - [Framework]" \
+  --content "[Audit findings]"
+
+engram relationship create \
+  --source-id {{TASK_ID}} \
+  --target-id [AUDIT_CONTEXT_ID] \
+  --fulfills
+</code></pre>
+</li>
+</ol>
+<h3 id="5-documentation"><a class="header" href="#5-documentation">5. Documentation</a></h3>
+<p>For writing docs.</p>
+<pre><code class="language-markdown">**Phase**: Documentation
+**Goal**: Update documentation to match code/specs.
+
+1. Initialize:
+   ```bash
+   engram task update {{TASK_ID}} --status inprogress
+</code></pre>
+<ol start="2">
+<li>
+<p>Get source:</p>
+<pre><code class="language-bash">engram relationship connected --entity-id {{TASK_ID}} --references
+</code></pre>
+</li>
+<li>
+<p>Write:</p>
+<ul>
+<li>Update markdown files</li>
+<li>Reference engram entities in docs</li>
+</ul>
+</li>
+<li>
+<p>Store:</p>
+<pre><code class="language-bash">engram context create \
+  --title "Documentation: [File/Feature]" \
+  --content "[Summary of docs updated]"
+
+engram relationship create \
+  --source-id {{TASK_ID}} \
+  --target-id [DOC_CONTEXT_ID] \
+  --produces
+</code></pre>
+</li>
+<li>
+<p>Commit:</p>
+<pre><code class="language-bash">git commit -m "docs: update [file] [{{TASK_ID}}]"
+</code></pre>
+</li>
+<li>
+<p>Complete:</p>
+<pre><code class="language-bash">engram task update {{TASK_ID}} --status done --outcome "Documentation complete"
+</code></pre>
+</li>
+</ol>
+<h2 id="best-practices"><a class="header" href="#best-practices">Best Practices</a></h2>
+<ul>
+<li><strong>No Hallucinations</strong>: If a UUID isn’t found, stop and error out. Don’t invent IDs.</li>
+<li><strong>Link Everything</strong>: If you create a new artifact (file, module), create a corresponding Engram entity and link it to the task.</li>
+<li><strong>Status Hygiene</strong>: Always move tasks to <code>inprogress</code> before starting and <code>done</code> only after validation.</li>
+<li><strong>Evidence-Based Validation</strong>: Provide evidence-based validation for all final claims instead of unsubstantiated assertions. Every claim must be backed by:
+<ul>
+<li>Verifiable evidence (code, tests, logs, documentation)</li>
+<li>Specific examples and citations</li>
+<li>Quantifiable metrics and measurements</li>
+<li>Test results or execution outputs</li>
+</ul>
+</li>
+<li><strong>Skills First</strong>: Check <code>./engram/skills/</code> for existing skills before creating new prompts.</li>
+<li><strong>Use Adapted Prompts</strong>: Prefer engram-adapted prompts from <code>./engram/prompts/</code> over generic prompts.</li>
+<li><strong>Store Progress</strong>: Don’t just complete tasks - store intermediate progress as reasoning entities.</li>
+</ul>
+<h2 id="prompt-locations-quick-reference"><a class="header" href="#prompt-locations-quick-reference">Prompt Locations Quick Reference</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Purpose</th><th>Location</th></tr></thead><tbody>
+<tr><td>Orchestration</td><td><code>./engram/prompts/agents/01-the-one.yaml</code></td></tr>
+<tr><td>Architecture</td><td><code>./engram/prompts/agents/03-the-architect.yaml</code></td></tr>
+<tr><td>Task Breakdown</td><td><code>./engram/prompts/agents/05-the-deconstructor.yaml</code></td></tr>
+<tr><td>Feature Pipeline</td><td><code>./engram/prompts/ai/pipelines/01-greenfield-feature-launch.yaml</code></td></tr>
+<tr><td>Security Compliance</td><td><code>./engram/prompts/compliance_and_certification/prompts/audit_checkpoints/saas_it/</code></td></tr>
+<tr><td>Data Privacy</td><td><code>./engram/prompts/compliance_and_certification/prompts/audit_checkpoints/data_protection/</code></td></tr>
+<tr><td>EU Regulations</td><td><code>./engram/prompts/compliance_and_certification/prompts/audit_checkpoints/eu_regulations/</code></td></tr>
+<tr><td>All Skills</td><td><code>./engram/skills/</code></td></tr>
+</tbody></table>
+</div><div style="break-before: page; page-break-before: always;"></div><h1 id="cli-reference"><a class="header" href="#cli-reference">CLI Reference</a></h1>
+<h2 id="core-commands"><a class="header" href="#core-commands">Core Commands</a></h2>
+<h3 id="task"><a class="header" href="#task">Task</a></h3>
+<pre><code class="language-bash">engram task create --title &lt;TEXT&gt; [--priority high|medium|low] [--parent-id &lt;ID&gt;]
+engram task list [--status &lt;STATUS&gt;] [--agent &lt;NAME&gt;]
+engram task show --id &lt;ID&gt;
+engram task update --id &lt;ID&gt; --status &lt;STATUS&gt;
+engram task delete --id &lt;ID&gt;
+</code></pre>
+<h3 id="context-1"><a class="header" href="#context-1">Context</a></h3>
+<pre><code class="language-bash">engram context create --title &lt;TEXT&gt; [--source &lt;URL&gt;] [--content &lt;TEXT&gt;]
+engram context list [--agent &lt;NAME&gt;]
+engram context show --id &lt;ID&gt;
+engram context delete --id &lt;ID&gt;
+</code></pre>
+<h3 id="reasoning-1"><a class="header" href="#reasoning-1">Reasoning</a></h3>
+<pre><code class="language-bash">engram reasoning create --title &lt;TEXT&gt; --description &lt;TEXT&gt; [--task-id &lt;ID&gt;]
+engram reasoning list [--task-id &lt;ID&gt;]
+engram reasoning show --id &lt;ID&gt;
+engram reasoning delete --id &lt;ID&gt;
+</code></pre>
+<h3 id="knowledge-1"><a class="header" href="#knowledge-1">Knowledge</a></h3>
+<pre><code class="language-bash">engram knowledge create --title &lt;TEXT&gt; [--content &lt;TEXT&gt;] [--type fact|pattern|rule|concept|procedure|heuristic]
+engram knowledge list [--type &lt;TYPE&gt;] [--agent &lt;NAME&gt;]
+engram knowledge show --id &lt;ID&gt;
+engram knowledge update --id &lt;ID&gt; --field &lt;FIELD&gt; --value &lt;VALUE&gt;
+engram knowledge delete --id &lt;ID&gt;
+</code></pre>
+<h3 id="theory"><a class="header" href="#theory">Theory</a></h3>
+<pre><code class="language-bash">engram theory create &lt;DOMAIN&gt; [--agent &lt;NAME&gt;] [--task &lt;ID&gt;] [--json]
+engram theory list [--agent &lt;NAME&gt;] [--domain &lt;DOMAIN&gt;] [--limit &lt;N&gt;]
+engram theory show --id &lt;ID&gt; [--show-metrics]
+engram theory update --id &lt;ID&gt; [--concept X:Y] [--mapping X:Y] [--rationale X:Y] [--invariant X]
+engram theory delete --id &lt;ID&gt;
+</code></pre>
+<h3 id="reflection"><a class="header" href="#reflection">Reflection</a></h3>
+<pre><code class="language-bash">engram reflect create --theory &lt;ID&gt; --observed &lt;TEXT&gt; --trigger-type &lt;TYPE&gt; [--agent &lt;NAME&gt;]
+engram reflect list [--agent &lt;NAME&gt;] [--severity &lt;LEVEL&gt;]
+engram reflect show --id &lt;ID&gt;
+engram reflect record-dissonance --id &lt;ID&gt; --description &lt;TEXT&gt;
+engram reflect propose-update --id &lt;ID&gt; --update &lt;TEXT&gt;
+engram reflect resolve --id &lt;ID&gt; [--new-theory-id &lt;ID&gt;]
+engram reflect requires-mutation --id &lt;ID&gt;
+</code></pre>
+<h3 id="session"><a class="header" href="#session">Session</a></h3>
+<pre><code class="language-bash">engram session start --agent &lt;NAME&gt;
+engram session list
+engram session show --id &lt;ID&gt;
+engram session bind-theory --id &lt;SESSION_ID&gt; --theory &lt;THEORY_ID&gt;
+engram session trigger-reflection --id &lt;ID&gt;
+engram session resolve-reflection --id &lt;ID&gt;
+engram session end --id &lt;ID&gt;
+</code></pre>
+<h3 id="workflow"><a class="header" href="#workflow">Workflow</a></h3>
+<pre><code class="language-bash">engram workflow create --title &lt;TEXT&gt; [--description &lt;TEXT&gt;]
+engram workflow add-state --name &lt;NAME&gt; --workflow-id &lt;ID&gt;
+engram workflow add-transition --from &lt;NAME&gt; --to &lt;NAME&gt; --workflow-id &lt;ID&gt;
+engram workflow transition --to &lt;NAME&gt; --id &lt;ID&gt;
+engram workflow list
+engram workflow show --id &lt;ID&gt;
+</code></pre>
+<h3 id="relationship"><a class="header" href="#relationship">Relationship</a></h3>
+<pre><code class="language-bash">engram relationship create --source-id &lt;ID&gt; --target-id &lt;ID&gt; --type &lt;TYPE&gt;
+engram relationship list [--source-id &lt;ID&gt;] [--target-id &lt;ID&gt;]
+engram relationship delete --id &lt;ID&gt;
+</code></pre>
+<h2 id="setup-commands"><a class="header" href="#setup-commands">Setup Commands</a></h2>
+<pre><code class="language-bash">engram setup workspace
+engram setup agent --name &lt;NAME&gt; --type &lt;TYPE&gt;
+engram validate hook install
+engram validate hook status
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="entity-schema"><a class="header" href="#entity-schema">Entity Schema</a></h1>
+<h2 id="task-1"><a class="header" href="#task-1">Task</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td>id</td><td><code>String</code></td><td>UUID</td></tr>
+<tr><td>title</td><td><code>String</code></td><td>Task title</td></tr>
+<tr><td>description</td><td><code>String</code></td><td>Detailed description</td></tr>
+<tr><td>status</td><td><code>Enum</code></td><td>pending, in_progress, completed, blocked</td></tr>
+<tr><td>priority</td><td><code>Enum</code></td><td>high, medium, low</td></tr>
+<tr><td>parent_id</td><td><code>Option&lt;String&gt;</code></td><td>Parent task ID</td></tr>
+<tr><td>task_id</td><td><code>Option&lt;String&gt;</code></td><td>External task reference</td></tr>
+<tr><td>agent</td><td><code>String</code></td><td>Owner</td></tr>
+<tr><td>created_at</td><td><code>DateTime</code></td><td>Creation timestamp</td></tr>
+<tr><td>updated_at</td><td><code>DateTime</code></td><td>Last update</td></tr>
+</tbody></table>
+</div>
+<h2 id="context-2"><a class="header" href="#context-2">Context</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td>id</td><td><code>String</code></td><td>UUID</td></tr>
+<tr><td>title</td><td><code>String</code></td><td>Context title</td></tr>
+<tr><td>content</td><td><code>String</code></td><td>Actual content</td></tr>
+<tr><td>source</td><td><code>Option&lt;String&gt;</code></td><td>URL or source</td></tr>
+<tr><td>agent</td><td><code>String</code></td><td>Owner</td></tr>
+<tr><td>created_at</td><td><code>DateTime</code></td><td>Creation timestamp</td></tr>
+</tbody></table>
+</div>
+<h2 id="reasoning-2"><a class="header" href="#reasoning-2">Reasoning</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td>id</td><td><code>String</code></td><td>UUID</td></tr>
+<tr><td>title</td><td><code>String</code></td><td>Decision title</td></tr>
+<tr><td>description</td><td><code>String</code></td><td>Rationale</td></tr>
+<tr><td>task_id</td><td><code>Option&lt;String&gt;</code></td><td>Related task</td></tr>
+<tr><td>agent</td><td><code>String</code></td><td>Author</td></tr>
+<tr><td>created_at</td><td><code>DateTime</code></td><td>Creation timestamp</td></tr>
+</tbody></table>
+</div>
+<h2 id="knowledge-2"><a class="header" href="#knowledge-2">Knowledge</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td>id</td><td><code>String</code></td><td>UUID</td></tr>
+<tr><td>title</td><td><code>String</code></td><td>Knowledge title</td></tr>
+<tr><td>content</td><td><code>String</code></td><td>The knowledge</td></tr>
+<tr><td>knowledge_type</td><td><code>Enum</code></td><td>fact, pattern, rule, concept, procedure, heuristic</td></tr>
+<tr><td>confidence</td><td><code>f64</code></td><td>0.0-1.0</td></tr>
+<tr><td>source</td><td><code>Option&lt;String&gt;</code></td><td>Source URL</td></tr>
+<tr><td>tags</td><td><code>Vec&lt;String&gt;</code></td><td>Tags</td></tr>
+<tr><td>agent</td><td><code>String</code></td><td>Author</td></tr>
+<tr><td>usage_count</td><td><code>u32</code></td><td>Times referenced</td></tr>
+<tr><td>created_at</td><td><code>DateTime</code></td><td>Creation timestamp</td></tr>
+</tbody></table>
+</div>
+<h2 id="theory-1"><a class="header" href="#theory-1">Theory</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td>id</td><td><code>String</code></td><td>UUID</td></tr>
+<tr><td>domain_name</td><td><code>String</code></td><td>Domain identifier</td></tr>
+<tr><td>conceptual_model</td><td><code>HashMap</code></td><td>Concept → definition</td></tr>
+<tr><td>system_mapping</td><td><code>HashMap</code></td><td>Concept → code location</td></tr>
+<tr><td>design_rationale</td><td><code>HashMap</code></td><td>Decision → reason</td></tr>
+<tr><td>invariants</td><td><code>Vec&lt;String&gt;</code></td><td>Must-be-true statements</td></tr>
+<tr><td>iteration_count</td><td><code>u32</code></td><td>Theory version</td></tr>
+<tr><td>reflection_ids</td><td><code>Vec&lt;String&gt;</code></td><td>Applied reflections</td></tr>
+<tr><td>task_id</td><td><code>Option&lt;String&gt;</code></td><td>Associated task</td></tr>
+<tr><td>agent</td><td><code>String</code></td><td>Author</td></tr>
+<tr><td>created_at</td><td><code>DateTime</code></td><td>Creation timestamp</td></tr>
+<tr><td>updated_at</td><td><code>DateTime</code></td><td>Last update</td></tr>
+</tbody></table>
+</div>
+<h2 id="statereflection"><a class="header" href="#statereflection">StateReflection</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td>id</td><td><code>String</code></td><td>UUID</td></tr>
+<tr><td>theory_id</td><td><code>String</code></td><td>Theory being evaluated</td></tr>
+<tr><td>observed_state</td><td><code>String</code></td><td>Raw observation/error</td></tr>
+<tr><td>cognitive_dissonance</td><td><code>Vec&lt;String&gt;</code></td><td>Conflicts detected</td></tr>
+<tr><td>proposed_theory_updates</td><td><code>Vec&lt;String&gt;</code></td><td>Proposed fixes</td></tr>
+<tr><td>dissonance_score</td><td><code>f64</code></td><td>0.0-1.0</td></tr>
+<tr><td>trigger_type</td><td><code>Enum</code></td><td>test_failure, runtime_error, etc.</td></tr>
+<tr><td>severity</td><td><code>Enum</code></td><td>none, low, medium, high, critical</td></tr>
+<tr><td>resolved</td><td><code>bool</code></td><td>Resolution status</td></tr>
+<tr><td>new_theory_id</td><td><code>Option&lt;String&gt;</code></td><td>Updated theory</td></tr>
+<tr><td>agent</td><td><code>String</code></td><td>Author</td></tr>
+<tr><td>created_at</td><td><code>DateTime</code></td><td>Creation timestamp</td></tr>
+</tbody></table>
+</div>
+<h2 id="session-1"><a class="header" href="#session-1">Session</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td>id</td><td><code>String</code></td><td>UUID</td></tr>
+<tr><td>agent</td><td><code>String</code></td><td>Agent name</td></tr>
+<tr><td>status</td><td><code>Enum</code></td><td>active, reflecting, completed</td></tr>
+<tr><td>active_theory_id</td><td><code>Option&lt;String&gt;</code></td><td>Bound theory</td></tr>
+<tr><td>theory_ids</td><td><code>Vec&lt;String&gt;</code></td><td>Referenced theories</td></tr>
+<tr><td>reflection_ids</td><td><code>Vec&lt;String&gt;</code></td><td>Generated reflections</td></tr>
+<tr><td>start_time</td><td><code>DateTime</code></td><td>Session start</td></tr>
+<tr><td>end_time</td><td><code>Option&lt;DateTime&gt;</code></td><td>Session end</td></tr>
+<tr><td>metadata</td><td><code>HashMap</code></td><td>Additional data</td></tr>
+</tbody></table>
+</div>
+<h2 id="relationship-1"><a class="header" href="#relationship-1">Relationship</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td>id</td><td><code>String</code></td><td>UUID</td></tr>
+<tr><td>source_id</td><td><code>String</code></td><td>Source entity ID</td></tr>
+<tr><td>target_id</td><td><code>String</code></td><td>Target entity ID</td></tr>
+<tr><td>relationship_type</td><td><code>String</code></td><td>Type (references, depends_on, etc.)</td></tr>
+<tr><td>agent</td><td><code>String</code></td><td>Author</td></tr>
+<tr><td>created_at</td><td><code>DateTime</code></td><td>Creation timestamp</td></tr>
+</tbody></table>
+</div>
+<h2 id="workflow-1"><a class="header" href="#workflow-1">Workflow</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td>id</td><td><code>String</code></td><td>UUID</td></tr>
+<tr><td>title</td><td><code>String</code></td><td>Workflow title</td></tr>
+<tr><td>description</td><td><code>String</code></td><td>Description</td></tr>
+<tr><td>states</td><td><code>Vec&lt;String&gt;</code></td><td>State names</td></tr>
+<tr><td>transitions</td><td><code>Vec&lt;Transition&gt;</code></td><td>Valid transitions</td></tr>
+<tr><td>current_state</td><td><code>String</code></td><td>Current state</td></tr>
+<tr><td>agent</td><td><code>String</code></td><td>Owner</td></tr>
+<tr><td>created_at</td><td><code>DateTime</code></td><td>Creation timestamp</td></tr>
+</tbody></table>
+</div><div style="break-before: page; page-break-before: always;"></div><h1 id="api-reference"><a class="header" href="#api-reference">API Reference</a></h1>
+<h2 id="rust-api"><a class="header" href="#rust-api">Rust API</a></h2>
+<p>For Rust API documentation, see the source code in <code>src/</code>.</p>
+<h3 id="core-traits"><a class="header" href="#core-traits">Core Traits</a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub trait Entity {
+    fn entity_type() -&gt; &amp;'static str;
+    fn id(&amp;self) -&gt; &amp;str;
+    fn agent(&amp;self) -&gt; &amp;str;
+    fn timestamp(&amp;self) -&gt; DateTime&lt;Utc&gt;;
+    fn validate_entity(&amp;self) -&gt; Result&lt;()&gt;;
+    fn to_generic(&amp;self) -&gt; GenericEntity;
+    fn from_generic(entity: GenericEntity) -&gt; Result&lt;Self&gt;;
+}
+<span class="boring">}</span></code></pre></pre>
+<h3 id="storage-trait"><a class="header" href="#storage-trait">Storage Trait</a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub trait Storage {
+    fn store(&amp;mut self, entity: &amp;GenericEntity) -&gt; Result&lt;()&gt;;
+    fn get(&amp;self, id: &amp;str, entity_type: &amp;str) -&gt; Result&lt;Option&lt;GenericEntity&gt;&gt;;
+    fn list_ids(&amp;self, entity_type: &amp;str) -&gt; Result&lt;Vec&lt;String&gt;&gt;;
+    fn delete(&amp;mut self, id: &amp;str, entity_type: &amp;str) -&gt; Result&lt;()&gt;;
+}
+<span class="boring">}</span></code></pre></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="setup--configuration"><a class="header" href="#setup--configuration">Setup &amp; Configuration</a></h1>
+<h2 id="building-1"><a class="header" href="#building-1">Building</a></h2>
+<pre><code class="language-bash"># Clone and build
+cargo build --release
+
+# Run tests
+cargo test
+
+# Run with debug
+cargo run -- --help
+</code></pre>
+<h2 id="configuration-3"><a class="header" href="#configuration-3">Configuration</a></h2>
+<p>Engram stores data in <code>.git/refs/engram/</code>. No additional config required.</p>
+<h2 id="git-integration"><a class="header" href="#git-integration">Git Integration</a></h2>
+<p>Install the validation hook to enforce task linking:</p>
+<pre><code class="language-bash">engram validate hook install
+</code></pre>
+<p>This prevents commits without task IDs.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="engram-validation-configuration"><a class="header" href="#engram-validation-configuration">Engram Validation Configuration</a></h1>
+<h2 id="validation-rules-configuration"><a class="header" href="#validation-rules-configuration">Validation Rules Configuration</a></h2>
+<p>The validation system supports flexible configuration through YAML files or CLI options.</p>
+<h3 id="configuration-file"><a class="header" href="#configuration-file">Configuration File</a></h3>
+<p>Create a <code>.engram/validation.yaml</code> file in your project root:</p>
+<pre><code class="language-yaml">enabled: true
+require_task_reference: true
+require_reasoning_relationship: true
+require_context_relationship: true
+require_file_scope_match: true
+
+task_id_patterns:
+  - pattern: '\[([A-Z]+-\d+)\]'
+    name: "Brackets format"
+    example: "[TASK-123]"
+  - pattern: '\[task:([a-z0-9-]+)\]'
+    name: "Colon format"
+    example: "[task:auth-impl-001]"
+  - pattern: 'Refs:\s*#(\d+)'
+    name: "Refs format"
+    example: "Refs: #456"
+
+exemptions:
+  - message_pattern: '^(chore|docs):'
+    skip_validation: false
+    skip_specific:
+      - "require_task_reference"
+  - message_pattern: '^fixup!'
+    skip_validation: true
+  - message_pattern: '^amend!'
+    skip_validation: true
+
+performance:
+  cache_ttl_seconds: 300
+  max_cache_entries: 1000
+  enable_parallel_validation: true
+  validation_timeout_seconds: 30
+</code></pre>
+<h3 id="environment-variables"><a class="header" href="#environment-variables">Environment Variables</a></h3>
+<p>You can override configuration with environment variables:</p>
+<ul>
+<li><code>ENGRAM_VALIDATION_ENABLED</code> - Enable/disable validation</li>
+<li><code>ENGRAM_VALIDATION_STRICT</code> - Enable strict mode (no exemptions)</li>
+<li><code>ENGRAM_VALIDATION_CACHE_TTL</code> - Cache TTL in seconds</li>
+<li><code>ENGRAM_VALIDATION_TIMEOUT</code> - Validation timeout in seconds</li>
+</ul>
+<h3 id="cli-commands-1"><a class="header" href="#cli-commands-1">CLI Commands</a></h3>
+<pre><code class="language-bash"># Validate a commit message
+engram validation commit --message "feat: implement authentication [TASK-123]"
+
+# Validate with dry run (doesn't require git repo)
+engram validation commit --message "test commit" --dry-run
+
+# Install pre-commit hook
+engram validation hook install
+
+# Check hook status
+engram validation hook status
+
+# Uninstall hook
+engram validation hook uninstall
+</code></pre>
+<h3 id="configuration-priority"><a class="header" href="#configuration-priority">Configuration Priority</a></h3>
+<ol>
+<li>Environment variables (highest priority)</li>
+<li>Project configuration file (<code>.engram/validation.yaml</code>)</li>
+<li>User configuration file (<code>~/.engram/validation.yaml</code>)</li>
+<li>Default configuration</li>
+</ol>
+<h3 id="performance-tuning"><a class="header" href="#performance-tuning">Performance Tuning</a></h3>
+<p>For optimal performance:</p>
+<ol>
+<li>
+<p><strong>Cache Warming</strong>: Pre-load common task IDs</p>
+<pre><code class="language-bash">engram validation warm-cache TASK-123 TASK-456
+</code></pre>
+</li>
+<li>
+<p><strong>Parallel Validation</strong>: Enable multi-threaded validation</p>
+<pre><code class="language-yaml">performance:
+  enable_parallel_validation: true
+</code></pre>
+</li>
+<li>
+<p><strong>Memory Management</strong>: Configure appropriate cache sizes</p>
+<pre><code class="language-yaml">performance:
+  max_cache_entries: 5000  # For large repositories
+  cache_ttl_seconds: 600   # 10 minutes
+</code></pre>
+</li>
+</ol>
+<h3 id="advanced-configuration"><a class="header" href="#advanced-configuration">Advanced Configuration</a></h3>
+<h4 id="custom-task-id-patterns"><a class="header" href="#custom-task-id-patterns">Custom Task ID Patterns</a></h4>
+<p>Add your own task ID patterns:</p>
+<pre><code class="language-yaml">task_id_patterns:
+  - pattern: 'PROJECT-(\d+)'
+    name: "Project format"
+    example: "PROJECT-123"
+  - pattern: 'jira/([A-Z]+-\d+)'
+    name: "JIRA format"
+    example: "jira/PROJ-123"
+</code></pre>
+<h4 id="custom-exemptions"><a class="header" href="#custom-exemptions">Custom Exemptions</a></h4>
+<p>Create exemptions for specific commit types:</p>
+<pre><code class="language-yaml">exemptions:
+  - message_pattern: '^(hotfix|emergency):'
+    skip_validation: false
+    skip_specific:
+      - "require_reasoning_relationship"
+      - "require_context_relationship"
+  - message_pattern: '^WIP:'
+    skip_validation: true
+    reason: "Work in progress commits"
+</code></pre>
+<h3 id="integration-with-cicd"><a class="header" href="#integration-with-cicd">Integration with CI/CD</a></h3>
+<h4 id="github-actions"><a class="header" href="#github-actions">GitHub Actions</a></h4>
+<pre><code class="language-yaml">- name: Validate Commit
+  run: |
+    engram validation commit --message "${{ github.event.head_commit.message }}"
+</code></pre>
+<h4 id="gitlab-ci"><a class="header" href="#gitlab-ci">GitLab CI</a></h4>
+<pre><code class="language-yaml">validate-commit:
+  stage: validate
+  script:
+    - engram validation commit --message "$CI_COMMIT_MESSAGE"
+</code></pre>
+<h3 id="troubleshooting"><a class="header" href="#troubleshooting">Troubleshooting</a></h3>
+<h4 id="common-issues"><a class="header" href="#common-issues">Common Issues</a></h4>
+<ol>
+<li>
+<p><strong>Hook not found</strong></p>
+<pre><code class="language-bash"># Check if engram is in PATH
+which engram
+
+# Install hook manually
+engram validation hook install
+</code></pre>
+</li>
+<li>
+<p><strong>Validation timeout</strong></p>
+<pre><code class="language-yaml">performance:
+  validation_timeout_seconds: 60  # Increase timeout
+</code></pre>
+</li>
+<li>
+<p><strong>False positives</strong></p>
+<pre><code class="language-yaml"># Add custom exemptions
+exemptions:
+  - message_pattern: '^merge:'
+    skip_validation: true
+</code></pre>
+</li>
+</ol>
+<h3 id="best-practices-1"><a class="header" href="#best-practices-1">Best Practices</a></h3>
+<ol>
+<li><strong>Consistent Format</strong>: Use one task ID format across your team</li>
+<li><strong>Regular Updates</strong>: Keep cache TTL reasonable for your commit frequency</li>
+<li><strong>Appropriate Exemptions</strong>: Use exemptions for automated commits, not to bypass quality</li>
+<li><strong>Performance Monitoring</strong>: Use cache stats to monitor effectiveness</li>
+</ol>
+<h3 id="migration-guide"><a class="header" href="#migration-guide">Migration Guide</a></h3>
+<p>When upgrading validation configuration:</p>
+<ol>
+<li>
+<p><strong>Backup</strong>: Export current configuration</p>
+<pre><code class="language-bash">engram validation config export &gt; validation-backup.yaml
+</code></pre>
+</li>
+<li>
+<p><strong>Update</strong>: Modify configuration file</p>
+</li>
+<li>
+<p><strong>Validate</strong>: Test new configuration</p>
+<pre><code class="language-bash">engram validation check
+</code></pre>
+</li>
+<li>
+<p><strong>Deploy</strong>: Roll out to team with documentation</p>
+</li>
+</ol>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="contributing-1"><a class="header" href="#contributing-1">Contributing</a></h1>
+<h2 id="adding-new-entities"><a class="header" href="#adding-new-entities">Adding New Entities</a></h2>
+<ol>
+<li>Define entity in <code>src/entities/</code></li>
+<li>Implement <code>Entity</code> trait</li>
+<li>Add CLI commands in <code>src/cli/</code></li>
+<li>Register storage handler</li>
+<li>Add tests</li>
+</ol>
+<h2 id="adding-new-cli-commands"><a class="header" href="#adding-new-cli-commands">Adding New CLI Commands</a></h2>
+<ol>
+<li>Create file in <code>src/cli/</code></li>
+<li>Define command enum with <code>clap::Subcommand</code></li>
+<li>Implement handler functions</li>
+<li>Register in <code>src/main.rs</code></li>
+</ol>
+<h2 id="running-tests"><a class="header" href="#running-tests">Running Tests</a></h2>
+<pre><code class="language-bash"># Run all tests
+cargo test
+
+# Run specific module
+cargo test --lib entities
+
+# Run with output
+cargo test -- --nocapture
+</code></pre>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+
+            </nav>
+
+        </div>
+
+        <!-- Livereload script (if served using the cli tool) -->
+        <script>
+            const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsAddress = wsProtocol + "//" + location.host + "/" + "__livereload";
+            const socket = new WebSocket(wsAddress);
+            socket.onmessage = function (event) {
+                if (event.data === "reload") {
+                    socket.close();
+                    location.reload();
+                }
+            };
+
+            window.onbeforeunload = function() {
+                socket.close();
+            }
+        </script>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr.min.js"></script>
+        <script src="mark.min.js"></script>
+        <script src="searcher.js"></script>
+
+        <script src="clipboard.min.js"></script>
+        <script src="highlight.js"></script>
+        <script src="book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+        <script>
+        window.addEventListener('load', function() {
+            window.setTimeout(window.print, 100);
+        });
+        </script>
+
+
+    </div>
+    </body>
+</html>
