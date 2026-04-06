@@ -88,6 +88,7 @@ assert_cmd = "2.0"
 predicates = "3.0"
 proptest = "1"
 fastrand = "2"
+insta = { version = "1", features = ["filters"] }
 
 [[bin]]
 name = "engram"

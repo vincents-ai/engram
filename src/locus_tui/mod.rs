@@ -4,6 +4,9 @@ pub mod events;
 pub mod theme;
 pub mod ui;
 
+#[cfg(test)]
+mod tui_tests;
+
 use crate::entities::TaskStatus;
 use crate::locus_integration::LocusIntegration;
 use crate::locus_tui::app::{

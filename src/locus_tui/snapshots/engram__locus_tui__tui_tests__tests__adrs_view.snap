@@ -1,0 +1,44 @@
+---
+source: src/locus_tui/tui_tests.rs
+expression: content
+---
+Engram Locus  [ADRs]  Tasks: 0  Workflows: 0  Tab:next  q:quit  t:theme                                                 
+                                                                                                                        
+                                                                                                                        
+┌ADRs (2)──────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│#     Title                                                             Status       Agent                Created     │
+│1     Use Rust for backend services                                     accepted     agent-alpha          2026-04-06  │
+│2     PostgreSQL as primary datastore                                   proposed     agent-beta           2026-04-06  │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+┌Detail────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│Context:                                                                                                              │
+│Need a memory-safe systems language for high-throughput services                                                      │
+│                                                                                                                      │
+│Decision:                                                                                                             │
+│Rust for all new backend services                                                                                     │
+│                                                                                                                      │
+│Consequences:                                                                                                         │
+│Strong type system, zero-cost abstractions, fearless concurrency                                                      │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+  j/k: navigate   Tab: next view                                                                                        
+  Tab:next view  q:quit  t:theme  j/k:select  g/G:top/bottom  r:refresh
