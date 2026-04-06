@@ -276,7 +276,7 @@ fn handle_test_command() -> Result<(), EngramError> {
 }
 
 /// Handle task commands
-fn handle_task_command<S: engram::storage::Storage + 'static>(
+fn handle_task_command<S: engram::storage::Storage + engram::storage::RelationshipStorage + 'static>(
     command: cli::TaskCommands,
     storage: &mut S,
 ) -> Result<(), EngramError> {
