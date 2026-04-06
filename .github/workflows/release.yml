@@ -34,7 +34,6 @@ jobs:
           name: Engram v${{ steps.get_version.outputs.version }}
           tag_name: ${{ github.ref }}
           draft: true
-          immutable: false
           files: install.sh
           body: |
             ## Quick Install
@@ -86,6 +85,7 @@ jobs:
   publish-release:
     name: Publish Release
     needs: [build, build-nix]
+    if: always() && needs.build.result == 'success' && needs.build-nix.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -213,6 +213,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref }}
+          draft: true
           files: |
             ${{ matrix.platform.asset }}.tar.gz
             ${{ matrix.platform.asset }}.sha256
@@ -222,12 +223,14 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref }}
+          draft: true
           files: |
             ${{ matrix.platform.asset }}.zip
             ${{ matrix.platform.asset }}.sha256
 
   build-nix:
     name: Build - Nix
+    needs: create-release
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -250,6 +253,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref }}
+          draft: true
           files: |
             engram-nix-linux-amd64
             engram-nix-linux-amd64.sha256
