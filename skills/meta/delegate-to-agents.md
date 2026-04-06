@@ -79,6 +79,13 @@ engram relationship create \
 
 Assign the task and tell the subagent only their UUID. They retrieve context from engram themselves using `engram-subagent-register`.
 
+Before dispatching, register the agent with its role so orchestrators can filter by type:
+
+```bash
+# Register the agent with its role before dispatching
+engram setup agent --name "<agent-name>" --agent-type "<role>" --specialization "<focus>"
+```
+
 ```bash
 engram task update <SUBTASK_UUID> --status in_progress
 
@@ -146,6 +153,25 @@ engram next
 ```
 
 ## Agent Catalog
+
+### Engram Agent Types
+
+When creating subtasks, register the assigned agent with an appropriate `--agent-type` so orchestrators and tooling can filter and route by role:
+
+| agent-type | Role | Best for |
+|---|---|---|
+| `coder` | Implementation | Code changes, feature work |
+| `reviewer` | Quality assurance | Code review, standards |
+| `planner` | Architecture | System design, ADRs |
+| `orchestrator` | Coordination | Multi-agent workflows |
+| `tester` | Test engineering | Writing and running tests |
+| `researcher` | Investigation | Spikes, library eval, docs research |
+| `security-auditor` | Security review | OWASP, threat modelling |
+| `deployer` | Release/CI | CI/CD, version bumping |
+| `documenter` | Technical writing | Docs, runbooks, changelogs |
+| `data-engineer` | Data pipelines | ETL, schema, migrations |
+
+### Goose Agent Prompt Files
 
 ```
 ~/code/prompts/goose/agents/
@@ -240,3 +266,4 @@ engram task update abc-001 --status done --outcome "User Management API fully de
 - `engram-orchestrator` — full orchestration execution loop
 - `engram-dispatching-parallel-agents` — running multiple subagents concurrently
 - `engram-audit-trail` — complete traceability of delegated work
+- `engram-agent-types` — reference for all available engram agent type values and their roles

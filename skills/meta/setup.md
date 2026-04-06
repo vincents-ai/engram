@@ -32,7 +32,7 @@ git init
 engram setup workspace
 
 # 3. Register the agent working in this repo
-#    --agent-type: coder | reviewer | planner  (default: coder)
+#    --agent-type accepts any string — coder | reviewer | planner are defaults only
 engram setup agent \
   --name "your-agent-name" \
   --agent-type coder \
@@ -67,6 +67,10 @@ The workspace already exists. You only need to register yourself and orient to c
 # 1. Register as an agent in the existing workspace
 engram setup agent --name "your-agent-name" --agent-type coder
 
+# Custom types are valid too — --agent-type is a free-form string
+engram setup agent --name "sentinel" --agent-type "security-auditor" --specialization "OWASP, CVE triage"
+engram setup agent --name "conductor" --agent-type "orchestrator" --specialization "multi-agent coordination"
+
 # 2. Search for current context before touching anything
 engram ask query "current tasks"
 
@@ -75,6 +79,8 @@ engram next
 ```
 
 If the workspace is missing (`.engram/` does not exist), run Pattern A first.
+
+> **`--agent-type` is free-form.** The CLI accepts any string — `coder`, `reviewer`, and `planner` appear in help text as conventions only, not as an exhaustive or enforced list. You can use values such as `orchestrator`, `security-auditor`, `tester`, `data-engineer`, `deployer`, or any domain-specific label that fits your team's vocabulary. See the `engram-agent-types` skill for a full guide to custom agent types and naming patterns.
 
 ---
 
@@ -235,3 +241,4 @@ feat: scaffold project layout [<TASK_UUID>]
 - `engram-subagent-register` — how to claim and complete an assigned task UUID
 - `engram-workflow-guide` — defining and running state machine workflows
 - `engram-audit-trail` — traceability and complete record-keeping patterns
+- `engram-agent-types` — full guide to custom `--agent-type` values and naming conventions

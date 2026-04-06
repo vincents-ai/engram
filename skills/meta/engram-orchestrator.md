@@ -108,6 +108,16 @@ Use the engram-subagent-register skill to record your findings and report back.
 
 Do not paste instructions or context inline. The subagent must pull from engram.
 
+**Optionally register the subagent with its role type before dispatching.** This makes it queryable by type in engram and enables better traceability. See `engram-agent-types` for the full list of available role types.
+
+```bash
+# Optionally register the subagent with its role type before dispatching
+engram setup agent --name "researcher-01" --agent-type "researcher" --specialization "crate evaluation"
+
+# Then dispatch by UUID as normal
+engram task update <SUBTASK_UUID> --status in_progress
+```
+
 ### 4. Collect Subagent Results
 
 When a subagent completes, retrieve what it stored:
