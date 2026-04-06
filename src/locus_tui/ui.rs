@@ -1,5 +1,7 @@
 use crate::locus_integration::LocusIntegration;
 use crate::locus_tui::app::{ActiveView, AppState};
+#[allow(unused_imports)]
+use crate::locus_tui::theme::Theme;
 use crate::storage::{RelationshipStorage, Storage};
 use ratatui::layout::{Constraint, Direction, Layout};
 use ratatui::style::{Color, Style};
@@ -11,6 +13,8 @@ pub fn draw<S: Storage + RelationshipStorage>(
     app_state: &mut AppState,
     f: &mut ratatui::Frame<'_>,
 ) {
+    let theme = app_state.theme.as_theme();
+
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -30,17 +34,23 @@ pub fn draw<S: Storage + RelationshipStorage>(
         "Locus TUI - Engram System Interface | Tasks: {} | Workflows: {}",
         task_count, workflow_count
     ))
-    .style(Style::default().fg(Color::Cyan));
+    .style(Style::default().fg(theme.title()));
 
     f.render_widget(title, chunks[0]);
+
+    // Border style derived from the active theme
+    let border_style = Style::default().fg(theme.border());
 
     // Render view-specific content in the main panel
     match &app_state.active_view {
         ActiveView::Dashboard => {
-            draw_dashboard(integration, &tasks, &workflows, f, chunks[1]);
+            draw_dashboard(integration, &tasks, &workflows, border_style, f, chunks[1]);
         }
         ActiveView::Tasks => {
-            let panel = Block::default().title("Tasks").borders(Borders::ALL);
+            let panel = Block::default()
+                .title("Tasks")
+                .borders(Borders::ALL)
+                .border_style(border_style);
             let items: Vec<ListItem> = tasks
                 .iter()
                 .take(20)
@@ -58,27 +68,40 @@ pub fn draw<S: Storage + RelationshipStorage>(
             f.render_widget(List::new(items).block(panel), chunks[1]);
         }
         ActiveView::Reasoning => {
-            let panel = Paragraph::new("Reasoning view — no data loaded")
-                .block(Block::default().title("Reasoning").borders(Borders::ALL));
+            let panel = Paragraph::new("Reasoning view — no data loaded").block(
+                Block::default()
+                    .title("Reasoning")
+                    .borders(Borders::ALL)
+                    .border_style(border_style),
+            );
             f.render_widget(panel, chunks[1]);
         }
         ActiveView::Relationships => {
             let panel = Paragraph::new("Relationships view — no data loaded").block(
                 Block::default()
                     .title("Relationships")
-                    .borders(Borders::ALL),
+                    .borders(Borders::ALL)
+                    .border_style(border_style),
             );
             f.render_widget(panel, chunks[1]);
         }
         ActiveView::Contexts => {
-            let panel = Paragraph::new("Contexts view — no data loaded")
-                .block(Block::default().title("Contexts").borders(Borders::ALL));
+            let panel = Paragraph::new("Contexts view — no data loaded").block(
+                Block::default()
+                    .title("Contexts")
+                    .borders(Borders::ALL)
+                    .border_style(border_style),
+            );
             f.render_widget(panel, chunks[1]);
         }
         ActiveView::Search => {
             let query = app_state.search_query.clone();
-            let panel = Paragraph::new(format!("Search: {}", query))
-                .block(Block::default().title("Search").borders(Borders::ALL));
+            let panel = Paragraph::new(format!("Search: {}", query)).block(
+                Block::default()
+                    .title("Search")
+                    .borders(Borders::ALL)
+                    .border_style(border_style),
+            );
             f.render_widget(panel, chunks[1]);
         }
     }
@@ -97,6 +120,7 @@ fn draw_dashboard<S: Storage + RelationshipStorage>(
     _integration: &LocusIntegration<S>,
     tasks: &[crate::entities::Task],
     workflows: &[crate::entities::Workflow],
+    border_style: Style,
     f: &mut ratatui::Frame<'_>,
     area: ratatui::layout::Rect,
 ) {
@@ -115,8 +139,12 @@ fn draw_dashboard<S: Storage + RelationshipStorage>(
         })
         .collect();
 
-    let tasks_widget =
-        List::new(tasks_list).block(Block::default().title("Tasks").borders(Borders::ALL));
+    let tasks_widget = List::new(tasks_list).block(
+        Block::default()
+            .title("Tasks")
+            .borders(Borders::ALL)
+            .border_style(border_style),
+    );
 
     let workflows_list: Vec<ListItem> = workflows
         .iter()
@@ -130,8 +158,12 @@ fn draw_dashboard<S: Storage + RelationshipStorage>(
         })
         .collect();
 
-    let workflows_widget =
-        List::new(workflows_list).block(Block::default().title("Workflows").borders(Borders::ALL));
+    let workflows_widget = List::new(workflows_list).block(
+        Block::default()
+            .title("Workflows")
+            .borders(Borders::ALL)
+            .border_style(border_style),
+    );
 
     let center_chunk = Layout::default()
         .direction(Direction::Horizontal)

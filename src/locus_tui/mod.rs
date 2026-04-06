@@ -1,6 +1,7 @@
 pub mod app;
 pub mod backend;
 pub mod events;
+pub mod theme;
 pub mod ui;
 
 use crate::locus_integration::LocusIntegration;

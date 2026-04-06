@@ -30,6 +30,8 @@ pub struct AppState {
     pub selected_index: usize,
     /// Search query string (used in the Search view).
     pub search_query: String,
+    /// Active colour theme.
+    pub theme: crate::locus_tui::theme::AppTheme,
 }
 
 impl AppState {
@@ -40,6 +42,7 @@ impl AppState {
             status_message: None,
             selected_index: 0,
             search_query: String::new(),
+            theme: crate::locus_tui::theme::AppTheme::dark(),
         }
     }
 
@@ -86,6 +89,11 @@ impl AppState {
     pub fn clear_status(&mut self) {
         self.status_message = None;
     }
+
+    /// Toggle between dark and light themes.
+    pub fn toggle_theme(&mut self) {
+        self.theme = self.theme.toggle();
+    }
 }
 
 impl Default for AppState {
@@ -97,6 +105,7 @@ impl Default for AppState {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::locus_tui::theme::AppTheme;
 
     #[test]
     fn test_next_view_cycles_through_all_variants() {
@@ -179,5 +188,27 @@ mod tests {
         assert_eq!(state.status_message, Some("hello".to_string()));
         state.clear_status();
         assert!(state.status_message.is_none());
+    }
+
+    #[test]
+    fn test_default_theme_is_dark() {
+        let state = AppState::new();
+        assert!(matches!(state.theme, AppTheme::Dark(_)));
+    }
+
+    #[test]
+    fn test_toggle_theme_switches_dark_to_light() {
+        let mut state = AppState::new();
+        assert!(matches!(state.theme, AppTheme::Dark(_)));
+        state.toggle_theme();
+        assert!(matches!(state.theme, AppTheme::Light(_)));
+    }
+
+    #[test]
+    fn test_toggle_theme_switches_light_to_dark() {
+        let mut state = AppState::new();
+        state.toggle_theme(); // dark -> light
+        state.toggle_theme(); // light -> dark
+        assert!(matches!(state.theme, AppTheme::Dark(_)));
     }
 }
