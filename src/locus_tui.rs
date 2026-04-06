@@ -42,7 +42,7 @@ impl<S: Storage + RelationshipStorage> LocusTuiApp<S> {
                 Constraint::Min(10),
                 Constraint::Length(3),
             ])
-            .split(f.size());
+            .split(f.area());
 
         let tasks = self.integration.get_tasks(None).unwrap_or_default();
         let workflows = self.integration.get_workflows().unwrap_or_default();
