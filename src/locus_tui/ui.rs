@@ -65,13 +65,9 @@ pub fn draw<S: Storage + RelationshipStorage>(
             draw_reasoning_view(f, chunks[1], app_state, border_style);
         }
         ActiveView::Relationships => {
-            let panel = Paragraph::new("Relationships view — no data loaded").block(
-                Block::default()
-                    .title("Relationships")
-                    .borders(Borders::ALL)
-                    .border_style(border_style),
-            );
-            f.render_widget(panel, chunks[1]);
+            let theme = app_state.theme.as_theme();
+            let border_style = Style::default().fg(theme.border());
+            draw_relationships_view(f, chunks[1], app_state, border_style);
         }
         ActiveView::Contexts => {
             let panel = Paragraph::new("Contexts view — no data loaded").block(
@@ -426,4 +422,100 @@ fn draw_reasoning_view(
                 .border_style(border_style),
         );
     f.render_widget(detail, vert[2]);
+}
+
+fn draw_relationships_view(
+    f: &mut ratatui::Frame<'_>,
+    area: ratatui::layout::Rect,
+    app: &mut AppState,
+    border_style: Style,
+) {
+    let theme = app.theme.as_theme();
+
+    // Horizontal split: left 40% nodes, right 60% edges
+    let horiz = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(40), Constraint::Percentage(60)])
+        .split(area);
+
+    // ── Left pane: Nodes list ────────────────────────────────────────────────
+    let selected = app.relationship_selected;
+    let node_items: Vec<ListItem> = app
+        .relationship_nodes
+        .iter()
+        .enumerate()
+        .map(|(i, node)| {
+            let label = format!("[{}] {}", node.entity_type, node.title);
+            let style = if i == selected {
+                theme.selected_row()
+            } else {
+                theme.normal_row()
+            };
+            ListItem::new(Line::from(vec![Span::styled(label, style)]))
+        })
+        .collect();
+
+    let nodes_list = List::new(node_items).block(
+        Block::default()
+            .title("Nodes")
+            .borders(Borders::ALL)
+            .border_style(border_style),
+    );
+    f.render_widget(nodes_list, horiz[0]);
+
+    // ── Right pane: Edges + help bar ─────────────────────────────────────────
+    // Split right pane vertically: edges (flex) | help (1)
+    let right_vert = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Min(3), Constraint::Length(1)])
+        .split(horiz[1]);
+
+    let selected_title = app
+        .relationship_nodes
+        .get(selected)
+        .map(|n| n.title.as_str())
+        .unwrap_or("none");
+
+    let edges_title = format!("Edges from: {}", selected_title);
+
+    let edge_items: Vec<ListItem> = if let Some(node) = app.relationship_nodes.get(selected) {
+        if node.edges.is_empty() {
+            vec![ListItem::new(Line::from(vec![Span::styled(
+                "No outgoing edges",
+                Style::default().fg(theme.border()),
+            )]))]
+        } else {
+            node.edges
+                .iter()
+                .map(|edge| {
+                    let label = format!(
+                        "──[{}]──▶ [{}] {}",
+                        edge.relationship_type,
+                        // Derive entity type from to_id prefix or leave blank
+                        "",
+                        edge.to_title
+                    );
+                    ListItem::new(Line::from(vec![Span::styled(label, theme.normal_row())]))
+                })
+                .collect()
+        }
+    } else {
+        vec![ListItem::new(Line::from(vec![Span::styled(
+            "No outgoing edges",
+            Style::default().fg(theme.border()),
+        )]))]
+    };
+
+    let edges_list = List::new(edge_items).block(
+        Block::default()
+            .title(edges_title)
+            .borders(Borders::ALL)
+            .border_style(border_style),
+    );
+    f.render_widget(edges_list, right_vert[0]);
+
+    // ── Help bar ─────────────────────────────────────────────────────────────
+    let help = Paragraph::new("  j/k: navigate nodes   Tab: next view")
+        .style(Style::default().fg(Color::DarkGray));
+    f.render_widget(help, right_vert[1]);
 }

@@ -1,3 +1,21 @@
+/// A directed edge in the relationships graph.
+#[derive(Debug, Clone)]
+pub struct RelationshipEdge {
+    pub from_id: String,
+    pub to_id: String,
+    pub relationship_type: String, // e.g. "depends_on", "relates_to", "explains"
+    pub to_title: String,
+}
+
+/// A node in the relationships graph (adjacency-list representation).
+#[derive(Debug, Clone)]
+pub struct RelationshipNode {
+    pub id: String,
+    pub title: String,
+    pub entity_type: String, // "task", "context", "reasoning", "adr"
+    pub edges: Vec<RelationshipEdge>,
+}
+
 /// A single node in the reasoning tree.
 #[derive(Debug, Clone)]
 pub struct ReasoningNode {
@@ -90,6 +108,10 @@ pub struct AppState {
     pub reasoning_nodes: Vec<ReasoningNode>,
     /// Selected index within the reasoning view list.
     pub reasoning_selected: usize,
+    /// Nodes in the relationships graph (adjacency list).
+    pub relationship_nodes: Vec<RelationshipNode>,
+    /// Selected index within the relationships view list.
+    pub relationship_selected: usize,
 }
 
 impl AppState {
@@ -192,6 +214,56 @@ impl AppState {
                 },
             ],
             reasoning_selected: 0,
+            relationship_nodes: vec![
+                RelationshipNode {
+                    id: "rel-0001".to_string(),
+                    title: "Goal: Locus TUI rewrite".to_string(),
+                    entity_type: "task".to_string(),
+                    edges: vec![
+                        RelationshipEdge {
+                            from_id: "rel-0001".to_string(),
+                            to_id: "rel-0002".to_string(),
+                            relationship_type: "depends_on".to_string(),
+                            to_title: "Phase 0: ratatui upgrade".to_string(),
+                        },
+                        RelationshipEdge {
+                            from_id: "rel-0001".to_string(),
+                            to_id: "rel-0003".to_string(),
+                            relationship_type: "depends_on".to_string(),
+                            to_title: "Phase 1: modularise".to_string(),
+                        },
+                    ],
+                },
+                RelationshipNode {
+                    id: "rel-0002".to_string(),
+                    title: "Phase 0: ratatui upgrade".to_string(),
+                    entity_type: "task".to_string(),
+                    edges: vec![],
+                },
+                RelationshipNode {
+                    id: "rel-0003".to_string(),
+                    title: "master brief".to_string(),
+                    entity_type: "context".to_string(),
+                    edges: vec![RelationshipEdge {
+                        from_id: "rel-0003".to_string(),
+                        to_id: "rel-0001".to_string(),
+                        relationship_type: "relates_to".to_string(),
+                        to_title: "Goal: Locus TUI rewrite".to_string(),
+                    }],
+                },
+                RelationshipNode {
+                    id: "rel-0004".to_string(),
+                    title: "Phase 0 complete".to_string(),
+                    entity_type: "reasoning".to_string(),
+                    edges: vec![RelationshipEdge {
+                        from_id: "rel-0004".to_string(),
+                        to_id: "rel-0002".to_string(),
+                        relationship_type: "explains".to_string(),
+                        to_title: "Phase 0: ratatui upgrade".to_string(),
+                    }],
+                },
+            ],
+            relationship_selected: 0,
         }
     }
 
@@ -290,6 +362,11 @@ impl AppState {
     /// Return all reasoning nodes as a flat list (depth drives visual indent).
     pub fn visible_reasoning_nodes(&self) -> Vec<&ReasoningNode> {
         self.reasoning_nodes.iter().collect()
+    }
+
+    /// Return the currently selected relationship node, if any.
+    pub fn selected_relationship_node(&self) -> Option<&RelationshipNode> {
+        self.relationship_nodes.get(self.relationship_selected)
     }
 }
 
@@ -650,5 +727,90 @@ mod tests {
         assert!(state.reasoning_nodes[1].title.contains("Phase 0"));
         assert!(state.reasoning_nodes[2].title.contains("Phase 1"));
         assert!(state.reasoning_nodes[3].title.contains("Detail"));
+    }
+
+    // ── Relationship node tests ──────────────────────────────────────────────
+
+    #[test]
+    fn test_selected_relationship_node_returns_correct_node() {
+        let mut state = AppState::new();
+        state.relationship_selected = 0;
+        let node = state
+            .selected_relationship_node()
+            .expect("should have node");
+        assert_eq!(node.title, "Goal: Locus TUI rewrite");
+
+        state.relationship_selected = 2;
+        let node = state
+            .selected_relationship_node()
+            .expect("should have node");
+        assert_eq!(node.title, "master brief");
+    }
+
+    #[test]
+    fn test_selected_relationship_node_returns_none_when_empty() {
+        let mut state = AppState::new();
+        state.relationship_nodes.clear();
+        state.relationship_selected = 0;
+        assert!(state.selected_relationship_node().is_none());
+    }
+
+    #[test]
+    fn test_selected_relationship_node_returns_none_out_of_bounds() {
+        let mut state = AppState::new();
+        state.relationship_selected = 999;
+        assert!(state.selected_relationship_node().is_none());
+    }
+
+    #[test]
+    fn test_stub_relationship_node_goal_has_two_depends_on_edges() {
+        let state = AppState::new();
+        let goal = state
+            .relationship_nodes
+            .iter()
+            .find(|n| n.title == "Goal: Locus TUI rewrite")
+            .expect("goal node should exist");
+        assert_eq!(goal.edges.len(), 2);
+        assert!(goal
+            .edges
+            .iter()
+            .all(|e| e.relationship_type == "depends_on"));
+        let targets: Vec<&str> = goal.edges.iter().map(|e| e.to_title.as_str()).collect();
+        assert!(targets.contains(&"Phase 0: ratatui upgrade"));
+        assert!(targets.contains(&"Phase 1: modularise"));
+    }
+
+    #[test]
+    fn test_stub_relationship_node_master_brief_relates_to_goal() {
+        let state = AppState::new();
+        let brief = state
+            .relationship_nodes
+            .iter()
+            .find(|n| n.title == "master brief")
+            .expect("master brief node should exist");
+        assert_eq!(brief.entity_type, "context");
+        assert_eq!(brief.edges.len(), 1);
+        assert_eq!(brief.edges[0].relationship_type, "relates_to");
+        assert_eq!(brief.edges[0].to_title, "Goal: Locus TUI rewrite");
+    }
+
+    #[test]
+    fn test_stub_relationship_node_phase0_complete_explains() {
+        let state = AppState::new();
+        let reasoning = state
+            .relationship_nodes
+            .iter()
+            .find(|n| n.title == "Phase 0 complete")
+            .expect("Phase 0 complete node should exist");
+        assert_eq!(reasoning.entity_type, "reasoning");
+        assert_eq!(reasoning.edges.len(), 1);
+        assert_eq!(reasoning.edges[0].relationship_type, "explains");
+        assert_eq!(reasoning.edges[0].to_title, "Phase 0: ratatui upgrade");
+    }
+
+    #[test]
+    fn test_stub_relationship_nodes_count() {
+        let state = AppState::new();
+        assert_eq!(state.relationship_nodes.len(), 4);
     }
 }

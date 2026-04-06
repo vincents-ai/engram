@@ -59,6 +59,12 @@ pub fn handle_input(app: &mut AppState) -> bool {
                         if len > 0 {
                             app.reasoning_selected = (app.reasoning_selected + 1).min(len - 1);
                         }
+                    } else if app.active_view == ActiveView::Relationships {
+                        let len = app.relationship_nodes.len();
+                        if len > 0 {
+                            app.relationship_selected =
+                                (app.relationship_selected + 1).min(len - 1);
+                        }
                     } else {
                         app.select_next();
                     }
@@ -66,6 +72,8 @@ pub fn handle_input(app: &mut AppState) -> bool {
                 KeyAction::SelectPrev => {
                     if app.active_view == ActiveView::Reasoning {
                         app.reasoning_selected = app.reasoning_selected.saturating_sub(1);
+                    } else if app.active_view == ActiveView::Relationships {
+                        app.relationship_selected = app.relationship_selected.saturating_sub(1);
                     } else {
                         app.select_prev();
                     }
@@ -73,6 +81,8 @@ pub fn handle_input(app: &mut AppState) -> bool {
                 KeyAction::SelectTop => {
                     if app.active_view == ActiveView::Reasoning {
                         app.reasoning_selected = 0;
+                    } else if app.active_view == ActiveView::Relationships {
+                        app.relationship_selected = 0;
                     } else {
                         app.selected_index = 0;
                     }
@@ -82,6 +92,11 @@ pub fn handle_input(app: &mut AppState) -> bool {
                         let len = app.reasoning_nodes.len();
                         if len > 0 {
                             app.reasoning_selected = len - 1;
+                        }
+                    } else if app.active_view == ActiveView::Relationships {
+                        let len = app.relationship_nodes.len();
+                        if len > 0 {
+                            app.relationship_selected = len - 1;
                         }
                     } else {
                         let len = app.recent_tasks.len();
