@@ -37,7 +37,7 @@ impl<S: Storage + RelationshipStorage> LocusTuiApp<S> {
             let app_state = &mut self.app_state;
             terminal.draw(|f| ui::draw(integration, app_state, f))?;
 
-            if !events::handle_input(&mut self.app_state)? {
+            if !events::handle_input(&mut self.app_state) {
                 break;
             }
         }
