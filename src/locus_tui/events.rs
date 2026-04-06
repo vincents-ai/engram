@@ -55,7 +55,8 @@ pub fn handle_input(app: &mut AppState) -> bool {
                 KeyAction::SelectPrev => app.select_prev(),
                 KeyAction::SelectTop => app.selected_index = 0,
                 KeyAction::SelectBottom => {
-                    // Handled by views that know their data length.
+                    let len = app.recent_tasks.len();
+                    app.select_bottom_of(len);
                 }
                 KeyAction::ToggleTheme => app.toggle_theme(),
                 KeyAction::Confirm => app.set_status(String::from("Confirm")),

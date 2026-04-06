@@ -1,3 +1,21 @@
+/// Summary counts for tasks across all statuses.
+#[derive(Debug, Clone, Default)]
+pub struct TaskSummary {
+    pub total: usize,
+    pub todo: usize,
+    pub in_progress: usize,
+    pub done: usize,
+}
+
+/// A single row for the recent-tasks table.
+#[derive(Debug, Clone)]
+pub struct TaskRow {
+    pub id: String,
+    pub title: String,
+    pub status: String,
+    pub priority: String,
+}
+
 /// The active view currently displayed in the TUI.
 #[derive(Debug, Clone, PartialEq)]
 pub enum ActiveView {
@@ -32,10 +50,57 @@ pub struct AppState {
     pub search_query: String,
     /// Active colour theme.
     pub theme: crate::locus_tui::theme::AppTheme,
+    /// Summary counts shown on the Dashboard.
+    pub task_summary: TaskSummary,
+    /// Recent tasks shown in the Dashboard table (up to 10).
+    pub recent_tasks: Vec<TaskRow>,
 }
 
 impl AppState {
     pub fn new() -> Self {
+        let recent_tasks = vec![
+            TaskRow {
+                id: "a1b2c3d4".to_string(),
+                title: "Implement CLI argument parser".to_string(),
+                status: "done".to_string(),
+                priority: "high".to_string(),
+            },
+            TaskRow {
+                id: "e5f6a7b8".to_string(),
+                title: "Add storage backend abstraction".to_string(),
+                status: "done".to_string(),
+                priority: "high".to_string(),
+            },
+            TaskRow {
+                id: "c9d0e1f2".to_string(),
+                title: "Phase 5: Dashboard view".to_string(),
+                status: "in_progress".to_string(),
+                priority: "high".to_string(),
+            },
+            TaskRow {
+                id: "3a4b5c6d".to_string(),
+                title: "Write integration tests".to_string(),
+                status: "todo".to_string(),
+                priority: "medium".to_string(),
+            },
+            TaskRow {
+                id: "7e8f9a0b".to_string(),
+                title: "Publish crate to crates.io".to_string(),
+                status: "todo".to_string(),
+                priority: "low".to_string(),
+            },
+        ];
+
+        let task_summary = TaskSummary {
+            total: recent_tasks.len(),
+            todo: recent_tasks.iter().filter(|t| t.status == "todo").count(),
+            in_progress: recent_tasks
+                .iter()
+                .filter(|t| t.status == "in_progress")
+                .count(),
+            done: recent_tasks.iter().filter(|t| t.status == "done").count(),
+        };
+
         Self {
             active_view: ActiveView::Dashboard,
             should_quit: false,
@@ -43,6 +108,8 @@ impl AppState {
             selected_index: 0,
             search_query: String::new(),
             theme: crate::locus_tui::theme::AppTheme::dark(),
+            task_summary,
+            recent_tasks,
         }
     }
 
@@ -73,6 +140,13 @@ impl AppState {
     /// Decrement the selected row index, saturating at 0.
     pub fn select_prev(&mut self) {
         self.selected_index = self.selected_index.saturating_sub(1);
+    }
+
+    /// Move selection to the last row in a list of known length.
+    pub fn select_bottom_of(&mut self, len: usize) {
+        if len > 0 {
+            self.selected_index = len - 1;
+        }
     }
 
     /// Signal that the application should quit.
@@ -210,5 +284,77 @@ mod tests {
         state.toggle_theme(); // dark -> light
         state.toggle_theme(); // light -> dark
         assert!(matches!(state.theme, AppTheme::Dark(_)));
+    }
+
+    #[test]
+    fn test_task_summary_defaults_populated() {
+        let state = AppState::new();
+        // Stub data: 5 tasks total, 2 todo, 1 in_progress, 2 done
+        assert_eq!(state.task_summary.total, 5);
+        assert_eq!(state.task_summary.todo, 2);
+        assert_eq!(state.task_summary.in_progress, 1);
+        assert_eq!(state.task_summary.done, 2);
+    }
+
+    #[test]
+    fn test_recent_tasks_populated() {
+        let state = AppState::new();
+        assert_eq!(state.recent_tasks.len(), 5);
+    }
+
+    #[test]
+    fn test_recent_tasks_have_required_fields() {
+        let state = AppState::new();
+        for task in &state.recent_tasks {
+            assert!(!task.id.is_empty());
+            assert!(!task.title.is_empty());
+            assert!(!task.status.is_empty());
+            assert!(!task.priority.is_empty());
+        }
+    }
+
+    #[test]
+    fn test_select_bottom_of_sets_last_index() {
+        let mut state = AppState::new();
+        state.select_bottom_of(5);
+        assert_eq!(state.selected_index, 4);
+    }
+
+    #[test]
+    fn test_select_bottom_of_zero_length_noop() {
+        let mut state = AppState::new();
+        state.selected_index = 3;
+        state.select_bottom_of(0);
+        assert_eq!(state.selected_index, 3);
+    }
+
+    #[test]
+    fn test_select_bottom_of_single_element() {
+        let mut state = AppState::new();
+        state.select_bottom_of(1);
+        assert_eq!(state.selected_index, 0);
+    }
+
+    #[test]
+    fn test_task_summary_default_is_zero() {
+        let s = TaskSummary::default();
+        assert_eq!(s.total, 0);
+        assert_eq!(s.todo, 0);
+        assert_eq!(s.in_progress, 0);
+        assert_eq!(s.done, 0);
+    }
+
+    #[test]
+    fn test_task_row_fields() {
+        let row = TaskRow {
+            id: "abc12345".to_string(),
+            title: "Test task".to_string(),
+            status: "todo".to_string(),
+            priority: "high".to_string(),
+        };
+        assert_eq!(row.id, "abc12345");
+        assert_eq!(row.title, "Test task");
+        assert_eq!(row.status, "todo");
+        assert_eq!(row.priority, "high");
     }
 }

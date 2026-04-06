@@ -110,7 +110,7 @@ mod tests {
 
         let buf = terminal.backend().buffer();
         let content = buffer_to_string(buf);
-        assert!(content.contains("Locus TUI"));
+        assert!(content.contains("Engram Locus"));
     }
 
     #[test]
@@ -124,6 +124,6 @@ mod tests {
 
         let buf = terminal.backend().buffer();
         let content = buffer_to_string(buf);
-        assert!(content.contains("'q' to quit"));
+        assert!(content.contains("q:quit"));
     }
 }
