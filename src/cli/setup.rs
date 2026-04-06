@@ -73,6 +73,7 @@ pub fn setup_agent(
     agent_type: &str,
     specialization: Option<&str>,
     email: Option<&str>,
+    persona: Option<&str>,
     root_dir: Option<PathBuf>,
 ) -> Result<(), EngramError> {
     let engram_dir = root_dir
@@ -85,6 +86,7 @@ pub fn setup_agent(
         agent_type: agent_type.to_string(),
         specialization: specialization.map(|s| s.to_string()).unwrap_or_default(),
         email: email.map(|e| e.to_string()),
+        persona: persona.map(|p| p.to_string()),
         created_at: chrono::Utc::now().format("%Y-%m-%d").to_string(),
         version: "1.0.0".to_string(),
         capabilities: vec![
@@ -301,6 +303,8 @@ struct AgentProfile {
     agent_type: String,
     specialization: String,
     email: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    persona: Option<String>,
     created_at: String,
     version: String,
     capabilities: Vec<String>,
@@ -351,6 +355,7 @@ mod tests {
             "implementation",
             Some("rust"),
             Some("test@example.com"),
+            None,
             Some(root.clone()),
         )
         .unwrap();

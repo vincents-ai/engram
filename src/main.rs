@@ -106,9 +106,9 @@ async fn run() -> Result<(), EngramError> {
             let mut storage = GitRefsStorage::new(".", "default")?;
             engram::cli::sync::handle_sync_command(&mut storage, &command)?;
         }
-        cli::Commands::Next { id, format } => {
+        cli::Commands::Next { id, format, agent } => {
             let mut storage = GitRefsStorage::new(".", "default")?;
-            engram::cli::next::handle_next_command(&mut storage, id, format)?;
+            engram::cli::next::handle_next_command(&mut storage, id, format, agent)?;
         }
         cli::Commands::Info => {
             let storage = GitRefsStorage::new(".", "default")?;
@@ -216,12 +216,14 @@ fn handle_setup_command(command: cli::SetupCommands) -> Result<(), EngramError> 
             agent_type,
             specialization,
             email,
+            persona,
         } => {
             cli::setup_agent(
                 &name,
                 &agent_type,
                 specialization.as_deref(),
                 email.as_deref(),
+                persona.as_deref(),
                 None,
             )?;
         }

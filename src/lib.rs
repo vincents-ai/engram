@@ -20,6 +20,7 @@ pub mod locus_tui;
 pub mod migration;
 pub mod nlq;
 pub mod perkeep;
+pub mod personas;
 pub mod quality_gates;
 #[cfg(feature = "sandbox")]
 pub mod sandbox;

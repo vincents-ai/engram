@@ -202,6 +202,10 @@ pub enum Commands {
         /// Output format (markdown, json)
         #[arg(long, default_value = "markdown")]
         format: String,
+
+        /// Agent name to load persona from (.engram/agents/<agent>.yaml)
+        #[arg(long)]
+        agent: Option<String>,
     },
     /// Display workspace and storage information
     Info,
@@ -266,6 +270,10 @@ pub enum SetupCommands {
         /// Agent email
         #[arg(long)]
         email: Option<String>,
+
+        /// Persona slug to associate with this agent (e.g. "01-the-one" or "the-architect")
+        #[arg(long)]
+        persona: Option<String>,
     },
     /// Install skills
     Skills {

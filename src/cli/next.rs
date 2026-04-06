@@ -63,6 +63,7 @@ pub fn handle_next_command<S: Storage>(
     storage: &mut S,
     id: Option<String>,
     format: String,
+    agent: Option<String>,
 ) -> Result<(), EngramError> {
     // 1. Identify Task
     let task = if let Some(task_id) = id {
@@ -151,8 +152,35 @@ pub fn handle_next_command<S: Storage>(
         )
     };
 
-    // 5. Interpolate
-    let final_system = interpolate(&system_prompt, &prompt_context);
+    // 5. Resolve persona system prompt prefix (if agent config specifies one)
+    let persona_prefix = agent
+        .as_deref()
+        .and_then(|agent_name| {
+            let agent_file =
+                std::path::PathBuf::from(".engram/agents").join(format!("{}.yaml", agent_name));
+            std::fs::read_to_string(&agent_file).ok()
+        })
+        .and_then(|yaml| {
+            serde_yaml::from_str::<crate::config::agent_config::AgentConfig>(&yaml).ok()
+        })
+        .and_then(|cfg| cfg.persona)
+        .and_then(|persona_name| {
+            let result = crate::personas::find_persona(&persona_name);
+            if result.is_none() {
+                eprintln!("⚠️  Persona '{}' not found in embedded set", persona_name);
+            }
+            result
+        })
+        .map(|(_, def)| def.instructions)
+        .unwrap_or_default();
+
+    // 6. Interpolate
+    let interpolated_system = interpolate(&system_prompt, &prompt_context);
+    let final_system = if persona_prefix.is_empty() {
+        interpolated_system
+    } else {
+        format!("{}\n\n{}", persona_prefix, interpolated_system)
+    };
     let final_user = interpolate(&user_prompt, &prompt_context);
 
     let task_management_instructions = format!(
@@ -433,6 +461,7 @@ mod tests {
             &mut storage,
             Some("missing".to_string()),
             "text".to_string(),
+            None,
         );
         assert!(matches!(result, Err(EngramError::NotFound(_))));
     }
@@ -446,7 +475,7 @@ mod tests {
         let mut storage = MockStorage { tasks: vec![] };
 
         // This should print "No pending tasks found" and return Ok(())
-        let result = handle_next_command(&mut storage, None, "text".to_string());
+        let result = handle_next_command(&mut storage, None, "text".to_string(), None);
         assert!(result.is_ok());
     }
 }
