@@ -1,12 +1,15 @@
+use crate::entities::ContextRelevance;
 use crate::locus_integration::LocusIntegration;
-use crate::locus_tui::app::{ActiveView, AppState};
+use crate::locus_tui::app::{ActiveView, AppState, TaskDetail};
 #[allow(unused_imports)]
 use crate::locus_tui::theme::Theme;
 use crate::storage::{RelationshipStorage, Storage};
-use ratatui::layout::{Constraint, Direction, Layout};
+use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Borders, Cell, List, ListItem, Paragraph, Row, Table, TableState};
+use ratatui::widgets::{
+    Block, Borders, Cell, Clear, List, ListItem, Paragraph, Row, Table, TableState, Wrap,
+};
 
 /// Render the TUI to the given frame.
 pub fn draw<S: Storage + RelationshipStorage>(
@@ -70,23 +73,14 @@ pub fn draw<S: Storage + RelationshipStorage>(
             draw_relationships_view(f, chunks[1], app_state, border_style);
         }
         ActiveView::Contexts => {
-            let panel = Paragraph::new("Contexts view — no data loaded").block(
-                Block::default()
-                    .title("Contexts")
-                    .borders(Borders::ALL)
-                    .border_style(border_style),
-            );
-            f.render_widget(panel, chunks[1]);
+            let theme = app_state.theme.as_theme();
+            let border_style = Style::default().fg(theme.border());
+            draw_contexts_view(f, chunks[1], app_state, border_style);
         }
         ActiveView::Search => {
-            let query = app_state.search_query.clone();
-            let panel = Paragraph::new(format!("Search: {}", query)).block(
-                Block::default()
-                    .title("Search")
-                    .borders(Borders::ALL)
-                    .border_style(border_style),
-            );
-            f.render_widget(panel, chunks[1]);
+            let theme = app_state.theme.as_theme();
+            let border_style = Style::default().fg(theme.border());
+            draw_search_view(f, chunks[1], app_state, border_style);
         }
     }
 
@@ -98,6 +92,11 @@ pub fn draw<S: Storage + RelationshipStorage>(
     };
     let status_bar = Paragraph::new(status_text).style(Style::default().fg(Color::Yellow));
     f.render_widget(status_bar, chunks[2]);
+
+    // Draw task detail overlay on top of everything (if active)
+    if let Some(ref detail) = app_state.task_detail.clone() {
+        draw_task_detail(f, detail, f.area());
+    }
 }
 
 fn draw_dashboard(
@@ -324,7 +323,7 @@ fn draw_tasks_view(
 
     // ── Help row ──────────────────────────────────────────────────────────────
     let help =
-        Paragraph::new("  f: filter by status   /: search   Enter: details   Tab: next view")
+        Paragraph::new("  f:filter   /:search   Enter:detail   s:cycle-status   Tab:next view")
             .style(Style::default().fg(Color::DarkGray));
     f.render_widget(help, vert[2]);
 }
@@ -403,7 +402,6 @@ fn draw_reasoning_view(
     f.render_widget(list, vert[1]);
 
     // ── Detail pane ───────────────────────────────────────────────────────────
-    // Re-borrow nodes from app; they were already released above
     let detail_text = if let Some(node) = app.reasoning_nodes.get(selected) {
         format!(
             "Title: {}\nPreview: {}\nDepth: {}  Expanded: {}  ID: {}",
@@ -464,7 +462,6 @@ fn draw_relationships_view(
     f.render_widget(nodes_list, horiz[0]);
 
     // ── Right pane: Edges + help bar ─────────────────────────────────────────
-    // Split right pane vertically: edges (flex) | help (1)
     let right_vert = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Min(3), Constraint::Length(1)])
@@ -488,13 +485,7 @@ fn draw_relationships_view(
             node.edges
                 .iter()
                 .map(|edge| {
-                    let label = format!(
-                        "──[{}]──▶ [{}] {}",
-                        edge.relationship_type,
-                        // Derive entity type from to_id prefix or leave blank
-                        "",
-                        edge.to_title
-                    );
+                    let label = format!("──[{}]──▶ {}", edge.relationship_type, edge.to_title);
                     ListItem::new(Line::from(vec![Span::styled(label, theme.normal_row())]))
                 })
                 .collect()
@@ -514,8 +505,245 @@ fn draw_relationships_view(
     );
     f.render_widget(edges_list, right_vert[0]);
 
-    // ── Help bar ─────────────────────────────────────────────────────────────
     let help = Paragraph::new("  j/k: navigate nodes   Tab: next view")
         .style(Style::default().fg(Color::DarkGray));
     f.render_widget(help, right_vert[1]);
+}
+
+fn draw_contexts_view(
+    f: &mut ratatui::Frame<'_>,
+    area: Rect,
+    app: &mut AppState,
+    border_style: Style,
+) {
+    let theme = app.theme.as_theme();
+
+    // Layout: list (flex) | detail pane (8) | help (1)
+    let vert = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Min(5),
+            Constraint::Length(8),
+            Constraint::Length(1),
+        ])
+        .split(area);
+
+    // ── Context list ──────────────────────────────────────────────────────────
+    let selected = app.contexts_selected;
+    let header_cells = ["Title", "Relevance", "Source", "Created"]
+        .map(|h| Cell::from(h).style(theme.header_row()));
+    let header = Row::new(header_cells).height(1);
+
+    let rows: Vec<Row> = app
+        .contexts
+        .iter()
+        .enumerate()
+        .map(|(i, ctx)| {
+            let style = if i == selected {
+                theme.selected_row()
+            } else {
+                theme.normal_row()
+            };
+            let relevance = match ctx.relevance {
+                ContextRelevance::Low => "low",
+                ContextRelevance::Medium => "medium",
+                ContextRelevance::High => "high",
+                ContextRelevance::Critical => "critical",
+            };
+            Row::new([
+                Cell::from(ctx.title.clone()),
+                Cell::from(relevance),
+                Cell::from(ctx.source.clone()),
+                Cell::from(ctx.created_at.format("%Y-%m-%d").to_string()),
+            ])
+            .style(style)
+        })
+        .collect();
+
+    let table_title = format!("Contexts ({})", app.contexts.len());
+    let table = Table::new(
+        rows,
+        [
+            Constraint::Min(30),
+            Constraint::Length(10),
+            Constraint::Length(20),
+            Constraint::Length(12),
+        ],
+    )
+    .header(header)
+    .block(
+        Block::default()
+            .title(table_title)
+            .borders(Borders::ALL)
+            .border_style(border_style),
+    )
+    .row_highlight_style(theme.selected_row());
+
+    let mut table_state = TableState::default();
+    table_state.select(Some(selected));
+    f.render_stateful_widget(table, vert[0], &mut table_state);
+
+    // ── Detail pane: selected context content ────────────────────────────────
+    let detail_text = app
+        .contexts
+        .get(selected)
+        .map(|ctx| ctx.content.clone())
+        .unwrap_or_else(|| "No context selected".to_string());
+
+    let detail = Paragraph::new(detail_text)
+        .wrap(Wrap { trim: true })
+        .style(Style::default().fg(theme.fg()))
+        .block(
+            Block::default()
+                .title("Content")
+                .borders(Borders::ALL)
+                .border_style(border_style),
+        );
+    f.render_widget(detail, vert[1]);
+
+    // ── Help row ─────────────────────────────────────────────────────────────
+    let help = Paragraph::new("  j/k: navigate   Tab: next view")
+        .style(Style::default().fg(Color::DarkGray));
+    f.render_widget(help, vert[2]);
+}
+
+fn draw_search_view(
+    f: &mut ratatui::Frame<'_>,
+    area: Rect,
+    app: &mut AppState,
+    border_style: Style,
+) {
+    let theme = app.theme.as_theme();
+
+    // Layout: input bar (3) | results (flex) | help (1)
+    let vert = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(3),
+            Constraint::Min(5),
+            Constraint::Length(1),
+        ])
+        .split(area);
+
+    // ── Input bar ─────────────────────────────────────────────────────────────
+    let cursor = if app.search_mode { "_" } else { "" };
+    let input_text = format!("Search: {}{}", app.search_query, cursor);
+    let input_style = if app.search_mode {
+        Style::default()
+            .fg(theme.highlight_fg())
+            .add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(theme.fg())
+    };
+    let input_bar = Paragraph::new(input_text).style(input_style).block(
+        Block::default()
+            .title("Search")
+            .borders(Borders::ALL)
+            .border_style(border_style),
+    );
+    f.render_widget(input_bar, vert[0]);
+
+    // ── Results list ──────────────────────────────────────────────────────────
+    let result_items: Vec<ListItem> = if app.search_results.is_empty() {
+        if app.search_query.is_empty() {
+            vec![ListItem::new(Line::from(vec![Span::styled(
+                "Press / to enter search mode, type query, Enter to search",
+                Style::default().fg(theme.border()),
+            )]))]
+        } else {
+            vec![ListItem::new(Line::from(vec![Span::styled(
+                "No results found",
+                Style::default().fg(theme.border()),
+            )]))]
+        }
+    } else {
+        app.search_results
+            .iter()
+            .map(|r| {
+                let label = format!("[{}]  {}  —  {}", r.entity_type, r.title, r.preview);
+                ListItem::new(Line::from(vec![Span::styled(label, theme.normal_row())]))
+            })
+            .collect()
+    };
+
+    let results_title = format!("Results ({})", app.search_results.len());
+    let results_list = List::new(result_items).block(
+        Block::default()
+            .title(results_title)
+            .borders(Borders::ALL)
+            .border_style(border_style),
+    );
+    f.render_widget(results_list, vert[1]);
+
+    // ── Help row ─────────────────────────────────────────────────────────────
+    let help_text = if app.search_mode {
+        "  type to search   Enter:confirm   Esc:exit search mode"
+    } else {
+        "  /:enter search   Tab:next view"
+    };
+    let help = Paragraph::new(help_text).style(Style::default().fg(Color::DarkGray));
+    f.render_widget(help, vert[2]);
+}
+
+/// Render the task detail modal overlay centered on the screen.
+fn draw_task_detail(f: &mut ratatui::Frame<'_>, detail: &TaskDetail, area: Rect) {
+    // Centre a 70%×70% modal
+    let modal_area = centered_rect(70, 80, area);
+
+    // Clear the background area first
+    f.render_widget(Clear, modal_area);
+
+    let tags_str = if detail.tags.is_empty() {
+        "(none)".to_string()
+    } else {
+        detail.tags.join(", ")
+    };
+    let outcome_str = detail.outcome.as_deref().unwrap_or("(none)");
+
+    let text = format!(
+        "ID:          {}\nTitle:       {}\nStatus:      {}\nPriority:    {}\nAgent:       {}\nCreated:     {}\nTags:        {}\nOutcome:     {}\n\nDescription:\n{}",
+        detail.id,
+        detail.title,
+        detail.status,
+        detail.priority,
+        detail.agent,
+        detail.created,
+        tags_str,
+        outcome_str,
+        detail.description,
+    );
+
+    let modal = Paragraph::new(text)
+        .wrap(Wrap { trim: true })
+        .style(Style::default().fg(Color::White).bg(Color::Black))
+        .alignment(Alignment::Left)
+        .block(
+            Block::default()
+                .title("Task Detail  (Esc to close)")
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Cyan)),
+        );
+
+    f.render_widget(modal, modal_area);
+}
+
+/// Helper: return a rectangle centred within `r` with the given width/height percentages.
+fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
+    let popup_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Percentage((100 - percent_y) / 2),
+            Constraint::Percentage(percent_y),
+            Constraint::Percentage((100 - percent_y) / 2),
+        ])
+        .split(r);
+
+    Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Percentage((100 - percent_x) / 2),
+            Constraint::Percentage(percent_x),
+            Constraint::Percentage((100 - percent_x) / 2),
+        ])
+        .split(popup_layout[1])[1]
 }

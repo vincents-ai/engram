@@ -4,31 +4,172 @@ pub mod events;
 pub mod theme;
 pub mod ui;
 
+use crate::entities::TaskStatus;
 use crate::locus_integration::LocusIntegration;
-use crate::locus_tui::app::AppState;
+use crate::locus_tui::app::{
+    build_relationship_nodes, build_title_map, compute_summary, reasoning_to_node, task_to_row,
+    AppState,
+};
+use crate::locus_tui::backend::{GitEngramBackend, LocusTuiBackend};
+use crate::locus_tui::events::Action;
 use crate::storage::{RelationshipStorage, Storage};
+use crossterm::event::{DisableMouseCapture, EnableMouseCapture};
+use crossterm::execute;
+use crossterm::terminal::{
+    disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
+};
 use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
 use std::io;
 
+/// Drop guard that restores the terminal to its original state.
+struct TerminalGuard;
+
+impl Drop for TerminalGuard {
+    fn drop(&mut self) {
+        let _ = disable_raw_mode();
+        let _ = execute!(io::stdout(), LeaveAlternateScreen, DisableMouseCapture);
+    }
+}
+
 pub struct LocusTuiApp<S: Storage + RelationshipStorage> {
     integration: LocusIntegration<S>,
+    backend: Box<dyn LocusTuiBackend>,
     app_state: AppState,
 }
 
-impl<S: Storage + RelationshipStorage> LocusTuiApp<S> {
+impl<S: Storage + RelationshipStorage + Send + 'static> LocusTuiApp<S> {
     pub fn new(storage: S) -> Self {
         let integration = LocusIntegration::new(storage);
+
+        // Try to open the default git-backed backend; fall back to a fresh
+        // memory-backed backend if the workspace doesn't exist (tests, CI, etc.)
+        let backend: Box<dyn LocusTuiBackend> = match GitEngramBackend::new() {
+            Ok(b) => Box::new(b),
+            Err(_) => {
+                // Fallback: empty in-memory backend so the TUI still starts
+                let mem = crate::storage::memory_only_storage::MemoryStorage::new("locus-tui");
+                let fallback = crate::locus_tui::backend::EngramBackend::from_storage(mem);
+                Box::new(fallback)
+            }
+        };
+
         Self {
             integration,
+            backend,
             app_state: AppState::new(),
         }
     }
 
+    /// Create a TUI app using a specific backend (useful for tests).
+    pub fn new_with_backend(storage: S, backend: Box<dyn LocusTuiBackend>) -> Self {
+        Self {
+            integration: LocusIntegration::new(storage),
+            backend,
+            app_state: AppState::new(),
+        }
+    }
+
+    /// Load all data from the backend into AppState before the render loop.
+    fn load_all_data(&mut self) {
+        let tasks = self.backend.list_tasks().unwrap_or_default();
+        let recent_tasks: Vec<_> = tasks.iter().map(task_to_row).collect();
+        let task_summary = compute_summary(&recent_tasks);
+        self.app_state.all_tasks = tasks;
+        self.app_state.recent_tasks = recent_tasks;
+        self.app_state.task_summary = task_summary;
+
+        let contexts = self.backend.list_contexts().unwrap_or_default();
+        self.app_state.contexts = contexts;
+
+        let reasoning = self.backend.list_reasoning().unwrap_or_default();
+        self.app_state.reasoning_nodes = reasoning.iter().map(reasoning_to_node).collect();
+        self.app_state.all_reasoning = reasoning;
+
+        let rels = self.backend.list_relationships().unwrap_or_default();
+        let title_map = build_title_map(
+            &self.app_state.all_tasks,
+            &self.app_state.contexts,
+            &self.app_state.all_reasoning,
+        );
+        self.app_state.relationship_nodes = build_relationship_nodes(&rels, &title_map);
+    }
+
+    /// Dispatch a high-level Action returned by handle_input.
+    fn dispatch_action(&mut self, action: Action) {
+        match action {
+            Action::Refresh => {
+                self.load_all_data();
+                self.app_state.clear_status();
+            }
+            Action::OpenTaskDetail => {
+                self.app_state.open_task_detail();
+            }
+            Action::CloseDetail => {
+                self.app_state.close_task_detail();
+            }
+            Action::CycleTaskStatus => {
+                self.cycle_selected_task_status();
+            }
+            Action::EnterSearchMode => {
+                self.app_state.search_mode = true;
+                self.app_state.search_query.clear();
+                self.app_state.search_results.clear();
+            }
+            Action::ExitSearchMode => {
+                self.app_state.search_mode = false;
+            }
+            Action::SearchQueryChar(_) | Action::RunSearch => {
+                self.app_state.run_search();
+            }
+        }
+    }
+
+    /// Cycle the status of the currently selected task: Todo -> InProgress -> Done -> Todo.
+    fn cycle_selected_task_status(&mut self) {
+        let idx = self.app_state.selected_index;
+        if let Some(row) = self.app_state.recent_tasks.get_mut(idx) {
+            let next_status = match row.status.as_str() {
+                "todo" => "in_progress",
+                "in_progress" => "done",
+                "done" => "todo",
+                _ => "todo",
+            };
+            row.status = next_status.to_string();
+
+            // Also update the full entity if available
+            let row_id = row.id.clone();
+            if let Some(task) = self.app_state.all_tasks.iter_mut().find(|t| {
+                t.id == row_id
+                    || t.id.starts_with(&row_id)
+                    || row_id.starts_with(&t.id[..8.min(t.id.len())])
+            }) {
+                task.status = match next_status {
+                    "todo" => TaskStatus::Todo,
+                    "in_progress" => TaskStatus::InProgress,
+                    "done" => TaskStatus::Done,
+                    _ => TaskStatus::Todo,
+                };
+            }
+
+            // Recompute summary
+            let rows: Vec<_> = self.app_state.recent_tasks.clone();
+            self.app_state.task_summary = compute_summary(&rows);
+        }
+    }
+
     pub fn run(&mut self) -> io::Result<()> {
-        let stdout = io::stdout();
-        let backend = CrosstermBackend::new(stdout);
-        let mut terminal = Terminal::new(backend)?;
+        // Set up terminal raw mode and alternate screen
+        enable_raw_mode()?;
+        let mut stdout = io::stdout();
+        execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
+        let _guard = TerminalGuard;
+
+        let crossterm_backend = CrosstermBackend::new(io::stdout());
+        let mut terminal = Terminal::new(crossterm_backend)?;
+
+        // Load data before the first render
+        self.load_all_data();
 
         loop {
             // Split the borrows explicitly so the borrow checker is satisfied
@@ -37,7 +178,11 @@ impl<S: Storage + RelationshipStorage> LocusTuiApp<S> {
             let app_state = &mut self.app_state;
             terminal.draw(|f| ui::draw(integration, app_state, f))?;
 
-            if !events::handle_input(&mut self.app_state) {
+            let (keep_running, action) = events::handle_input(&mut self.app_state);
+            if let Some(action) = action {
+                self.dispatch_action(action);
+            }
+            if !keep_running {
                 break;
             }
         }
@@ -54,6 +199,7 @@ impl<S: Storage + RelationshipStorage> LocusTuiApp<S> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::locus_tui::backend::EngramBackend;
     use crate::storage::memory_only_storage::MemoryStorage;
 
     fn buffer_to_string(buf: &ratatui::buffer::Buffer) -> String {
@@ -70,6 +216,14 @@ mod tests {
             .join("\n")
     }
 
+    fn make_app() -> LocusTuiApp<MemoryStorage> {
+        let storage = MemoryStorage::new("test-agent");
+        let backend: Box<dyn LocusTuiBackend> = Box::new(EngramBackend::from_storage(
+            MemoryStorage::new("test-agent"),
+        ));
+        LocusTuiApp::new_with_backend(storage, backend)
+    }
+
     #[test]
     fn test_new() {
         let storage = MemoryStorage::new("test-agent");
@@ -78,16 +232,14 @@ mod tests {
 
     #[test]
     fn test_new_with_integration() {
-        let storage = MemoryStorage::new("test-agent");
-        let app = LocusTuiApp::new(storage);
+        let app = make_app();
         let workflows = app.integration.get_workflows().unwrap();
         assert!(workflows.is_empty());
     }
 
     #[test]
     fn test_draw_with_empty_storage() {
-        let storage = MemoryStorage::new("test-agent");
-        let mut app = LocusTuiApp::new(storage);
+        let mut app = make_app();
 
         let backend = ratatui::backend::TestBackend::new(80, 24);
         let mut terminal = ratatui::Terminal::new(backend).unwrap();
@@ -101,8 +253,7 @@ mod tests {
 
     #[test]
     fn test_draw_title_bar() {
-        let storage = MemoryStorage::new("test-agent");
-        let mut app = LocusTuiApp::new(storage);
+        let mut app = make_app();
 
         let backend = ratatui::backend::TestBackend::new(80, 24);
         let mut terminal = ratatui::Terminal::new(backend).unwrap();
@@ -115,8 +266,7 @@ mod tests {
 
     #[test]
     fn test_draw_help_bar() {
-        let storage = MemoryStorage::new("test-agent");
-        let mut app = LocusTuiApp::new(storage);
+        let mut app = make_app();
 
         let backend = ratatui::backend::TestBackend::new(80, 24);
         let mut terminal = ratatui::Terminal::new(backend).unwrap();
@@ -125,5 +275,50 @@ mod tests {
         let buf = terminal.backend().buffer();
         let content = buffer_to_string(buf);
         assert!(content.contains("q:quit"));
+    }
+
+    #[test]
+    fn test_load_all_data_with_empty_storage() {
+        let mut app = make_app();
+        app.load_all_data();
+        assert!(app.app_state.recent_tasks.is_empty());
+        assert_eq!(app.app_state.task_summary.total, 0);
+        assert!(app.app_state.contexts.is_empty());
+        assert!(app.app_state.reasoning_nodes.is_empty());
+        assert!(app.app_state.relationship_nodes.is_empty());
+    }
+
+    #[test]
+    fn test_load_all_data_with_tasks() {
+        use crate::entities::{GenericEntity, Task, TaskPriority};
+        use crate::storage::Storage;
+
+        let mut backend_storage = MemoryStorage::new("test-agent");
+        let task = Task::new(
+            "Test task".to_string(),
+            "desc".to_string(),
+            "test-agent".to_string(),
+            TaskPriority::High,
+            None,
+        );
+        let entity = GenericEntity {
+            id: task.id.clone(),
+            entity_type: "task".to_string(),
+            agent: task.agent.clone(),
+            timestamp: task.start_time,
+            data: serde_json::to_value(&task).unwrap(),
+        };
+        backend_storage.store(&entity).unwrap();
+
+        let storage = MemoryStorage::new("test-agent");
+        let backend: Box<dyn LocusTuiBackend> =
+            Box::new(EngramBackend::from_storage(backend_storage));
+        let mut app = LocusTuiApp::new_with_backend(storage, backend);
+        app.load_all_data();
+
+        assert_eq!(app.app_state.recent_tasks.len(), 1);
+        assert_eq!(app.app_state.task_summary.total, 1);
+        assert_eq!(app.app_state.task_summary.todo, 1);
+        assert_eq!(app.app_state.all_tasks.len(), 1);
     }
 }
