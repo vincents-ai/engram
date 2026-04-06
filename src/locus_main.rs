@@ -48,14 +48,13 @@ async fn main() -> std::io::Result<()> {
         // Load workspace config to get the refresh interval.
         // Fall back to the default (30s) if the config file is absent or invalid.
         let workspace_cfg = engram::config::workspace_config::WorkspaceConfig::default();
-        let backend: Box<dyn engram::locus_tui::backend::LocusTuiBackend> =
-            match engram::locus_tui::backend::GitEngramBackend::new() {
-                Ok(b) => Box::new(b),
-                Err(_) => {
-                    let mem = engram::storage::memory_only_storage::MemoryStorage::new("locus-tui");
-                    Box::new(engram::locus_tui::backend::EngramBackend::from_storage(mem))
-                }
-            };
+        // Build the TUI backend from the same storage instance the CLI uses,
+        // so the TUI and CLI always read/write the same git refs.
+        let backend_storage = GitRefsStorage::new(".", "locus-tui")
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+        let backend: Box<dyn engram::locus_tui::backend::LocusTuiBackend> = Box::new(
+            engram::locus_tui::backend::EngramBackend::from_storage(backend_storage),
+        );
         let mut app = LocusTuiApp::new_with_refresh_interval(
             storage,
             backend,

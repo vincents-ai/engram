@@ -94,30 +94,19 @@ impl<S: Storage + RelationshipStorage + Send> LocusTuiBackend for EngramBackend<
 }
 
 /// Convenience type alias for the production git-backed backend.
-pub type GitEngramBackend = EngramBackend<crate::storage::GitStorage>;
+///
+/// Uses `GitRefsStorage` — the same storage format the CLI uses — so the
+/// TUI reads the same entities that `engram task list`, `engram context list`,
+/// etc. write.
+pub type GitEngramBackend = EngramBackend<crate::storage::GitRefsStorage>;
 
 impl GitEngramBackend {
-    /// Open the default engram repository for the current user.
+    /// Open the engram repository in the current working directory.
     ///
-    /// Looks for the repo at `~/.engram`; falls back to the current
-    /// working directory's `.engram` sub-directory.
+    /// This mirrors `GitRefsStorage::new(".", "default")` used by every CLI
+    /// command, so the TUI and CLI always share the same data.
     pub fn new() -> Result<Self, EngramError> {
-        use std::path::PathBuf;
-
-        let workspace_path = std::env::var("ENGRAM_WORKSPACE")
-            .map(PathBuf::from)
-            .unwrap_or_else(|_| {
-                dirs::home_dir()
-                    .unwrap_or_else(|| PathBuf::from("."))
-                    .join(".engram_workspace")
-            });
-
-        // Ensure the workspace directory exists so GitStorage::new can init.
-        std::fs::create_dir_all(&workspace_path)?;
-
-        let storage =
-            crate::storage::GitStorage::new(workspace_path.to_str().unwrap_or("."), "locus-tui")?;
-
+        let storage = crate::storage::GitRefsStorage::new(".", "locus-tui")?;
         Ok(Self::from_storage(storage))
     }
 }

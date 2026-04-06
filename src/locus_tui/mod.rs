@@ -43,14 +43,17 @@ pub struct LocusTuiApp<S: Storage + RelationshipStorage> {
 
 impl<S: Storage + RelationshipStorage + Send + 'static> LocusTuiApp<S> {
     pub fn new(storage: S) -> Self {
-        let integration = LocusIntegration::new(storage);
-
-        // Try to open the default git-backed backend; fall back to a fresh
-        // memory-backed backend if the workspace doesn't exist (tests, CI, etc.)
+        // `new_with_refresh_interval` is preferred for production; this
+        // constructor is retained for call sites that don't need a custom
+        // backend. It builds a GitRefsStorage-backed backend pointing at CWD,
+        // matching what every CLI command uses.
         let backend: Box<dyn LocusTuiBackend> = match GitEngramBackend::new() {
             Ok(b) => Box::new(b),
-            Err(_) => {
-                // Fallback: empty in-memory backend so the TUI still starts
+            Err(e) => {
+                // Surface the error as a warning — empty data is always wrong
+                // in production. Fallback to memory keeps the TUI usable in
+                // CI / test environments where there is no git repo.
+                eprintln!("locus: warning: could not open git storage: {e}");
                 let mem = crate::storage::memory_only_storage::MemoryStorage::new("locus-tui");
                 let fallback = crate::locus_tui::backend::EngramBackend::from_storage(mem);
                 Box::new(fallback)
@@ -65,7 +68,7 @@ impl<S: Storage + RelationshipStorage + Send + 'static> LocusTuiApp<S> {
         app_state.refresh_interval_secs = refresh_interval_secs;
 
         Self {
-            integration,
+            integration: LocusIntegration::new(storage),
             backend,
             app_state,
         }
