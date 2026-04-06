@@ -4,8 +4,9 @@ use crate::locus_tui::app::{ActiveView, AppState};
 use crate::locus_tui::theme::Theme;
 use crate::storage::{RelationshipStorage, Storage};
 use ratatui::layout::{Constraint, Direction, Layout};
-use ratatui::style::{Color, Style};
-use ratatui::widgets::{Block, Borders, Cell, List, ListItem, Paragraph, Row, Table, TableState};
+use ratatui::style::{Color, Modifier, Style};
+use ratatui::text::{Line, Span};
+use ratatui::widgets::{Block, Borders, Cell, Paragraph, Row, Table, TableState};
 
 /// Render the TUI to the given frame.
 pub fn draw<S: Storage + RelationshipStorage>(
@@ -54,25 +55,9 @@ pub fn draw<S: Storage + RelationshipStorage>(
             draw_dashboard(app_state, border_style, f, chunks[1]);
         }
         ActiveView::Tasks => {
-            let panel = Block::default()
-                .title("Tasks")
-                .borders(Borders::ALL)
-                .border_style(border_style);
-            let items: Vec<ListItem> = tasks
-                .iter()
-                .take(20)
-                .map(|task| {
-                    let status_str = format!("{:?}", task.status).to_lowercase();
-                    ListItem::new(format!(
-                        "[{}] {} - {} ({})",
-                        task.id.split_at(8).0,
-                        task.title,
-                        status_str,
-                        task.agent
-                    ))
-                })
-                .collect();
-            f.render_widget(List::new(items).block(panel), chunks[1]);
+            let theme = app_state.theme.as_theme();
+            let border_style = Style::default().fg(theme.border());
+            draw_tasks_view(f, chunks[1], app_state, border_style);
         }
         ActiveView::Reasoning => {
             let panel = Paragraph::new("Reasoning view — no data loaded").block(
@@ -226,4 +211,128 @@ fn draw_dashboard(
     let mut table_state = TableState::default();
     table_state.select(Some(app_state.selected_index));
     f.render_stateful_widget(table, vert[1], &mut table_state);
+}
+
+fn draw_tasks_view(
+    f: &mut ratatui::Frame<'_>,
+    area: ratatui::layout::Rect,
+    app: &mut AppState,
+    border_style: Style,
+) {
+    let theme = app.theme.as_theme();
+
+    // Split area: filter bar (3) | table (flex) | help row (1)
+    let vert = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(3),
+            Constraint::Min(5),
+            Constraint::Length(1),
+        ])
+        .split(area);
+
+    // ── Filter bar ────────────────────────────────────────────────────────────
+    let filter_labels = [
+        ("All", None),
+        ("Todo", Some("todo")),
+        ("In Progress", Some("in_progress")),
+        ("Done", Some("done")),
+    ];
+
+    let active_status = app.filter_status.clone();
+    let chips: Vec<Span> = filter_labels
+        .iter()
+        .flat_map(|(label, val)| {
+            let is_active = active_status.as_deref() == *val;
+            let style = if is_active {
+                Style::default()
+                    .bg(theme.highlight_bg())
+                    .fg(theme.highlight_fg())
+                    .add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(theme.fg())
+            };
+            let chip = Span::styled(format!(" [{}] ", label), style);
+            [chip, Span::raw(" ")]
+        })
+        .collect();
+
+    let text_hint = if app.filter_text.is_empty() {
+        Span::styled("  /: search", Style::default().fg(theme.border()))
+    } else {
+        Span::styled(
+            format!("  search: \"{}\"", app.filter_text),
+            Style::default().fg(theme.highlight_fg()),
+        )
+    };
+
+    let mut filter_spans = chips;
+    filter_spans.push(text_hint);
+
+    let filter_bar = Paragraph::new(Line::from(filter_spans)).block(
+        Block::default()
+            .title("Filters")
+            .borders(Borders::ALL)
+            .border_style(border_style),
+    );
+    f.render_widget(filter_bar, vert[0]);
+
+    // ── Task table ────────────────────────────────────────────────────────────
+    let filtered = app.filtered_tasks();
+    let filtered_count = filtered.len();
+    let total_count = app.recent_tasks.len();
+
+    let header_cells = ["ID", "Title", "Status", "Priority", "Created"]
+        .map(|h| Cell::from(h).style(theme.header_row()));
+    let header = Row::new(header_cells).height(1);
+
+    let rows: Vec<Row> = filtered
+        .iter()
+        .enumerate()
+        .map(|(i, task)| {
+            let style = if i == app.selected_index {
+                theme.selected_row()
+            } else {
+                theme.normal_row()
+            };
+            Row::new([
+                Cell::from(task.id.clone()),
+                Cell::from(task.title.clone()),
+                Cell::from(task.status.clone()),
+                Cell::from(task.priority.clone()),
+                Cell::from(task.created.clone()),
+            ])
+            .style(style)
+        })
+        .collect();
+
+    let table_title = format!("Tasks ({} / {})", filtered_count, total_count);
+    let table = Table::new(
+        rows,
+        [
+            Constraint::Length(10),
+            Constraint::Min(30),
+            Constraint::Length(13),
+            Constraint::Length(10),
+            Constraint::Length(12),
+        ],
+    )
+    .header(header)
+    .block(
+        Block::default()
+            .title(table_title)
+            .borders(Borders::ALL)
+            .border_style(border_style),
+    )
+    .row_highlight_style(theme.selected_row());
+
+    let mut table_state = TableState::default();
+    table_state.select(Some(app.selected_index));
+    f.render_stateful_widget(table, vert[1], &mut table_state);
+
+    // ── Help row ──────────────────────────────────────────────────────────────
+    let help =
+        Paragraph::new("  f: filter by status   /: search   Enter: details   Tab: next view")
+            .style(Style::default().fg(Color::DarkGray));
+    f.render_widget(help, vert[2]);
 }

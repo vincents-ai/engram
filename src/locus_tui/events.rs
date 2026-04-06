@@ -17,6 +17,7 @@ pub enum KeyAction {
     Back,
     Search,
     Refresh,
+    FilterStatus,
     Unknown,
 }
 
@@ -35,6 +36,7 @@ pub fn map_key(key: KeyEvent) -> KeyAction {
         KeyCode::Esc => KeyAction::Back,
         KeyCode::Char('/') => KeyAction::Search,
         KeyCode::Char('r') => KeyAction::Refresh,
+        KeyCode::Char('f') => KeyAction::FilterStatus,
         _ => KeyAction::Unknown,
     }
 }
@@ -63,6 +65,16 @@ pub fn handle_input(app: &mut AppState) -> bool {
                 KeyAction::Back => app.clear_status(),
                 KeyAction::Search => app.set_status(String::from("Search mode")),
                 KeyAction::Refresh => app.set_status(String::from("Refreshing\u{2026}")),
+                KeyAction::FilterStatus => {
+                    // Cycle: None → todo → in_progress → done → None
+                    let next = match app.filter_status.as_deref() {
+                        None => Some("todo".to_string()),
+                        Some("todo") => Some("in_progress".to_string()),
+                        Some("in_progress") => Some("done".to_string()),
+                        _ => None,
+                    };
+                    app.set_filter_status(next);
+                }
                 KeyAction::Unknown => {}
             }
         }
@@ -152,6 +164,11 @@ mod tests {
     #[test]
     fn test_map_key_r_refresh() {
         assert_eq!(map_key(key(KeyCode::Char('r'))), KeyAction::Refresh);
+    }
+
+    #[test]
+    fn test_map_key_f_filter_status() {
+        assert_eq!(map_key(key(KeyCode::Char('f'))), KeyAction::FilterStatus);
     }
 
     #[test]

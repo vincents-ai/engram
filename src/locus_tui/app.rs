@@ -14,6 +14,7 @@ pub struct TaskRow {
     pub title: String,
     pub status: String,
     pub priority: String,
+    pub created: String,
 }
 
 /// The active view currently displayed in the TUI.
@@ -54,6 +55,10 @@ pub struct AppState {
     pub task_summary: TaskSummary,
     /// Recent tasks shown in the Dashboard table (up to 10).
     pub recent_tasks: Vec<TaskRow>,
+    /// Status filter: None = show all, Some("todo") etc.
+    pub filter_status: Option<String>,
+    /// Substring filter on task title (case-insensitive).
+    pub filter_text: String,
 }
 
 impl AppState {
@@ -64,30 +69,35 @@ impl AppState {
                 title: "Implement CLI argument parser".to_string(),
                 status: "done".to_string(),
                 priority: "high".to_string(),
+                created: "2026-01-01".to_string(),
             },
             TaskRow {
                 id: "e5f6a7b8".to_string(),
                 title: "Add storage backend abstraction".to_string(),
                 status: "done".to_string(),
                 priority: "high".to_string(),
+                created: "2026-01-15".to_string(),
             },
             TaskRow {
                 id: "c9d0e1f2".to_string(),
                 title: "Phase 5: Dashboard view".to_string(),
                 status: "in_progress".to_string(),
                 priority: "high".to_string(),
+                created: "2026-02-01".to_string(),
             },
             TaskRow {
                 id: "3a4b5c6d".to_string(),
                 title: "Write integration tests".to_string(),
                 status: "todo".to_string(),
                 priority: "medium".to_string(),
+                created: "2026-03-01".to_string(),
             },
             TaskRow {
                 id: "7e8f9a0b".to_string(),
                 title: "Publish crate to crates.io".to_string(),
                 status: "todo".to_string(),
                 priority: "low".to_string(),
+                created: "2026-03-15".to_string(),
             },
         ];
 
@@ -110,6 +120,8 @@ impl AppState {
             theme: crate::locus_tui::theme::AppTheme::dark(),
             task_summary,
             recent_tasks,
+            filter_status: None,
+            filter_text: String::new(),
         }
     }
 
@@ -147,6 +159,35 @@ impl AppState {
         if len > 0 {
             self.selected_index = len - 1;
         }
+    }
+
+    /// Set the status filter (None = show all).
+    pub fn set_filter_status(&mut self, status: Option<String>) {
+        self.filter_status = status;
+    }
+
+    /// Set the text substring filter.
+    pub fn set_filter_text(&mut self, text: String) {
+        self.filter_text = text;
+    }
+
+    /// Return tasks that match both the active status filter and text filter.
+    pub fn filtered_tasks(&self) -> Vec<&TaskRow> {
+        self.recent_tasks
+            .iter()
+            .filter(|t| {
+                let status_ok = self
+                    .filter_status
+                    .as_ref()
+                    .map(|s| t.status.to_lowercase() == s.to_lowercase())
+                    .unwrap_or(true);
+                let text_ok = self.filter_text.is_empty()
+                    || t.title
+                        .to_lowercase()
+                        .contains(&self.filter_text.to_lowercase());
+                status_ok && text_ok
+            })
+            .collect()
     }
 
     /// Signal that the application should quit.
@@ -351,10 +392,57 @@ mod tests {
             title: "Test task".to_string(),
             status: "todo".to_string(),
             priority: "high".to_string(),
+            created: "2026-01-01".to_string(),
         };
         assert_eq!(row.id, "abc12345");
         assert_eq!(row.title, "Test task");
         assert_eq!(row.status, "todo");
         assert_eq!(row.priority, "high");
+        assert_eq!(row.created, "2026-01-01");
+    }
+
+    #[test]
+    fn test_filtered_tasks_returns_all_when_no_filter() {
+        let state = AppState::new();
+        let filtered = state.filtered_tasks();
+        assert_eq!(filtered.len(), state.recent_tasks.len());
+    }
+
+    #[test]
+    fn test_filtered_tasks_filters_by_status() {
+        let mut state = AppState::new();
+        state.set_filter_status(Some("todo".to_string()));
+        let filtered = state.filtered_tasks();
+        assert!(filtered.iter().all(|t| t.status.to_lowercase() == "todo"));
+        let todo_count = state
+            .recent_tasks
+            .iter()
+            .filter(|t| t.status == "todo")
+            .count();
+        assert_eq!(filtered.len(), todo_count);
+    }
+
+    #[test]
+    fn test_filtered_tasks_filters_by_text_case_insensitive() {
+        let mut state = AppState::new();
+        state.set_filter_text("CLI".to_string());
+        let filtered = state.filtered_tasks();
+        assert!(!filtered.is_empty());
+        assert!(filtered
+            .iter()
+            .all(|t| t.title.to_lowercase().contains("cli")));
+    }
+
+    #[test]
+    fn test_filtered_tasks_combines_both_filters() {
+        let mut state = AppState::new();
+        state.set_filter_status(Some("done".to_string()));
+        state.set_filter_text("storage".to_string());
+        let filtered = state.filtered_tasks();
+        assert!(!filtered.is_empty());
+        for t in &filtered {
+            assert_eq!(t.status.to_lowercase(), "done");
+            assert!(t.title.to_lowercase().contains("storage"));
+        }
     }
 }
