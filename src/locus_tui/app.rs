@@ -1,3 +1,30 @@
+/// A single node in the reasoning tree.
+#[derive(Debug, Clone)]
+pub struct ReasoningNode {
+    pub id: String,
+    pub title: String,
+    pub content_preview: String, // first 80 chars of content
+    pub task_id: Option<String>,
+    pub depth: usize, // for indentation (0 = root)
+    pub expanded: bool,
+}
+
+impl ReasoningNode {
+    /// Return the indentation prefix string for this node's depth.
+    pub fn indent_prefix(&self) -> String {
+        " ".repeat(self.depth * 2)
+    }
+
+    /// Return the expand/collapse indicator glyph.
+    pub fn expand_glyph(&self) -> &'static str {
+        if self.expanded {
+            "▼"
+        } else {
+            "▶"
+        }
+    }
+}
+
 /// Summary counts for tasks across all statuses.
 #[derive(Debug, Clone, Default)]
 pub struct TaskSummary {
@@ -59,6 +86,10 @@ pub struct AppState {
     pub filter_status: Option<String>,
     /// Substring filter on task title (case-insensitive).
     pub filter_text: String,
+    /// Reasoning tree nodes.
+    pub reasoning_nodes: Vec<ReasoningNode>,
+    /// Selected index within the reasoning view list.
+    pub reasoning_selected: usize,
 }
 
 impl AppState {
@@ -122,6 +153,45 @@ impl AppState {
             recent_tasks,
             filter_status: None,
             filter_text: String::new(),
+            reasoning_nodes: vec![
+                ReasoningNode {
+                    id: "rsn-0001".to_string(),
+                    title: "Goal: Locus TUI rewrite".to_string(),
+                    content_preview: "High-level goal: rebuild the Locus TUI using ratatui with a modular, testable architecture."
+                        [..80.min(
+                            "High-level goal: rebuild the Locus TUI using ratatui with a modular, testable architecture.".len()
+                        )]
+                        .to_string(),
+                    task_id: None,
+                    depth: 0,
+                    expanded: true,
+                },
+                ReasoningNode {
+                    id: "rsn-0002".to_string(),
+                    title: "Phase 0: ratatui upgrade".to_string(),
+                    content_preview: "Upgrade ratatui dependency and resolve breaking API changes from 0.26 to 0.29.".to_string(),
+                    task_id: None,
+                    depth: 1,
+                    expanded: false,
+                },
+                ReasoningNode {
+                    id: "rsn-0003".to_string(),
+                    title: "Phase 1: modularise".to_string(),
+                    content_preview: "Split monolithic tui.rs into app, events, theme, ui, backend sub-modules.".to_string(),
+                    task_id: None,
+                    depth: 1,
+                    expanded: false,
+                },
+                ReasoningNode {
+                    id: "rsn-0004".to_string(),
+                    title: "Detail: module split decisions".to_string(),
+                    content_preview: "Chose separate files per concern: app state owns data, ui owns rendering, events owns input.".to_string(),
+                    task_id: None,
+                    depth: 2,
+                    expanded: false,
+                },
+            ],
+            reasoning_selected: 0,
         }
     }
 
@@ -208,6 +278,18 @@ impl AppState {
     /// Toggle between dark and light themes.
     pub fn toggle_theme(&mut self) {
         self.theme = self.theme.toggle();
+    }
+
+    /// Toggle the expanded state of the currently selected reasoning node.
+    pub fn toggle_reasoning_node(&mut self) {
+        if let Some(node) = self.reasoning_nodes.get_mut(self.reasoning_selected) {
+            node.expanded = !node.expanded;
+        }
+    }
+
+    /// Return all reasoning nodes as a flat list (depth drives visual indent).
+    pub fn visible_reasoning_nodes(&self) -> Vec<&ReasoningNode> {
+        self.reasoning_nodes.iter().collect()
     }
 }
 
@@ -444,5 +526,129 @@ mod tests {
             assert_eq!(t.status.to_lowercase(), "done");
             assert!(t.title.to_lowercase().contains("storage"));
         }
+    }
+
+    // ── Reasoning node tests ────────────────────────────────────────────────
+
+    #[test]
+    fn test_visible_reasoning_nodes_returns_all() {
+        let state = AppState::new();
+        let visible = state.visible_reasoning_nodes();
+        assert_eq!(visible.len(), state.reasoning_nodes.len());
+        assert_eq!(visible.len(), 4);
+    }
+
+    #[test]
+    fn test_toggle_reasoning_node_flips_expanded() {
+        let mut state = AppState::new();
+        // Node 0 is expanded=true initially
+        assert!(state.reasoning_nodes[0].expanded);
+        state.reasoning_selected = 0;
+        state.toggle_reasoning_node();
+        assert!(!state.reasoning_nodes[0].expanded);
+        state.toggle_reasoning_node();
+        assert!(state.reasoning_nodes[0].expanded);
+    }
+
+    #[test]
+    fn test_toggle_reasoning_node_on_collapsed_node() {
+        let mut state = AppState::new();
+        // Node 1 starts collapsed
+        assert!(!state.reasoning_nodes[1].expanded);
+        state.reasoning_selected = 1;
+        state.toggle_reasoning_node();
+        assert!(state.reasoning_nodes[1].expanded);
+    }
+
+    #[test]
+    fn test_toggle_reasoning_node_out_of_bounds_noop() {
+        let mut state = AppState::new();
+        state.reasoning_selected = 999;
+        // Should not panic
+        state.toggle_reasoning_node();
+    }
+
+    #[test]
+    fn test_reasoning_node_indent_prefix_depth_zero() {
+        let node = ReasoningNode {
+            id: "x".to_string(),
+            title: "t".to_string(),
+            content_preview: "c".to_string(),
+            task_id: None,
+            depth: 0,
+            expanded: false,
+        };
+        assert_eq!(node.indent_prefix(), "");
+    }
+
+    #[test]
+    fn test_reasoning_node_indent_prefix_depth_one() {
+        let node = ReasoningNode {
+            id: "x".to_string(),
+            title: "t".to_string(),
+            content_preview: "c".to_string(),
+            task_id: None,
+            depth: 1,
+            expanded: false,
+        };
+        assert_eq!(node.indent_prefix(), "  ");
+    }
+
+    #[test]
+    fn test_reasoning_node_indent_prefix_depth_two() {
+        let node = ReasoningNode {
+            id: "x".to_string(),
+            title: "t".to_string(),
+            content_preview: "c".to_string(),
+            task_id: None,
+            depth: 2,
+            expanded: true,
+        };
+        assert_eq!(node.indent_prefix(), "    ");
+    }
+
+    #[test]
+    fn test_reasoning_node_expand_glyph_collapsed() {
+        let node = ReasoningNode {
+            id: "x".to_string(),
+            title: "t".to_string(),
+            content_preview: "c".to_string(),
+            task_id: None,
+            depth: 0,
+            expanded: false,
+        };
+        assert_eq!(node.expand_glyph(), "▶");
+    }
+
+    #[test]
+    fn test_reasoning_node_expand_glyph_expanded() {
+        let node = ReasoningNode {
+            id: "x".to_string(),
+            title: "t".to_string(),
+            content_preview: "c".to_string(),
+            task_id: None,
+            depth: 0,
+            expanded: true,
+        };
+        assert_eq!(node.expand_glyph(), "▼");
+    }
+
+    #[test]
+    fn test_stub_reasoning_nodes_depths() {
+        let state = AppState::new();
+        let nodes = &state.reasoning_nodes;
+        assert_eq!(nodes[0].depth, 0);
+        assert_eq!(nodes[1].depth, 1);
+        assert_eq!(nodes[2].depth, 1);
+        assert_eq!(nodes[3].depth, 2);
+    }
+
+    #[test]
+    fn test_stub_reasoning_node_titles() {
+        let state = AppState::new();
+        assert!(state.reasoning_nodes[0].title.contains("Goal"));
+        assert!(state.reasoning_nodes[1].title.contains("Phase 0"));
+        assert!(state.reasoning_nodes[2].title.contains("Phase 1"));
+        assert!(state.reasoning_nodes[3].title.contains("Detail"));
     }
 }

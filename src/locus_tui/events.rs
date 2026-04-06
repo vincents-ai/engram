@@ -1,4 +1,4 @@
-use crate::locus_tui::app::AppState;
+use crate::locus_tui::app::{ActiveView, AppState};
 use crossterm::event::{self, Event, KeyCode, KeyEvent};
 use std::time::Duration;
 
@@ -53,15 +53,49 @@ pub fn handle_input(app: &mut AppState) -> bool {
                 }
                 KeyAction::NextView => app.next_view(),
                 KeyAction::PrevView => app.prev_view(),
-                KeyAction::SelectNext => app.select_next(),
-                KeyAction::SelectPrev => app.select_prev(),
-                KeyAction::SelectTop => app.selected_index = 0,
+                KeyAction::SelectNext => {
+                    if app.active_view == ActiveView::Reasoning {
+                        let len = app.reasoning_nodes.len();
+                        if len > 0 {
+                            app.reasoning_selected = (app.reasoning_selected + 1).min(len - 1);
+                        }
+                    } else {
+                        app.select_next();
+                    }
+                }
+                KeyAction::SelectPrev => {
+                    if app.active_view == ActiveView::Reasoning {
+                        app.reasoning_selected = app.reasoning_selected.saturating_sub(1);
+                    } else {
+                        app.select_prev();
+                    }
+                }
+                KeyAction::SelectTop => {
+                    if app.active_view == ActiveView::Reasoning {
+                        app.reasoning_selected = 0;
+                    } else {
+                        app.selected_index = 0;
+                    }
+                }
                 KeyAction::SelectBottom => {
-                    let len = app.recent_tasks.len();
-                    app.select_bottom_of(len);
+                    if app.active_view == ActiveView::Reasoning {
+                        let len = app.reasoning_nodes.len();
+                        if len > 0 {
+                            app.reasoning_selected = len - 1;
+                        }
+                    } else {
+                        let len = app.recent_tasks.len();
+                        app.select_bottom_of(len);
+                    }
                 }
                 KeyAction::ToggleTheme => app.toggle_theme(),
-                KeyAction::Confirm => app.set_status(String::from("Confirm")),
+                KeyAction::Confirm => {
+                    if app.active_view == ActiveView::Reasoning {
+                        app.toggle_reasoning_node();
+                    } else {
+                        app.set_status(String::from("Confirm"));
+                    }
+                }
                 KeyAction::Back => app.clear_status(),
                 KeyAction::Search => app.set_status(String::from("Search mode")),
                 KeyAction::Refresh => app.set_status(String::from("Refreshing\u{2026}")),

@@ -6,7 +6,7 @@ use crate::storage::{RelationshipStorage, Storage};
 use ratatui::layout::{Constraint, Direction, Layout};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Borders, Cell, Paragraph, Row, Table, TableState};
+use ratatui::widgets::{Block, Borders, Cell, List, ListItem, Paragraph, Row, Table, TableState};
 
 /// Render the TUI to the given frame.
 pub fn draw<S: Storage + RelationshipStorage>(
@@ -60,13 +60,9 @@ pub fn draw<S: Storage + RelationshipStorage>(
             draw_tasks_view(f, chunks[1], app_state, border_style);
         }
         ActiveView::Reasoning => {
-            let panel = Paragraph::new("Reasoning view — no data loaded").block(
-                Block::default()
-                    .title("Reasoning")
-                    .borders(Borders::ALL)
-                    .border_style(border_style),
-            );
-            f.render_widget(panel, chunks[1]);
+            let theme = app_state.theme.as_theme();
+            let border_style = Style::default().fg(theme.border());
+            draw_reasoning_view(f, chunks[1], app_state, border_style);
         }
         ActiveView::Relationships => {
             let panel = Paragraph::new("Relationships view — no data loaded").block(
@@ -335,4 +331,99 @@ fn draw_tasks_view(
         Paragraph::new("  f: filter by status   /: search   Enter: details   Tab: next view")
             .style(Style::default().fg(Color::DarkGray));
     f.render_widget(help, vert[2]);
+}
+
+fn draw_reasoning_view(
+    f: &mut ratatui::Frame<'_>,
+    area: ratatui::layout::Rect,
+    app: &mut AppState,
+    border_style: Style,
+) {
+    let theme = app.theme.as_theme();
+    let nodes = app.visible_reasoning_nodes();
+    let node_count = nodes.len();
+
+    // Layout: header (3) | tree list (flex) | detail pane (6)
+    let vert = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(3),
+            Constraint::Min(5),
+            Constraint::Length(6),
+        ])
+        .split(area);
+
+    // ── Header ────────────────────────────────────────────────────────────────
+    let header_text = format!(
+        "Reasoning  [{} nodes]  Enter: expand/collapse  j/k: navigate",
+        node_count
+    );
+    let header = Paragraph::new(header_text)
+        .style(Style::default().fg(theme.title()))
+        .block(
+            Block::default()
+                .title("Reasoning")
+                .borders(Borders::ALL)
+                .border_style(border_style),
+        );
+    f.render_widget(header, vert[0]);
+
+    // ── Tree list ─────────────────────────────────────────────────────────────
+    let selected = app.reasoning_selected;
+    let mut list_items: Vec<ListItem> = Vec::new();
+
+    for (i, node) in nodes.iter().enumerate() {
+        let prefix = format!("{}{} ", node.indent_prefix(), node.expand_glyph());
+        let row_style = if i == selected {
+            theme.selected_row()
+        } else {
+            theme.normal_row()
+        };
+        let title_line = Line::from(vec![Span::styled(
+            format!("{}{}", prefix, node.title.clone()),
+            row_style,
+        )]);
+
+        if node.expanded {
+            let preview_indent = " ".repeat(node.depth * 2 + 4);
+            let preview_line = Line::from(vec![Span::styled(
+                format!("{}{}", preview_indent, node.content_preview.clone()),
+                Style::default()
+                    .fg(theme.border())
+                    .add_modifier(Modifier::DIM),
+            )]);
+            list_items.push(ListItem::new(vec![title_line, preview_line]));
+        } else {
+            list_items.push(ListItem::new(vec![title_line]));
+        }
+    }
+
+    let list = List::new(list_items).block(
+        Block::default()
+            .title("Nodes")
+            .borders(Borders::ALL)
+            .border_style(border_style),
+    );
+    f.render_widget(list, vert[1]);
+
+    // ── Detail pane ───────────────────────────────────────────────────────────
+    // Re-borrow nodes from app; they were already released above
+    let detail_text = if let Some(node) = app.reasoning_nodes.get(selected) {
+        format!(
+            "Title: {}\nPreview: {}\nDepth: {}  Expanded: {}  ID: {}",
+            node.title, node.content_preview, node.depth, node.expanded, node.id,
+        )
+    } else {
+        "No node selected".to_string()
+    };
+
+    let detail = Paragraph::new(detail_text)
+        .style(Style::default().fg(theme.fg()))
+        .block(
+            Block::default()
+                .title("Detail")
+                .borders(Borders::ALL)
+                .border_style(border_style),
+        );
+    f.render_widget(detail, vert[2]);
 }
