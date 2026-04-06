@@ -34,6 +34,7 @@ jobs:
           name: Engram v${{ steps.get_version.outputs.version }}
           tag_name: ${{ github.ref }}
           draft: true
+          immutable: false
           files: install.sh
           body: |
             ## Quick Install
