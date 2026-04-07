@@ -1,14 +1,27 @@
-use crate::entities::{Context, EntityRelationship, Reasoning, Task, TaskStatus, Theory, ADR};
+use crate::entities::{
+    AgentSandbox, Compliance, Context, EntityRelationship, EscalationRequest, ExecutionResult,
+    Knowledge, ProgressiveGateConfig, Reasoning, Rule, Session, Standard, StateReflection, Task,
+    TaskStatus, Theory, Workflow, WorkflowInstance, ADR,
+};
 use std::collections::HashMap;
 use std::time::Instant;
+
+/// Which pane has focus in the Relationships view.
+#[derive(Debug, Clone, PartialEq)]
+pub enum RelationshipFocus {
+    Nodes,
+    Edges,
+}
 
 /// A directed edge in the relationships graph.
 #[derive(Debug, Clone)]
 pub struct RelationshipEdge {
     pub from_id: String,
     pub to_id: String,
+    pub to_type: String,
     pub relationship_type: String, // e.g. "depends_on", "relates_to", "explains"
     pub to_title: String,
+    pub agent: String,
 }
 
 /// A node in the relationships graph (adjacency-list representation).
@@ -99,6 +112,18 @@ pub enum ActiveView {
     Adrs,
     Theories,
     Search,
+    Workflows,
+    WorkflowInstances,
+    Knowledge,
+    Sessions,
+    Compliance,
+    Rules,
+    Standards,
+    StateReflections,
+    Escalations,
+    Sandboxes,
+    ExecutionResults,
+    ProgressiveConfigs,
 }
 
 impl ActiveView {
@@ -113,6 +138,18 @@ impl ActiveView {
             Contexts,
             Adrs,
             Theories,
+            Workflows,
+            WorkflowInstances,
+            Knowledge,
+            Sessions,
+            Compliance,
+            Rules,
+            Standards,
+            StateReflections,
+            Escalations,
+            Sandboxes,
+            ExecutionResults,
+            ProgressiveConfigs,
             Search,
         ]
     }
@@ -153,8 +190,12 @@ pub struct AppState {
     pub reasoning_selected: usize,
     /// Nodes in the relationships graph (adjacency list).
     pub relationship_nodes: Vec<RelationshipNode>,
-    /// Selected index within the relationships view list.
+    /// Selected index within the relationships node list.
     pub relationship_selected: usize,
+    /// Which pane is focused in the relationships view (Nodes or Edges).
+    pub relationship_focus: RelationshipFocus,
+    /// Selected edge index within the currently selected node's edge list.
+    pub relationship_edge_selected: usize,
     /// Selected index within the contexts view list.
     pub contexts_selected: usize,
     /// All ADR entities loaded from backend.
@@ -171,11 +212,42 @@ pub struct AppState {
     pub search_mode: bool,
     /// Search results.
     pub search_results: Vec<SearchResultRow>,
+    /// Selected index within search results list.
+    pub search_result_selected: usize,
     /// Auto-refresh interval in seconds (0 = disabled).
     /// Driven by `WorkspaceConfig::refresh_interval_secs`.
     pub refresh_interval_secs: u64,
     /// Instant of the last data refresh (used for tick-based auto-refresh).
     pub last_refresh: Instant,
+    /// Whether the global help overlay is shown.
+    pub show_help: bool,
+    /// Cached workflow count (populated by load_all_data, not re-fetched every frame).
+    pub workflow_count: usize,
+    // ── New entity collections ────────────────────────────────────────────
+    pub all_workflows: Vec<Workflow>,
+    pub workflows_selected: usize,
+    pub all_workflow_instances: Vec<WorkflowInstance>,
+    pub workflow_instances_selected: usize,
+    pub all_knowledge: Vec<Knowledge>,
+    pub knowledge_selected: usize,
+    pub all_sessions: Vec<Session>,
+    pub sessions_selected: usize,
+    pub all_compliance: Vec<Compliance>,
+    pub compliance_selected: usize,
+    pub all_rules: Vec<Rule>,
+    pub rules_selected: usize,
+    pub all_standards: Vec<Standard>,
+    pub standards_selected: usize,
+    pub all_state_reflections: Vec<StateReflection>,
+    pub state_reflections_selected: usize,
+    pub all_escalations: Vec<EscalationRequest>,
+    pub escalations_selected: usize,
+    pub all_sandboxes: Vec<AgentSandbox>,
+    pub sandboxes_selected: usize,
+    pub all_execution_results: Vec<ExecutionResult>,
+    pub execution_results_selected: usize,
+    pub all_progressive_configs: Vec<ProgressiveGateConfig>,
+    pub progressive_configs_selected: usize,
 }
 
 impl AppState {
@@ -198,6 +270,8 @@ impl AppState {
             reasoning_selected: 0,
             relationship_nodes: Vec::new(),
             relationship_selected: 0,
+            relationship_focus: RelationshipFocus::Nodes,
+            relationship_edge_selected: 0,
             contexts_selected: 0,
             all_adrs: Vec::new(),
             adrs_selected: 0,
@@ -206,8 +280,35 @@ impl AppState {
             task_detail: None,
             search_mode: false,
             search_results: Vec::new(),
+            search_result_selected: 0,
             refresh_interval_secs: 30,
             last_refresh: Instant::now(),
+            show_help: false,
+            workflow_count: 0,
+            all_workflows: Vec::new(),
+            workflows_selected: 0,
+            all_workflow_instances: Vec::new(),
+            workflow_instances_selected: 0,
+            all_knowledge: Vec::new(),
+            knowledge_selected: 0,
+            all_sessions: Vec::new(),
+            sessions_selected: 0,
+            all_compliance: Vec::new(),
+            compliance_selected: 0,
+            all_rules: Vec::new(),
+            rules_selected: 0,
+            all_standards: Vec::new(),
+            standards_selected: 0,
+            all_state_reflections: Vec::new(),
+            state_reflections_selected: 0,
+            all_escalations: Vec::new(),
+            escalations_selected: 0,
+            all_sandboxes: Vec::new(),
+            sandboxes_selected: 0,
+            all_execution_results: Vec::new(),
+            execution_results_selected: 0,
+            all_progressive_configs: Vec::new(),
+            progressive_configs_selected: 0,
         }
     }
 
@@ -363,6 +464,22 @@ impl AppState {
         self.task_detail = None;
     }
 
+    /// Cycle the status of the currently selected ADR: Proposed → Accepted → Deprecated → Superseded → Proposed.
+    pub fn cycle_selected_adr_status(&mut self) -> Option<(String, crate::entities::AdrStatus)> {
+        use crate::entities::AdrStatus;
+        if let Some(adr) = self.all_adrs.get_mut(self.adrs_selected) {
+            adr.status = match adr.status {
+                AdrStatus::Proposed => AdrStatus::Accepted,
+                AdrStatus::Accepted => AdrStatus::Deprecated,
+                AdrStatus::Deprecated => AdrStatus::Superseded,
+                AdrStatus::Superseded => AdrStatus::Proposed,
+            };
+            Some((adr.id.clone(), adr.status.clone()))
+        } else {
+            None
+        }
+    }
+
     /// Run an in-memory search across all loaded entities.
     pub fn run_search(&mut self) {
         let query = self.search_query.to_lowercase();
@@ -408,6 +525,142 @@ impl AppState {
                     entity_type: "reasoning".to_string(),
                     title: rsn.title.clone(),
                     preview: rsn.conclusion.chars().take(60).collect(),
+                });
+            }
+        }
+
+        // Search ADRs
+        for adr in &self.all_adrs {
+            if adr.title.to_lowercase().contains(&query)
+                || adr.context.to_lowercase().contains(&query)
+            {
+                results.push(SearchResultRow {
+                    entity_type: "adr".to_string(),
+                    title: adr.title.clone(),
+                    preview: adr.context.chars().take(60).collect(),
+                });
+            }
+        }
+
+        // Search theories
+        for theory in &self.all_theories {
+            if theory.domain_name.to_lowercase().contains(&query) {
+                results.push(SearchResultRow {
+                    entity_type: "theory".to_string(),
+                    title: theory.domain_name.clone(),
+                    preview: format!("iter: {}", theory.iteration_count),
+                });
+            }
+        }
+
+        // Search workflows
+        for w in &self.all_workflows {
+            if w.title.to_lowercase().contains(&query)
+                || w.description.to_lowercase().contains(&query)
+            {
+                results.push(SearchResultRow {
+                    entity_type: "workflow".to_string(),
+                    title: w.title.clone(),
+                    preview: w.description.chars().take(60).collect(),
+                });
+            }
+        }
+
+        // Search knowledge
+        for k in &self.all_knowledge {
+            if k.title.to_lowercase().contains(&query) || k.content.to_lowercase().contains(&query)
+            {
+                results.push(SearchResultRow {
+                    entity_type: "knowledge".to_string(),
+                    title: k.title.clone(),
+                    preview: k.content.chars().take(60).collect(),
+                });
+            }
+        }
+
+        // Search sessions
+        for s in &self.all_sessions {
+            if s.title.to_lowercase().contains(&query) {
+                results.push(SearchResultRow {
+                    entity_type: "session".to_string(),
+                    title: s.title.clone(),
+                    preview: format!("agent: {}", s.agent),
+                });
+            }
+        }
+
+        // Search compliance
+        for c in &self.all_compliance {
+            if c.title.to_lowercase().contains(&query)
+                || c.description.to_lowercase().contains(&query)
+                || c.category.to_lowercase().contains(&query)
+            {
+                results.push(SearchResultRow {
+                    entity_type: "compliance".to_string(),
+                    title: c.title.clone(),
+                    preview: c.description.chars().take(60).collect(),
+                });
+            }
+        }
+
+        // Search rules
+        for r in &self.all_rules {
+            if r.title.to_lowercase().contains(&query)
+                || r.description.to_lowercase().contains(&query)
+            {
+                results.push(SearchResultRow {
+                    entity_type: "rule".to_string(),
+                    title: r.title.clone(),
+                    preview: r.description.chars().take(60).collect(),
+                });
+            }
+        }
+
+        // Search standards
+        for s in &self.all_standards {
+            if s.title.to_lowercase().contains(&query)
+                || s.description.to_lowercase().contains(&query)
+            {
+                results.push(SearchResultRow {
+                    entity_type: "standard".to_string(),
+                    title: s.title.clone(),
+                    preview: s.description.chars().take(60).collect(),
+                });
+            }
+        }
+
+        // Search state reflections
+        for sr in &self.all_state_reflections {
+            if sr.observed_state.to_lowercase().contains(&query) {
+                results.push(SearchResultRow {
+                    entity_type: "state_reflection".to_string(),
+                    title: sr.observed_state.chars().take(60).collect(),
+                    preview: format!("dissonance: {:.2}", sr.dissonance_score),
+                });
+            }
+        }
+
+        // Search escalations
+        for e in &self.all_escalations {
+            let op = format!("{:?}", e.operation_type).to_lowercase();
+            if op.contains(&query) || e.agent_id.to_lowercase().contains(&query) {
+                results.push(SearchResultRow {
+                    entity_type: "escalation".to_string(),
+                    title: format!("{:?}", e.operation_type),
+                    preview: format!("agent: {}", e.agent_id),
+                });
+            }
+        }
+
+        // Search progressive configs
+        for c in &self.all_progressive_configs {
+            if c.name.to_lowercase().contains(&query)
+                || c.description.to_lowercase().contains(&query)
+            {
+                results.push(SearchResultRow {
+                    entity_type: "progressive_config".to_string(),
+                    title: c.name.clone(),
+                    preview: c.description.chars().take(60).collect(),
                 });
             }
         }
@@ -505,21 +758,35 @@ pub fn build_relationship_nodes(
         node.edges.push(RelationshipEdge {
             from_id: rel.source_id.clone(),
             to_id: rel.target_id.clone(),
+            to_type: rel.target_type.clone(),
             relationship_type: rel.relationship_type.to_string(),
             to_title: title_map
                 .get(&rel.target_id)
                 .cloned()
                 .unwrap_or_else(|| rel.target_id.chars().take(8).collect()),
+            agent: rel.agent.clone(),
         });
     }
     map.into_values().collect()
 }
 
 /// Build a title map from all loaded entities: id -> title.
+#[allow(clippy::too_many_arguments)]
 pub fn build_title_map(
     tasks: &[Task],
     contexts: &[crate::entities::Context],
     reasoning: &[Reasoning],
+    adrs: &[crate::entities::ADR],
+    theories: &[crate::entities::Theory],
+    workflows: &[Workflow],
+    workflow_instances: &[WorkflowInstance],
+    knowledge: &[Knowledge],
+    sessions: &[Session],
+    compliance: &[Compliance],
+    rules: &[Rule],
+    standards: &[Standard],
+    state_reflections: &[StateReflection],
+    escalations: &[EscalationRequest],
 ) -> HashMap<String, String> {
     let mut map = HashMap::new();
     for t in tasks {
@@ -530,6 +797,53 @@ pub fn build_title_map(
     }
     for r in reasoning {
         map.insert(r.id.clone(), r.title.clone());
+    }
+    for a in adrs {
+        map.insert(a.id.clone(), a.title.clone());
+    }
+    for t in theories {
+        map.insert(t.id.clone(), t.domain_name.clone());
+    }
+    for w in workflows {
+        map.insert(w.id.clone(), w.title.clone());
+    }
+    for wi in workflow_instances {
+        // WorkflowInstance has no title; use workflow_id prefix as display name
+        map.insert(
+            wi.id.clone(),
+            format!(
+                "instance:{}",
+                wi.workflow_id.chars().take(8).collect::<String>()
+            ),
+        );
+    }
+    for k in knowledge {
+        map.insert(k.id.clone(), k.title.clone());
+    }
+    for s in sessions {
+        map.insert(s.id.clone(), s.title.clone());
+    }
+    for c in compliance {
+        map.insert(c.id.clone(), c.title.clone());
+    }
+    for r in rules {
+        map.insert(r.id.clone(), r.title.clone());
+    }
+    for s in standards {
+        map.insert(s.id.clone(), s.title.clone());
+    }
+    for sr in state_reflections {
+        map.insert(sr.id.clone(), sr.observed_state.chars().take(40).collect());
+    }
+    for e in escalations {
+        map.insert(
+            e.id.clone(),
+            format!(
+                "{:?}:{}",
+                e.operation_type,
+                e.agent_id.chars().take(8).collect::<String>()
+            ),
+        );
     }
     map
 }
@@ -542,6 +856,9 @@ mod tests {
 
     #[test]
     fn test_next_view_cycles_through_all_variants() {
+        // all() order: Dashboard, Tasks, Reasoning, Relationships, Contexts, Adrs, Theories,
+        // Workflows, WorkflowInstances, Knowledge, Sessions, Compliance, Rules, Standards,
+        // StateReflections, Escalations, Sandboxes, ExecutionResults, ProgressiveConfigs, Search
         let mut state = AppState::new();
         assert_eq!(state.active_view, ActiveView::Dashboard);
         state.next_view();
@@ -557,19 +874,68 @@ mod tests {
         state.next_view();
         assert_eq!(state.active_view, ActiveView::Theories);
         state.next_view();
+        assert_eq!(state.active_view, ActiveView::Workflows);
+        state.next_view();
+        assert_eq!(state.active_view, ActiveView::WorkflowInstances);
+        state.next_view();
+        assert_eq!(state.active_view, ActiveView::Knowledge);
+        state.next_view();
+        assert_eq!(state.active_view, ActiveView::Sessions);
+        state.next_view();
+        assert_eq!(state.active_view, ActiveView::Compliance);
+        state.next_view();
+        assert_eq!(state.active_view, ActiveView::Rules);
+        state.next_view();
+        assert_eq!(state.active_view, ActiveView::Standards);
+        state.next_view();
+        assert_eq!(state.active_view, ActiveView::StateReflections);
+        state.next_view();
+        assert_eq!(state.active_view, ActiveView::Escalations);
+        state.next_view();
+        assert_eq!(state.active_view, ActiveView::Sandboxes);
+        state.next_view();
+        assert_eq!(state.active_view, ActiveView::ExecutionResults);
+        state.next_view();
+        assert_eq!(state.active_view, ActiveView::ProgressiveConfigs);
+        state.next_view();
         assert_eq!(state.active_view, ActiveView::Search);
-        // Should wrap back to Dashboard
+        // Should wrap back to Dashboard on step 21
         state.next_view();
         assert_eq!(state.active_view, ActiveView::Dashboard);
     }
 
     #[test]
     fn test_prev_view_cycles_backward() {
+        // Reverse of all() order, last element is Search
         let mut state = AppState::new();
         assert_eq!(state.active_view, ActiveView::Dashboard);
-        // Going backward from Dashboard should wrap to Search
+        // Going backward from Dashboard should wrap to Search (last in all())
         state.prev_view();
         assert_eq!(state.active_view, ActiveView::Search);
+        state.prev_view();
+        assert_eq!(state.active_view, ActiveView::ProgressiveConfigs);
+        state.prev_view();
+        assert_eq!(state.active_view, ActiveView::ExecutionResults);
+        state.prev_view();
+        assert_eq!(state.active_view, ActiveView::Sandboxes);
+        state.prev_view();
+        assert_eq!(state.active_view, ActiveView::Escalations);
+        state.prev_view();
+        assert_eq!(state.active_view, ActiveView::StateReflections);
+        state.prev_view();
+        assert_eq!(state.active_view, ActiveView::Standards);
+        state.prev_view();
+        assert_eq!(state.active_view, ActiveView::Rules);
+        state.prev_view();
+        assert_eq!(state.active_view, ActiveView::Compliance);
+        state.prev_view();
+        assert_eq!(state.active_view, ActiveView::Sessions);
+        state.prev_view();
+        assert_eq!(state.active_view, ActiveView::Knowledge);
+        state.prev_view();
+        assert_eq!(state.active_view, ActiveView::WorkflowInstances);
+        state.prev_view();
+        assert_eq!(state.active_view, ActiveView::Workflows);
         state.prev_view();
         assert_eq!(state.active_view, ActiveView::Theories);
         state.prev_view();
@@ -988,10 +1354,62 @@ mod tests {
         let ctx_id = ctx.id.clone();
         let rsn_id = rsn.id.clone();
 
-        let map = build_title_map(&[task], &[ctx], &[rsn]);
+        let map = build_title_map(
+            &[task],
+            &[ctx],
+            &[rsn],
+            &[],
+            &[],
+            &[],
+            &[],
+            &[],
+            &[],
+            &[],
+            &[],
+            &[],
+            &[],
+            &[],
+        );
         assert_eq!(map.get(&task_id), Some(&"Task title".to_string()));
         assert_eq!(map.get(&ctx_id), Some(&"Context title".to_string()));
         assert_eq!(map.get(&rsn_id), Some(&"Reasoning title".to_string()));
+    }
+
+    #[test]
+    fn test_build_title_map_includes_workflow_and_knowledge() {
+        use crate::entities::{Knowledge, KnowledgeType, Workflow};
+        let wf = Workflow::new(
+            "Deploy Pipeline".to_string(),
+            "desc".to_string(),
+            "agent".to_string(),
+        );
+        let kn = Knowledge::new(
+            "Auth Patterns".to_string(),
+            "content".to_string(),
+            KnowledgeType::Pattern,
+            0.9,
+            "agent".to_string(),
+        );
+        let wf_id = wf.id.clone();
+        let kn_id = kn.id.clone();
+        let map = build_title_map(
+            &[],
+            &[],
+            &[],
+            &[],
+            &[],
+            &[wf],
+            &[],
+            &[kn],
+            &[],
+            &[],
+            &[],
+            &[],
+            &[],
+            &[],
+        );
+        assert_eq!(map.get(&wf_id), Some(&"Deploy Pipeline".to_string()));
+        assert_eq!(map.get(&kn_id), Some(&"Auth Patterns".to_string()));
     }
 
     // ── Reasoning node tests ────────────────────────────────────────────────

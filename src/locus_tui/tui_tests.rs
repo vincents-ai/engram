@@ -9,8 +9,10 @@
 #[cfg(test)]
 mod tests {
     use crate::entities::{
-        Context, ContextRelevance, EntityRelationType, EntityRelationship, Reasoning, Task,
-        TaskPriority, Theory, ADR,
+        AgentSandbox, Compliance, Context, ContextRelevance, EntityRelationType,
+        EntityRelationship, EscalationRequest, ExecutionResult, Knowledge, ProgressiveGateConfig,
+        Reasoning, Rule, Session, Standard, StateReflection, Task, TaskPriority, Theory, Workflow,
+        WorkflowInstance, ADR,
     };
     use crate::error::EngramError;
     use crate::locus_tui::backend::LocusTuiBackend;
@@ -153,6 +155,59 @@ mod tests {
             let t2 = Theory::new("API Layer".to_string(), "agent-beta".to_string());
 
             Ok(vec![t1, t2])
+        }
+
+        fn update_adr_status(
+            &mut self,
+            _id: &str,
+            _status: crate::entities::AdrStatus,
+        ) -> Result<(), Box<dyn std::error::Error>> {
+            Ok(())
+        }
+
+        fn update_task_status(
+            &mut self,
+            _id: &str,
+            _status: crate::entities::TaskStatus,
+        ) -> Result<(), Box<dyn std::error::Error>> {
+            Ok(())
+        }
+
+        fn list_workflows(&self) -> Result<Vec<Workflow>, EngramError> {
+            Ok(vec![])
+        }
+        fn list_workflow_instances(&self) -> Result<Vec<WorkflowInstance>, EngramError> {
+            Ok(vec![])
+        }
+        fn list_knowledge(&self) -> Result<Vec<Knowledge>, EngramError> {
+            Ok(vec![])
+        }
+        fn list_sessions(&self) -> Result<Vec<Session>, EngramError> {
+            Ok(vec![])
+        }
+        fn list_compliance(&self) -> Result<Vec<Compliance>, EngramError> {
+            Ok(vec![])
+        }
+        fn list_rules(&self) -> Result<Vec<Rule>, EngramError> {
+            Ok(vec![])
+        }
+        fn list_standards(&self) -> Result<Vec<Standard>, EngramError> {
+            Ok(vec![])
+        }
+        fn list_state_reflections(&self) -> Result<Vec<StateReflection>, EngramError> {
+            Ok(vec![])
+        }
+        fn list_escalations(&self) -> Result<Vec<EscalationRequest>, EngramError> {
+            Ok(vec![])
+        }
+        fn list_sandboxes(&self) -> Result<Vec<AgentSandbox>, EngramError> {
+            Ok(vec![])
+        }
+        fn list_execution_results(&self) -> Result<Vec<ExecutionResult>, EngramError> {
+            Ok(vec![])
+        }
+        fn list_progressive_configs(&self) -> Result<Vec<ProgressiveGateConfig>, EngramError> {
+            Ok(vec![])
         }
     }
 
@@ -654,8 +709,8 @@ mod tests {
     #[test]
     fn test_search_view_shows_input_bar() {
         let mut app = make_loaded_app();
-        // Navigate to Search (index 7)
-        for _ in 0..7 {
+        // Navigate to Search (last view, index 19)
+        for _ in 0..19 {
             app.app_state.next_view();
         }
         let content = render_to_string(&mut app);
@@ -665,7 +720,7 @@ mod tests {
     #[test]
     fn test_search_view_empty_state_prompt() {
         let mut app = make_loaded_app();
-        for _ in 0..7 {
+        for _ in 0..19 {
             app.app_state.next_view();
         }
         let content = render_to_string(&mut app);
@@ -829,9 +884,9 @@ mod tests {
     #[test]
     fn snapshot_search_view_empty() {
         let mut app = make_loaded_app();
-        for _ in 0..7 {
+        for _ in 0..19 {
             app.app_state.next_view();
-        } // Search
+        } // Search (index 19)
         let content = render_to_string(&mut app);
         snapshot_with_redacted_ids("search_view_empty", &content);
     }

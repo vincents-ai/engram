@@ -2,7 +2,7 @@
 source: src/locus_tui/tui_tests.rs
 expression: content
 ---
-Engram Locus  [Tasks]  Tasks: 0  Workflows: 0  Tab:next  q:quit  t:theme                                                
+Engram Locus  [Tasks]  Tasks: 3  Workflows: 0  Tab:next  q:quit  t:theme                                                
                                                                                                                         
                                                                                                                         
 ┌Filters───────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
@@ -10,9 +10,9 @@ Engram Locus  [Tasks]  Tasks: 0  Workflows: 0  Tab:next  q:quit  t:theme
 └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 ┌Tasks (3 / 3)─────────────────────────────────────────────────────────────────────────────────────────────────────────┐
 │ID         Title                                                                 Status        Priority   Created     │
-│[ID]   Implement OAuth                                                       in_progress   high       2026-04-06  │
-│[ID]   Write documentation                                                   todo          medium     2026-04-06  │
-│[ID]   Fix rate-limiter bug                                                  done          high       2026-04-06  │
+│[ID]   Implement OAuth                                                       in_progress   high       2026-04-07  │
+│[ID]   Write documentation                                                   todo          medium     2026-04-07  │
+│[ID]   Fix rate-limiter bug                                                  done          high       2026-04-07  │
 │                                                                                                                      │
 │                                                                                                                      │
 │                                                                                                                      │
@@ -41,4 +41,4 @@ Engram Locus  [Tasks]  Tasks: 0  Workflows: 0  Tab:next  q:quit  t:theme
 │                                                                                                                      │
 └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
   f:filter   /:search   Enter:detail   s:cycle-status   Tab:next view                                                   
-  Tab:next view  q:quit  t:theme  j/k:select  g/G:top/bottom  r:refresh
+  Tab:next view  q:quit  t:theme  j/k:select  g/G:top/bottom  r:refresh  ?:help

@@ -2,7 +2,7 @@
 source: src/locus_tui/tui_tests.rs
 expression: content
 ---
-Engram Locus  [Dashboard]  Tasks: 0  Workflows: 0  Tab:next  q:quit  t:theme                                            
+Engram Locus  [Dashboard]  Tasks: 3  Workflows: 0  Tab:next  q:quit  t:theme                                            
                                                                                                                         
                                                                                                                         
 ┌Total───────────────────────┐┌Todo────────────────────────┐┌In Progress─────────────────┐┌Done────────────────────────┐
@@ -41,4 +41,4 @@ Engram Locus  [Dashboard]  Tasks: 0  Workflows: 0  Tab:next  q:quit  t:theme
 │                                                                                                                      │
 │                                                                                                                      │
 └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
-  Tab:next view  q:quit  t:theme  j/k:select  g/G:top/bottom  r:refresh
+  Tab:next view  q:quit  t:theme  j/k:select  g/G:top/bottom  r:refresh  ?:help

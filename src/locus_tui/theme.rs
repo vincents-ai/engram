@@ -7,6 +7,7 @@ pub trait Theme {
     fn highlight_bg(&self) -> Color;
     fn highlight_fg(&self) -> Color;
     fn border(&self) -> Color;
+    fn border_focused(&self) -> Color;
     fn title(&self) -> Color;
     fn status_ok(&self) -> Color;
     fn status_warn(&self) -> Color;
@@ -16,121 +17,209 @@ pub trait Theme {
     fn selected_row(&self) -> Style;
     fn normal_row(&self) -> Style;
     fn header_row(&self) -> Style;
+    fn dim(&self) -> Style;
+    fn badge_todo(&self) -> Style;
+    fn badge_in_progress(&self) -> Style;
+    fn badge_done(&self) -> Style;
+    fn badge_high(&self) -> Style;
+    fn badge_medium(&self) -> Style;
+    fn badge_low(&self) -> Style;
 }
 
 // ---------------------------------------------------------------------------
-// Dark theme
+// Dark theme — k9s-inspired deep blue-grey palette
 // ---------------------------------------------------------------------------
 
 pub struct DarkTheme;
 
+// Palette constants
+const BG: Color = Color::Rgb(13, 17, 23); // GitHub dark bg
+const BG_PANEL: Color = Color::Rgb(22, 27, 34); // panel bg
+const BG_SEL: Color = Color::Rgb(31, 111, 235); // bright selection blue
+const FG: Color = Color::Rgb(201, 209, 217); // default text
+const FG_DIM: Color = Color::Rgb(110, 118, 129); // muted text
+const CYAN: Color = Color::Rgb(121, 192, 255); // titles / accents
+const CYAN_BRIGHT: Color = Color::Rgb(56, 189, 248); // focused border
+const GREEN: Color = Color::Rgb(63, 185, 80); // ok / done
+const YELLOW: Color = Color::Rgb(210, 153, 34); // warn / todo
+const ORANGE: Color = Color::Rgb(255, 123, 114); // in-progress
+const RED: Color = Color::Rgb(248, 81, 73); // error
+const PURPLE: Color = Color::Rgb(188, 140, 255); // high priority
+const BORDER: Color = Color::Rgb(48, 54, 61); // subtle border
+
 impl Theme for DarkTheme {
     fn bg(&self) -> Color {
-        Color::Black
+        BG
     }
     fn fg(&self) -> Color {
-        Color::White
+        FG
     }
     fn highlight_bg(&self) -> Color {
-        Color::DarkGray
+        BG_SEL
     }
     fn highlight_fg(&self) -> Color {
-        Color::Cyan
+        Color::Rgb(255, 255, 255)
     }
     fn border(&self) -> Color {
-        Color::DarkGray
+        BORDER
+    }
+    fn border_focused(&self) -> Color {
+        CYAN_BRIGHT
     }
     fn title(&self) -> Color {
-        Color::Cyan
+        CYAN
     }
     fn status_ok(&self) -> Color {
-        Color::Green
+        GREEN
     }
     fn status_warn(&self) -> Color {
-        Color::Yellow
+        YELLOW
     }
     fn status_err(&self) -> Color {
-        Color::Red
+        RED
     }
+
     fn tab_active(&self) -> Style {
         Style::default()
-            .fg(Color::Cyan)
+            .fg(CYAN_BRIGHT)
             .add_modifier(Modifier::BOLD)
     }
     fn tab_inactive(&self) -> Style {
-        Style::default().fg(Color::DarkGray)
+        Style::default().fg(FG_DIM)
     }
     fn selected_row(&self) -> Style {
         Style::default()
-            .bg(Color::DarkGray)
-            .fg(Color::White)
+            .bg(BG_SEL)
+            .fg(Color::Rgb(255, 255, 255))
             .add_modifier(Modifier::BOLD)
     }
     fn normal_row(&self) -> Style {
-        Style::default().fg(Color::White)
+        Style::default().fg(FG)
     }
     fn header_row(&self) -> Style {
         Style::default()
-            .fg(Color::Cyan)
-            .add_modifier(Modifier::UNDERLINED)
+            .fg(CYAN)
+            .bg(BG_PANEL)
+            .add_modifier(Modifier::BOLD)
+    }
+    fn dim(&self) -> Style {
+        Style::default().fg(FG_DIM)
+    }
+    fn badge_todo(&self) -> Style {
+        Style::default().fg(YELLOW).add_modifier(Modifier::BOLD)
+    }
+    fn badge_in_progress(&self) -> Style {
+        Style::default().fg(ORANGE).add_modifier(Modifier::BOLD)
+    }
+    fn badge_done(&self) -> Style {
+        Style::default().fg(GREEN).add_modifier(Modifier::BOLD)
+    }
+    fn badge_high(&self) -> Style {
+        Style::default().fg(PURPLE).add_modifier(Modifier::BOLD)
+    }
+    fn badge_medium(&self) -> Style {
+        Style::default().fg(CYAN)
+    }
+    fn badge_low(&self) -> Style {
+        Style::default().fg(FG_DIM)
     }
 }
 
 // ---------------------------------------------------------------------------
-// Light theme
+// Light theme — high-contrast light palette
 // ---------------------------------------------------------------------------
 
 pub struct LightTheme;
 
+const LBG: Color = Color::Rgb(255, 255, 255);
+const LBG_PANEL: Color = Color::Rgb(246, 248, 250);
+const LBG_SEL: Color = Color::Rgb(0, 92, 197);
+const LFG: Color = Color::Rgb(36, 41, 47);
+const LFG_DIM: Color = Color::Rgb(110, 119, 129);
+const LBLUE: Color = Color::Rgb(0, 70, 174);
+const LBLUE_BRIGHT: Color = Color::Rgb(9, 105, 218);
+const LGREEN: Color = Color::Rgb(26, 127, 55);
+const LYELLOW: Color = Color::Rgb(154, 103, 0);
+const LORANGE: Color = Color::Rgb(207, 34, 46);
+const LRED: Color = Color::Rgb(185, 28, 28);
+const LPURPLE: Color = Color::Rgb(130, 80, 223);
+const LBORDER: Color = Color::Rgb(208, 215, 222);
+
 impl Theme for LightTheme {
     fn bg(&self) -> Color {
-        Color::White
+        LBG
     }
     fn fg(&self) -> Color {
-        Color::Black
+        LFG
     }
     fn highlight_bg(&self) -> Color {
-        Color::Gray
+        LBG_SEL
     }
     fn highlight_fg(&self) -> Color {
-        Color::Blue
+        Color::Rgb(255, 255, 255)
     }
     fn border(&self) -> Color {
-        Color::Gray
+        LBORDER
+    }
+    fn border_focused(&self) -> Color {
+        LBLUE_BRIGHT
     }
     fn title(&self) -> Color {
-        Color::Blue
+        LBLUE
     }
     fn status_ok(&self) -> Color {
-        Color::Green
+        LGREEN
     }
     fn status_warn(&self) -> Color {
-        Color::Rgb(200, 120, 0)
+        LYELLOW
     }
     fn status_err(&self) -> Color {
-        Color::Red
+        LRED
     }
+
     fn tab_active(&self) -> Style {
         Style::default()
-            .fg(Color::Blue)
+            .fg(LBLUE_BRIGHT)
             .add_modifier(Modifier::BOLD)
     }
     fn tab_inactive(&self) -> Style {
-        Style::default().fg(Color::Gray)
+        Style::default().fg(LFG_DIM)
     }
     fn selected_row(&self) -> Style {
         Style::default()
-            .bg(Color::Gray)
-            .fg(Color::Black)
+            .bg(LBG_SEL)
+            .fg(Color::Rgb(255, 255, 255))
             .add_modifier(Modifier::BOLD)
     }
     fn normal_row(&self) -> Style {
-        Style::default().fg(Color::Black)
+        Style::default().fg(LFG)
     }
     fn header_row(&self) -> Style {
         Style::default()
-            .fg(Color::Blue)
-            .add_modifier(Modifier::UNDERLINED)
+            .fg(LBLUE)
+            .bg(LBG_PANEL)
+            .add_modifier(Modifier::BOLD)
+    }
+    fn dim(&self) -> Style {
+        Style::default().fg(LFG_DIM)
+    }
+    fn badge_todo(&self) -> Style {
+        Style::default().fg(LYELLOW).add_modifier(Modifier::BOLD)
+    }
+    fn badge_in_progress(&self) -> Style {
+        Style::default().fg(LORANGE).add_modifier(Modifier::BOLD)
+    }
+    fn badge_done(&self) -> Style {
+        Style::default().fg(LGREEN).add_modifier(Modifier::BOLD)
+    }
+    fn badge_high(&self) -> Style {
+        Style::default().fg(LPURPLE).add_modifier(Modifier::BOLD)
+    }
+    fn badge_medium(&self) -> Style {
+        Style::default().fg(LBLUE)
+    }
+    fn badge_low(&self) -> Style {
+        Style::default().fg(LFG_DIM)
     }
 }
 
@@ -176,16 +265,13 @@ impl AppTheme {
 mod tests {
     use super::*;
 
-    /// Helper: assert every Theme method returns without panicking and the
-    /// returned Color/Style values are the expected concrete types.  We call
-    /// every method so that if a future implementation accidentally panics we
-    /// catch it here.
     fn smoke_theme(theme: &dyn Theme) {
         let _ = theme.bg();
         let _ = theme.fg();
         let _ = theme.highlight_bg();
         let _ = theme.highlight_fg();
         let _ = theme.border();
+        let _ = theme.border_focused();
         let _ = theme.title();
         let _ = theme.status_ok();
         let _ = theme.status_warn();
@@ -195,19 +281,24 @@ mod tests {
         let _ = theme.selected_row();
         let _ = theme.normal_row();
         let _ = theme.header_row();
+        let _ = theme.dim();
+        let _ = theme.badge_todo();
+        let _ = theme.badge_in_progress();
+        let _ = theme.badge_done();
+        let _ = theme.badge_high();
+        let _ = theme.badge_medium();
+        let _ = theme.badge_low();
     }
 
     #[test]
     fn test_dark_theme_implements_theme() {
         let t = DarkTheme;
         smoke_theme(&t);
-        // Spot-check a few concrete values
-        assert_eq!(t.bg(), Color::Black);
-        assert_eq!(t.fg(), Color::White);
-        assert_eq!(t.border(), Color::DarkGray);
-        assert_eq!(t.title(), Color::Cyan);
-        assert_eq!(t.status_ok(), Color::Green);
-        assert_eq!(t.status_err(), Color::Red);
+        assert_eq!(t.bg(), BG);
+        assert_eq!(t.border(), BORDER);
+        assert_eq!(t.title(), CYAN);
+        assert_eq!(t.status_ok(), GREEN);
+        assert_eq!(t.status_err(), RED);
     }
 
     #[test]
@@ -216,7 +307,7 @@ mod tests {
         let active = t.tab_active();
         assert!(active.add_modifier.contains(Modifier::BOLD));
         let header = t.header_row();
-        assert!(header.add_modifier.contains(Modifier::UNDERLINED));
+        assert!(header.add_modifier.contains(Modifier::BOLD));
         let sel = t.selected_row();
         assert!(sel.add_modifier.contains(Modifier::BOLD));
     }
@@ -225,13 +316,11 @@ mod tests {
     fn test_light_theme_implements_theme() {
         let t = LightTheme;
         smoke_theme(&t);
-        // Spot-check a few concrete values
-        assert_eq!(t.bg(), Color::White);
-        assert_eq!(t.fg(), Color::Black);
-        assert_eq!(t.border(), Color::Gray);
-        assert_eq!(t.title(), Color::Blue);
-        assert_eq!(t.status_ok(), Color::Green);
-        assert_eq!(t.status_err(), Color::Red);
+        assert_eq!(t.bg(), LBG);
+        assert_eq!(t.border(), LBORDER);
+        assert_eq!(t.title(), LBLUE);
+        assert_eq!(t.status_ok(), LGREEN);
+        assert_eq!(t.status_err(), LRED);
     }
 
     #[test]
@@ -240,7 +329,7 @@ mod tests {
         let active = t.tab_active();
         assert!(active.add_modifier.contains(Modifier::BOLD));
         let header = t.header_row();
-        assert!(header.add_modifier.contains(Modifier::UNDERLINED));
+        assert!(header.add_modifier.contains(Modifier::BOLD));
         let sel = t.selected_row();
         assert!(sel.add_modifier.contains(Modifier::BOLD));
     }
@@ -248,7 +337,6 @@ mod tests {
     #[test]
     fn test_app_theme_toggle_dark_to_light() {
         let dark = AppTheme::dark();
-        // Verify it is dark first
         assert!(matches!(dark, AppTheme::Dark(_)));
         let light = dark.toggle();
         assert!(matches!(light, AppTheme::Light(_)));
@@ -273,17 +361,15 @@ mod tests {
     fn test_app_theme_as_theme_dark() {
         let at = AppTheme::dark();
         let t = at.as_theme();
-        // Should behave like DarkTheme
-        assert_eq!(t.bg(), Color::Black);
-        assert_eq!(t.border(), Color::DarkGray);
+        assert_eq!(t.bg(), BG);
+        assert_eq!(t.border(), BORDER);
     }
 
     #[test]
     fn test_app_theme_as_theme_light() {
         let at = AppTheme::light();
         let t = at.as_theme();
-        // Should behave like LightTheme
-        assert_eq!(t.bg(), Color::White);
-        assert_eq!(t.border(), Color::Gray);
+        assert_eq!(t.bg(), LBG);
+        assert_eq!(t.border(), LBORDER);
     }
 }

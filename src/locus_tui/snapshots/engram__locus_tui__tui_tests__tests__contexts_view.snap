@@ -2,13 +2,13 @@
 source: src/locus_tui/tui_tests.rs
 expression: content
 ---
-Engram Locus  [Contexts]  Tasks: 0  Workflows: 0  Tab:next  q:quit  t:theme                                             
+Engram Locus  [Contexts]  Tasks: 3  Workflows: 0  Tab:next  q:quit  t:theme                                             
                                                                                                                         
                                                                                                                         
 ┌Contexts (2)──────────────────────────────────────────────────────────────────────────────────────────────────────────┐
 │Title                                                                     Relevance  Source               Created     │
-│OAuth spec RFC 6749                                                       high       https://rfc-editor.o 2026-04-06  │
-│Rate limiter design notes                                                 medium     internal             2026-04-06  │
+│OAuth spec RFC 6749                                                       high       https://rfc-editor.o 2026-04-07  │
+│Rate limiter design notes                                                 medium     internal             2026-04-07  │
 │                                                                                                                      │
 │                                                                                                                      │
 │                                                                                                                      │
@@ -40,5 +40,5 @@ Engram Locus  [Contexts]  Tasks: 0  Workflows: 0  Tab:next  q:quit  t:theme
 │                                                                                                                      │
 │                                                                                                                      │
 └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
-  j/k: navigate   Tab: next view                                                                                        
-  Tab:next view  q:quit  t:theme  j/k:select  g/G:top/bottom  r:refresh
+  j/k: navigate   Enter:detail   Tab: next view                                                                         
+  Tab:next view  q:quit  t:theme  j/k:select  g/G:top/bottom  r:refresh  ?:help

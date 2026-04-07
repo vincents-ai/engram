@@ -120,11 +120,41 @@ impl<S: Storage + RelationshipStorage + Send + 'static> LocusTuiApp<S> {
         let theories = self.backend.list_theories().unwrap_or_default();
         self.app_state.all_theories = theories;
 
+        // New entity types (must be loaded before build_title_map)
+        self.app_state.all_workflows = self.backend.list_workflows().unwrap_or_default();
+        self.app_state.workflow_count = self.app_state.all_workflows.len();
+        self.app_state.all_workflow_instances =
+            self.backend.list_workflow_instances().unwrap_or_default();
+        self.app_state.all_knowledge = self.backend.list_knowledge().unwrap_or_default();
+        self.app_state.all_sessions = self.backend.list_sessions().unwrap_or_default();
+        self.app_state.all_compliance = self.backend.list_compliance().unwrap_or_default();
+        self.app_state.all_rules = self.backend.list_rules().unwrap_or_default();
+        self.app_state.all_standards = self.backend.list_standards().unwrap_or_default();
+        self.app_state.all_state_reflections =
+            self.backend.list_state_reflections().unwrap_or_default();
+        self.app_state.all_escalations = self.backend.list_escalations().unwrap_or_default();
+        self.app_state.all_sandboxes = self.backend.list_sandboxes().unwrap_or_default();
+        self.app_state.all_execution_results =
+            self.backend.list_execution_results().unwrap_or_default();
+        self.app_state.all_progressive_configs =
+            self.backend.list_progressive_configs().unwrap_or_default();
+
         let rels = self.backend.list_relationships().unwrap_or_default();
         let title_map = build_title_map(
             &self.app_state.all_tasks,
             &self.app_state.contexts,
             &self.app_state.all_reasoning,
+            &self.app_state.all_adrs,
+            &self.app_state.all_theories,
+            &self.app_state.all_workflows,
+            &self.app_state.all_workflow_instances,
+            &self.app_state.all_knowledge,
+            &self.app_state.all_sessions,
+            &self.app_state.all_compliance,
+            &self.app_state.all_rules,
+            &self.app_state.all_standards,
+            &self.app_state.all_state_reflections,
+            &self.app_state.all_escalations,
         );
         self.app_state.relationship_nodes = build_relationship_nodes(&rels, &title_map);
     }
@@ -146,6 +176,12 @@ impl<S: Storage + RelationshipStorage + Send + 'static> LocusTuiApp<S> {
             Action::CycleTaskStatus => {
                 self.cycle_selected_task_status();
             }
+            Action::CycleAdrStatus => {
+                if let Some((id, new_status)) = self.app_state.cycle_selected_adr_status() {
+                    let _ = self.backend.update_adr_status(&id, new_status);
+                    self.app_state.set_status("ADR status updated".to_string());
+                }
+            }
             Action::EnterSearchMode => {
                 self.app_state.search_mode = true;
                 self.app_state.search_query.clear();
@@ -157,39 +193,72 @@ impl<S: Storage + RelationshipStorage + Send + 'static> LocusTuiApp<S> {
             Action::SearchQueryChar(_) | Action::RunSearch => {
                 self.app_state.run_search();
             }
+            Action::OpenEntityDetail => {
+                // Set a status message describing the selected entity.
+                // Full detail is rendered by ui.rs based on active view + selected index.
+                self.app_state
+                    .set_status("Press Esc to go back".to_string());
+            }
+            Action::OpenSearchResult => {
+                if let Some(result) = self
+                    .app_state
+                    .search_results
+                    .get(self.app_state.search_result_selected)
+                {
+                    self.app_state
+                        .set_status(format!("[{}] {}", result.entity_type, result.title));
+                }
+            }
         }
     }
 
     /// Cycle the status of the currently selected task: Todo -> InProgress -> Done -> Todo.
     fn cycle_selected_task_status(&mut self) {
         let idx = self.app_state.selected_index;
-        if let Some(row) = self.app_state.recent_tasks.get_mut(idx) {
-            let next_status = match row.status.as_str() {
-                "todo" => "in_progress",
-                "in_progress" => "done",
-                "done" => "todo",
-                _ => "todo",
-            };
-            row.status = next_status.to_string();
+        let persist: Option<(String, TaskStatus)> =
+            if let Some(row) = self.app_state.recent_tasks.get_mut(idx) {
+                let next_status = match row.status.as_str() {
+                    "todo" => "in_progress",
+                    "in_progress" => "done",
+                    "done" => "todo",
+                    _ => "todo",
+                };
+                row.status = next_status.to_string();
 
-            // Also update the full entity if available
-            let row_id = row.id.clone();
-            if let Some(task) = self.app_state.all_tasks.iter_mut().find(|t| {
-                t.id == row_id
-                    || t.id.starts_with(&row_id)
-                    || row_id.starts_with(&t.id[..8.min(t.id.len())])
-            }) {
-                task.status = match next_status {
+                // Also update the full entity if available
+                let row_id = row.id.clone();
+                if let Some(task) = self.app_state.all_tasks.iter_mut().find(|t| {
+                    t.id == row_id
+                        || t.id.starts_with(&row_id)
+                        || row_id.starts_with(&t.id[..8.min(t.id.len())])
+                }) {
+                    task.status = match next_status {
+                        "todo" => TaskStatus::Todo,
+                        "in_progress" => TaskStatus::InProgress,
+                        "done" => TaskStatus::Done,
+                        _ => TaskStatus::Todo,
+                    };
+                }
+
+                // Recompute summary
+                let rows: Vec<_> = self.app_state.recent_tasks.clone();
+                self.app_state.task_summary = compute_summary(&rows);
+
+                // Capture values needed for backend persistence (released after this block)
+                let status_enum = match next_status {
                     "todo" => TaskStatus::Todo,
                     "in_progress" => TaskStatus::InProgress,
                     "done" => TaskStatus::Done,
                     _ => TaskStatus::Todo,
                 };
-            }
+                Some((row_id, status_enum))
+            } else {
+                None
+            };
 
-            // Recompute summary
-            let rows: Vec<_> = self.app_state.recent_tasks.clone();
-            self.app_state.task_summary = compute_summary(&rows);
+        // Persist to backend (borrow of app_state released above)
+        if let Some((row_id, status_enum)) = persist {
+            let _ = self.backend.update_task_status(&row_id, status_enum);
         }
     }
 

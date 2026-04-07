@@ -4,7 +4,11 @@
 //! the real engram storage layer. The trait is object-safe so
 //! callers can hold `Box<dyn LocusTuiBackend>`.
 
-use crate::entities::{Context, EntityRelationship, Reasoning, Task, Theory, ADR};
+use crate::entities::{
+    AgentSandbox, Compliance, Context, EntityRelationship, EscalationRequest, ExecutionResult,
+    Knowledge, ProgressiveGateConfig, Reasoning, Rule, Session, Standard, StateReflection, Task,
+    Theory, Workflow, WorkflowInstance, ADR,
+};
 use crate::error::EngramError;
 use crate::storage::{RelationshipStorage, Storage};
 
@@ -20,6 +24,28 @@ pub trait LocusTuiBackend: Send {
     fn list_relationships(&self) -> Result<Vec<EntityRelationship>, EngramError>;
     fn list_adrs(&self) -> Result<Vec<ADR>, EngramError>;
     fn list_theories(&self) -> Result<Vec<Theory>, EngramError>;
+    fn list_workflows(&self) -> Result<Vec<Workflow>, EngramError>;
+    fn list_workflow_instances(&self) -> Result<Vec<WorkflowInstance>, EngramError>;
+    fn list_knowledge(&self) -> Result<Vec<Knowledge>, EngramError>;
+    fn list_sessions(&self) -> Result<Vec<Session>, EngramError>;
+    fn list_compliance(&self) -> Result<Vec<Compliance>, EngramError>;
+    fn list_rules(&self) -> Result<Vec<Rule>, EngramError>;
+    fn list_standards(&self) -> Result<Vec<Standard>, EngramError>;
+    fn list_state_reflections(&self) -> Result<Vec<StateReflection>, EngramError>;
+    fn list_escalations(&self) -> Result<Vec<EscalationRequest>, EngramError>;
+    fn list_sandboxes(&self) -> Result<Vec<AgentSandbox>, EngramError>;
+    fn list_execution_results(&self) -> Result<Vec<ExecutionResult>, EngramError>;
+    fn list_progressive_configs(&self) -> Result<Vec<ProgressiveGateConfig>, EngramError>;
+    fn update_adr_status(
+        &mut self,
+        id: &str,
+        status: crate::entities::AdrStatus,
+    ) -> Result<(), Box<dyn std::error::Error>>;
+    fn update_task_status(
+        &mut self,
+        id: &str,
+        status: crate::entities::TaskStatus,
+    ) -> Result<(), Box<dyn std::error::Error>>;
 }
 
 /// Generic backend backed by any `Storage + RelationshipStorage`.
@@ -90,6 +116,147 @@ impl<S: Storage + RelationshipStorage + Send> LocusTuiBackend for EngramBackend<
             .filter_map(|e| serde_json::from_value::<Theory>(e.data).ok())
             .collect();
         Ok(theories)
+    }
+
+    fn list_workflows(&self) -> Result<Vec<Workflow>, EngramError> {
+        let entities = self.storage.get_all("workflow")?;
+        Ok(entities
+            .into_iter()
+            .filter_map(|e| serde_json::from_value::<Workflow>(e.data).ok())
+            .collect())
+    }
+
+    fn list_workflow_instances(&self) -> Result<Vec<WorkflowInstance>, EngramError> {
+        let entities = self.storage.get_all("workflow_instance")?;
+        Ok(entities
+            .into_iter()
+            .filter_map(|e| serde_json::from_value::<WorkflowInstance>(e.data).ok())
+            .collect())
+    }
+
+    fn list_knowledge(&self) -> Result<Vec<Knowledge>, EngramError> {
+        let entities = self.storage.get_all("knowledge")?;
+        Ok(entities
+            .into_iter()
+            .filter_map(|e| serde_json::from_value::<Knowledge>(e.data).ok())
+            .collect())
+    }
+
+    fn list_sessions(&self) -> Result<Vec<Session>, EngramError> {
+        let entities = self.storage.get_all("session")?;
+        Ok(entities
+            .into_iter()
+            .filter_map(|e| serde_json::from_value::<Session>(e.data).ok())
+            .collect())
+    }
+
+    fn list_compliance(&self) -> Result<Vec<Compliance>, EngramError> {
+        let entities = self.storage.get_all("compliance")?;
+        Ok(entities
+            .into_iter()
+            .filter_map(|e| serde_json::from_value::<Compliance>(e.data).ok())
+            .collect())
+    }
+
+    fn list_rules(&self) -> Result<Vec<Rule>, EngramError> {
+        let entities = self.storage.get_all("rule")?;
+        Ok(entities
+            .into_iter()
+            .filter_map(|e| serde_json::from_value::<Rule>(e.data).ok())
+            .collect())
+    }
+
+    fn list_standards(&self) -> Result<Vec<Standard>, EngramError> {
+        let entities = self.storage.get_all("standard")?;
+        Ok(entities
+            .into_iter()
+            .filter_map(|e| serde_json::from_value::<Standard>(e.data).ok())
+            .collect())
+    }
+
+    fn list_state_reflections(&self) -> Result<Vec<StateReflection>, EngramError> {
+        let entities = self.storage.get_all("state_reflection")?;
+        Ok(entities
+            .into_iter()
+            .filter_map(|e| serde_json::from_value::<StateReflection>(e.data).ok())
+            .collect())
+    }
+
+    fn list_escalations(&self) -> Result<Vec<EscalationRequest>, EngramError> {
+        let entities = self.storage.get_all("escalation_request")?;
+        Ok(entities
+            .into_iter()
+            .filter_map(|e| serde_json::from_value::<EscalationRequest>(e.data).ok())
+            .collect())
+    }
+
+    fn list_sandboxes(&self) -> Result<Vec<AgentSandbox>, EngramError> {
+        let entities = self.storage.get_all("agent_sandbox")?;
+        Ok(entities
+            .into_iter()
+            .filter_map(|e| serde_json::from_value::<AgentSandbox>(e.data).ok())
+            .collect())
+    }
+
+    fn list_execution_results(&self) -> Result<Vec<ExecutionResult>, EngramError> {
+        let entities = self.storage.get_all("execution_result")?;
+        Ok(entities
+            .into_iter()
+            .filter_map(|e| serde_json::from_value::<ExecutionResult>(e.data).ok())
+            .collect())
+    }
+
+    fn list_progressive_configs(&self) -> Result<Vec<ProgressiveGateConfig>, EngramError> {
+        let entities = self.storage.get_all("progressive_gate_config")?;
+        Ok(entities
+            .into_iter()
+            .filter_map(|e| serde_json::from_value::<ProgressiveGateConfig>(e.data).ok())
+            .collect())
+    }
+
+    fn update_adr_status(
+        &mut self,
+        id: &str,
+        status: crate::entities::AdrStatus,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let adrs = self.list_adrs()?;
+        if let Some(mut adr) = adrs
+            .into_iter()
+            .find(|a| a.id == id || a.id.starts_with(id))
+        {
+            adr.status = status;
+            let entity = crate::entities::GenericEntity {
+                id: adr.id.clone(),
+                entity_type: "adr".to_string(),
+                agent: adr.agent.clone(),
+                timestamp: adr.created_at,
+                data: serde_json::to_value(&adr)?,
+            };
+            self.storage.store(&entity)?;
+        }
+        Ok(())
+    }
+
+    fn update_task_status(
+        &mut self,
+        id: &str,
+        status: crate::entities::TaskStatus,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let tasks = self.list_tasks()?;
+        if let Some(mut task) = tasks.into_iter().find(|t| {
+            t.id == id || t.id.starts_with(id) || id.starts_with(&t.id[..8.min(t.id.len())])
+        }) {
+            task.status = status;
+            let entity = crate::entities::GenericEntity {
+                id: task.id.clone(),
+                entity_type: "task".to_string(),
+                agent: task.agent.clone(),
+                timestamp: task.start_time,
+                data: serde_json::to_value(&task)?,
+            };
+            self.storage.store(&entity)?;
+        }
+        Ok(())
     }
 }
 
