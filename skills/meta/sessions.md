@@ -132,8 +132,18 @@ engram ask query "implementer auth session summary"
 engram session end --id <NEW_SESSION_ID> --generate-summary
 ```
 
+## Sync Integration
+
+Sessions and sync work together at session boundaries. The full protocol is codified in two dedicated skills:
+
+- **`engram-session-start`** — pull from remote before opening a session
+- **`engram-session-end`** — push to remote after generating the session summary
+
+Use these skills instead of the manual steps in this document when working in a synced (multi-repo or multi-agent) environment.
+
 ## Key Principles
 
+0. **Sync before starting** — always pull before opening a session if a remote is configured. See `engram-session-start`.
 1. **Always start a session** — before any work, `engram session start`.
 2. **Name sessions meaningfully** — include your agent role and the feature or goal.
 3. **End with `--generate-summary`** — the summary is the handoff artifact.
@@ -142,6 +152,9 @@ engram session end --id <NEW_SESSION_ID> --generate-summary
 
 ## Related Skills
 
+- `engram-session-start` — pull + session open + context load protocol
+- `engram-session-end` — task close + summary + push + validate protocol
+- `engram-sync` — remote sync reference
 - `engram-use-engram-memory` — storing context, reasoning, ADRs within a session
 - `engram-orchestrator` — orchestration loop that uses sessions for each dispatch
 - `engram-subagent-register` — subagent session registration on task claim

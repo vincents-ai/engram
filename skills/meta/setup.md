@@ -31,6 +31,14 @@ git init
 # 2. Create the engram workspace — stores metadata in .engram/
 engram setup workspace
 
+# 2b. Configure a remote (if your engram store should sync to a shared git repo)
+#     Skip this step for local-only workspaces
+engram sync add-remote origin https://github.com/org/project-engram.git
+# or SSH:
+engram sync add-remote origin git@github.com:org/project-engram.git \
+  --auth-type ssh \
+  --ssh-key ~/.ssh/id_ed25519
+
 # 3. Register the agent working in this repo
 #    --agent-type accepts any string — coder | reviewer | planner are defaults only
 engram setup agent \
@@ -236,6 +244,9 @@ feat: scaffold project layout [<TASK_UUID>]
 
 ## Related Skills
 
+- `engram-sync` — full remote sync reference
+- `engram-session-start` — session start protocol with pull
+- `engram-session-end` — session end protocol with push
 - `engram-use-engram-memory` — full command reference for context, reasoning, ADR, and relationships
 - `engram-orchestrator` — agent coordination loop
 - `engram-subagent-register` — how to claim and complete an assigned task UUID
