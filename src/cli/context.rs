@@ -539,8 +539,10 @@ mod tests {
     #[test]
     fn test_create_context_json_invalid() {
         let mut storage = create_test_storage();
-        // Malformed JSON should fail
-        let _result = create_context(
+        // Write a temp file with malformed JSON and verify create_context returns a Validation error
+        let tmp = std::env::temp_dir().join("test_create_context_json_invalid.json");
+        std::fs::write(&tmp, "{ not valid json }").unwrap();
+        let result = create_context(
             &mut storage,
             None,
             None,
@@ -553,14 +555,11 @@ mod tests {
             None,
             false,
             None,
-            true, // enable JSON mode
-            None, // but no file, so it tries stdin (which we can't easily mock here without redirection)
-                  // For unit tests, testing `create_context_from_input` directly is safer for JSON logic
-                  // or mocking the file read.
+            true,                                    // enable JSON mode
+            Some(tmp.to_string_lossy().to_string()), // provide invalid JSON file
         );
-        // Since we can't easily pipe stdin in unit tests for this function signature without refactoring,
-        // we'll rely on testing logic through `create_context_from_input`.
-        // However, we can test JSON file reading if we write a temp file.
+        assert!(matches!(result, Err(EngramError::Validation(_))));
+        let _ = std::fs::remove_file(&tmp);
     }
 
     #[test]
