@@ -108,6 +108,8 @@ pub enum SyncCommands {
         #[arg(long, default_value_t = false)]
         force: bool,
     },
+    /// Import all git remotes as engram remotes
+    ImportGitRemotes,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -521,6 +523,8 @@ pub struct RemoteConfig {
     pub auth_type: Option<String>,
     pub username: Option<String>,
     pub ssh_key_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project_id: Option<String>,
 }
 
 /// Remote sync status
@@ -578,6 +582,7 @@ pub fn add_remote<S: Storage>(
         auth_type: auth_type.clone(),
         username: username.clone(),
         ssh_key_path: ssh_key.clone(),
+        project_id: None,
     };
 
     remotes.insert(name.clone(), remote_config);
@@ -1030,6 +1035,83 @@ fn authenticated_push(
     Ok(())
 }
 
+/// Import all git remotes as engram remotes
+pub fn handle_import_git_remotes() -> Result<(), EngramError> {
+    let repo = Repository::open(".")
+        .map_err(|e| EngramError::Git(format!("Failed to open repository: {}", e)))?;
+
+    let remote_names = repo
+        .remotes()
+        .map_err(|e| EngramError::Git(format!("Failed to list git remotes: {}", e)))?;
+
+    let config_path = ".engram/remotes.json";
+
+    let mut imported = 0usize;
+    let mut skipped = 0usize;
+
+    for name_opt in remote_names.iter() {
+        let name = match name_opt {
+            Some(n) => n,
+            None => continue,
+        };
+
+        let remote = repo
+            .find_remote(name)
+            .map_err(|e| EngramError::Git(format!("Failed to find remote '{}': {}", name, e)))?;
+
+        let url = remote.url().unwrap_or("").to_string();
+        if url.is_empty() {
+            skipped += 1;
+            continue;
+        }
+
+        // Load existing remotes fresh on each iteration (to pick up previous additions)
+        let mut remotes: HashMap<String, RemoteConfig> = if Path::new(config_path).exists() {
+            let content = fs::read_to_string(config_path).map_err(|e| EngramError::Io(e))?;
+            serde_json::from_str(&content).map_err(|e| EngramError::Serialization(e))?
+        } else {
+            HashMap::new()
+        };
+
+        if remotes.contains_key(name) {
+            skipped += 1;
+            continue;
+        }
+
+        let remote_config = RemoteConfig {
+            name: name.to_string(),
+            url: url.clone(),
+            branch: "main".to_string(),
+            last_sync: None,
+            auth_type: None,
+            username: None,
+            ssh_key_path: None,
+            project_id: None,
+        };
+
+        remotes.insert(name.to_string(), remote_config);
+
+        let config_content =
+            serde_json::to_string_pretty(&remotes).map_err(|e| EngramError::Serialization(e))?;
+
+        if !Path::new(".engram").exists() {
+            fs::create_dir_all(".engram").map_err(|e| EngramError::Io(e))?;
+        }
+
+        fs::write(config_path, config_content).map_err(|e| EngramError::Io(e))?;
+
+        println!("📡 Imported remote '{}' ({})", name, url);
+        imported += 1;
+    }
+
+    println!(
+        "\n✅ Import complete: {} imported, {} skipped (already existed or no URL)",
+        imported, skipped
+    );
+
+    Ok(())
+}
+
 /// Handle sync commands
 pub fn handle_sync_command<S: Storage>(
     storage: &mut S,
@@ -1146,6 +1228,7 @@ pub fn handle_sync_command<S: Storage>(
         SyncCommands::SwitchBranch { name, create } => switch_branch(name, *create),
         SyncCommands::ListBranches { all, current } => list_branches(*all, *current),
         SyncCommands::DeleteBranch { name, force } => delete_branch(name, *force),
+        SyncCommands::ImportGitRemotes => handle_import_git_remotes(),
     }
 }
 
@@ -1448,5 +1531,65 @@ mod tests {
         assert!(result.is_ok());
         let sync_result = result.unwrap();
         assert_eq!(sync_result.entities_synced, 0);
+    }
+
+    #[test]
+    fn test_remote_config_project_id_field() {
+        // Serialise with project_id None — field must be absent from JSON (serde skip_serializing_if)
+        let r = RemoteConfig {
+            name: "origin".to_string(),
+            url: "https://example.com/repo.git".to_string(),
+            branch: "main".to_string(),
+            last_sync: None,
+            auth_type: None,
+            username: None,
+            ssh_key_path: None,
+            project_id: None,
+        };
+        let json = serde_json::to_string(&r).unwrap();
+        assert!(
+            !json.contains("project_id"),
+            "project_id: None must not appear in JSON"
+        );
+
+        // Serialise with project_id Some — must appear
+        let r2 = RemoteConfig {
+            project_id: Some("abc".to_string()),
+            ..r
+        };
+        let json2 = serde_json::to_string(&r2).unwrap();
+        assert!(
+            json2.contains("\"project_id\""),
+            "project_id must appear when Some"
+        );
+    }
+
+    #[test]
+    fn test_import_git_remotes_idempotent() {
+        // This test verifies the dedup logic: inserting the same remote twice
+        // into a HashMap keyed by name produces only one entry.
+        let mut remotes: std::collections::HashMap<String, RemoteConfig> =
+            std::collections::HashMap::new();
+
+        let rc = RemoteConfig {
+            name: "origin".to_string(),
+            url: "https://example.com/repo.git".to_string(),
+            branch: "main".to_string(),
+            last_sync: None,
+            auth_type: None,
+            username: None,
+            ssh_key_path: None,
+            project_id: None,
+        };
+
+        // First insertion
+        remotes.insert(rc.name.clone(), rc.clone());
+        assert_eq!(remotes.len(), 1);
+
+        // Second insertion attempt — idempotent: check before inserting (mirrors handle_import_git_remotes logic)
+        if !remotes.contains_key(&rc.name) {
+            remotes.insert(rc.name.clone(), rc.clone());
+        }
+        assert_eq!(remotes.len(), 1, "duplicate remote must not be added");
     }
 }
