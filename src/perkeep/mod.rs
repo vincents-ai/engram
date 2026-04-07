@@ -212,13 +212,8 @@ mod tests {
         let mut refs = HashMap::new();
         refs.insert("task-1".to_string(), "sha256-aaa".to_string());
 
-        let metadata = EngramBackupMetadata::new(
-            5,
-            vec!["task".to_string()],
-            refs,
-            2048,
-            "test".to_string(),
-        );
+        let metadata =
+            EngramBackupMetadata::new(5, vec!["task".to_string()], refs, 2048, "test".to_string());
 
         let json = serde_json::to_string(&metadata).unwrap();
         let parsed: EngramBackupMetadata = serde_json::from_str(&json).unwrap();
@@ -238,8 +233,14 @@ mod tests {
 
         let client = PerkeepClient::new(config).unwrap();
         assert_eq!(client.server_url(), "http://example.com/perkeep");
-        assert_eq!(client.upload_url(), "http://example.com/perkeep/blob/upload");
-        assert_eq!(client.search_url(), "http://example.com/perkeep/search/query");
+        assert_eq!(
+            client.upload_url(),
+            "http://example.com/perkeep/blob/upload"
+        );
+        assert_eq!(
+            client.search_url(),
+            "http://example.com/perkeep/search/query"
+        );
     }
 
     #[test]
@@ -271,13 +272,7 @@ mod tests {
 
     #[test]
     fn test_backup_metadata_empty_types() {
-        let metadata = EngramBackupMetadata::new(
-            0,
-            vec![],
-            HashMap::new(),
-            0,
-            "agent".to_string(),
-        );
+        let metadata = EngramBackupMetadata::new(0, vec![], HashMap::new(), 0, "agent".to_string());
         assert_eq!(metadata.entity_count, 0);
         assert!(metadata.entity_types.is_empty());
         assert!(metadata.entity_blob_refs.is_empty());

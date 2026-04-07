@@ -117,7 +117,12 @@ async fn run() -> Result<(), EngramError> {
         cli::Commands::Migration => handle_migration_command()?,
         cli::Commands::Guide { command } => handle_help_command(command)?,
         cli::Commands::Skills { command } => match command {
-            cli::SkillsCommands::Setup { force, dir, tool, source } => {
+            cli::SkillsCommands::Setup {
+                force,
+                dir,
+                tool,
+                source,
+            } => {
                 cli::handle_skills_command(
                     &mut std::io::stdout(),
                     force,
@@ -276,7 +281,9 @@ fn handle_test_command() -> Result<(), EngramError> {
 }
 
 /// Handle task commands
-fn handle_task_command<S: engram::storage::Storage + engram::storage::RelationshipStorage + 'static>(
+fn handle_task_command<
+    S: engram::storage::Storage + engram::storage::RelationshipStorage + 'static,
+>(
     command: cli::TaskCommands,
     storage: &mut S,
 ) -> Result<(), EngramError> {
