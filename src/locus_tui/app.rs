@@ -124,6 +124,31 @@ pub enum ActiveView {
     Sandboxes,
     ExecutionResults,
     ProgressiveConfigs,
+    Sync,
+}
+
+/// State for the Sync view.
+#[derive(Debug, Clone, Default)]
+pub struct SyncViewState {
+    /// Configured remote names (populated by load_sync_data).
+    pub remotes: Vec<String>,
+    /// Selected row in the remotes list.
+    pub remotes_selected: usize,
+    /// Last sync status rows (type, local_count, remote_count, conflicts).
+    pub status_rows: Vec<SyncStatusRow>,
+    /// Last operation result message (e.g. "push: 4 refs pushed").
+    pub last_op_result: Option<String>,
+    /// Whether a sync operation is currently in flight.
+    pub op_in_flight: bool,
+}
+
+/// A single row in the sync status table.
+#[derive(Debug, Clone)]
+pub struct SyncStatusRow {
+    pub entity_type: String,
+    pub local_count: usize,
+    pub remote_count: usize,
+    pub conflicts: usize,
 }
 
 impl ActiveView {
@@ -151,6 +176,7 @@ impl ActiveView {
             ExecutionResults,
             ProgressiveConfigs,
             Search,
+            Sync,
         ]
     }
 
@@ -248,6 +274,8 @@ pub struct AppState {
     pub execution_results_selected: usize,
     pub all_progressive_configs: Vec<ProgressiveGateConfig>,
     pub progressive_configs_selected: usize,
+    /// State for the Sync view.
+    pub sync_view: SyncViewState,
 }
 
 impl AppState {
@@ -309,6 +337,7 @@ impl AppState {
             execution_results_selected: 0,
             all_progressive_configs: Vec::new(),
             progressive_configs_selected: 0,
+            sync_view: SyncViewState::default(),
         }
     }
 
@@ -858,7 +887,7 @@ mod tests {
     fn test_next_view_cycles_through_all_variants() {
         // all() order: Dashboard, Tasks, Reasoning, Relationships, Contexts, Adrs, Theories,
         // Workflows, WorkflowInstances, Knowledge, Sessions, Compliance, Rules, Standards,
-        // StateReflections, Escalations, Sandboxes, ExecutionResults, ProgressiveConfigs, Search
+        // StateReflections, Escalations, Sandboxes, ExecutionResults, ProgressiveConfigs, Search, Sync
         let mut state = AppState::new();
         assert_eq!(state.active_view, ActiveView::Dashboard);
         state.next_view();
@@ -899,17 +928,21 @@ mod tests {
         assert_eq!(state.active_view, ActiveView::ProgressiveConfigs);
         state.next_view();
         assert_eq!(state.active_view, ActiveView::Search);
-        // Should wrap back to Dashboard on step 21
+        state.next_view();
+        assert_eq!(state.active_view, ActiveView::Sync);
+        // Should wrap back to Dashboard on step 22
         state.next_view();
         assert_eq!(state.active_view, ActiveView::Dashboard);
     }
 
     #[test]
     fn test_prev_view_cycles_backward() {
-        // Reverse of all() order, last element is Search
+        // Reverse of all() order, last element is Sync
         let mut state = AppState::new();
         assert_eq!(state.active_view, ActiveView::Dashboard);
-        // Going backward from Dashboard should wrap to Search (last in all())
+        // Going backward from Dashboard should wrap to Sync (last in all())
+        state.prev_view();
+        assert_eq!(state.active_view, ActiveView::Sync);
         state.prev_view();
         assert_eq!(state.active_view, ActiveView::Search);
         state.prev_view();

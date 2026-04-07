@@ -137,6 +137,39 @@ engram sync pull --remote origin --branch agent-a-feature-xyz
 engram sync delete-branch agent-a-feature-xyz
 ```
 
+## Session Boundary Pattern
+
+The most important use of sync is at session boundaries. Every agent session should begin with a pull and end with a push.
+
+### Session Start (pull)
+
+```bash
+# 1. Check remotes
+engram sync list-remotes
+
+# 2. If remotes configured: pull before doing anything
+engram sync pull --remote origin --dry-run
+engram sync pull --remote origin
+
+# 3. Then open your session
+engram session start --name "<agent>-<goal>"
+```
+
+### Session End (push)
+
+```bash
+# 1. Generate session summary first
+engram session end --id <SESSION_ID> --generate-summary
+
+# 2. Then push — summary is now included in the push
+engram sync push --remote origin --dry-run
+engram sync push --remote origin
+```
+
+**Why this order matters:** generating the summary before pushing ensures the next agent who pulls gets the full handoff context, not just the raw entity data.
+
+See `engram-session-start` and `engram-session-end` for the full protocol.
+
 ## Example: Multi-Agent Pipeline with Remote Backup
 
 ```

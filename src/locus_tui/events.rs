@@ -39,6 +39,11 @@ pub enum Action {
     RunSearch,
     OpenEntityDetail,
     OpenSearchResult,
+    // Sync view actions
+    SyncPull,
+    SyncPush,
+    SyncBoth,
+    RefreshSyncStatus,
 }
 
 /// Map a raw crossterm `KeyEvent` to a `KeyAction`.
@@ -221,6 +226,12 @@ fn handle_key(app: &mut AppState, key: KeyEvent) -> (bool, Option<Action>) {
                 if len > 0 {
                     app.search_result_selected = (app.search_result_selected + 1).min(len - 1);
                 }
+            } else if app.active_view == ActiveView::Sync {
+                let len = app.sync_view.remotes.len();
+                if len > 0 {
+                    app.sync_view.remotes_selected =
+                        (app.sync_view.remotes_selected + 1).min(len - 1);
+                }
             } else {
                 app.select_next();
             }
@@ -268,6 +279,8 @@ fn handle_key(app: &mut AppState, key: KeyEvent) -> (bool, Option<Action>) {
                     app.progressive_configs_selected.saturating_sub(1);
             } else if app.active_view == ActiveView::Search {
                 app.search_result_selected = app.search_result_selected.saturating_sub(1);
+            } else if app.active_view == ActiveView::Sync {
+                app.sync_view.remotes_selected = app.sync_view.remotes_selected.saturating_sub(1);
             } else {
                 app.select_prev();
             }
@@ -312,6 +325,8 @@ fn handle_key(app: &mut AppState, key: KeyEvent) -> (bool, Option<Action>) {
                 app.execution_results_selected = 0;
             } else if app.active_view == ActiveView::ProgressiveConfigs {
                 app.progressive_configs_selected = 0;
+            } else if app.active_view == ActiveView::Sync {
+                app.sync_view.remotes_selected = 0;
             } else {
                 app.selected_index = 0;
             }
@@ -412,6 +427,11 @@ fn handle_key(app: &mut AppState, key: KeyEvent) -> (bool, Option<Action>) {
                 if len > 0 {
                     app.progressive_configs_selected = len - 1;
                 }
+            } else if app.active_view == ActiveView::Sync {
+                let len = app.sync_view.remotes.len();
+                if len > 0 {
+                    app.sync_view.remotes_selected = len - 1;
+                }
             } else {
                 let len = app.recent_tasks.len();
                 app.select_bottom_of(len);
@@ -489,7 +509,29 @@ fn handle_key(app: &mut AppState, key: KeyEvent) -> (bool, Option<Action>) {
             }
         }
         KeyAction::NextView => app.next_view(),
-        KeyAction::Char(_) | KeyAction::Unknown => {}
+        KeyAction::Char(c) => {
+            if app.active_view == ActiveView::Sync {
+                match c {
+                    'p' => return (true, Some(Action::SyncPull)),
+                    'u' => return (true, Some(Action::SyncPush)),
+                    'b' => return (true, Some(Action::SyncBoth)),
+                    'R' => return (true, Some(Action::RefreshSyncStatus)),
+                    'j' => {
+                        let len = app.sync_view.remotes.len();
+                        if len > 0 {
+                            app.sync_view.remotes_selected =
+                                (app.sync_view.remotes_selected + 1).min(len - 1);
+                        }
+                    }
+                    'k' => {
+                        app.sync_view.remotes_selected =
+                            app.sync_view.remotes_selected.saturating_sub(1);
+                    }
+                    _ => {}
+                }
+            }
+        }
+        KeyAction::Unknown => {}
     }
     (!app.should_quit, None)
 }
@@ -640,6 +682,12 @@ fn handle_mouse(app: &mut AppState, mouse: crossterm::event::MouseEvent) -> (boo
                         }
                     }
                     ActiveView::Search => {}
+                    ActiveView::Sync => {
+                        let len = app.sync_view.remotes.len();
+                        if item_idx < len {
+                            app.sync_view.remotes_selected = item_idx;
+                        }
+                    }
                 }
             }
         }

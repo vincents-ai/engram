@@ -25,6 +25,8 @@ Use this skill when:
 ```
 New Task Received
     ↓
+0. SYNC — engram sync pull (if remote configured)
+    ↓
 1. SEARCH — engram ask query / engram task show
     ↓
 2. PLAN — engram task create (hierarchy with --parent)
@@ -46,10 +48,29 @@ Ready to finish? → NO → engram next → back to step 3
     ↓
 9. CLOSE — engram task update --status done
     ↓
-10. REPLY — respond to the user
+10. SYNC — engram sync push (if remote configured)
+    ↓
+11. REPLY — respond to the user
 ```
 
 ## The Pattern
+
+### 0. Sync Before Searching
+
+Before searching engram, pull the latest state from the remote (if one is configured):
+
+```bash
+# Check if remotes are configured
+engram sync list-remotes
+
+# If remotes exist: pull first
+engram sync pull --remote origin --dry-run
+engram sync pull --remote origin
+```
+
+If no remotes are configured, skip this step and proceed directly to search.
+
+**Rule:** In a multi-agent or multi-repo environment, another agent may have pushed new tasks, context, or summaries since your last session. Always pull first so your `engram ask query` results are current.
 
 ### 1. Search Before Anything
 
@@ -178,6 +199,7 @@ engram task update <PARENT_UUID> --status done --outcome "<summary>"
 
 ## Orchestrator Rules
 
+0. **Sync first** — `engram sync pull` before searching if a remote is configured.
 1. **Search first** — `engram ask query` before every action.
 2. **Dispatch by UUID** — subagents pull their own context; you don't push it.
 3. **Record decisions, not just actions** — use `adr` for architectural choices, `reasoning` for logic chains.
@@ -185,6 +207,7 @@ engram task update <PARENT_UUID> --status done --outcome "<summary>"
 5. **Write before responding** — store all findings and decisions in engram **before** replying to the user. See `engram-write-before-responding`.
 6. **Validate before closing** — `engram validate check` must pass.
 7. **Never hallucinate state** — if it isn't in engram, it is unknown. Query or store it.
+8. **Sync last** — `engram sync push` after closing the task, before replying to the user.
 
 ## Example Session
 
@@ -238,6 +261,9 @@ engram task update abc-001 --status done --outcome "Rate limiting implemented wi
 
 ## Related Skills
 
+- `engram-session-start` — sync pull + session open protocol
+- `engram-session-end` — session close + sync push protocol
+- `engram-sync` — full sync command reference
 - `engram-subagent-register` — what subagents use to claim tasks and report back
 - `engram-write-before-responding` — rule: write to engram before replying to the user
 - `engram-delegate-to-agents` — agent catalog and delegation patterns

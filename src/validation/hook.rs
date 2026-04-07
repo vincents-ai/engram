@@ -46,19 +46,18 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 # Try to find engram binary in multiple locations
 ENGRAM_BIN=""
 
-# First try: relative to repo (if built locally)
-if [ -x "$REPO_ROOT/target/release/engram" ]; then
-    ENGRAM_BIN="$REPO_ROOT/target/release/engram"
-# Second try: PATH
-elif command -v engram >/dev/null 2>&1; then
+# First try: system install (PATH) — always prefer the installed version
+if command -v engram >/dev/null 2>&1; then
     ENGRAM_BIN="engram"
-# Third try: nix result link
+# Second try: nix result link
 elif [ -x "$REPO_ROOT/result/bin/engram" ]; then
     ENGRAM_BIN="$REPO_ROOT/result/bin/engram"
+# Third try: local dev build (fallback only — may be stale/incompatible)
+elif [ -x "$REPO_ROOT/target/release/engram" ]; then
+    ENGRAM_BIN="$REPO_ROOT/target/release/engram"
 else
     echo "❌ Error: engram binary not found"
-    echo "Please ensure engram is built or available in PATH"
-    echo "Try: cargo build --release"
+    echo "Please install engram or run: cargo install --path ."
     exit 1
 fi
 

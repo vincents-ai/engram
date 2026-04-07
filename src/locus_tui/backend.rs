@@ -46,6 +46,13 @@ pub trait LocusTuiBackend: Send {
         id: &str,
         status: crate::entities::TaskStatus,
     ) -> Result<(), Box<dyn std::error::Error>>;
+    /// Return configured remote names (empty if no remotes.json or not a git repo).
+    fn list_remote_names(&self) -> Vec<String>;
+    /// Return sync status rows for the given remote (empty on error or if no remotes configured).
+    fn get_sync_status_data(
+        &self,
+        remote_name: &str,
+    ) -> Result<Vec<crate::locus_tui::app::SyncStatusRow>, EngramError>;
 }
 
 /// Generic backend backed by any `Storage + RelationshipStorage`.
@@ -257,6 +264,40 @@ impl<S: Storage + RelationshipStorage + Send> LocusTuiBackend for EngramBackend<
             self.storage.store(&entity)?;
         }
         Ok(())
+    }
+
+    fn list_remote_names(&self) -> Vec<String> {
+        use std::collections::HashMap;
+        use std::fs;
+        let config_path = ".engram/remotes.json";
+        let Ok(content) = fs::read_to_string(config_path) else {
+            return vec![];
+        };
+        let Ok(remotes) = serde_json::from_str::<HashMap<String, serde_json::Value>>(&content)
+        else {
+            return vec![];
+        };
+        let mut names: Vec<String> = remotes.into_keys().collect();
+        names.sort();
+        names
+    }
+
+    fn get_sync_status_data(
+        &self,
+        remote_name: &str,
+    ) -> Result<Vec<crate::locus_tui::app::SyncStatusRow>, EngramError> {
+        let report = crate::cli::sync::get_sync_status(&mut std::io::sink(), remote_name, false)?;
+        let rows = report
+            .rows
+            .into_iter()
+            .map(|r| crate::locus_tui::app::SyncStatusRow {
+                entity_type: r.entity_type,
+                local_count: r.local_count,
+                remote_count: r.remote_count,
+                conflicts: r.conflicts,
+            })
+            .collect();
+        Ok(rows)
     }
 }
 

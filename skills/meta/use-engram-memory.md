@@ -77,6 +77,36 @@ engram task update <TASK_UUID> --status <todo|in_progress|done|blocked|cancelled
 engram next
 ```
 
+#### Batch Task Creation
+
+When you need to create multiple tasks under a parent (e.g. breaking down a feature into subtasks), use `create-batch` instead of a shell loop:
+
+```bash
+# From a JSON array (stdin) — each object is a TaskInput
+echo '[
+  {"title": "Research: evaluate options", "priority": "high"},
+  {"title": "Implement: core logic", "priority": "high"},
+  {"title": "Test: write integration tests", "priority": "medium"},
+  {"title": "Docs: update README", "priority": "low"}
+]' | engram task create-batch --parent <PARENT_UUID> --output json
+# Returns NDJSON — one {"id": "...", "title": "..."} per line
+
+# From a plain-text file (one title per line) — all tasks get the same priority
+engram task create-batch \
+  --titles-file tasks.txt \
+  --parent <PARENT_UUID> \
+  --priority high \
+  --output ids
+# Returns bare UUIDs one per line — pipe into a loop or store in a variable
+
+# Output modes:
+#   --output json  → NDJSON, one {"id","title"} per line (pipe-friendly)
+#   --output ids   → bare UUIDs one per line (for xargs / shell variables)
+#   --output text  → human-readable summary table
+```
+
+**Rule:** Never use shell for-loops with python3 JSON piping to batch-create tasks. Use `create-batch`.
+
 ### Validation — Run Before Marking Done
 
 ```bash
