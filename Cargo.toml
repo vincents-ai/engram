@@ -103,6 +103,10 @@ name = "bdd_runner"
 path = "tests/bdd_runner.rs"
 harness = false
 
+[[test]]
+name = "batch_task_tests"
+path = "tests/batch_task_tests.rs"
+
 [lib]
 name = "engram"
 path = "src/lib.rs"

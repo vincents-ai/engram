@@ -139,6 +139,40 @@ pub enum TaskCommands {
         #[arg(long, short)]
         message: Option<String>,
     },
+    /// Create multiple tasks in a single batch operation
+    CreateBatch {
+        /// Read JSON array of TaskInput objects from a file
+        #[arg(long, conflicts_with_all = ["json", "titles_file"])]
+        file: Option<String>,
+
+        /// Read JSON array of TaskInput objects from stdin
+        #[arg(long, conflicts_with_all = ["file", "titles_file"])]
+        json: bool,
+
+        /// Read plain-text file with one title per line (blank lines and # comments ignored)
+        #[arg(long, conflicts_with_all = ["file", "json"])]
+        titles_file: Option<String>,
+
+        /// Parent task UUID applied to all tasks in the batch
+        #[arg(long)]
+        parent: Option<String>,
+
+        /// Default priority for tasks that don't specify one
+        #[arg(long, default_value = "medium")]
+        priority: String,
+
+        /// Default agent for tasks that don't specify one
+        #[arg(long)]
+        agent: Option<String>,
+
+        /// Output format: text (summary table), json (NDJSON), ids (bare UUIDs)
+        #[arg(long, default_value = "text")]
+        output: String,
+
+        /// Continue on individual task failure instead of stopping at the first error
+        #[arg(long)]
+        no_fail_fast: bool,
+    },
 }
 
 /// Read content from stdin with a prompt
@@ -309,6 +343,183 @@ pub fn create_task<S: Storage>(
     } else {
         println!("✅ Task created:");
         display_task(&task);
+    }
+
+    Ok(())
+}
+
+/// Create multiple tasks in a batch
+#[allow(clippy::too_many_arguments)]
+pub fn create_task_batch<S: Storage>(
+    storage: &mut S,
+    file: Option<String>,
+    json: bool,
+    titles_file: Option<String>,
+    parent: Option<String>,
+    priority: &str,
+    agent: Option<String>,
+    output_format: &str,
+    no_fail_fast: bool,
+) -> Result<(), EngramError> {
+    // Resolve the list of TaskInput objects from the chosen input source
+    let mut inputs: Vec<TaskInput> = if let Some(ref path) = file {
+        let content = read_file(path)?;
+        serde_json::from_str(&content).map_err(|e| {
+            EngramError::Validation(format!("Invalid JSON array in file '{}': {}", path, e))
+        })?
+    } else if json {
+        let content = read_stdin()?;
+        serde_json::from_str(&content)
+            .map_err(|e| EngramError::Validation(format!("Invalid JSON array from stdin: {}", e)))?
+    } else if let Some(ref path) = titles_file {
+        let content = read_file(path)?;
+        content
+            .lines()
+            .filter(|l| {
+                let trimmed = l.trim();
+                !trimmed.is_empty() && !trimmed.starts_with('#')
+            })
+            .map(|l| TaskInput {
+                title: l.trim().to_string(),
+                description: None,
+                priority: None,
+                agent: None,
+                parent: None,
+                tags: None,
+            })
+            .collect()
+    } else {
+        return Err(EngramError::Validation(
+            "One of --file, --json, or --titles-file is required for create-batch".to_string(),
+        ));
+    };
+
+    if inputs.is_empty() {
+        println!("⚠️  No tasks to create (empty input)");
+        return Ok(());
+    }
+
+    // Apply batch-level defaults
+    for input in &mut inputs {
+        if input.priority.is_none() {
+            input.priority = Some(priority.to_string());
+        }
+        if input.parent.is_none() {
+            input.parent = parent.clone();
+        }
+        if input.agent.is_none() {
+            input.agent = agent.clone();
+        }
+    }
+
+    // Track results for summary table (text mode) and error collection (--no-fail-fast)
+    struct BatchResult {
+        id: String,
+        title: String,
+        ok: bool,
+        error: Option<String>,
+    }
+
+    let mut results: Vec<BatchResult> = Vec::with_capacity(inputs.len());
+    let mut failed: usize = 0;
+
+    let stdout = io::stdout();
+    let mut out = io::BufWriter::new(stdout.lock());
+
+    for input in inputs {
+        let priority_enum = match input.priority.as_deref().unwrap_or("medium") {
+            "low" => TaskPriority::Low,
+            "high" => TaskPriority::High,
+            "critical" => TaskPriority::Critical,
+            _ => TaskPriority::Medium,
+        };
+
+        let mut task = Task::new(
+            input.title.clone(),
+            input.description.unwrap_or_default(),
+            input.agent.unwrap_or_else(|| "default".to_string()),
+            priority_enum,
+            None,
+        );
+
+        if let Some(p) = input.parent {
+            task.parent = Some(p);
+        }
+        if let Some(tags_vec) = input.tags {
+            task.tags = tags_vec;
+        }
+
+        let generic = task.to_generic();
+        match storage.store(&generic) {
+            Ok(_) => {
+                match output_format {
+                    "json" => {
+                        writeln!(
+                            out,
+                            "{{\"id\":\"{}\",\"title\":\"{}\"}}",
+                            task.id,
+                            task.title.replace('\\', "\\\\").replace('"', "\\\"")
+                        )
+                        .map_err(EngramError::Io)?;
+                        out.flush().map_err(EngramError::Io)?;
+                    }
+                    "ids" => {
+                        writeln!(out, "{}", task.id).map_err(EngramError::Io)?;
+                        out.flush().map_err(EngramError::Io)?;
+                    }
+                    _ => {} // text: collect for table at end
+                }
+                results.push(BatchResult {
+                    id: task.id,
+                    title: task.title,
+                    ok: true,
+                    error: None,
+                });
+            }
+            Err(e) => {
+                failed += 1;
+                let err_msg = format!("{}", e);
+                results.push(BatchResult {
+                    id: String::new(),
+                    title: input.title,
+                    ok: false,
+                    error: Some(err_msg),
+                });
+                if !no_fail_fast {
+                    return Err(e);
+                }
+            }
+        }
+    }
+
+    drop(out);
+
+    let created = results.iter().filter(|r| r.ok).count();
+
+    if output_format == "text" {
+        use crate::cli::utils::{create_table, truncate};
+        use prettytable::row;
+        let mut table = create_table();
+        table.set_titles(row!["ID", "Status", "Title"]);
+        for r in &results {
+            if r.ok {
+                table.add_row(row![&r.id[..8], "✅ Created", truncate(&r.title, 50)]);
+            } else {
+                let err_detail = r.error.as_deref().unwrap_or("unknown error");
+                table.add_row(row![
+                    "—",
+                    format!("❌ Failed: {}", truncate(err_detail, 30)),
+                    truncate(&r.title, 50)
+                ]);
+            }
+        }
+        table.printstd();
+    }
+
+    if failed == 0 {
+        println!("✅ {} tasks created", created);
+    } else {
+        println!("⚠️  {} created, {} failed", created, failed);
     }
 
     Ok(())

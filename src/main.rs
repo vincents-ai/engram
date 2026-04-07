@@ -344,6 +344,28 @@ fn handle_task_command<
         cli::TaskCommands::Resolve { id, message } => {
             cli::resolve_task(storage, &id, message.as_deref())?;
         }
+        cli::TaskCommands::CreateBatch {
+            file,
+            json,
+            titles_file,
+            parent,
+            priority,
+            agent,
+            output,
+            no_fail_fast,
+        } => {
+            cli::create_task_batch(
+                storage,
+                file,
+                json,
+                titles_file,
+                parent,
+                &priority,
+                agent,
+                &output,
+                no_fail_fast,
+            )?;
+        }
     }
     Ok(())
 }
