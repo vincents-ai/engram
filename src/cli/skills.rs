@@ -337,7 +337,11 @@ pub fn show_skill(
             let content = std::fs::read_to_string(entry.path())?;
             let preview = String::from_iter(content.lines().take(5));
             if preview.len() > 100 {
-                writeln!(writer, "       {}", &preview[..100])?;
+                let mut end = 100;
+                while end > 0 && !preview.is_char_boundary(end) {
+                    end -= 1;
+                }
+                writeln!(writer, "       {}...", &preview[..end])?;
             } else {
                 writeln!(writer, "       {}", preview)?;
             }
