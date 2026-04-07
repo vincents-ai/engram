@@ -1,74 +1,48 @@
-# OpenCode Configuration Documentation
+> **Note:** This documentation describes multi-agent AI tool configuration patterns. Examples were originally written for OpenCode but the concepts apply to any AI coding tool.
 
-This directory contains comprehensive documentation for configuring OpenCode with specialized AI subagents in any repository.
+# Multi-Agent Configuration Documentation
 
-## What is OpenCode?
-
-OpenCode is an AI-powered development tool that allows you to configure specialized AI agents for different aspects of your project. Each agent has specific capabilities, tools, and prompts tailored to their domain expertise.
+This directory contains comprehensive documentation for configuring your AI coding tool with specialized AI subagents in any repository.
 
 ## Documentation Structure
 
-- **[opencode.json Reference](./opencode-json-reference.md)** - Complete configuration file documentation
 - **[Subagent Architecture](./subagent-architecture.md)** - How to design and implement specialized agents
-- **[Setup Guide](./setup-guide.md)** - Step-by-step implementation instructions
 - **[Best Practices](./best-practices.md)** - Proven patterns and recommendations
-- **[Models](./models.md)** - Available models and selection strategies
-- **[Examples](./examples/)** - Real-world configuration examples
-
-## Real Configuration Examples
-
-This directory includes working examples:
-
-- **[formatters-example.json](./formatters-example.json)** - Complete LSP and formatter configuration
-- **[mcp-example.json](./mcp-example.json)** - Local and remote MCP server setup
-
-## Quick Start
-
-1. Create an `opencode.json` file in your repository root
-2. Define your specialized agents in the `agent` section
-3. Create prompt files in a `prompts/` directory
-4. Configure tools and permissions for each agent
-5. Optionally add LSP servers, formatters, and MCP servers
-6. Test your configuration with `opencode validate`
 
 ## Key Benefits
 
 - **Specialized Expertise**: Each agent focuses on specific domains (frontend, backend, design, etc.)
 - **Consistent Context**: Agents maintain domain-specific knowledge and patterns
 - **Controlled Access**: Fine-grained tool permissions per agent
-- **Enhanced Development**: LSP integration and automatic formatting
-- **Extended Capabilities**: MCP servers for external tool integration
 - **Scalable Workflows**: Multiple agents can work in parallel on different aspects
 - **Reproducible Results**: Consistent prompts and configurations across team members
 
-## Example Configuration
+## The `prompts/` Pattern
 
-```json
-{
-  "$schema": "https://opencode.ai/config.json",
-  "agent": {
-    "frontend-engineer": {
-      "mode": "subagent",
-      "model": "github-copilot/claude-3.5-sonnet",
-      "prompt": "{file:./prompts/frontend-engineer.md}",
-      "tools": {
-        "read": true,
-        "write": true,
-        "edit": true,
-        "bash": true
-      }
-    }
-  },
-  "formatter": {
-    "prettier": {
-      "disabled": false,
-      "command": ["npx", "prettier", "--write", "$FILE"],
-      "extensions": [".js", ".ts", ".jsx", ".tsx", ".json", ".md"]
-    }
-  }
-}
+The recommended approach is to store agent system prompts as individual Markdown files in a `prompts/` directory at the root of your repository. Your AI coding tool configuration then references these files by path.
+
+This pattern:
+- Keeps prompts version-controlled alongside the code they govern
+- Allows per-agent iteration without touching the tool config
+- Makes agent responsibilities visible to the whole team
+
+Example directory layout:
+
+```
+prompts/
+├── README.md                         # Agent overview and index
+├── frontend-typescript-engineer.md
+├── backend-developer.md
+├── devops-engineer.md
+└── researcher.md
 ```
 
 ## Getting Started
 
-Read the [Setup Guide](./setup-guide.md) for detailed implementation instructions, or explore the [Examples](./examples/) directory for real-world configurations you can adapt to your project.
+1. Identify the key domains in your project
+2. Create a `prompts/` directory at your repository root
+3. Write one Markdown prompt file per agent role
+4. Configure your AI coding tool to reference those prompt files
+5. Set per-agent tool permissions following the principle of least privilege
+
+See [Subagent Architecture](./subagent-architecture.md) for design guidance, and [Best Practices](./best-practices.md) for proven configuration patterns.

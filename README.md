@@ -86,7 +86,7 @@ engram setup workspace
 #    Types: operator | implementation | quality_assurance | architecture
 engram setup agent --name "Claude" --agent-type implementation
 
-# 3. Install LLM skills (14 engram-specific skills for OpenCode / other tool-use LLMs)
+# 3. Install LLM skills (14 engram-specific skills for AI coding tools (OpenCode, Claude, Goose, etc.))
 engram skills setup
 
 # 4. Install all skills — 44 skills across planning, architecture, review, debugging, and more
@@ -108,9 +108,9 @@ You do not need to run all of these. A minimal agent setup is steps 1–3. Step 
 |------|---------|-----------------|
 | 1 | `engram setup workspace` | `.engram/` directory + `config.yaml` with default agent roles |
 | 2 | `engram setup agent` | Agent profile YAML in `.engram/agents/` |
-| 3 | `engram skills setup` | 14 core engram skills to `~/.config/opencode/skills/` |
-| 4 | `engram setup skills` | 44 skills (all categories) to `~/.config/opencode/skills/` |
-| 5 | `engram setup prompts` | Agent, pipeline, and compliance prompts to `~/.config/opencode/prompts/` |
+| 3 | `engram skills setup` | 14 core engram skills to `~/.config/engram/skills/` |
+| 4 | `engram setup skills` | 44 skills (all categories) to `~/.config/engram/skills/` |
+| 5 | `engram setup prompts` | Agent, pipeline, and compliance prompts to `~/.config/engram/prompts/` |
 | 6 | `engram validate hook install` | `commit-msg` hook that rejects commits without a task UUID |
 
 ### Skills installed by `engram skills setup`

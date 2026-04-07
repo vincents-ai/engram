@@ -1,70 +1,6 @@
-# OpenCode Setup Guide
+# AI Coding Tool Setup Guide
 
-This guide provides step-by-step instructions for implementing OpenCode with specialized AI subagents in any repository.
-
-## Prerequisites
-
-- OpenCode installed (`npm install -g opencode`)
-- Git repository
-- Basic understanding of AI agent concepts
-
-## Quick Setup (5 Minutes)
-
-### 1. Initialize Configuration
-```bash
-# In your project root
-touch opencode.json
-mkdir prompts
-```
-
-### 2. Basic Configuration
-Create `opencode.json`:
-```json
-{
-  "$schema": "https://opencode.ai/config.json",
-  "model": "github-copilot/claude-3.5-sonnet",
-  "agent": {
-    "frontend-engineer": {
-      "mode": "subagent",
-      "prompt": "{file:./prompts/frontend-engineer.md}",
-      "tools": {
-        "read": true,
-        "write": true,
-        "edit": true,
-        "bash": true,
-        "grep": true,
-        "glob": true,
-        "list": true
-      }
-    }
-  }
-}
-```
-
-### 3. Create Your First Agent
-Create `prompts/frontend-engineer.md`:
-```markdown
-# Frontend Engineer AI
-
-## Role
-A specialized AI focused on frontend development.
-
-## Primary Prompt
-You are a senior frontend engineer. Focus on:
-- Modern React and TypeScript development
-- Component architecture and reusability
-- Performance optimization
-- Accessibility compliance
-
-## Important: Project Guidelines
-Always read the AGENTS.md file before starting work.
-```
-
-### 4. Test Configuration
-```bash
-opencode validate
-opencode test-agent frontend-engineer
-```
+This guide provides step-by-step instructions for implementing your AI coding tool with specialized AI subagents in any repository.
 
 ## Detailed Implementation
 
@@ -85,58 +21,28 @@ ls Dockerfile docker-compose.yml .github/workflows/ .gitlab-ci.yml 2>/dev/null
 
 ### Step 2: Define Agent Roles
 
-Based on analysis, create specialized agents:
+Based on analysis, create specialized agents.
 
 #### Web Development Project
-```json
-{
-  "$schema": "https://opencode.ai/config.json",
-  "agent": {
-    "frontend-engineer": {
-      "mode": "subagent",
-      "prompt": "{file:./prompts/frontend-engineer.md}",
-      "description": "React, TypeScript, modern web development"
-    },
-    "backend-developer": {
-      "mode": "subagent", 
-      "prompt": "{file:./prompts/backend-developer.md}",
-      "description": "APIs, databases, server architecture"
-    },
-    "devops-engineer": {
-      "mode": "subagent",
-      "prompt": "{file:./prompts/devops-engineer.md}",
-      "description": "CI/CD, deployment, infrastructure"
-    }
-  }
-}
-```
+
+Agents to define for a typical web project:
+
+- **frontend-engineer** — React, TypeScript, modern web development
+- **backend-developer** — APIs, databases, server architecture
+- **devops-engineer** — CI/CD, deployment, infrastructure
 
 #### Data Science Project
-```json
-{
-  "agent": {
-    "data-scientist": {
-      "mode": "subagent",
-      "prompt": "{file:./prompts/data-scientist.md}",
-      "description": "ML models, data analysis, experimentation"
-    },
-    "ml-engineer": {
-      "mode": "subagent",
-      "prompt": "{file:./prompts/ml-engineer.md}",
-      "description": "Model deployment, MLOps, infrastructure"
-    },
-    "research-analyst": {
-      "mode": "subagent",
-      "prompt": "{file:./prompts/research-analyst.md}",
-      "description": "Domain research, literature review, insights"
-    }
-  }
-}
-```
+
+Agents to define for a data science project:
+
+- **data-scientist** — ML models, data analysis, experimentation
+- **ml-engineer** — Model deployment, MLOps, infrastructure
+- **research-analyst** — Domain research, literature review, insights
 
 ### Step 3: Create Agent Prompts
 
 #### Template Structure
+
 ```markdown
 # Agent Name
 
@@ -166,6 +72,7 @@ Detailed instructions including:
 ```
 
 #### Frontend Engineer Example
+
 ```markdown
 # Frontend Engineer AI
 
@@ -209,67 +116,59 @@ When working on tasks:
 3. Calculate and report the total duration in your final response
 ```
 
+#### Backend Developer Example
+
+```markdown
+# Backend Developer AI
+
+## Role
+A specialized AI focused on server-side development, API design, and database architecture.
+
+## Primary Prompt
+You are a senior backend developer AI. Your primary responsibilities include:
+
+- **API Development**: Design and implement RESTful and GraphQL APIs
+- **Database Architecture**: Schema design, query optimization, migrations
+- **Authentication & Authorization**: Secure auth flows and access control
+- **Performance**: Caching strategies, query optimization, profiling
+- **Testing**: Unit, integration, and API tests
+
+## Important: Project Guidelines
+**MANDATORY**: Before starting any work, read the `AGENTS.md` file in the project root.
+```
+
 ### Step 4: Configure Tools and Permissions
 
-#### Basic Development Setup
-```json
-{
-  "tools": {
-    "read": true,
-    "write": true,
-    "edit": true,
-    "bash": true,
-    "grep": true,
-    "glob": true,
-    "list": true
-  }
-}
-```
+Agents should be granted access to tools according to the principle of least privilege.
 
-#### Research-Enabled Setup
-```json
-{
-  "tools": {
-    "read": true,
-    "write": true,
-    "edit": true,
-    "bash": true,
-    "grep": true,
-    "glob": true,
-    "list": true,
-    "webfetch": true
-  }
-}
-```
+#### Basic Development Setup (Tier 1)
 
-#### Security-Conscious Setup
-```json
-{
-  "tools": {
-    "read": true,
-    "write": true,
-    "edit": true,
-    "bash": true,
-    "grep": true,
-    "glob": true,
-    "list": true
-  },
-  "permission": {
-    "edit": "ask",
-    "bash": {
-      "rm": "ask",
-      "sudo": "deny",
-      "git": "allow",
-      "npm": "allow",
-      "docker": "ask"
-    }
-  }
-}
-```
+Tools for standard file-level development work:
+
+- `read`, `write`, `edit` — file operations
+- `bash`, `grep`, `glob`, `list` — development tooling
+
+#### Research-Enabled Setup (Tier 2)
+
+All basic tools plus:
+
+- `webfetch` — external documentation and research access
+
+#### Security-Conscious Setup (Tier 3)
+
+All basic tools with command-level bash restrictions:
+
+- `bash.rm` → `"ask"` — confirm before deleting
+- `bash.sudo` → `"deny"` — block privilege escalation
+- `bash.git` → `"allow"` — permit git operations
+- `bash.npm` → `"allow"` — permit package operations
+- `bash.docker` → `"ask"` — confirm container operations
+- `edit` → `"ask"` — confirm file modifications
 
 ### Step 5: Project Integration
 
 #### Create AGENTS.md
+
 ```markdown
 # AGENTS.md - Codebase Guide for AI Agents
 
@@ -299,6 +198,7 @@ When working on tasks:
 ```
 
 #### Update package.json Scripts
+
 ```json
 {
   "scripts": {
@@ -315,177 +215,71 @@ When working on tasks:
 }
 ```
 
-### Step 6: Validation and Testing
-
-#### Validate Configuration
-```bash
-# Check syntax and schema
-opencode validate
-
-# Test specific agents
-opencode test-agent frontend-engineer
-opencode test-agent backend-developer
-
-# Check agent accessibility
-opencode list-agents
-```
-
-#### Test Agent Workflows
-```bash
-# Test basic functionality
-opencode --agent frontend-engineer "Create a simple React component"
-
-# Test tool permissions
-opencode --agent devops-engineer "Run the build process"
-
-# Test research capabilities
-opencode --agent research-analyst "Find documentation for React 18 features"
-```
-
 ## Advanced Configuration
 
-### Multi-Model Setup
-```json
-{
-  "model": "github-copilot/claude-3.5-sonnet",
-  "small_model": "anthropic/claude-3-haiku",
-  "agent": {
-    "frontend-engineer": {
-      "model": "github-copilot/claude-3.5-sonnet",
-      "temperature": 0.1
-    },
-    "creative-writer": {
-      "model": "anthropic/claude-3-opus",
-      "temperature": 0.7
-    },
-    "code-reviewer": {
-      "model": "anthropic/claude-3-haiku",
-      "temperature": 0.0
-    }
-  }
-}
-```
-
 ### Environment-Specific Configuration
-```json
-{
-  "agent": {
-    "production-deployer": {
-      "mode": "subagent",
-      "prompt": "{file:./prompts/production-deployer.md}",
-      "tools": {
-        "read": true,
-        "bash": true
-      },
-      "permission": {
-        "bash": {
-          "kubectl": "ask",
-          "docker": "allow",
-          "rm": "deny"
-        }
-      }
-    }
-  }
-}
-```
 
-### Integration with Existing Tools
+For production-sensitive agents, apply stricter permission tiers. For example, a production deployer agent might be granted only `read` and `bash`, with command-level restrictions:
 
-#### GitHub Actions Integration
-```yaml
-# .github/workflows/ai-review.yml
-name: AI Code Review
-on: [pull_request]
-jobs:
-  ai-review:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Run AI Review
-        run: |
-          opencode --agent code-reviewer "Review this PR for issues"
-```
+- `bash.kubectl` → `"ask"`
+- `bash.docker` → `"allow"`
+- `bash.rm` → `"deny"`
 
-#### Pre-commit Hooks
-```bash
-# .git/hooks/pre-commit
-#!/bin/bash
-opencode --agent code-reviewer "Check code quality before commit"
-```
+This pattern limits blast radius while still enabling necessary deployment operations.
 
 ## Troubleshooting
 
 ### Common Issues
 
 #### Agent Not Found
-```bash
-# Check agent names in configuration
-cat opencode.json | jq '.agent | keys'
 
-# Validate configuration
-opencode validate
-```
+- Check agent names in your configuration for correct spelling and case
+- Review your agent configuration file to confirm the agent is defined
 
 #### Permission Denied
-```bash
-# Check tool permissions
-cat opencode.json | jq '.agent.["agent-name"].tools'
 
-# Review permission settings
-cat opencode.json | jq '.agent.["agent-name"].permission'
-```
+- Review the tool permissions assigned to the agent
+- Check command-specific bash permission settings
 
 #### Prompt File Errors
+
 ```bash
 # Verify prompt file exists
 ls -la prompts/
 
-# Check file path in configuration
-cat opencode.json | jq '.agent.["agent-name"].prompt'
+# Check file path matches your configuration
 ```
 
 ### Performance Optimization
 
 #### Model Selection
-- Use `claude-3-haiku` for simple tasks
-- Use `claude-3.5-sonnet` for complex development
-- Use `claude-3-opus` for creative tasks
+- Use a fast/lightweight model for simple tasks (formatting, quick reviews, validation)
+- Use a standard balanced model for general development work
+- Use a high-capability model for complex architecture and planning tasks
 
 #### Tool Optimization
-- Only enable necessary tools
-- Use specific bash permissions
-- Limit webfetch for security
+- Only enable necessary tools per agent
+- Use specific bash permissions rather than blanket allow
+- Limit webfetch for security-sensitive agents
 
 #### Prompt Optimization
 - Keep prompts focused and specific
 - Include relevant context and examples
 - Reference project guidelines clearly
 
-## Migration from Other Systems
+## Migration from Manual AI Usage
 
-### From Manual AI Usage
 1. Extract common prompts into agent files
 2. Define tool boundaries for each use case
 3. Create agent-specific configurations
 4. Test workflows with new agents
-
-### From Other AI Tools
-1. Map existing workflows to agent responsibilities
-2. Convert prompts to OpenCode format
-3. Configure tool permissions appropriately
-4. Validate functionality with test scenarios
+5. Iterate on prompt quality based on output
 
 ## Best Practices Summary
 
-### Configuration
-- Use schema validation
-- Follow naming conventions
-- Document agent purposes
-- Version control all changes
-
 ### Security
 - Apply principle of least privilege
-- Use "ask" permission for sensitive operations
+- Use `"ask"` permission for sensitive operations
 - Regularly review and audit permissions
 - Avoid hardcoding secrets
 
@@ -501,4 +295,4 @@ cat opencode.json | jq '.agent.["agent-name"].prompt'
 - Share successful patterns and configurations
 - Establish review processes for agent changes
 
-This setup guide provides the foundation for implementing OpenCode agents in any project. Adapt the examples and configurations to match your specific technology stack and team requirements.
+This setup guide provides the foundation for implementing AI subagents in any project. Adapt the examples and configurations to match your specific technology stack and team requirements.

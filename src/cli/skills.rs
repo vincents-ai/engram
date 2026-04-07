@@ -368,7 +368,8 @@ pub fn resolve_skills_dir(dir: Option<&str>, tool: Option<&str>) -> Result<PathB
     }
 
     match tool {
-        Some("opencode") | None => Ok(home.join(".config").join("opencode").join("skills")),
+        Some("opencode") => Ok(home.join(".config").join("opencode").join("skills")),
+        None => Ok(home.join(".config").join("engram").join("skills")),
         Some("claude") => Ok(home.join(".claude").join("skills")),
         Some("goose") => Ok(home.join(".config").join("goose").join("skills")),
         Some(other) => Err(EngramError::Validation(format!(
@@ -1076,7 +1077,7 @@ mod tests {
     fn test_resolve_skills_dir_default() {
         let home = std::env::var("HOME").unwrap();
         let result = resolve_skills_dir(None, None).unwrap();
-        assert_eq!(result, PathBuf::from(home).join(".config/opencode/skills"));
+        assert_eq!(result, PathBuf::from(home).join(".config/engram/skills"));
     }
 
     #[test]
