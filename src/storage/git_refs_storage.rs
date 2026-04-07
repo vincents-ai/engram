@@ -145,7 +145,7 @@ fn ensure_workspace_ref(
                 .to_string();
             Ok(pid)
         }
-        Err(_) => {
+        Err(e) if e.code() == git2::ErrorCode::NotFound => {
             let pid = derive_project_id(repo)?;
             let json = serde_json::json!({
                 "project_id": &pid,
@@ -169,6 +169,10 @@ fn ensure_workspace_ref(
             })?;
             Ok(pid)
         }
+        Err(e) => Err(EngramError::Git(format!(
+            "Failed to read refs/engram/config/workspace: {}",
+            e
+        ))),
     }
 }
 
