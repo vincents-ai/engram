@@ -14,6 +14,10 @@ pub struct WorkspaceConfig {
     pub default_agent: String,
     pub agents: HashMap<String, AgentConfig>,
     pub sync_strategy: String,
+    /// Auto-refresh interval for the Locus TUI in seconds.
+    /// A value of 0 disables auto-refresh. Defaults to 30.
+    #[serde(default = "WorkspaceConfig::default_refresh_interval_secs")]
+    pub refresh_interval_secs: u64,
 }
 
 impl Default for WorkspaceConfig {
@@ -23,11 +27,17 @@ impl Default for WorkspaceConfig {
             default_agent: "default".to_string(),
             agents: HashMap::new(),
             sync_strategy: "merge_with_conflict_resolution".to_string(),
+            refresh_interval_secs: Self::default_refresh_interval_secs(),
         }
     }
 }
 
 impl WorkspaceConfig {
+    /// Default value for `refresh_interval_secs` used by serde.
+    pub fn default_refresh_interval_secs() -> u64 {
+        30
+    }
+
     pub fn validate(&self) -> Result<(), EngramError> {
         if self.name.is_empty() {
             return Err(EngramError::Config(ConfigError::ValidationFailed(
@@ -46,6 +56,12 @@ impl WorkspaceConfig {
         }
         if !other.sync_strategy.is_empty() {
             self.sync_strategy = other.sync_strategy;
+        }
+        // Merge refresh_interval_secs only if the other side explicitly overrides it
+        // (non-zero, or intentionally zero to disable).
+        // We treat a non-default value as intentional.
+        if other.refresh_interval_secs != Self::default_refresh_interval_secs() {
+            self.refresh_interval_secs = other.refresh_interval_secs;
         }
 
         for (key, config) in other.agents {
@@ -84,6 +100,7 @@ mod tests {
                 agent_type: "test".to_string(),
                 specialization: None,
                 email: None,
+                persona: None,
             },
         );
 
@@ -95,6 +112,7 @@ mod tests {
                 agent_type: "test".to_string(),
                 specialization: None,
                 email: None,
+                persona: None,
             },
         );
 
@@ -115,6 +133,7 @@ mod tests {
             default_agent: "".to_string(),
             agents: HashMap::new(),
             sync_strategy: "".to_string(),
+            refresh_interval_secs: WorkspaceConfig::default_refresh_interval_secs(),
         };
 
         base.merge(other);
@@ -135,6 +154,7 @@ mod tests {
                 agent_type: "type1".to_string(),
                 specialization: None,
                 email: None,
+                persona: None,
             },
         );
 
@@ -145,6 +165,7 @@ mod tests {
                 agent_type: "type2".to_string(),
                 specialization: Some("new".to_string()),
                 email: None,
+                persona: None,
             },
         );
 
@@ -160,6 +181,7 @@ mod tests {
             default_agent: "agent".to_string(),
             agents: HashMap::new(),
             sync_strategy: "sync".to_string(),
+            refresh_interval_secs: 30,
         };
         assert!(config.validate().is_err());
     }
@@ -171,6 +193,7 @@ mod tests {
             default_agent: "".to_string(),
             agents: HashMap::new(),
             sync_strategy: "sync".to_string(),
+            refresh_interval_secs: 30,
         };
         assert!(config.validate().is_ok());
     }
@@ -182,5 +205,6 @@ mod tests {
         assert_eq!(config.default_agent, "default");
         assert!(config.agents.is_empty());
         assert_eq!(config.sync_strategy, "merge_with_conflict_resolution");
+        assert_eq!(config.refresh_interval_secs, 30);
     }
 }

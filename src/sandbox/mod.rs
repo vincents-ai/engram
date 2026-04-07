@@ -526,69 +526,130 @@ pub struct SandboxStats {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use crate::entities::{EscalationOperationType, EscalationPriority};
     use crate::storage::MemoryStorage;
     use crate::storage::Storage;
     use chrono::Utc;
     use serde_json::json;
-    use super::*;
-    use crate::entities::{EscalationOperationType, EscalationPriority};
 
     fn create_test_storage() -> Box<dyn Storage> {
         Box::new(MemoryStorage::new("test-agent"))
     }
 
     fn tr(op: &str) -> SandboxRequest {
-        SandboxRequest { agent_id: "test-agent".into(), operation: op.into(), resource_type: "t".into(), parameters: json!({}), timestamp: Utc::now(), session_id: Some("s1".into()) }
+        SandboxRequest {
+            agent_id: "test-agent".into(),
+            operation: op.into(),
+            resource_type: "t".into(),
+            parameters: json!({}),
+            timestamp: Utc::now(),
+            session_id: Some("s1".into()),
+        }
     }
 
     #[test]
     fn test_error_display() {
-        assert_eq!(format!("{}", SandboxError::PermissionDenied("x".into())), "Permission denied: x");
-        assert!(format!("{}", SandboxError::ResourceLimitExceeded("x".into())).contains("Resource limit"));
-        assert!(format!("{}", SandboxError::CommandBlocked("x".into())).contains("Command not allowed"));
-        assert!(format!("{}", SandboxError::EscalationRequired("x".into())).contains("Escalation required"));
+        assert_eq!(
+            format!("{}", SandboxError::PermissionDenied("x".into())),
+            "Permission denied: x"
+        );
+        assert!(
+            format!("{}", SandboxError::ResourceLimitExceeded("x".into()))
+                .contains("Resource limit")
+        );
+        assert!(
+            format!("{}", SandboxError::CommandBlocked("x".into())).contains("Command not allowed")
+        );
+        assert!(format!("{}", SandboxError::EscalationRequired("x".into()))
+            .contains("Escalation required"));
         assert!(format!("{}", SandboxError::InvalidConfig("x".into())).contains("Invalid sandbox"));
         assert!(format!("{}", SandboxError::StorageError("x".into())).contains("Storage error"));
     }
 
     #[test]
     fn test_response_variants() {
-        assert!(matches!(SandboxResponse::Allow { conditions: vec![], monitoring_required: false }, SandboxResponse::Allow { .. }));
-        assert!(matches!(SandboxResponse::Deny { reason: "r".into(), suggestion: None }, SandboxResponse::Deny { .. }));
-        assert!(matches!(SandboxResponse::Escalate { reason: "r".into(), escalation_id: "e".into(), timeout: ChronoDuration::zero() }, SandboxResponse::Escalate { .. }));
-        assert!(matches!(SandboxResponse::Defer { reason: "r".into(), retry_after: ChronoDuration::zero() }, SandboxResponse::Defer { .. }));
+        assert!(matches!(
+            SandboxResponse::Allow {
+                conditions: vec![],
+                monitoring_required: false
+            },
+            SandboxResponse::Allow { .. }
+        ));
+        assert!(matches!(
+            SandboxResponse::Deny {
+                reason: "r".into(),
+                suggestion: None
+            },
+            SandboxResponse::Deny { .. }
+        ));
+        assert!(matches!(
+            SandboxResponse::Escalate {
+                reason: "r".into(),
+                escalation_id: "e".into(),
+                timeout: ChronoDuration::zero()
+            },
+            SandboxResponse::Escalate { .. }
+        ));
+        assert!(matches!(
+            SandboxResponse::Defer {
+                reason: "r".into(),
+                retry_after: ChronoDuration::zero()
+            },
+            SandboxResponse::Defer { .. }
+        ));
     }
 
     #[tokio::test]
-    async fn test_engine_new() { let _ = SandboxEngine::new(create_test_storage()); }
+    async fn test_engine_new() {
+        let _ = SandboxEngine::new(create_test_storage());
+    }
 
     #[tokio::test]
     async fn test_validate_allows_safe() {
         let mut e = SandboxEngine::new(create_test_storage());
-        assert!(matches!(e.validate_request(tr("list_files")).await.unwrap(), SandboxResponse::Allow { .. }));
+        assert!(matches!(
+            e.validate_request(tr("list_files")).await.unwrap(),
+            SandboxResponse::Allow { .. }
+        ));
     }
 
     #[tokio::test]
     async fn test_validate_denies_permission() {
         let mut e = SandboxEngine::new(create_test_storage());
-        assert!(matches!(e.validate_request(tr("delete_file")).await.unwrap(), SandboxResponse::Deny { .. }));
+        assert!(matches!(
+            e.validate_request(tr("delete_file")).await.unwrap(),
+            SandboxResponse::Deny { .. }
+        ));
     }
 
     #[tokio::test]
     async fn test_validate_denies_unknown() {
         let mut e = SandboxEngine::new(create_test_storage());
-        assert!(matches!(e.validate_request(tr("unknown_op")).await.unwrap(), SandboxResponse::Deny { .. }));
+        assert!(matches!(
+            e.validate_request(tr("unknown_op")).await.unwrap(),
+            SandboxResponse::Deny { .. }
+        ));
     }
 
     #[tokio::test]
     async fn test_validate_no_session() {
         let mut e = SandboxEngine::new(create_test_storage());
-        let mut r = tr("list_files"); r.session_id = None;
-        assert!(matches!(e.validate_request(r).await.unwrap(), SandboxResponse::Allow { .. }));
+        let mut r = tr("list_files");
+        r.session_id = None;
+        assert!(matches!(
+            e.validate_request(r).await.unwrap(),
+            SandboxResponse::Allow { .. }
+        ));
     }
 
     #[tokio::test]
-    async fn test_update_sandbox() { SandboxEngine::new(create_test_storage()).update_sandbox("a", SandboxLevel::Restricted, "admin").await.unwrap(); }
+    async fn test_update_sandbox() {
+        SandboxEngine::new(create_test_storage())
+            .update_sandbox("a", SandboxLevel::Restricted, "admin")
+            .await
+            .unwrap();
+    }
 
     #[tokio::test]
     async fn test_record_violation() {
@@ -608,28 +669,76 @@ mod tests {
     #[test]
     fn test_infer_operation_type() {
         let e = SandboxEngine::new(create_test_storage());
-        assert_eq!(e.infer_escalation_operation_type("file_write"), EscalationOperationType::FileSystemAccess);
-        assert_eq!(e.infer_escalation_operation_type("File_read"), EscalationOperationType::FileSystemAccess);
-        assert_eq!(e.infer_escalation_operation_type("network_request"), EscalationOperationType::NetworkAccess);
-        assert_eq!(e.infer_escalation_operation_type("execute_command"), EscalationOperationType::CommandExecution);
-        assert_eq!(e.infer_escalation_operation_type("workflow_update"), EscalationOperationType::WorkflowModification);
-        assert_eq!(e.infer_escalation_operation_type("quality_gate_x"), EscalationOperationType::QualityGateOverride);
-        assert_eq!(e.infer_escalation_operation_type("resource_x"), EscalationOperationType::ResourceLimitIncrease);
-        assert_eq!(e.infer_escalation_operation_type("custom"), EscalationOperationType::Custom("custom".into()));
+        assert_eq!(
+            e.infer_escalation_operation_type("file_write"),
+            EscalationOperationType::FileSystemAccess
+        );
+        assert_eq!(
+            e.infer_escalation_operation_type("File_read"),
+            EscalationOperationType::FileSystemAccess
+        );
+        assert_eq!(
+            e.infer_escalation_operation_type("network_request"),
+            EscalationOperationType::NetworkAccess
+        );
+        assert_eq!(
+            e.infer_escalation_operation_type("execute_command"),
+            EscalationOperationType::CommandExecution
+        );
+        assert_eq!(
+            e.infer_escalation_operation_type("workflow_update"),
+            EscalationOperationType::WorkflowModification
+        );
+        assert_eq!(
+            e.infer_escalation_operation_type("quality_gate_x"),
+            EscalationOperationType::QualityGateOverride
+        );
+        assert_eq!(
+            e.infer_escalation_operation_type("resource_x"),
+            EscalationOperationType::ResourceLimitIncrease
+        );
+        assert_eq!(
+            e.infer_escalation_operation_type("custom"),
+            EscalationOperationType::Custom("custom".into())
+        );
     }
 
     #[test]
     fn test_infer_priority() {
         let e = SandboxEngine::new(create_test_storage());
         let mk = |l| AgentSandbox::new("a".into(), l, "a".into(), "a".into());
-        assert_eq!(e.infer_escalation_priority(&mk(SandboxLevel::Training), "delete"), EscalationPriority::Low);
-        assert_eq!(e.infer_escalation_priority(&mk(SandboxLevel::Training), "safe"), EscalationPriority::Low);
-        assert_eq!(e.infer_escalation_priority(&mk(SandboxLevel::Isolated), "delete"), EscalationPriority::High);
-        assert_eq!(e.infer_escalation_priority(&mk(SandboxLevel::Isolated), "read"), EscalationPriority::Normal);
-        assert_eq!(e.infer_escalation_priority(&mk(SandboxLevel::Restricted), "execute"), EscalationPriority::High);
-        assert_eq!(e.infer_escalation_priority(&mk(SandboxLevel::Restricted), "list"), EscalationPriority::Normal);
-        assert_eq!(e.infer_escalation_priority(&mk(SandboxLevel::Standard), "remove"), EscalationPriority::High);
-        assert_eq!(e.infer_escalation_priority(&mk(SandboxLevel::Standard), "safe"), EscalationPriority::Normal);
+        assert_eq!(
+            e.infer_escalation_priority(&mk(SandboxLevel::Training), "delete"),
+            EscalationPriority::Low
+        );
+        assert_eq!(
+            e.infer_escalation_priority(&mk(SandboxLevel::Training), "safe"),
+            EscalationPriority::Low
+        );
+        assert_eq!(
+            e.infer_escalation_priority(&mk(SandboxLevel::Isolated), "delete"),
+            EscalationPriority::High
+        );
+        assert_eq!(
+            e.infer_escalation_priority(&mk(SandboxLevel::Isolated), "read"),
+            EscalationPriority::Normal
+        );
+        assert_eq!(
+            e.infer_escalation_priority(&mk(SandboxLevel::Restricted), "execute"),
+            EscalationPriority::High
+        );
+        assert_eq!(
+            e.infer_escalation_priority(&mk(SandboxLevel::Restricted), "list"),
+            EscalationPriority::Normal
+        );
+        assert_eq!(
+            e.infer_escalation_priority(&mk(SandboxLevel::Standard), "remove"),
+            EscalationPriority::High
+        );
+        assert_eq!(
+            e.infer_escalation_priority(&mk(SandboxLevel::Standard), "safe"),
+            EscalationPriority::Normal
+        );
     }
 
     #[test]
@@ -655,11 +764,25 @@ mod tests {
     fn test_requires_monitoring() {
         let e = SandboxEngine::new(create_test_storage());
         let sb = AgentSandbox::new("a".into(), SandboxLevel::Standard, "a".into(), "a".into());
-        for op in &["file_write","file_delete","network_request","execute_command","modify_entity","delete_entity"] { assert!(e.requires_monitoring(&tr(op), &sb)); }
+        for op in &[
+            "file_write",
+            "file_delete",
+            "network_request",
+            "execute_command",
+            "modify_entity",
+            "delete_entity",
+        ] {
+            assert!(e.requires_monitoring(&tr(op), &sb));
+        }
         assert!(!e.requires_monitoring(&tr("read_file"), &sb));
         let r = AgentSandbox::new("a".into(), SandboxLevel::Restricted, "a".into(), "a".into());
         assert!(e.requires_monitoring(&tr("read_file"), &r));
-        let u = AgentSandbox::new("a".into(), SandboxLevel::Unrestricted, "a".into(), "a".into());
+        let u = AgentSandbox::new(
+            "a".into(),
+            SandboxLevel::Unrestricted,
+            "a".into(),
+            "a".into(),
+        );
         assert!(!e.requires_monitoring(&tr("read_file"), &u));
     }
 
@@ -667,12 +790,26 @@ mod tests {
     fn test_operation_conditions() {
         let e = SandboxEngine::new(create_test_storage());
         let t = AgentSandbox::new("a".into(), SandboxLevel::Training, "a".into(), "a".into());
-        assert!(e.get_operation_conditions(&tr("read_file"), &t).iter().any(|x| x.contains("training")));
+        assert!(e
+            .get_operation_conditions(&tr("read_file"), &t)
+            .iter()
+            .any(|x| x.contains("training")));
         let i = AgentSandbox::new("a".into(), SandboxLevel::Isolated, "a".into(), "a".into());
-        assert!(e.get_operation_conditions(&tr("read_file"), &i).iter().any(|x| x.contains("isolated")));
-        let u = AgentSandbox::new("a".into(), SandboxLevel::Unrestricted, "a".into(), "a".into());
+        assert!(e
+            .get_operation_conditions(&tr("read_file"), &i)
+            .iter()
+            .any(|x| x.contains("isolated")));
+        let u = AgentSandbox::new(
+            "a".into(),
+            SandboxLevel::Unrestricted,
+            "a".into(),
+            "a".into(),
+        );
         assert!(e.get_operation_conditions(&tr("read_file"), &u).is_empty());
-        assert!(e.get_operation_conditions(&tr("file_write"), &t).iter().any(|x| x.contains("versioned")));
+        assert!(e
+            .get_operation_conditions(&tr("file_write"), &t)
+            .iter()
+            .any(|x| x.contains("versioned")));
     }
 
     #[test]
@@ -697,13 +834,25 @@ mod tests {
     async fn test_persist_sandbox() {
         let mut e = SandboxEngine::new(create_test_storage());
         e.get_sandbox_stats("new-agent").await.unwrap();
-        assert_eq!(e.get_sandbox_stats("new-agent").await.unwrap().agent_id, "new-agent");
+        assert_eq!(
+            e.get_sandbox_stats("new-agent").await.unwrap().agent_id,
+            "new-agent"
+        );
     }
 
     #[test]
     fn test_validation_result_variants() {
-        assert!(matches!(CommandValidationResult::Allow, CommandValidationResult::Allow));
-        assert!(matches!(CommandValidationResult::Block("r".into()), CommandValidationResult::Block(_)));
-        assert!(matches!(CommandValidationResult::RequiresApproval, CommandValidationResult::RequiresApproval));
+        assert!(matches!(
+            CommandValidationResult::Allow,
+            CommandValidationResult::Allow
+        ));
+        assert!(matches!(
+            CommandValidationResult::Block("r".into()),
+            CommandValidationResult::Block(_)
+        ));
+        assert!(matches!(
+            CommandValidationResult::RequiresApproval,
+            CommandValidationResult::RequiresApproval
+        ));
     }
 }

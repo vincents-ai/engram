@@ -108,46 +108,59 @@ pub fn list_prompts(
         println!("\nTo fix this:");
         println!("1. Run 'engram setup prompts' to install default prompts");
         println!("2. Or set ENGRAM_PROMPTS_PATH to your prompts directory");
-        return Ok(());
+        // Fall through to still show embedded personas below
     }
 
-    let entries = fs::read_dir(&prompts_path)?;
+    // Determine whether to show embedded personas (only for agents category or no category filter)
+    let show_embedded = match category {
+        None | Some("agents") => true,
+        _ => false,
+    };
+
+    let entries = if prompts_path.exists() {
+        fs::read_dir(&prompts_path).ok()
+    } else {
+        None
+    };
     let mut table = create_table();
     let mut found_any = false;
 
     match format {
         "short" | "s" => {
-            table.set_titles(row!["Category", "Prompt Count"]);
+            table.set_titles(row!["Source", "Category", "Prompt Count"]);
 
-            for entry in entries.flatten() {
-                if entry.path().is_dir() {
-                    let name = entry.file_name().to_string_lossy().into_owned();
+            if let Some(entries) = entries {
+                for entry in entries.flatten() {
+                    if entry.path().is_dir() {
+                        let name = entry.file_name().to_string_lossy().into_owned();
 
-                    if let Some(cat) = category {
-                        if name.to_lowercase() != cat.to_lowercase() {
-                            if verbose {
-                                println!("  Skipping category '{}' (filtered by '{}')", name, cat);
+                        if let Some(cat) = category {
+                            if name.to_lowercase() != cat.to_lowercase() {
+                                if verbose {
+                                    println!(
+                                        "  Skipping category '{}' (filtered by '{}')",
+                                        name, cat
+                                    );
+                                }
+                                continue;
                             }
-                            continue;
                         }
-                    }
 
-                    // Count files in subdirectory
-                    let count = fs::read_dir(&entry.path())?.flatten().count();
-                    table.add_row(row![name, count]);
-                    found_any = true;
-                } else if verbose {
-                    let path = entry.path();
-                    let is_hidden = path
-                        .file_name()
-                        .map(|s| s.to_string_lossy().starts_with('.'))
-                        .unwrap_or(false);
-
-                    if !is_hidden {
-                        println!("  Skipping file in root: {:?} (Prompts should be organized in subdirectories/categories, or use 'show' for specific files)", path);
+                        let count = fs::read_dir(&entry.path())
+                            .map(|d| d.flatten().count())
+                            .unwrap_or(0);
+                        table.add_row(row!["[disk]", name, count]);
+                        found_any = true;
                     }
                 }
             }
+
+            if show_embedded {
+                let count = crate::personas::get_embedded_personas().len();
+                table.add_row(row!["[embedded]", "agents", count]);
+                found_any = true;
+            }
+
             if found_any {
                 table.printstd();
             } else if verbose {
@@ -155,55 +168,74 @@ pub fn list_prompts(
             }
         }
         "full" | "f" => {
-            table.set_titles(row!["Category", "Prompt Name"]);
+            table.set_titles(row!["Source", "Category", "Prompt Name", "Title"]);
 
-            for entry in entries.flatten() {
-                if entry.path().is_dir() {
-                    let name = entry.file_name().to_string_lossy().into_owned();
+            if let Some(entries) = entries {
+                for entry in entries.flatten() {
+                    if entry.path().is_dir() {
+                        let name = entry.file_name().to_string_lossy().into_owned();
 
-                    if let Some(cat) = category {
-                        if name.to_lowercase() != cat.to_lowercase() {
-                            if verbose {
-                                println!("  Skipping category '{}' (filtered by '{}')", name, cat);
+                        if let Some(cat) = category {
+                            if name.to_lowercase() != cat.to_lowercase() {
+                                if verbose {
+                                    println!(
+                                        "  Skipping category '{}' (filtered by '{}')",
+                                        name, cat
+                                    );
+                                }
+                                continue;
                             }
-                            continue;
                         }
-                    }
 
-                    let subentries = fs::read_dir(&entry.path())?;
-                    let mut file_names = Vec::new();
+                        let subentries = fs::read_dir(&entry.path())?;
+                        let mut file_names = Vec::new();
 
-                    for subentry in subentries.flatten() {
-                        let sub_name = subentry.file_name().to_string_lossy().into_owned();
-                        file_names.push(sub_name);
-                    }
-                    file_names.sort();
+                        for subentry in subentries.flatten() {
+                            let sub_name = subentry.file_name().to_string_lossy().into_owned();
+                            file_names.push(sub_name);
+                        }
+                        file_names.sort();
 
-                    if file_names.is_empty() {
-                        table.add_row(row![name, "-"]);
-                        found_any = true;
-                    } else {
-                        for (i, file_name) in file_names.iter().enumerate() {
-                            if i == 0 {
-                                table.add_row(row![name, file_name]);
-                            } else {
-                                table.add_row(row!["", file_name]);
-                            }
+                        if file_names.is_empty() {
+                            table.add_row(row!["[disk]", name, "-", ""]);
                             found_any = true;
+                        } else {
+                            for (i, file_name) in file_names.iter().enumerate() {
+                                if i == 0 {
+                                    table.add_row(row!["[disk]", name, file_name, ""]);
+                                } else {
+                                    table.add_row(row!["", "", file_name, ""]);
+                                }
+                                found_any = true;
+                            }
                         }
-                    }
-                } else if verbose {
-                    let path = entry.path();
-                    let is_hidden = path
-                        .file_name()
-                        .map(|s| s.to_string_lossy().starts_with('.'))
-                        .unwrap_or(false);
+                    } else if verbose {
+                        let path = entry.path();
+                        let is_hidden = path
+                            .file_name()
+                            .map(|s| s.to_string_lossy().starts_with('.'))
+                            .unwrap_or(false);
 
-                    if !is_hidden {
-                        println!("  Skipping file in root: {:?} (Prompts should be organized in subdirectories/categories, or use 'show' for specific files)", path);
+                        if !is_hidden {
+                            println!("  Skipping file in root: {:?}", path);
+                        }
                     }
                 }
             }
+
+            if show_embedded {
+                for (i, (slug, def)) in crate::personas::get_embedded_personas().iter().enumerate()
+                {
+                    let title: &str = &def.title;
+                    if i == 0 {
+                        table.add_row(row!["[embedded]", "agents", slug, title]);
+                    } else {
+                        table.add_row(row!["", "", slug, title]);
+                    }
+                    found_any = true;
+                }
+            }
+
             if found_any {
                 table.printstd();
             } else if verbose {
@@ -367,6 +399,18 @@ pub fn show_prompt(name: &str, root: Option<PathBuf>) -> Result<(), std::io::Err
 
         println!("Prompt not found: {}", name);
         println!("Searched in: {:?}", prompts_path);
+
+        // Fall back to embedded personas
+        if let Some((_slug, def)) = crate::personas::find_persona(name) {
+            println!("\n[embedded] {}", def.title);
+            if let Some(v) = &def.version {
+                println!("Version: {}", v);
+            }
+            println!("\nDescription:\n{}", def.description);
+            println!("\nInstructions:\n{}", def.instructions);
+        } else {
+            println!("Also searched embedded personas — not found.");
+        }
     }
 
     Ok(())

@@ -211,7 +211,7 @@ impl Default for PermissionEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::entities::{CommandPattern, CommandPermission, WorkflowPermissions, RiskLevel};
+    use crate::entities::{CommandPattern, CommandPermission, RiskLevel, WorkflowPermissions};
 
     fn create_test_permissions() -> PermissionSet {
         let mut allowed_file_ops = Vec::new(); // Changed to Vec
@@ -438,13 +438,23 @@ mod tests {
         assert!(engine.get_cached_permissions(&agent_id).is_none());
     }
 
-    #[test] fn test_default() { let _ = PermissionEngine::default(); }
+    #[test]
+    fn test_default() {
+        let _ = PermissionEngine::default();
+    }
 
     #[tokio::test]
     async fn test_list_files() {
         let mut e = PermissionEngine::new();
         let p = create_test_permissions();
-        let req = SandboxRequest { operation: "list_files".into(), parameters: serde_json::Value::Object(serde_json::Map::new()), agent_id: "t".into(), resource_type: "f".into(), session_id: None, timestamp: chrono::Utc::now() };
+        let req = SandboxRequest {
+            operation: "list_files".into(),
+            parameters: serde_json::Value::Object(serde_json::Map::new()),
+            agent_id: "t".into(),
+            resource_type: "f".into(),
+            session_id: None,
+            timestamp: chrono::Utc::now(),
+        };
         assert!(e.validate_operation(&req, &p).await.is_ok());
     }
 
@@ -452,9 +462,28 @@ mod tests {
     async fn test_all_file_ops_with_perms() {
         let mut e = PermissionEngine::new();
         let mut p = create_test_permissions();
-        p.allowed_file_operations = vec![FileOperation::Read, FileOperation::Write, FileOperation::Delete];
-        for op in &["read_file","list_files","write_file","create_file","modify_file","delete_file","move_file"] {
-            let req = SandboxRequest { operation: (*op).into(), parameters: serde_json::Value::Object(serde_json::Map::new()), agent_id: "t".into(), resource_type: "f".into(), session_id: None, timestamp: chrono::Utc::now() };
+        p.allowed_file_operations = vec![
+            FileOperation::Read,
+            FileOperation::Write,
+            FileOperation::Delete,
+        ];
+        for op in &[
+            "read_file",
+            "list_files",
+            "write_file",
+            "create_file",
+            "modify_file",
+            "delete_file",
+            "move_file",
+        ] {
+            let req = SandboxRequest {
+                operation: (*op).into(),
+                parameters: serde_json::Value::Object(serde_json::Map::new()),
+                agent_id: "t".into(),
+                resource_type: "f".into(),
+                session_id: None,
+                timestamp: chrono::Utc::now(),
+            };
             assert!(e.validate_operation(&req, &p).await.is_ok(), "{}", op);
         }
     }
@@ -475,8 +504,22 @@ mod tests {
                 restricted_workflow_types: vec![],
             },
         };
-        for op in &["read_file","write_file","create_file","modify_file","delete_file","move_file"] {
-            let req = SandboxRequest { operation: (*op).into(), parameters: serde_json::Value::Object(serde_json::Map::new()), agent_id: "t".into(), resource_type: "f".into(), session_id: None, timestamp: chrono::Utc::now() };
+        for op in &[
+            "read_file",
+            "write_file",
+            "create_file",
+            "modify_file",
+            "delete_file",
+            "move_file",
+        ] {
+            let req = SandboxRequest {
+                operation: (*op).into(),
+                parameters: serde_json::Value::Object(serde_json::Map::new()),
+                agent_id: "t".into(),
+                resource_type: "f".into(),
+                session_id: None,
+                timestamp: chrono::Utc::now(),
+            };
             assert!(e.validate_operation(&req, &p).await.is_err(), "{}", op);
         }
     }
@@ -484,100 +527,209 @@ mod tests {
     #[tokio::test]
     async fn test_network_denied() {
         let mut e = PermissionEngine::new();
-        let mut p = create_test_permissions(); p.network_access = NetworkPolicy::Denied;
-        let req = SandboxRequest { operation: "network_request".into(), parameters: serde_json::Value::Object(serde_json::Map::new()), agent_id: "t".into(), resource_type: "n".into(), session_id: None, timestamp: chrono::Utc::now() };
+        let mut p = create_test_permissions();
+        p.network_access = NetworkPolicy::Denied;
+        let req = SandboxRequest {
+            operation: "network_request".into(),
+            parameters: serde_json::Value::Object(serde_json::Map::new()),
+            agent_id: "t".into(),
+            resource_type: "n".into(),
+            session_id: None,
+            timestamp: chrono::Utc::now(),
+        };
         assert!(e.validate_operation(&req, &p).await.is_err());
     }
 
     #[tokio::test]
     async fn test_network_monitoring() {
         let mut e = PermissionEngine::new();
-        let mut p = create_test_permissions(); p.network_access = NetworkPolicy::AllowedWithMonitoring;
-        let req = SandboxRequest { operation: "network_request".into(), parameters: serde_json::Value::Object(serde_json::Map::new()), agent_id: "t".into(), resource_type: "n".into(), session_id: None, timestamp: chrono::Utc::now() };
+        let mut p = create_test_permissions();
+        p.network_access = NetworkPolicy::AllowedWithMonitoring;
+        let req = SandboxRequest {
+            operation: "network_request".into(),
+            parameters: serde_json::Value::Object(serde_json::Map::new()),
+            agent_id: "t".into(),
+            resource_type: "n".into(),
+            session_id: None,
+            timestamp: chrono::Utc::now(),
+        };
         assert!(e.validate_operation(&req, &p).await.is_ok());
     }
 
     #[tokio::test]
     async fn test_network_unrestricted() {
         let mut e = PermissionEngine::new();
-        let mut p = create_test_permissions(); p.network_access = NetworkPolicy::Unrestricted;
-        let req = SandboxRequest { operation: "network_request".into(), parameters: serde_json::Value::Object(serde_json::Map::new()), agent_id: "t".into(), resource_type: "n".into(), session_id: None, timestamp: chrono::Utc::now() };
+        let mut p = create_test_permissions();
+        p.network_access = NetworkPolicy::Unrestricted;
+        let req = SandboxRequest {
+            operation: "network_request".into(),
+            parameters: serde_json::Value::Object(serde_json::Map::new()),
+            agent_id: "t".into(),
+            resource_type: "n".into(),
+            session_id: None,
+            timestamp: chrono::Utc::now(),
+        };
         assert!(e.validate_operation(&req, &p).await.is_ok());
     }
 
     #[tokio::test]
     async fn test_internal_no_url() {
-        let mut e = PermissionEngine::new(); let p = create_test_permissions();
-        let req = SandboxRequest { operation: "network_request".into(), parameters: serde_json::Value::Object(serde_json::Map::new()), agent_id: "t".into(), resource_type: "n".into(), session_id: None, timestamp: chrono::Utc::now() };
+        let mut e = PermissionEngine::new();
+        let p = create_test_permissions();
+        let req = SandboxRequest {
+            operation: "network_request".into(),
+            parameters: serde_json::Value::Object(serde_json::Map::new()),
+            agent_id: "t".into(),
+            resource_type: "n".into(),
+            session_id: None,
+            timestamp: chrono::Utc::now(),
+        };
         assert!(e.validate_operation(&req, &p).await.is_ok());
     }
 
     #[tokio::test]
     async fn test_internal_non_string_url() {
-        let mut e = PermissionEngine::new(); let p = create_test_permissions();
-        let mut params = serde_json::Map::new(); params.insert("url".into(), serde_json::json!(12345));
-        let req = SandboxRequest { operation: "network_request".into(), parameters: serde_json::Value::Object(params), agent_id: "t".into(), resource_type: "n".into(), session_id: None, timestamp: chrono::Utc::now() };
+        let mut e = PermissionEngine::new();
+        let p = create_test_permissions();
+        let mut params = serde_json::Map::new();
+        params.insert("url".into(), serde_json::json!(12345));
+        let req = SandboxRequest {
+            operation: "network_request".into(),
+            parameters: serde_json::Value::Object(params),
+            agent_id: "t".into(),
+            resource_type: "n".into(),
+            session_id: None,
+            timestamp: chrono::Utc::now(),
+        };
         assert!(e.validate_operation(&req, &p).await.is_ok());
     }
 
     #[tokio::test]
     async fn test_unknown_operation() {
-        let mut e = PermissionEngine::new(); let p = create_test_permissions();
-        let req = SandboxRequest { operation: "completely_unknown".into(), parameters: serde_json::Value::Object(serde_json::Map::new()), agent_id: "t".into(), resource_type: "o".into(), session_id: None, timestamp: chrono::Utc::now() };
-        assert!(matches!(e.validate_operation(&req, &p).await, Err(SandboxError::PermissionDenied(m)) if m.contains("Unknown operation")));
+        let mut e = PermissionEngine::new();
+        let p = create_test_permissions();
+        let req = SandboxRequest {
+            operation: "completely_unknown".into(),
+            parameters: serde_json::Value::Object(serde_json::Map::new()),
+            agent_id: "t".into(),
+            resource_type: "o".into(),
+            session_id: None,
+            timestamp: chrono::Utc::now(),
+        };
+        assert!(
+            matches!(e.validate_operation(&req, &p).await, Err(SandboxError::PermissionDenied(m)) if m.contains("Unknown operation"))
+        );
     }
 
     #[tokio::test]
     async fn test_exec_no_cmd_param() {
-        let mut e = PermissionEngine::new(); let p = create_test_permissions();
-        let req = SandboxRequest { operation: "execute_command".into(), parameters: serde_json::Value::Object(serde_json::Map::new()), agent_id: "t".into(), resource_type: "s".into(), session_id: None, timestamp: chrono::Utc::now() };
+        let mut e = PermissionEngine::new();
+        let p = create_test_permissions();
+        let req = SandboxRequest {
+            operation: "execute_command".into(),
+            parameters: serde_json::Value::Object(serde_json::Map::new()),
+            agent_id: "t".into(),
+            resource_type: "s".into(),
+            session_id: None,
+            timestamp: chrono::Utc::now(),
+        };
         assert!(e.validate_operation(&req, &p).await.is_err());
     }
 
     #[tokio::test]
     async fn test_wf_create_denied() {
         let mut e = PermissionEngine::new();
-        let mut p = create_test_permissions(); p.workflow_permissions.can_create_workflows = false;
-        let req = SandboxRequest { operation: "create_workflow".into(), parameters: serde_json::Value::Object(serde_json::Map::new()), agent_id: "t".into(), resource_type: "w".into(), session_id: None, timestamp: chrono::Utc::now() };
+        let mut p = create_test_permissions();
+        p.workflow_permissions.can_create_workflows = false;
+        let req = SandboxRequest {
+            operation: "create_workflow".into(),
+            parameters: serde_json::Value::Object(serde_json::Map::new()),
+            agent_id: "t".into(),
+            resource_type: "w".into(),
+            session_id: None,
+            timestamp: chrono::Utc::now(),
+        };
         assert!(e.validate_operation(&req, &p).await.is_err());
     }
 
     #[tokio::test]
     async fn test_wf_modify_allowed() {
         let mut e = PermissionEngine::new();
-        let mut p = create_test_permissions(); p.workflow_permissions.can_modify_workflows = true;
-        let req = SandboxRequest { operation: "modify_workflow".into(), parameters: serde_json::Value::Object(serde_json::Map::new()), agent_id: "t".into(), resource_type: "w".into(), session_id: None, timestamp: chrono::Utc::now() };
+        let mut p = create_test_permissions();
+        p.workflow_permissions.can_modify_workflows = true;
+        let req = SandboxRequest {
+            operation: "modify_workflow".into(),
+            parameters: serde_json::Value::Object(serde_json::Map::new()),
+            agent_id: "t".into(),
+            resource_type: "w".into(),
+            session_id: None,
+            timestamp: chrono::Utc::now(),
+        };
         assert!(e.validate_operation(&req, &p).await.is_ok());
     }
 
     #[tokio::test]
     async fn test_wf_exec_allowed() {
-        let mut e = PermissionEngine::new(); let p = create_test_permissions();
-        let mut params = serde_json::Map::new(); params.insert("workflow_type".into(), serde_json::json!("safe_workflow"));
-        let req = SandboxRequest { operation: "execute_workflow".into(), parameters: serde_json::Value::Object(params), agent_id: "t".into(), resource_type: "w".into(), session_id: None, timestamp: chrono::Utc::now() };
+        let mut e = PermissionEngine::new();
+        let p = create_test_permissions();
+        let mut params = serde_json::Map::new();
+        params.insert("workflow_type".into(), serde_json::json!("safe_workflow"));
+        let req = SandboxRequest {
+            operation: "execute_workflow".into(),
+            parameters: serde_json::Value::Object(params),
+            agent_id: "t".into(),
+            resource_type: "w".into(),
+            session_id: None,
+            timestamp: chrono::Utc::now(),
+        };
         assert!(e.validate_operation(&req, &p).await.is_ok());
     }
 
     #[tokio::test]
     async fn test_wf_exec_no_type() {
-        let mut e = PermissionEngine::new(); let p = create_test_permissions();
-        let req = SandboxRequest { operation: "execute_workflow".into(), parameters: serde_json::Value::Object(serde_json::Map::new()), agent_id: "t".into(), resource_type: "w".into(), session_id: None, timestamp: chrono::Utc::now() };
+        let mut e = PermissionEngine::new();
+        let p = create_test_permissions();
+        let req = SandboxRequest {
+            operation: "execute_workflow".into(),
+            parameters: serde_json::Value::Object(serde_json::Map::new()),
+            agent_id: "t".into(),
+            resource_type: "w".into(),
+            session_id: None,
+            timestamp: chrono::Utc::now(),
+        };
         assert!(e.validate_operation(&req, &p).await.is_ok());
     }
 
     #[tokio::test]
     async fn test_wf_exec_denied() {
         let mut e = PermissionEngine::new();
-        let mut p = create_test_permissions(); p.workflow_permissions.can_execute_workflows = false;
-        let req = SandboxRequest { operation: "execute_workflow".into(), parameters: serde_json::Value::Object(serde_json::Map::new()), agent_id: "t".into(), resource_type: "w".into(), session_id: None, timestamp: chrono::Utc::now() };
+        let mut p = create_test_permissions();
+        p.workflow_permissions.can_execute_workflows = false;
+        let req = SandboxRequest {
+            operation: "execute_workflow".into(),
+            parameters: serde_json::Value::Object(serde_json::Map::new()),
+            agent_id: "t".into(),
+            resource_type: "w".into(),
+            session_id: None,
+            timestamp: chrono::Utc::now(),
+        };
         assert!(e.validate_operation(&req, &p).await.is_err());
     }
 
     #[tokio::test]
     async fn test_wf_type_non_string() {
-        let mut e = PermissionEngine::new(); let p = create_test_permissions();
-        let mut params = serde_json::Map::new(); params.insert("workflow_type".into(), serde_json::json!(12345));
-        let req = SandboxRequest { operation: "execute_workflow".into(), parameters: serde_json::Value::Object(params), agent_id: "t".into(), resource_type: "w".into(), session_id: None, timestamp: chrono::Utc::now() };
+        let mut e = PermissionEngine::new();
+        let p = create_test_permissions();
+        let mut params = serde_json::Map::new();
+        params.insert("workflow_type".into(), serde_json::json!(12345));
+        let req = SandboxRequest {
+            operation: "execute_workflow".into(),
+            parameters: serde_json::Value::Object(params),
+            agent_id: "t".into(),
+            resource_type: "w".into(),
+            session_id: None,
+            timestamp: chrono::Utc::now(),
+        };
         assert!(e.validate_operation(&req, &p).await.is_ok());
     }
 
@@ -600,14 +752,16 @@ mod tests {
 
     #[test]
     fn test_cmd_allowed_exact() {
-        let e = PermissionEngine::new(); let p = create_test_permissions();
+        let e = PermissionEngine::new();
+        let p = create_test_permissions();
         assert!(e.is_command_allowed("echo", &p));
         assert!(!e.is_command_allowed("ls", &p));
     }
 
     #[test]
     fn test_cmd_allowed_prefix() {
-        let e = PermissionEngine::new(); let p = create_test_permissions();
+        let e = PermissionEngine::new();
+        let p = create_test_permissions();
         assert!(e.is_command_allowed("git status", &p));
         assert!(!e.is_command_allowed("svn status", &p));
     }
@@ -616,7 +770,13 @@ mod tests {
     fn test_cmd_allowed_regex() {
         let e = PermissionEngine::new();
         let mut p = create_test_permissions();
-        p.allowed_commands.push(CommandPermission { pattern: CommandPattern::Regex { pattern: r"^test_\w+$".into() }, description: "t".into(), risk_level: RiskLevel::Low });
+        p.allowed_commands.push(CommandPermission {
+            pattern: CommandPattern::Regex {
+                pattern: r"^test_\w+$".into(),
+            },
+            description: "t".into(),
+            risk_level: RiskLevel::Low,
+        });
         assert!(e.is_command_allowed("test_hello", &p));
         assert!(!e.is_command_allowed("test-", &p));
     }
@@ -625,7 +785,13 @@ mod tests {
     fn test_cmd_allowed_invalid_regex() {
         let e = PermissionEngine::new();
         let mut p = create_test_permissions();
-        p.allowed_commands.push(CommandPermission { pattern: CommandPattern::Regex { pattern: r"[invalid(".into() }, description: "t".into(), risk_level: RiskLevel::Low });
+        p.allowed_commands.push(CommandPermission {
+            pattern: CommandPattern::Regex {
+                pattern: r"[invalid(".into(),
+            },
+            description: "t".into(),
+            risk_level: RiskLevel::Low,
+        });
         assert!(!e.is_command_allowed("anything", &p));
     }
 
@@ -648,15 +814,38 @@ mod tests {
 
     #[tokio::test]
     async fn test_internal_urls_pass() {
-        let mut e = PermissionEngine::new(); let p = create_test_permissions();
-        for url in &["http://127.0.0.1:8080","http://localhost:3000","http://192.168.1.100","http://10.0.0.5","http://s.local"] {
-            let mut params = serde_json::Map::new(); params.insert("url".into(), serde_json::json!(url));
-            let req = SandboxRequest { operation: "network_request".into(), parameters: serde_json::Value::Object(params), agent_id: "t".into(), resource_type: "n".into(), session_id: None, timestamp: chrono::Utc::now() };
+        let mut e = PermissionEngine::new();
+        let p = create_test_permissions();
+        for url in &[
+            "http://127.0.0.1:8080",
+            "http://localhost:3000",
+            "http://192.168.1.100",
+            "http://10.0.0.5",
+            "http://s.local",
+        ] {
+            let mut params = serde_json::Map::new();
+            params.insert("url".into(), serde_json::json!(url));
+            let req = SandboxRequest {
+                operation: "network_request".into(),
+                parameters: serde_json::Value::Object(params),
+                agent_id: "t".into(),
+                resource_type: "n".into(),
+                session_id: None,
+                timestamp: chrono::Utc::now(),
+            };
             assert!(e.validate_operation(&req, &p).await.is_ok(), "{}", url);
         }
-        for url in &["https://google.com","http://example.org"] {
-            let mut params = serde_json::Map::new(); params.insert("url".into(), serde_json::json!(url));
-            let req = SandboxRequest { operation: "network_request".into(), parameters: serde_json::Value::Object(params), agent_id: "t".into(), resource_type: "n".into(), session_id: None, timestamp: chrono::Utc::now() };
+        for url in &["https://google.com", "http://example.org"] {
+            let mut params = serde_json::Map::new();
+            params.insert("url".into(), serde_json::json!(url));
+            let req = SandboxRequest {
+                operation: "network_request".into(),
+                parameters: serde_json::Value::Object(params),
+                agent_id: "t".into(),
+                resource_type: "n".into(),
+                session_id: None,
+                timestamp: chrono::Utc::now(),
+            };
             assert!(e.validate_operation(&req, &p).await.is_err(), "{}", url);
         }
     }

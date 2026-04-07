@@ -2,7 +2,7 @@
 
 use crate::entities::{Entity, Task, TaskPriority};
 use crate::error::EngramError;
-use crate::storage::Storage;
+use crate::storage::{RelationshipStorage, Storage};
 use clap::Subcommand;
 use serde::Deserialize;
 use std::fs;
@@ -381,14 +381,38 @@ pub fn list_tasks<S: Storage>(
     Ok(())
 }
 
-pub fn show_task<S: Storage + 'static>(storage: &S, id: &str) -> Result<(), EngramError> {
+pub fn show_task<S: Storage + RelationshipStorage + 'static>(
+    storage: &S,
+    id: &str,
+) -> Result<(), EngramError> {
     if let Some(generic_task) = storage.get(id, "task")? {
         if let Ok(task_obj) = Task::from_generic(generic_task) {
             println!("📋 Task Details:");
             display_task(&task_obj);
 
-            // Query and display associated workflow instances
-            println!("\n🔄 Associated Workflows:");
+            // ── Related entities via relationship graph ──────────────────────
+            let relationships = storage.get_entity_relationships(id).unwrap_or_default();
+            if !relationships.is_empty() {
+                println!("🔗 Related Entities:");
+                println!("====================");
+                for rel in &relationships {
+                    let direction = if rel.source_id == id { "→" } else { "←" };
+                    let other_id = if rel.source_id == id {
+                        &rel.target_id
+                    } else {
+                        &rel.source_id
+                    };
+                    let rel_type = format!("{}", rel.relationship_type);
+
+                    // Try to resolve entity title/summary
+                    let label = resolve_entity_label(storage, other_id);
+                    println!("  {} [{}] {} {}", direction, rel_type, other_id, label);
+                }
+                println!();
+            }
+
+            // ── Associated workflow instances ────────────────────────────────
+            println!("🔄 Associated Workflows:");
             println!("=======================");
 
             let instances: Vec<_> = storage
@@ -432,6 +456,31 @@ pub fn show_task<S: Storage + 'static>(storage: &S, id: &str) -> Result<(), Engr
     }
 
     Ok(())
+}
+
+/// Attempt to resolve a human-readable label for any entity ID.
+fn resolve_entity_label<S: Storage>(storage: &S, id: &str) -> String {
+    // Try each known entity type and extract a title field
+    for entity_type in &[
+        "reasoning",
+        "context",
+        "adr",
+        "task",
+        "rule",
+        "standard",
+        "knowledge",
+    ] {
+        if let Ok(Some(generic)) = storage.get(id, entity_type) {
+            let title = generic
+                .data
+                .get("title")
+                .and_then(|v| v.as_str())
+                .map(|s| format!("— {}", s))
+                .unwrap_or_default();
+            return format!("({}){}", entity_type, title);
+        }
+    }
+    String::new()
 }
 
 /// Update task command

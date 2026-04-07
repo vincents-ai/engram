@@ -24,10 +24,18 @@ Use this skill when:
 
 ### 1. Claim the Task
 
-The first thing you do is mark the task as claimed so other agents don't duplicate work:
+The first thing you do is mark the task as claimed so other agents don't duplicate work.
+
+**If the orchestrator has not already registered you, self-register with your role type.** This makes you queryable by type in engram. See `engram-agent-types` for the full list of role types.
 
 ```bash
-# Read your full instructions
+# Self-register with your role type if not already registered
+engram setup agent \
+  --name "<your-agent-name>" \
+  --agent-type "<your-role: researcher|coder|reviewer|tester|...>" \
+  --specialization "<your area of focus>"
+
+# Then claim the task
 engram task show <TASK_UUID>
 
 # Claim it — mark as in_progress

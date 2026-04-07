@@ -9,7 +9,8 @@
 
 use super::{
     relationship_storage::{
-        EntityPath, RelationshipIndex, RelationshipStats, RelationshipStorage, TraversalAlgorithm,
+        EntityPath, GraphAnalyzer, RelationshipIndex, RelationshipStats, RelationshipStorage,
+        TraversalAlgorithm,
     },
     GitCommit, MemoryEntity, QueryFilter, QueryResult, SortOrder, Storage, StorageStats,
 };
@@ -856,11 +857,20 @@ impl RelationshipStorage for GitRefsStorage {
 
     fn get_connected_entities(
         &self,
-        _entity_id: &str,
-        _algorithm: TraversalAlgorithm,
-        _max_depth: Option<usize>,
+        entity_id: &str,
+        algorithm: TraversalAlgorithm,
+        max_depth: Option<usize>,
     ) -> Result<Vec<String>, EngramError> {
-        Ok(Vec::new())
+        match algorithm {
+            TraversalAlgorithm::BreadthFirst => {
+                GraphAnalyzer::bfs(self, entity_id, None, max_depth)
+            }
+            TraversalAlgorithm::DepthFirst => GraphAnalyzer::dfs(self, entity_id, None, max_depth),
+            TraversalAlgorithm::Dijkstra => {
+                // For connected entities (no target), BFS is equivalent
+                GraphAnalyzer::bfs(self, entity_id, None, max_depth)
+            }
+        }
     }
 
     fn get_relationship_index(&self) -> Result<&RelationshipIndex, EngramError> {
@@ -963,5 +973,157 @@ mod tests {
         let results = storage.query_by_agent("agent-b", None).unwrap();
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].id, "test-2");
+    }
+
+    /// Regression test: get_connected_entities must return stored relationships via BFS.
+    ///
+    /// Previously, `get_connected_entities` was a stub that always returned `Ok(Vec::new())`.
+    /// This test verifies the fix: BFS now traverses the relationship index correctly.
+    #[test]
+    fn test_get_connected_entities_bfs_returns_stored_relationships() {
+        use crate::entities::{EntityRelationType, EntityRelationship};
+        use crate::storage::{RelationshipStorage, TraversalAlgorithm};
+
+        let dir = tempdir().unwrap();
+        let mut storage = GitRefsStorage::new(dir.path().to_str().unwrap(), "test-agent").unwrap();
+
+        // Store entities: entity-A -> entity-B -> entity-C (chain)
+        storage
+            .store(&create_test_entity("entity-A", "test-agent"))
+            .unwrap();
+        storage
+            .store(&create_test_entity("entity-B", "test-agent"))
+            .unwrap();
+        storage
+            .store(&create_test_entity("entity-C", "test-agent"))
+            .unwrap();
+
+        // Create relationship A -> B
+        let rel_ab = EntityRelationship::new(
+            "rel-ab".to_string(),
+            "test-agent".to_string(),
+            "entity-A".to_string(),
+            "task".to_string(),
+            "entity-B".to_string(),
+            "task".to_string(),
+            EntityRelationType::DependsOn,
+        );
+        storage.store_relationship(&rel_ab).unwrap();
+
+        // Create relationship B -> C
+        let rel_bc = EntityRelationship::new(
+            "rel-bc".to_string(),
+            "test-agent".to_string(),
+            "entity-B".to_string(),
+            "task".to_string(),
+            "entity-C".to_string(),
+            "task".to_string(),
+            EntityRelationType::DependsOn,
+        );
+        storage.store_relationship(&rel_bc).unwrap();
+
+        // BFS from entity-A with max_depth 2 should find A, B, C
+        let connected = storage
+            .get_connected_entities("entity-A", TraversalAlgorithm::BreadthFirst, Some(2))
+            .unwrap();
+
+        // Must not be empty (this was the bug)
+        assert!(
+            !connected.is_empty(),
+            "BFS should return connected entities, but got empty result"
+        );
+
+        // entity-A is the start node (included in result)
+        assert!(
+            connected.contains(&"entity-A".to_string()),
+            "Result must include the start entity"
+        );
+        // entity-B is directly connected
+        assert!(
+            connected.contains(&"entity-B".to_string()),
+            "Result must include entity-B (direct neighbor)"
+        );
+        // entity-C is at depth 2
+        assert!(
+            connected.contains(&"entity-C".to_string()),
+            "Result must include entity-C (depth-2 neighbor)"
+        );
+        assert_eq!(connected.len(), 3, "Should find exactly 3 entities");
+    }
+
+    /// Regression test: BFS with max_depth=1 must stop at the first hop.
+    #[test]
+    fn test_get_connected_entities_bfs_respects_max_depth() {
+        use crate::entities::{EntityRelationType, EntityRelationship};
+        use crate::storage::{RelationshipStorage, TraversalAlgorithm};
+
+        let dir = tempdir().unwrap();
+        let mut storage = GitRefsStorage::new(dir.path().to_str().unwrap(), "test-agent").unwrap();
+
+        storage
+            .store(&create_test_entity("entity-A", "test-agent"))
+            .unwrap();
+        storage
+            .store(&create_test_entity("entity-B", "test-agent"))
+            .unwrap();
+        storage
+            .store(&create_test_entity("entity-C", "test-agent"))
+            .unwrap();
+
+        let rel_ab = EntityRelationship::new(
+            "rel-ab".to_string(),
+            "test-agent".to_string(),
+            "entity-A".to_string(),
+            "task".to_string(),
+            "entity-B".to_string(),
+            "task".to_string(),
+            EntityRelationType::DependsOn,
+        );
+        storage.store_relationship(&rel_ab).unwrap();
+
+        let rel_bc = EntityRelationship::new(
+            "rel-bc".to_string(),
+            "test-agent".to_string(),
+            "entity-B".to_string(),
+            "task".to_string(),
+            "entity-C".to_string(),
+            "task".to_string(),
+            EntityRelationType::DependsOn,
+        );
+        storage.store_relationship(&rel_bc).unwrap();
+
+        // With max_depth=1 from entity-A, should only reach A and B (not C)
+        let connected = storage
+            .get_connected_entities("entity-A", TraversalAlgorithm::BreadthFirst, Some(1))
+            .unwrap();
+
+        assert!(connected.contains(&"entity-A".to_string()));
+        assert!(connected.contains(&"entity-B".to_string()));
+        assert!(
+            !connected.contains(&"entity-C".to_string()),
+            "entity-C is at depth 2, should not be returned with max_depth=1"
+        );
+        assert_eq!(connected.len(), 2);
+    }
+
+    /// Regression test: isolated entity (no relationships) returns only itself.
+    #[test]
+    fn test_get_connected_entities_isolated_entity() {
+        use crate::storage::{RelationshipStorage, TraversalAlgorithm};
+
+        let dir = tempdir().unwrap();
+        let storage = GitRefsStorage::new(dir.path().to_str().unwrap(), "test-agent").unwrap();
+
+        // No relationships stored; start from a known entity ID
+        let connected = storage
+            .get_connected_entities("no-such-entity", TraversalAlgorithm::BreadthFirst, Some(3))
+            .unwrap();
+
+        // BFS always includes the start node itself
+        assert_eq!(
+            connected,
+            vec!["no-such-entity".to_string()],
+            "Isolated entity BFS should return only the start node"
+        );
     }
 }

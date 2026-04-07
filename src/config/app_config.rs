@@ -229,6 +229,7 @@ mod tests {
             agent_type: "general".to_string(),
             specialization: None,
             email: None,
+            persona: None,
         };
         other.agents.insert("test-agent".to_string(), agent);
 
@@ -333,6 +334,7 @@ mod tests {
             agent_type: "type1".to_string(),
             specialization: Some("spec1".to_string()),
             email: Some("a1@test.com".to_string()),
+            persona: None,
         };
         other.agents.insert("agent1".to_string(), agent1);
 
@@ -341,6 +343,7 @@ mod tests {
             agent_type: "type2".to_string(),
             specialization: None,
             email: None,
+            persona: None,
         };
         base.agents.insert("agent2".to_string(), agent2);
 

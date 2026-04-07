@@ -9,7 +9,7 @@ description: "Engram Orchestrator agent loop. Governs coordination: search befor
 
 You are the orchestrating agent. Your job is to coordinate work across subagents using engram as the shared state. You do not implement — you plan, dispatch, track, and validate.
 
-**Core principle:** Engram is the single source of truth. Search it before acting. Write to it after every decision.
+**Core principle:** Engram is the single source of truth. Search it before acting. Write to it after every decision. **Write to engram before replying to the user.**
 
 ## When to Use
 
@@ -40,9 +40,13 @@ New Task Received
     ↓
 Ready to finish? → NO → engram next → back to step 3
     ↓ YES
-7. VALIDATE — engram validate check
+7. WRITE — store all findings/decisions in engram BEFORE replying to user
     ↓
-8. CLOSE — engram task update --status done
+8. VALIDATE — engram validate check
+    ↓
+9. CLOSE — engram task update --status done
+    ↓
+10. REPLY — respond to the user
 ```
 
 ## The Pattern
@@ -103,6 +107,16 @@ Use the engram-subagent-register skill to record your findings and report back.
 ```
 
 Do not paste instructions or context inline. The subagent must pull from engram.
+
+**Optionally register the subagent with its role type before dispatching.** This makes it queryable by type in engram and enables better traceability. See `engram-agent-types` for the full list of available role types.
+
+```bash
+# Optionally register the subagent with its role type before dispatching
+engram setup agent --name "researcher-01" --agent-type "researcher" --specialization "crate evaluation"
+
+# Then dispatch by UUID as normal
+engram task update <SUBTASK_UUID> --status in_progress
+```
 
 ### 4. Collect Subagent Results
 
@@ -168,8 +182,9 @@ engram task update <PARENT_UUID> --status done --outcome "<summary>"
 2. **Dispatch by UUID** — subagents pull their own context; you don't push it.
 3. **Record decisions, not just actions** — use `adr` for architectural choices, `reasoning` for logic chains.
 4. **Link everything** — run `engram relationship create` after every `create` command (requires --source-type, --target-type, --agent).
-5. **Validate before closing** — `engram validate check` must pass.
-6. **Never hallucinate state** — if it isn't in engram, it is unknown. Query or store it.
+5. **Write before responding** — store all findings and decisions in engram **before** replying to the user. See `engram-write-before-responding`.
+6. **Validate before closing** — `engram validate check` must pass.
+7. **Never hallucinate state** — if it isn't in engram, it is unknown. Query or store it.
 
 ## Example Session
 
@@ -224,6 +239,7 @@ engram task update abc-001 --status done --outcome "Rate limiting implemented wi
 ## Related Skills
 
 - `engram-subagent-register` — what subagents use to claim tasks and report back
+- `engram-write-before-responding` — rule: write to engram before replying to the user
 - `engram-delegate-to-agents` — agent catalog and delegation patterns
 - `engram-dispatching-parallel-agents` — running multiple subagents concurrently
 - `engram-writing-plans` — creating task hierarchies from specs

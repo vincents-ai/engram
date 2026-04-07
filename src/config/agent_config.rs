@@ -11,4 +11,6 @@ pub struct AgentConfig {
     pub agent_type: String,
     pub specialization: Option<String>,
     pub email: Option<String>,
+    /// Persona slug to use as system prompt (e.g. "01-the-one" or "the-architect")
+    pub persona: Option<String>,
 }

@@ -75,8 +75,8 @@ ndarray = { version = "0.17", optional = true }
 bytemuck = { version = "1.24", optional = true }
 
 # TUI dependencies
-crossterm = { version = "0.27", optional = true }
-ratatui = { version = "0.26", optional = true }
+crossterm = { version = "0.29", optional = true }
+ratatui = { version = "0.30", optional = true }
 prettytable-rs = "0.10.0"
 
 [build-dependencies]
@@ -88,6 +88,7 @@ assert_cmd = "2.0"
 predicates = "3.0"
 proptest = "1"
 fastrand = "2"
+insta = { version = "1", features = ["filters"] }
 
 [[bin]]
 name = "engram"

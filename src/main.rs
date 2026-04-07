@@ -106,9 +106,9 @@ async fn run() -> Result<(), EngramError> {
             let mut storage = GitRefsStorage::new(".", "default")?;
             engram::cli::sync::handle_sync_command(&mut storage, &command)?;
         }
-        cli::Commands::Next { id, format } => {
+        cli::Commands::Next { id, format, agent } => {
             let mut storage = GitRefsStorage::new(".", "default")?;
-            engram::cli::next::handle_next_command(&mut storage, id, format)?;
+            engram::cli::next::handle_next_command(&mut storage, id, format, agent)?;
         }
         cli::Commands::Info => {
             let storage = GitRefsStorage::new(".", "default")?;
@@ -117,7 +117,12 @@ async fn run() -> Result<(), EngramError> {
         cli::Commands::Migration => handle_migration_command()?,
         cli::Commands::Guide { command } => handle_help_command(command)?,
         cli::Commands::Skills { command } => match command {
-            cli::SkillsCommands::Setup { force, dir, tool, source } => {
+            cli::SkillsCommands::Setup {
+                force,
+                dir,
+                tool,
+                source,
+            } => {
                 cli::handle_skills_command(
                     &mut std::io::stdout(),
                     force,
@@ -216,12 +221,14 @@ fn handle_setup_command(command: cli::SetupCommands) -> Result<(), EngramError> 
             agent_type,
             specialization,
             email,
+            persona,
         } => {
             cli::setup_agent(
                 &name,
                 &agent_type,
                 specialization.as_deref(),
                 email.as_deref(),
+                persona.as_deref(),
                 None,
             )?;
         }
@@ -274,7 +281,9 @@ fn handle_test_command() -> Result<(), EngramError> {
 }
 
 /// Handle task commands
-fn handle_task_command<S: engram::storage::Storage + 'static>(
+fn handle_task_command<
+    S: engram::storage::Storage + engram::storage::RelationshipStorage + 'static,
+>(
     command: cli::TaskCommands,
     storage: &mut S,
 ) -> Result<(), EngramError> {
