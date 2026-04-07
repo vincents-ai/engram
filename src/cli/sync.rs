@@ -110,6 +110,63 @@ pub enum SyncCommands {
     },
     /// Import all git remotes as engram remotes
     ImportGitRemotes,
+    /// Pull from remote then push — ensures local state includes remote before pushing
+    Both {
+        #[arg(long)]
+        remote: String,
+        #[arg(long)]
+        auth_type: Option<String>,
+        #[arg(long)]
+        username: Option<String>,
+        #[arg(long)]
+        password: Option<String>,
+        #[arg(long)]
+        ssh_key: Option<String>,
+        #[arg(long, default_value_t = false)]
+        dry_run: bool,
+    },
+}
+
+/// Result of a pull-then-push (both) operation
+#[derive(Debug)]
+pub struct SyncBothResult {
+    pub pull_outcomes: Vec<PullEntityOutcome>,
+    pub push_count: usize,
+    pub conflicts: usize,
+}
+
+/// Pull from remote then push — guarantees local has latest remote state before pushing
+pub fn sync_both(
+    remote_name: String,
+    auth: RemoteAuth,
+    dry_run: bool,
+) -> Result<SyncBothResult, EngramError> {
+    println!("🔄 Sync both for remote '{}'", remote_name);
+
+    // Step 1: pull
+    let pull_outcomes = pull_from_remote(remote_name.clone(), auth.clone(), dry_run)?;
+    let conflicts = pull_outcomes
+        .iter()
+        .filter(|o| matches!(o, PullEntityOutcome::Conflict { .. }))
+        .count();
+
+    if conflicts > 0 {
+        println!(
+            "⚠️  {} conflict(s) detected — push will still proceed. Use 'engram sync resolve' to resolve conflicts.",
+            conflicts
+        );
+    }
+
+    // Step 2: push
+    let push_count = push_to_remote(remote_name.clone(), auth, dry_run)?;
+
+    println!("\n✅ Both complete for '{}'", remote_name);
+
+    Ok(SyncBothResult {
+        pull_outcomes,
+        push_count,
+        conflicts,
+    })
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -1420,6 +1477,23 @@ pub fn handle_sync_command<S: Storage>(
         SyncCommands::ListBranches { all, current } => list_branches(*all, *current),
         SyncCommands::DeleteBranch { name, force } => delete_branch(name, *force),
         SyncCommands::ImportGitRemotes => handle_import_git_remotes(),
+        SyncCommands::Both {
+            remote,
+            auth_type,
+            username,
+            password,
+            ssh_key,
+            dry_run,
+        } => {
+            let auth = RemoteAuth {
+                auth_type: auth_type.clone().unwrap_or_else(|| "none".to_string()),
+                username: username.clone(),
+                password: password.clone(),
+                key_path: ssh_key.clone(),
+            };
+            sync_both(remote.clone(), auth, *dry_run)?;
+            Ok(())
+        }
     }
 }
 
@@ -1956,5 +2030,60 @@ mod tests {
             .iter()
             .any(|r| r.starts_with("refs/engram/remote/")));
         assert!(!engram_refs.iter().any(|r| r.starts_with("refs/heads/")));
+    }
+
+    // --- Phase 6 unit tests ---
+
+    /// SyncBothResult is constructable from pull outcomes and push count
+    #[test]
+    fn test_sync_both_result_construction() {
+        let outcomes = vec![
+            PullEntityOutcome::Merged {
+                entity_type: "task".to_string(),
+                uuid: "u1".to_string(),
+                remote_version: 2,
+            },
+            PullEntityOutcome::Conflict {
+                entity_type: "context".to_string(),
+                uuid: "u2".to_string(),
+                version: 1,
+            },
+            PullEntityOutcome::UpToDate {
+                entity_type: "reasoning".to_string(),
+                uuid: "u3".to_string(),
+            },
+        ];
+        let conflicts = outcomes
+            .iter()
+            .filter(|o| matches!(o, PullEntityOutcome::Conflict { .. }))
+            .count();
+        let result = SyncBothResult {
+            pull_outcomes: outcomes,
+            push_count: 10,
+            conflicts,
+        };
+        assert_eq!(result.push_count, 10);
+        assert_eq!(result.conflicts, 1);
+        assert_eq!(result.pull_outcomes.len(), 3);
+    }
+
+    /// SyncBothResult with zero conflicts
+    #[test]
+    fn test_sync_both_no_conflicts() {
+        let outcomes: Vec<PullEntityOutcome> = vec![PullEntityOutcome::UpToDate {
+            entity_type: "task".to_string(),
+            uuid: "u1".to_string(),
+        }];
+        let conflicts = outcomes
+            .iter()
+            .filter(|o| matches!(o, PullEntityOutcome::Conflict { .. }))
+            .count();
+        let result = SyncBothResult {
+            pull_outcomes: outcomes,
+            push_count: 5,
+            conflicts,
+        };
+        assert_eq!(result.conflicts, 0);
+        assert_eq!(result.push_count, 5);
     }
 }
