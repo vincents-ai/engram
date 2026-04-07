@@ -18,6 +18,7 @@ use crate::entities::{EntityRegistry, EntityRelationship, GenericEntity, Relatio
 use crate::error::{EngramError, StorageError};
 use git2::Repository;
 use serde_json::Value;
+use sha2::{Digest, Sha512};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -36,6 +37,7 @@ pub struct GitRefsStorage {
     entity_registry: Arc<EntityRegistry>,
     current_agent: String,
     relationship_index: Arc<Mutex<RelationshipIndex>>,
+    pub project_id: String,
 }
 
 impl std::fmt::Debug for GitRefsStorage {
@@ -43,6 +45,7 @@ impl std::fmt::Debug for GitRefsStorage {
         f.debug_struct("GitRefsStorage")
             .field("workspace_path", &self.workspace_path)
             .field("current_agent", &self.current_agent)
+            .field("project_id", &self.project_id)
             .finish()
     }
 }
@@ -55,6 +58,116 @@ impl Clone for GitRefsStorage {
             entity_registry: self.entity_registry.clone(),
             current_agent: self.current_agent.clone(),
             relationship_index: self.relationship_index.clone(),
+            project_id: self.project_id.clone(),
+        }
+    }
+}
+
+/// Derive a stable 128-hex-char project identity from the root commit of `repo`.
+///
+/// If the repository has no commits yet (head unborn), an empty root commit is
+/// created first so that there is always a root commit to hash.
+///
+/// Returns `hex(SHA-512(root_commit_sha1_string))` — 128 lowercase hex characters.
+fn derive_project_id(repo: &git2::Repository) -> Result<String, EngramError> {
+    let is_empty = repo
+        .is_empty()
+        .map_err(|e| EngramError::Git(format!("Failed to check if repo is empty: {}", e)))?;
+    if is_empty {
+        let mut idx = repo
+            .index()
+            .map_err(|e| EngramError::Git(format!("Failed to open index: {}", e)))?;
+        let empty_tree_oid = idx
+            .write_tree()
+            .map_err(|e| EngramError::Git(format!("Failed to write empty tree: {}", e)))?;
+        let tree = repo
+            .find_tree(empty_tree_oid)
+            .map_err(|e| EngramError::Git(format!("Failed to find empty tree: {}", e)))?;
+        let sig = git2::Signature::now("engram", "engram@localhost")
+            .map_err(|e| EngramError::Git(format!("Failed to create signature: {}", e)))?;
+        repo.commit(
+            Some("HEAD"),
+            &sig,
+            &sig,
+            "engram: init workspace",
+            &tree,
+            &[],
+        )
+        .map_err(|e| EngramError::Git(format!("Failed to create init commit: {}", e)))?;
+    }
+
+    let mut revwalk = repo
+        .revwalk()
+        .map_err(|e| EngramError::Git(format!("Failed to create revwalk: {}", e)))?;
+    revwalk
+        .push_head()
+        .map_err(|e| EngramError::Git(format!("Failed to push HEAD to revwalk: {}", e)))?;
+    revwalk
+        .set_sorting(git2::Sort::TOPOLOGICAL | git2::Sort::REVERSE)
+        .map_err(|e| EngramError::Git(format!("Failed to set revwalk sorting: {}", e)))?;
+
+    let root_oid = revwalk
+        .next()
+        .ok_or_else(|| EngramError::Git("no root commit".into()))?
+        .map_err(|e| EngramError::Git(format!("Failed to read root OID from revwalk: {}", e)))?;
+
+    let root_sha1 = root_oid.to_string(); // 40 hex chars
+    let digest = Sha512::digest(root_sha1.as_bytes());
+    Ok(hex::encode(digest)) // 128 hex chars
+}
+
+/// Ensure `refs/engram/config/workspace` exists in `repo`.
+///
+/// * If the ref already exists, read the JSON blob and return the stored `project_id`.
+/// * If the ref does not exist, derive a new `project_id`, write the JSON blob, create
+///   the ref, and return the new `project_id`.
+fn ensure_workspace_ref(
+    repo: &git2::Repository,
+    workspace_path: &std::path::Path,
+) -> Result<String, EngramError> {
+    match repo.find_reference("refs/engram/config/workspace") {
+        Ok(r) => {
+            let oid = r.target().ok_or_else(|| {
+                EngramError::Git("refs/engram/config/workspace has no target OID".into())
+            })?;
+            let blob = repo
+                .find_blob(oid)
+                .map_err(|e| EngramError::Git(format!("Failed to find workspace blob: {}", e)))?;
+            let content = std::str::from_utf8(blob.content()).map_err(|e| {
+                EngramError::Git(format!("Workspace blob is not valid UTF-8: {}", e))
+            })?;
+            let v: serde_json::Value = serde_json::from_str(content)
+                .map_err(|e| EngramError::Git(format!("Failed to parse workspace JSON: {}", e)))?;
+            let pid = v
+                .get("project_id")
+                .and_then(|p| p.as_str())
+                .ok_or_else(|| EngramError::Git("workspace JSON missing project_id field".into()))?
+                .to_string();
+            Ok(pid)
+        }
+        Err(_) => {
+            let pid = derive_project_id(repo)?;
+            let json = serde_json::json!({
+                "project_id": &pid,
+                "name": workspace_path.to_string_lossy().as_ref()
+            })
+            .to_string();
+            let blob_oid = repo
+                .blob(json.as_bytes())
+                .map_err(|e| EngramError::Git(format!("Failed to create workspace blob: {}", e)))?;
+            repo.reference(
+                "refs/engram/config/workspace",
+                blob_oid,
+                true,
+                "engram: init workspace config",
+            )
+            .map_err(|e| {
+                EngramError::Git(format!(
+                    "Failed to write refs/engram/config/workspace: {}",
+                    e
+                ))
+            })?;
+            Ok(pid)
         }
     }
 }
@@ -69,6 +182,9 @@ impl GitRefsStorage {
         } else {
             Repository::open(&workspace_path).map_err(|e| EngramError::Git(e.to_string()))?
         };
+
+        let project_id = ensure_workspace_ref(&repository, &workspace_path)
+            .map_err(|e| EngramError::Git(format!("Failed to ensure workspace ref: {}", e)))?;
 
         let mut registry = EntityRegistry::new();
         registry.register::<crate::entities::Task>();
@@ -96,6 +212,7 @@ impl GitRefsStorage {
             entity_registry: Arc::new(registry),
             current_agent: agent.to_string(),
             relationship_index: Arc::new(Mutex::new(RelationshipIndex::new())),
+            project_id,
         };
 
         storage.rebuild_relationship_index()?;
@@ -1125,5 +1242,57 @@ mod tests {
             vec!["no-such-entity".to_string()],
             "Isolated entity BFS should return only the start node"
         );
+    }
+
+    #[test]
+    fn test_project_id_derived_for_new_repo() {
+        let dir = tempfile::tempdir().unwrap();
+        let storage = GitRefsStorage::new(dir.path().to_str().unwrap(), "test").unwrap();
+        assert_eq!(
+            storage.project_id.len(),
+            128,
+            "project_id must be 128 hex chars"
+        );
+        assert!(storage.project_id.chars().all(|c| c.is_ascii_hexdigit()));
+    }
+
+    #[test]
+    fn test_project_id_stable_across_reinit() {
+        let dir = tempfile::tempdir().unwrap();
+        let s1 = GitRefsStorage::new(dir.path().to_str().unwrap(), "test").unwrap();
+        let s2 = GitRefsStorage::new(dir.path().to_str().unwrap(), "test").unwrap();
+        assert_eq!(s1.project_id, s2.project_id, "project_id must be stable");
+    }
+
+    #[test]
+    fn test_workspace_ref_written() {
+        let dir = tempfile::tempdir().unwrap();
+        let storage = GitRefsStorage::new(dir.path().to_str().unwrap(), "test").unwrap();
+        let repo = git2::Repository::open(dir.path()).unwrap();
+        let r = repo.find_reference("refs/engram/config/workspace");
+        assert!(
+            r.is_ok(),
+            "refs/engram/config/workspace must exist after new()"
+        );
+        // storage is used to prevent unused variable warning
+        let _ = storage.project_id.len();
+    }
+
+    #[test]
+    fn test_project_id_existing_repo_with_commits() {
+        let dir = tempfile::tempdir().unwrap();
+        // create a repo with a real commit first
+        {
+            let repo = git2::Repository::init(dir.path()).unwrap();
+            let sig = git2::Signature::now("test", "test@test.com").unwrap();
+            let mut idx = repo.index().unwrap();
+            let tree_oid = idx.write_tree().unwrap();
+            let tree = repo.find_tree(tree_oid).unwrap();
+            repo.commit(Some("HEAD"), &sig, &sig, "initial", &tree, &[])
+                .unwrap();
+        } // repo, tree, sig, idx all dropped here
+          // now open via storage
+        let storage = GitRefsStorage::new(dir.path().to_str().unwrap(), "test").unwrap();
+        assert_eq!(storage.project_id.len(), 128);
     }
 }
