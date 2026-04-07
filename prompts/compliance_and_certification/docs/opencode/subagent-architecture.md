@@ -1,6 +1,8 @@
 # Subagent Architecture Guide
 
-This document explains how to design, implement, and manage specialized AI subagents using OpenCode's configuration system.
+> **Note:** This documentation describes multi-agent AI tool configuration patterns. Examples were originally written for OpenCode but the concepts apply to any AI coding tool.
+
+This document explains how to design, implement, and manage specialized AI subagents using your AI coding tool's configuration system.
 
 ## Overview
 
@@ -34,24 +36,6 @@ Each agent understands:
 ### Development Specialists
 
 #### Frontend Engineer
-```json
-{
-  "frontend-typescript-engineer": {
-    "mode": "subagent",
-    "model": "github-copilot/claude-3.5-sonnet",
-    "prompt": "{file:./prompts/frontend-typescript-engineer.md}",
-    "tools": {
-      "read": true,
-      "write": true,
-      "edit": true,
-      "bash": true,
-      "grep": true,
-      "glob": true,
-      "list": true
-    }
-  }
-}
-```
 
 **Responsibilities:**
 - React component development
@@ -61,24 +45,6 @@ Each agent understands:
 - Frontend testing
 
 #### Backend Developer
-```json
-{
-  "backend-developer": {
-    "mode": "subagent",
-    "model": "github-copilot/claude-3.5-sonnet", 
-    "prompt": "{file:./prompts/backend-developer.md}",
-    "tools": {
-      "read": true,
-      "write": true,
-      "edit": true,
-      "bash": true,
-      "grep": true,
-      "glob": true,
-      "list": true
-    }
-  }
-}
-```
 
 **Responsibilities:**
 - API design and implementation
@@ -90,24 +56,6 @@ Each agent understands:
 ### Domain Experts
 
 #### Game Designer
-```json
-{
-  "game-designer": {
-    "mode": "subagent",
-    "model": "github-copilot/claude-3.5-sonnet",
-    "prompt": "{file:./prompts/game-designer.md}",
-    "tools": {
-      "read": true,
-      "write": true,
-      "edit": true,
-      "bash": true,
-      "grep": true,
-      "glob": true,
-      "list": true
-    }
-  }
-}
-```
 
 **Responsibilities:**
 - Game mechanics design
@@ -116,55 +64,17 @@ Each agent understands:
 - Content creation
 - Progression systems
 
-#### Cannabis Specialist
-```json
-{
-  "cannabis-specialist": {
-    "mode": "subagent",
-    "model": "github-copilot/claude-3.5-sonnet",
-    "prompt": "{file:./prompts/cannabis-specialist.md}",
-    "tools": {
-      "read": true,
-      "write": true,
-      "edit": true,
-      "bash": true,
-      "grep": true,
-      "glob": true,
-      "list": true,
-      "webfetch": true
-    }
-  }
-}
-```
+#### Domain Specialist (e.g. Cannabis Specialist)
 
 **Responsibilities:**
-- Cannabis cultivation mechanics
-- Strain genetics and breeding
-- Industry-accurate content
-- Legal compliance research
+- Domain-specific mechanics and accuracy
+- Industry content and terminology
+- Compliance and regulatory research
 - Narrative development
 
 ### Infrastructure Specialists
 
-#### NixOS Systems Architect
-```json
-{
-  "nixos-systems-architect": {
-    "mode": "subagent",
-    "model": "github-copilot/claude-3.5-sonnet",
-    "prompt": "{file:./prompts/nixos-systems-architect.md}",
-    "tools": {
-      "read": true,
-      "write": true,
-      "edit": true,
-      "bash": true,
-      "grep": true,
-      "glob": true,
-      "list": true
-    }
-  }
-}
-```
+#### Systems Architect (e.g. NixOS Systems Architect)
 
 **Responsibilities:**
 - Development environment setup
@@ -174,25 +84,6 @@ Each agent understands:
 - CI/CD pipelines
 
 #### World-Building Researcher
-```json
-{
-  "world-building-researcher": {
-    "mode": "subagent",
-    "model": "github-copilot/claude-3.5-sonnet",
-    "prompt": "{file:./prompts/world-building-researcher.md}",
-    "tools": {
-      "read": true,
-      "write": true,
-      "edit": true,
-      "bash": true,
-      "grep": true,
-      "glob": true,
-      "list": true,
-      "webfetch": true
-    }
-  }
-}
-```
 
 **Responsibilities:**
 - Real-world data research
@@ -265,53 +156,6 @@ You are a senior frontend engineer AI specializing in React and TypeScript devel
 **REQUIRED**: Track session duration for performance analysis.
 ```
 
-## Tool Configuration Strategies
-
-### Minimal Access Pattern
-Grant only essential tools:
-```json
-{
-  "tools": {
-    "read": true,
-    "edit": true,
-    "grep": true
-  }
-}
-```
-
-### Development Pattern
-Standard development capabilities:
-```json
-{
-  "tools": {
-    "read": true,
-    "write": true,
-    "edit": true,
-    "bash": true,
-    "grep": true,
-    "glob": true,
-    "list": true
-  }
-}
-```
-
-### Research Pattern
-Include external access for research:
-```json
-{
-  "tools": {
-    "read": true,
-    "write": true,
-    "edit": true,
-    "bash": true,
-    "grep": true,
-    "glob": true,
-    "list": true,
-    "webfetch": true
-  }
-}
-```
-
 ## Agent Coordination
 
 ### Primary Agent Workflow
@@ -335,74 +179,6 @@ Agents communicate through:
 - **Code Comments**: Domain-specific notes and explanations
 - **Git Commits**: Detailed commit messages with agent attribution
 - **Task Results**: Structured output from specialist agents
-
-## Implementation Steps
-
-### 1. Define Agent Roles
-Identify the key domains in your project:
-```
-Project Analysis:
-- Frontend: React, TypeScript, UI components
-- Backend: Node.js, APIs, databases  
-- DevOps: Docker, CI/CD, deployment
-- Domain: Game mechanics, cannabis cultivation
-- Research: Legal compliance, market data
-```
-
-### 2. Create Prompt Files
-Structure your prompts directory:
-```
-prompts/
-├── README.md                      # Agent overview
-├── frontend-typescript-engineer.md
-├── backend-developer.md
-├── game-designer.md
-├── cannabis-specialist.md
-├── nixos-systems-architect.md
-└── world-building-researcher.md
-```
-
-### 3. Configure Tools and Permissions
-Match tools to agent responsibilities:
-```json
-{
-  "agent": {
-    "frontend-engineer": {
-      "tools": {
-        "read": true,
-        "write": true,
-        "edit": true,
-        "bash": true,
-        "grep": true,
-        "glob": true,
-        "list": true
-      }
-    },
-    "researcher": {
-      "tools": {
-        "read": true,
-        "write": true,
-        "edit": true,
-        "webfetch": true,
-        "grep": true,
-        "glob": true,
-        "list": true
-      }
-    }
-  }
-}
-```
-
-### 4. Test Agent Interactions
-Validate your configuration:
-```bash
-# Test individual agents
-opencode test-agent frontend-engineer
-opencode test-agent backend-developer
-
-# Test cross-agent workflows
-opencode validate-workflow
-```
 
 ## Best Practices
 
@@ -433,57 +209,65 @@ opencode validate-workflow
 ## Common Patterns
 
 ### Multi-Agent Collaboration
-```bash
+```
 User: "Add a dark mode toggle to the settings page"
 Primary Agent: 
   1. Analyzes task (UI + state management)
   2. Calls frontend-engineer for component implementation
   3. Calls backend-developer for preferences API
-  4. Calls game-designer for UX integration
-  5. Integrates all changes
-  6. Runs tests and validation
+  4. Integrates all changes
+  5. Runs tests and validation
 ```
 
 ### Domain-Specific Research
-```bash
+```
 User: "Research cannabis cultivation laws for Oregon"
 Primary Agent:
   1. Identifies research requirement
   2. Calls world-building-researcher with specific query
   3. Researcher uses webfetch for current legal data
-  4. Calls cannabis-specialist for cultivation specifics
+  4. Calls domain-specialist for cultivation specifics
   5. Integrates research into game mechanics
 ```
 
 ### System Configuration
-```bash
+```
 User: "Set up development environment with NixOS"
 Primary Agent:
   1. Identifies infrastructure requirement
-  2. Calls nixos-systems-architect
+  2. Calls systems-architect
   3. Architect creates flake.nix and dev shell
   4. Tests build and dependency resolution
   5. Documents setup process
 ```
 
-## Troubleshooting
+## Implementation Steps
 
-### Common Issues
-1. **Agent Not Responding**: Check agent name spelling and configuration
-2. **Tool Access Denied**: Review tool permissions in opencode.json
-3. **Prompt Errors**: Validate prompt file paths and syntax
-4. **Cross-Agent Confusion**: Ensure clear agent boundaries
+### 1. Define Agent Roles
+Identify the key domains in your project:
+```
+Project Analysis:
+- Frontend: React, TypeScript, UI components
+- Backend: Node.js, APIs, databases  
+- DevOps: Docker, CI/CD, deployment
+- Domain: Game mechanics, specialised knowledge
+- Research: Legal compliance, market data
+```
 
-### Debugging Steps
-1. **Validate Configuration**: `opencode validate`
-2. **Test Individual Agents**: `opencode test-agent <name>`
-3. **Check Tool Permissions**: Review agent tool access
-4. **Examine Prompt Files**: Ensure prompts are clear and actionable
+### 2. Create Prompt Files
+Structure your prompts directory:
+```
+prompts/
+├── README.md                      # Agent overview
+├── frontend-typescript-engineer.md
+├── backend-developer.md
+├── game-designer.md
+├── domain-specialist.md
+├── systems-architect.md
+└── world-building-researcher.md
+```
 
-### Performance Issues
-1. **Model Selection**: Use appropriate models for task complexity
-2. **Tool Optimization**: Disable unnecessary tools
-3. **Prompt Optimization**: Streamline prompt instructions
-4. **Session Monitoring**: Track agent response times
+### 3. Configure Tools and Permissions
+Match tools to agent responsibilities. Follow the principle of least privilege — grant each agent only the tools it genuinely needs. Development agents typically need read/write/edit/bash/grep/glob/list, while research agents swap bash for webfetch, and review agents are read-only.
 
 This architecture enables efficient, specialized AI assistance while maintaining clear boundaries and security controls.

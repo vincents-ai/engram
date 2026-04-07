@@ -1,6 +1,8 @@
-# OpenCode Best Practices Guide
+# Multi-Agent Best Practices Guide
 
-This guide provides proven patterns, recommendations, and strategies for implementing effective OpenCode agent configurations.
+> **Note:** This documentation describes multi-agent AI tool configuration patterns. Examples were originally written for OpenCode but the concepts apply to any AI coding tool.
+
+This guide provides proven patterns, recommendations, and strategies for implementing effective agent configurations in your AI coding tool.
 
 ## Core Principles
 
@@ -25,90 +27,13 @@ Agents should understand project-specific requirements:
 ## Agent Design Patterns
 
 ### Development Team Pattern
-Structure agents like a software development team:
-
-```json
-{
-  "agent": {
-    "senior-engineer": {
-      "mode": "subagent",
-      "description": "Code review, architecture decisions, mentoring"
-    },
-    "frontend-engineer": {
-      "mode": "subagent", 
-      "description": "React, TypeScript, UI components"
-    },
-    "backend-engineer": {
-      "mode": "subagent",
-      "description": "APIs, databases, server logic"
-    },
-    "devops-engineer": {
-      "mode": "subagent",
-      "description": "CI/CD, deployment, infrastructure"
-    },
-    "qa-engineer": {
-      "mode": "subagent",
-      "description": "Testing, quality assurance, bug detection"
-    }
-  }
-}
-```
+Structure agents like a software development team with one agent per role: senior engineer for code review and architecture decisions, frontend engineer for React/TypeScript/UI, backend engineer for APIs and databases, devops engineer for CI/CD and infrastructure, and a QA engineer for testing and quality assurance. Keeping each role distinct ensures that each agent carries only the context and permissions relevant to its domain.
 
 ### Domain Expertise Pattern
-Organize agents around business domains:
-
-```json
-{
-  "agent": {
-    "game-designer": {
-      "mode": "subagent",
-      "description": "Game mechanics, balance, player experience"
-    },
-    "cannabis-specialist": {
-      "mode": "subagent", 
-      "description": "Cannabis cultivation, genetics, industry knowledge"
-    },
-    "legal-researcher": {
-      "mode": "subagent",
-      "description": "Cannabis laws, compliance, regulations"
-    },
-    "market-analyst": {
-      "mode": "subagent",
-      "description": "Industry trends, pricing, competition"
-    }
-  }
-}
-```
+Organise agents around business domains when the project calls for specialised knowledge. For example, a game project might have a game designer for mechanics and balance, a domain specialist for industry-accurate content, a legal researcher for compliance, and a market analyst for industry trends. Each agent's prompt is focused tightly on that domain, preventing context bleed between unrelated areas.
 
 ### Workflow Stage Pattern
-Structure agents around development stages:
-
-```json
-{
-  "agent": {
-    "requirements-analyst": {
-      "mode": "subagent",
-      "description": "Requirements gathering, user stories, acceptance criteria"
-    },
-    "architect": {
-      "mode": "subagent",
-      "description": "System design, technology selection, patterns"
-    },
-    "implementer": {
-      "mode": "subagent",
-      "description": "Code implementation, feature development"
-    },
-    "tester": {
-      "mode": "subagent",
-      "description": "Test implementation, quality verification"
-    },
-    "deployer": {
-      "mode": "subagent",
-      "description": "Deployment, monitoring, production support"
-    }
-  }
-}
-```
+A third approach is to map agents to the stages of development: requirements analyst, architect, implementer, tester, and deployer. This is useful when you want strict gate-keeping between phases — for example, ensuring the architect approves a design before the implementer begins writing code.
 
 ## Prompt Engineering Best Practices
 
@@ -210,7 +135,7 @@ When developing APIs:
 5. Document APIs with OpenAPI specifications
 ```
 
-## Tool Configuration Strategies
+## Permission Patterns and Security
 
 ### Development Tools Matrix
 
@@ -225,201 +150,37 @@ When developing APIs:
 
 ### Permission Patterns
 
-#### Development Agent (Standard)
-```json
-{
-  "tools": {
-    "read": true,
-    "write": true,
-    "edit": true,
-    "bash": true,
-    "grep": true,
-    "glob": true,
-    "list": true
-  },
-  "permission": {
-    "bash": {
-      "rm": "ask",
-      "sudo": "deny",
-      "git": "allow",
-      "npm": "allow",
-      "yarn": "allow",
-      "pnpm": "allow"
-    }
-  }
-}
-```
+**Development Agent (Standard):** Grant read/write/edit/bash/grep/glob/list. Restrict dangerous bash operations: `rm` → ask, `sudo` → deny, `git`/`npm`/`yarn`/`pnpm` → allow.
 
-#### Research Agent (Web Access)
-```json
-{
-  "tools": {
-    "read": true,
-    "write": true,
-    "edit": true,
-    "grep": true,
-    "glob": true,
-    "list": true,
-    "webfetch": true
-  },
-  "permission": {
-    "webfetch": "allow"
-  }
-}
-```
+**Research Agent (Web Access):** Grant read/write/edit/grep/glob/list/webfetch. No bash access. Webfetch allowed.
 
-#### Review Agent (Read-Only)
-```json
-{
-  "tools": {
-    "read": true,
-    "edit": true,
-    "grep": true,
-    "glob": true,
-    "list": true
-  },
-  "permission": {
-    "edit": "ask"
-  }
-}
-```
+**Review Agent (Read-Only):** Grant read/edit/grep/glob/list only. Set edit → ask so any proposed change is confirmed before it lands.
 
-#### Production Agent (Restricted)
-```json
-{
-  "tools": {
-    "read": true,
-    "bash": true
-  },
-  "permission": {
-    "bash": {
-      "kubectl": "ask",
-      "docker": "allow",
-      "rm": "deny",
-      "sudo": "deny"
-    }
-  }
-}
-```
+**Production Agent (Restricted):** Grant read and bash only. Restrict bash strictly: `kubectl` and `docker` → ask, `rm` and `sudo` → deny.
 
-## Security Best Practices
+### Security Best Practices
 
-### 1. Principle of Least Privilege
-Grant minimal necessary permissions:
+#### 1. Principle of Least Privilege
+Grant minimal necessary permissions. Documentation writers, for example, need read/write/edit and webfetch but have no reason for bash access. Require confirmation (`ask`) for any write operations if the agent rarely needs to modify files.
 
-```json
-{
-  "agent": {
-    "documentation-writer": {
-      "tools": {
-        "read": true,
-        "write": true,
-        "edit": true,
-        "webfetch": true
-      },
-      "permission": {
-        "write": "ask",
-        "edit": "ask"
-      }
-    }
-  }
-}
-```
+#### 2. Dangerous Command Restrictions
+Always restrict dangerous bash operations: `rm` → ask, `sudo` → deny, `chmod` → ask, `chown` → deny, `dd` → deny, `mkfs` → deny.
 
-### 2. Dangerous Command Restrictions
-Always restrict dangerous bash operations:
+#### 3. Environment Separation
+Use different configuration files for different environments. In `config.dev.json`, bash access can be broad to enable fast iteration. In `config.prod.json`, restrict bash to only the commands needed for deployment (e.g. `git` and `docker` on ask, no `kubectl` without confirmation).
 
-```json
-{
-  "permission": {
-    "bash": {
-      "rm": "ask",
-      "sudo": "deny",
-      "chmod": "ask",
-      "chown": "deny",
-      "dd": "deny",
-      "mkfs": "deny"
-    }
-  }
-}
-```
+## Performance and Model Selection
 
-### 3. Environment Separation
-Use different configurations for different environments:
+### Task Complexity → Model Mapping
+- **Simple tasks** (formatting, basic edits): a fast/cheap model (e.g. Haiku-class)
+- **Standard development** (features, components): a balanced model (e.g. Sonnet-class)
+- **Complex architecture** (system design): a powerful model (e.g. Opus-class)
+- **Creative work** (content, design): a powerful model with higher temperature
 
-```json
-// development.opencode.json
-{
-  "permission": {
-    "bash": "allow"
-  }
-}
-
-// production.opencode.json  
-{
-  "permission": {
-    "bash": {
-      "git": "allow",
-      "docker": "ask",
-      "kubectl": "ask"
-    }
-  }
-}
-```
-
-## Performance Optimization
-
-### Model Selection Strategy
-
-#### Task Complexity → Model Mapping
-- **Simple tasks** (formatting, basic edits): `claude-3-haiku`
-- **Standard development** (features, components): `claude-3.5-sonnet`  
-- **Complex architecture** (system design): `claude-3-opus`
-- **Creative work** (content, design): `claude-3-opus`
-
-```json
-{
-  "model": "github-copilot/claude-3.5-sonnet",
-  "small_model": "anthropic/claude-3-haiku",
-  "agent": {
-    "formatter": {
-      "model": "anthropic/claude-3-haiku",
-      "temperature": 0.0
-    },
-    "architect": {
-      "model": "anthropic/claude-3-opus",
-      "temperature": 0.2
-    },
-    "creative-writer": {
-      "model": "anthropic/claude-3-opus", 
-      "temperature": 0.7
-    }
-  }
-}
-```
+Configure your AI coding tool to set per-agent model preferences where supported, using the cheapest model capable of the task to keep costs down.
 
 ### Tool Optimization
-Only enable tools that agents actually use:
-
-```json
-{
-  "code-reviewer": {
-    "tools": {
-      "read": true,
-      "grep": true,
-      "glob": true,
-      "list": true
-    }
-  },
-  "documentation-writer": {
-    "tools": {
-      "read": true,
-      "write": true,
-      "webfetch": true
-    }
-  }
-}
-```
+Only enable tools that agents actually use. A code reviewer only needs read/grep/glob/list — enabling write or bash would be unnecessary overhead and a security risk. A documentation writer needs read/write/webfetch but not bash.
 
 ## Team Collaboration Patterns
 
@@ -438,57 +199,24 @@ Example workflow:
 5. **Primary Agent**: Integrates and validates
 
 ### Review Chain Pattern
-Implement multi-stage review processes:
-
-```json
-{
-  "implementer": {
-    "description": "Initial code implementation"
-  },
-  "senior-reviewer": {
-    "description": "Architecture and best practices review"
-  },
-  "security-reviewer": {
-    "description": "Security and vulnerability assessment"
-  },
-  "performance-reviewer": {
-    "description": "Performance and optimization review"
-  }
-}
-```
+Implement multi-stage review processes by chaining specialist reviewers: an implementer produces the initial code, a senior reviewer checks architecture and best practices, a security reviewer assesses vulnerabilities, and a performance reviewer identifies optimisation opportunities. Each reviewer has read-only access to enforce the separation of concerns.
 
 ## Common Anti-Patterns
 
 ### ❌ Over-Broad Agents
-```json
-{
-  "full-stack-developer": {
-    "description": "Does everything from database to UI"
-  }
-}
-```
+Avoid agents like `full-stack-developer` that handle everything from database to UI. The lack of focus means the agent's prompt becomes too large to be effective and its tool permissions grow dangerously wide.
 
 ### ❌ Tool Over-Granting
-```json
-{
-  "documentation-writer": {
-    "tools": {
-      "bash": true,
-      "webfetch": true
-    }
-  }
-}
-```
+Avoid giving agents tools they don't need. A documentation writer does not need bash access. A formatter does not need webfetch. Every extra tool is a potential security surface.
 
 ### ❌ Vague Prompts
 ```markdown
 You are a helpful developer. Write good code.
 ```
+Prompts like this produce inconsistent results. Be explicit about responsibilities, standards, and how the agent fits into the project.
 
 ### ❌ Missing Context
-```markdown
-# No reference to project guidelines or architecture
-```
+Agents with no reference to project guidelines or architecture will guess at conventions, produce inconsistent output, and require more correction. Always reference `AGENTS.md` or an equivalent project context file.
 
 ## Monitoring and Optimization
 
@@ -501,21 +229,11 @@ Track these key metrics:
 - **Error Rate**: Failed or incomplete responses
 
 ### Configuration Validation
-Regularly validate your configuration:
-
-```bash
-# Syntax validation
-opencode validate
-
-# Agent accessibility test
-opencode list-agents
-
-# Tool permission audit
-opencode audit-permissions
-
-# Performance benchmarking
-opencode benchmark-agents
-```
+Regularly review your configuration manually or with your tool's built-in validation support. Check:
+- Agent prompt clarity and specificity
+- Tool permissions against the least-privilege matrix
+- Model assignments against task complexity
+- Any drift between documented and actual configuration
 
 ### Iterative Improvement
 1. **Monitor Usage Patterns**: Which agents are used most?
@@ -535,7 +253,7 @@ opencode benchmark-agents
 
 ### From Other AI Tools
 1. **Map Existing Workflows**: Document current AI usage
-2. **Translate Prompts**: Convert to OpenCode format
+2. **Translate Prompts**: Convert to your AI coding tool's format
 3. **Configure Tools**: Set appropriate permissions
 4. **Parallel Testing**: Run both systems temporarily
 5. **Full Migration**: Switch when confident
@@ -557,4 +275,4 @@ opencode benchmark-agents
 - Agent restructuring if needed
 - Technology stack updates
 
-This guide provides the foundation for building effective, secure, and maintainable OpenCode agent configurations. Adapt these patterns to your specific project needs and team workflows.
+This guide provides the foundation for building effective, secure, and maintainable agent configurations in your AI coding tool. Adapt these patterns to your specific project needs and team workflows.
