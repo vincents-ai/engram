@@ -16,6 +16,7 @@ use super::{
 };
 use crate::entities::{EntityRegistry, EntityRelationship, GenericEntity, RelationshipFilter};
 use crate::error::{EngramError, StorageError};
+use chrono::Utc;
 use git2::Repository;
 use serde_json::Value;
 use sha2::{Digest, Sha512};
@@ -176,6 +177,79 @@ fn ensure_workspace_ref(
     }
 }
 
+/// Return the next monotonic version number for a versioned sidecar ref.
+///
+/// Scans all refs matching `refs/engram/<entity_type>/v*/<entity_id>`, extracts
+/// the numeric version segment, and returns `max + 1`.  Returns `1` if no
+/// existing versioned refs are found for this entity.
+fn next_version(repo: &git2::Repository, entity_type: &str, entity_id: &str) -> u64 {
+    let prefix = format!("refs/engram/{}/v", entity_type);
+    let suffix = format!("/{}", entity_id);
+
+    let all_refs = match repo.references() {
+        Ok(r) => r,
+        Err(_) => return 1,
+    };
+
+    let mut max_n: u64 = 0;
+    for r_result in all_refs {
+        let r = match r_result {
+            Ok(r) => r,
+            Err(_) => continue,
+        };
+        if let Some(name) = r.name() {
+            if name.starts_with(&prefix) && name.ends_with(&suffix) {
+                // Extract the middle segment between prefix and suffix
+                let after_prefix = &name[prefix.len()..];
+                let middle = &after_prefix[..after_prefix.len() - suffix.len()];
+                if let Ok(n) = middle.parse::<u64>() {
+                    if n > max_n {
+                        max_n = n;
+                    }
+                }
+            }
+        }
+    }
+
+    max_n + 1
+}
+
+/// Write an immutable versioned sidecar ref for an entity.
+///
+/// The sidecar is written to `refs/engram/<entity_type>/v<N>/<entity_id>` with
+/// `force = false` so that each version snapshot is never overwritten.
+fn write_version_sidecar(
+    repo: &git2::Repository,
+    entity: &GenericEntity,
+    project_id: &str,
+) -> Result<(), EngramError> {
+    let n = next_version(repo, &entity.entity_type, &entity.id);
+
+    let json = serde_json::json!({
+        "project_id": project_id,
+        "entity_type": entity.entity_type,
+        "uuid": entity.id,
+        "version": n,
+        "created_at": Utc::now().to_rfc3339(),
+        "agent": entity.agent,
+    });
+
+    let blob_oid = repo
+        .blob(json.to_string().as_bytes())
+        .map_err(|e| EngramError::Git(format!("Failed to create version sidecar blob: {}", e)))?;
+
+    let ref_name = format!("refs/engram/{}/v{}/{}", entity.entity_type, n, entity.id);
+    repo.reference(
+        &ref_name,
+        blob_oid,
+        false, // never overwrite — immutable point-in-time snapshot
+        &format!("sidecar v{} {} {}", n, entity.entity_type, entity.id),
+    )
+    .map_err(|e| EngramError::Git(format!("Failed to write version sidecar ref: {}", e)))?;
+
+    Ok(())
+}
+
 impl GitRefsStorage {
     /// Create new Git refs storage instance
     pub fn new(workspace_path: &str, agent: &str) -> Result<Self, EngramError> {
@@ -269,6 +343,8 @@ impl GitRefsStorage {
         )
         .map_err(|e| EngramError::Git(format!("Failed to create ref: {}", e)))?;
 
+        write_version_sidecar(&repo, entity, &self.project_id)?;
+
         Ok(())
     }
 
@@ -305,6 +381,10 @@ impl GitRefsStorage {
                         if let Some(name) = r.name() {
                             if name.starts_with(&ref_prefix) {
                                 let current_id = name.strip_prefix(&ref_prefix).unwrap();
+                                // Skip versioned sidecar refs (contain '/')
+                                if current_id.contains('/') {
+                                    continue;
+                                }
                                 if current_id.starts_with(entity_id) {
                                     if matched_ref.is_some() {
                                         // Ambiguous match
@@ -409,6 +489,11 @@ impl GitRefsStorage {
                 if name.starts_with(&ref_prefix) {
                     // Extract entity ID from ref name
                     let entity_id = name.strip_prefix(&ref_prefix).unwrap();
+                    // Skip versioned sidecar refs: refs/engram/<type>/v<N>/<uuid>
+                    // After stripping the type prefix they look like "v<N>/<uuid>".
+                    if entity_id.contains('/') {
+                        continue;
+                    }
                     entity_ids.push(entity_id.to_string());
                 }
             }
@@ -1298,5 +1383,74 @@ mod tests {
           // now open via storage
         let storage = GitRefsStorage::new(dir.path().to_str().unwrap(), "test").unwrap();
         assert_eq!(storage.project_id.len(), 128);
+    }
+
+    fn make_test_entity(entity_type: &str) -> GenericEntity {
+        GenericEntity {
+            id: uuid::Uuid::new_v4().to_string(),
+            entity_type: entity_type.to_string(),
+            agent: "test".to_string(),
+            timestamp: Utc::now(),
+            data: json!({"title": "test"}),
+        }
+    }
+
+    #[test]
+    fn test_version_sidecar_written_on_create() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut storage = GitRefsStorage::new(dir.path().to_str().unwrap(), "test").unwrap();
+        let entity = make_test_entity("task");
+        storage.store(&entity).unwrap();
+        let repo = git2::Repository::open(dir.path()).unwrap();
+        let ref_name = format!("refs/engram/task/v1/{}", entity.id);
+        assert!(
+            repo.find_reference(&ref_name).is_ok(),
+            "v1 sidecar must exist after store"
+        );
+    }
+
+    #[test]
+    fn test_version_monotonic_on_update() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut storage = GitRefsStorage::new(dir.path().to_str().unwrap(), "test").unwrap();
+        let entity = make_test_entity("task");
+        storage.store(&entity).unwrap(); // creates v1
+        storage.store(&entity).unwrap(); // creates v2 (primary ref overwritten, sidecar appended)
+        let repo = git2::Repository::open(dir.path()).unwrap();
+        let v1 = format!("refs/engram/task/v1/{}", entity.id);
+        let v2 = format!("refs/engram/task/v2/{}", entity.id);
+        assert!(
+            repo.find_reference(&v1).is_ok(),
+            "v1 must still exist after second store"
+        );
+        assert!(
+            repo.find_reference(&v2).is_ok(),
+            "v2 must exist after second store"
+        );
+    }
+
+    #[test]
+    fn test_version_sidecar_contains_project_id() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut storage = GitRefsStorage::new(dir.path().to_str().unwrap(), "test").unwrap();
+        let entity = make_test_entity("task");
+        storage.store(&entity).unwrap();
+        let repo = git2::Repository::open(dir.path()).unwrap();
+        let r = repo
+            .find_reference(&format!("refs/engram/task/v1/{}", entity.id))
+            .unwrap();
+        let oid = r.target().unwrap();
+        let blob = repo.find_blob(oid).unwrap();
+        let v: serde_json::Value = serde_json::from_slice(blob.content()).unwrap();
+        assert_eq!(
+            v["project_id"].as_str().unwrap(),
+            storage.project_id,
+            "project_id in sidecar must match storage.project_id"
+        );
+        assert_eq!(
+            v["version"].as_u64().unwrap(),
+            1,
+            "version field must be 1 for first write"
+        );
     }
 }
