@@ -45,8 +45,8 @@ Skills are installed by the binary. Find the file:
 engram skills list
 
 # The skill file is at:
-# <opencode-skills-dir>/engram-<skill-name>/SKILL.md
-# Typical location: ~/.config/opencode/skills/engram-<skill-name>/SKILL.md
+# ~/.config/engram/skills/engram-<skill-name>/SKILL.md
+# Typical location: ~/.config/engram/skills/engram-<skill-name>/SKILL.md
 ```
 
 Read the full skill file before extracting commands.
@@ -201,7 +201,7 @@ engram task create --title "Validate skill: engram-brainstorming"
 engram task update abc-001 --status in_progress
 
 [Locate skill]
-# ~/.config/opencode/skills/engram-brainstorming/SKILL.md
+# ~/.config/engram/skills/engram-brainstorming/SKILL.md
 
 [Create sandbox]
 SANDBOX=$(mktemp -d)

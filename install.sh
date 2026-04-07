@@ -161,7 +161,7 @@ run_bootstrap() {
   fi
 
   printf "\n"
-  if confirm "Install core engram skills (14 skills for opencode)?"; then
+  if confirm "Install core engram skills (14 skills for your AI coding tool)?"; then
     engram skills setup || warn "Skills setup failed"
   fi
 

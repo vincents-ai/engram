@@ -129,19 +129,19 @@ pub fn setup_agent(
     Ok(())
 }
 
-/// Setup OpenCode skills command
+/// Setup skills command
 pub fn setup_skills(config_dir: Option<PathBuf>, force: bool) -> Result<(), EngramError> {
     use crate::cli::skills::{install_skills, resolve_skills_source, scan_skills_from_dir};
 
-    let opencode_dir = if let Some(dir) = config_dir {
-        dir.join(".config").join("opencode")
+    let tool_config_dir = if let Some(dir) = config_dir {
+        dir.join(".config").join("engram")
     } else {
         env::var("HOME")
-            .map(|home| PathBuf::from(home).join(".config").join("opencode"))
+            .map(|home| PathBuf::from(home).join(".config").join("engram"))
             .map_err(|_| EngramError::Validation("HOME environment variable not set".to_string()))?
     };
 
-    let skills_dir = opencode_dir.join("skills");
+    let skills_dir = tool_config_dir.join("skills");
     let source_dir = resolve_skills_source(None);
 
     println!("📂 Scanning skills from: {:?}", source_dir);
@@ -161,25 +161,25 @@ pub fn setup_skills(config_dir: Option<PathBuf>, force: bool) -> Result<(), Engr
     print!("{}", output);
 
     println!();
-    println!("🎉 OpenCode skills setup complete!");
+    println!("🎉 Skills setup complete!");
     println!("📁 Skills installed to: {:?}", skills_dir);
     println!(
         "📊 Installed: {}  Updated: {}  Skipped: {}",
         installed, updated, skipped
     );
     println!();
-    println!("💡 Skills are now available in OpenCode with 'engram:' prefix");
+    println!("💡 Skills are now available with 'engram:' prefix");
     println!("   Example: @general can now use 'engram:use-engram-memory'");
     println!();
     println!("📖 To use skills:");
-    println!("   1. Restart OpenCode to reload skills");
+    println!("   1. Restart your agent session to reload skills");
     println!("   2. Use @mention with skill name");
     println!("   3. Or call skill() tool with skill name");
 
     Ok(())
 }
 
-/// Setup OpenCode prompts command
+/// Setup prompts command
 pub fn setup_prompts(
     prompts_path: Option<&str>,
     config_dir: Option<PathBuf>,
@@ -187,17 +187,17 @@ pub fn setup_prompts(
     let prompts_source = prompts_path.unwrap_or("./prompts");
     let prompts_source_path = PathBuf::from(prompts_source);
 
-    // Get OpenCode config directory
-    let opencode_dir = if let Some(dir) = config_dir {
-        dir.join(".config").join("opencode")
+    // Get tool config directory
+    let tool_config_dir = if let Some(dir) = config_dir {
+        dir.join(".config").join("engram")
     } else {
         env::var("HOME")
-            .map(|home| PathBuf::from(home).join(".config").join("opencode"))
+            .map(|home| PathBuf::from(home).join(".config").join("engram"))
             .map_err(|_| EngramError::Validation("HOME environment variable not set".to_string()))?
     };
 
-    let opencode_prompts_dir = opencode_dir.join("prompts");
-    fs::create_dir_all(&opencode_prompts_dir).map_err(EngramError::Io)?;
+    let prompts_dir = tool_config_dir.join("prompts");
+    fs::create_dir_all(&prompts_dir).map_err(EngramError::Io)?;
 
     // Check if source prompts directory exists
     if !prompts_source_path.exists() {
@@ -227,7 +227,7 @@ pub fn setup_prompts(
 
     for (category, description) in categories {
         let source_dir = prompts_source_path.join(category);
-        let target_dir = opencode_prompts_dir.join(category);
+        let target_dir = prompts_dir.join(category);
 
         if source_dir.exists() {
             // Copy entire category directory
@@ -243,11 +243,11 @@ pub fn setup_prompts(
     }
 
     println!();
-    println!("🎉 OpenCode prompts setup complete!");
-    println!("📁 Prompts installed to: {:?}", opencode_prompts_dir);
+    println!("🎉 Prompts setup complete!");
+    println!("📁 Prompts installed to: {:?}", prompts_dir);
     println!("📊 Total categories installed: {}", installed_count);
     println!();
-    println!("💡 Prompts are now available in OpenCode");
+    println!("💡 Prompts are now available");
     println!("   Skills: Guides like Git Workflow, Testing Guidelines");
     println!("   Agents: Specialized subagents like Researcher, Coder, Reviewer");
     println!("   Pipelines: AI workflows for Bug Triage, Feature Dev, Refactoring");
@@ -397,7 +397,7 @@ mod tests {
 
         setup_skills(Some(config_dir.clone()), false).unwrap();
 
-        let skills_dir = config_dir.join(".config/opencode/skills");
+        let skills_dir = config_dir.join(".config/engram/skills");
         assert!(skills_dir.exists());
         assert!(skills_dir
             .join("engram-use-engram-memory/SKILL.md")
@@ -444,7 +444,7 @@ mod tests {
         )
         .unwrap();
 
-        let installed_prompts = config_dir.join(".config/opencode/prompts");
+        let installed_prompts = config_dir.join(".config/engram/prompts");
         assert!(installed_prompts.exists());
         assert!(installed_prompts.join("agents/test_agent.md").exists());
 
@@ -483,7 +483,7 @@ mod tests {
 
         assert!(result.is_ok());
 
-        let installed_prompts = config_dir.join(".config/opencode/prompts");
+        let installed_prompts = config_dir.join(".config/engram/prompts");
         assert!(installed_prompts.join("agents").exists());
         assert!(!installed_prompts.join("pipelines").exists()); // Wasn't in source
     }

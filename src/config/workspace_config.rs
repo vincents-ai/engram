@@ -18,6 +18,10 @@ pub struct WorkspaceConfig {
     /// A value of 0 disables auto-refresh. Defaults to 30.
     #[serde(default = "WorkspaceConfig::default_refresh_interval_secs")]
     pub refresh_interval_secs: u64,
+    /// Stable project identity derived from SHA-512 of the root commit.
+    /// This is the canonical project_id for remote sync. None until first GitRefsStorage init.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub project_id: Option<String>,
 }
 
 impl Default for WorkspaceConfig {
@@ -28,6 +32,7 @@ impl Default for WorkspaceConfig {
             agents: HashMap::new(),
             sync_strategy: "merge_with_conflict_resolution".to_string(),
             refresh_interval_secs: Self::default_refresh_interval_secs(),
+            project_id: None,
         }
     }
 }
@@ -134,6 +139,7 @@ mod tests {
             agents: HashMap::new(),
             sync_strategy: "".to_string(),
             refresh_interval_secs: WorkspaceConfig::default_refresh_interval_secs(),
+            project_id: None,
         };
 
         base.merge(other);
@@ -182,6 +188,7 @@ mod tests {
             agents: HashMap::new(),
             sync_strategy: "sync".to_string(),
             refresh_interval_secs: 30,
+            project_id: None,
         };
         assert!(config.validate().is_err());
     }
@@ -194,6 +201,7 @@ mod tests {
             agents: HashMap::new(),
             sync_strategy: "sync".to_string(),
             refresh_interval_secs: 30,
+            project_id: None,
         };
         assert!(config.validate().is_ok());
     }

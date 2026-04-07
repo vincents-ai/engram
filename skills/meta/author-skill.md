@@ -288,7 +288,7 @@ Then run `engram-validate-skill` on the new skill:
 
 ```bash
 # The validate skill will:
-# 1. Read ~/.config/opencode/skills/engram-<skill-name>/SKILL.md
+# 1. Read ~/.config/engram/skills/engram-<skill-name>/SKILL.md
 # 2. Run every engram command in a sandbox
 # 3. Report PASS/FAIL per command
 # 4. Store the result as engram context
