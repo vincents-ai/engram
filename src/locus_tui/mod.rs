@@ -454,6 +454,18 @@ impl<S: Storage + RelationshipStorage + Send + 'static> LocusTuiApp<S> {
     fn draw(&mut self, f: &mut ratatui::Frame<'_>) {
         ui::draw(&self.integration, &mut self.app_state, f);
     }
+
+    /// Test-only: dispatch an action directly without going through handle_input.
+    #[cfg(test)]
+    pub(crate) fn test_dispatch(&mut self, action: Action) {
+        self.dispatch_action(action);
+    }
+
+    /// Test-only: load sync data from the backend into app_state.
+    #[cfg(test)]
+    pub(crate) fn test_load_sync_data(&mut self) {
+        self.load_sync_data();
+    }
 }
 
 #[cfg(test)]

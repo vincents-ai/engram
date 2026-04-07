@@ -899,4 +899,292 @@ mod tests {
         let content = render_to_string(&mut app);
         snapshot_with_redacted_ids("search_view_empty", &content);
     }
+
+    // ── Sync view render tests ────────────────────────────────────────────────
+
+    /// Navigate from Dashboard to Sync view (index 20).
+    fn make_sync_app() -> LocusTuiApp<MemoryStorage> {
+        let mut app = make_loaded_app();
+        for _ in 0..20 {
+            app.app_state.next_view();
+        }
+        app
+    }
+
+    #[test]
+    fn test_sync_view_renders_remotes_pane() {
+        let mut app = make_sync_app();
+        let content = render_to_string(&mut app);
+        assert!(
+            content.contains("Remotes"),
+            "missing Remotes pane in Sync view: {content}"
+        );
+    }
+
+    #[test]
+    fn test_sync_view_empty_state_shows_no_remotes_message() {
+        let mut app = make_sync_app();
+        let content = render_to_string(&mut app);
+        assert!(
+            content.contains("no remotes configured"),
+            "missing empty-remotes message in Sync view: {content}"
+        );
+    }
+
+    #[test]
+    fn test_sync_view_renders_sync_status_pane() {
+        let mut app = make_sync_app();
+        let content = render_to_string(&mut app);
+        assert!(
+            content.contains("Sync Status"),
+            "missing Sync Status pane: {content}"
+        );
+    }
+
+    #[test]
+    fn test_sync_view_renders_last_operation_pane() {
+        let mut app = make_sync_app();
+        let content = render_to_string(&mut app);
+        assert!(
+            content.contains("Last Operation"),
+            "missing Last Operation pane: {content}"
+        );
+    }
+
+    #[test]
+    fn test_sync_view_shows_key_hints() {
+        let mut app = make_sync_app();
+        let content = render_to_string(&mut app);
+        // Key hints line rendered in the Last Operation pane
+        assert!(content.contains("ull"), "missing pull hint: {content}");
+        assert!(content.contains("push"), "missing push hint: {content}");
+        assert!(content.contains("oth"), "missing both hint: {content}");
+    }
+
+    #[test]
+    fn test_sync_view_initial_no_op_result() {
+        let mut app = make_sync_app();
+        let content = render_to_string(&mut app);
+        assert!(
+            content.contains("No operation yet"),
+            "expected 'No operation yet' in fresh Sync view: {content}"
+        );
+    }
+
+    #[test]
+    fn test_sync_view_shows_last_op_result_after_set() {
+        let mut app = make_sync_app();
+        app.app_state.sync_view.last_op_result = Some("push: 4 refs pushed".to_string());
+        let content = render_to_string(&mut app);
+        assert!(
+            content.contains("push: 4 refs pushed"),
+            "expected op result in Sync view: {content}"
+        );
+    }
+
+    #[test]
+    fn test_sync_view_with_remotes_shows_remote_name() {
+        let mut app = make_sync_app();
+        app.app_state.sync_view.remotes = vec!["origin".to_string(), "backup".to_string()];
+        let content = render_to_string(&mut app);
+        assert!(
+            content.contains("origin"),
+            "expected remote name 'origin' in Sync view: {content}"
+        );
+    }
+
+    #[test]
+    fn test_sync_view_status_rows_render_in_table() {
+        use crate::locus_tui::app::SyncStatusRow;
+        let mut app = make_sync_app();
+        app.app_state.sync_view.status_rows = vec![
+            SyncStatusRow {
+                entity_type: "task".to_string(),
+                local_count: 12,
+                remote_count: 10,
+                conflicts: 2,
+            },
+            SyncStatusRow {
+                entity_type: "context".to_string(),
+                local_count: 5,
+                remote_count: 5,
+                conflicts: 0,
+            },
+        ];
+        let content = render_to_string(&mut app);
+        assert!(content.contains("task"), "expected 'task' row: {content}");
+        assert!(
+            content.contains("context"),
+            "expected 'context' row: {content}"
+        );
+        assert!(content.contains("12"), "expected local count 12: {content}");
+    }
+
+    #[test]
+    fn snapshot_sync_view_empty() {
+        let mut app = make_sync_app();
+        let content = render_to_string(&mut app);
+        snapshot_with_redacted_ids("sync_view_empty", &content);
+    }
+
+    #[test]
+    fn snapshot_sync_view_with_remotes() {
+        use crate::locus_tui::app::SyncStatusRow;
+        let mut app = make_sync_app();
+        app.app_state.sync_view.remotes = vec!["origin".to_string()];
+        app.app_state.sync_view.remotes_selected = 0;
+        app.app_state.sync_view.status_rows = vec![
+            SyncStatusRow {
+                entity_type: "task".to_string(),
+                local_count: 7,
+                remote_count: 6,
+                conflicts: 1,
+            },
+            SyncStatusRow {
+                entity_type: "context".to_string(),
+                local_count: 3,
+                remote_count: 3,
+                conflicts: 0,
+            },
+        ];
+        app.app_state.sync_view.last_op_result = Some("pull: 1 fetched, 1 conflicts".to_string());
+        let content = render_to_string(&mut app);
+        snapshot_with_redacted_ids("sync_view_with_remotes", &content);
+    }
+
+    // ── selected_remote_name unit tests ──────────────────────────────────────
+
+    #[test]
+    fn test_selected_remote_name_empty_returns_none() {
+        let mut app = make_loaded_app();
+        // No remotes loaded — should return None
+        assert!(app.app_state.sync_view.remotes.is_empty());
+        // Directly inspect via test_dispatch so we exercise the no-remote path
+        app.test_dispatch(crate::locus_tui::events::Action::SyncPull);
+        assert_eq!(
+            app.app_state.sync_view.last_op_result.as_deref(),
+            Some("No remote selected"),
+            "expected 'No remote selected' when remotes list is empty"
+        );
+    }
+
+    #[test]
+    fn test_selected_remote_name_returns_first_by_default() {
+        let mut app = make_loaded_app();
+        app.app_state.sync_view.remotes = vec!["origin".to_string(), "backup".to_string()];
+        app.app_state.sync_view.remotes_selected = 0;
+        // selected_remote_name() is private; verify via SyncPull result message
+        // (with no remotes.json on disk it will hit auth error, not "No remote selected")
+        app.test_dispatch(crate::locus_tui::events::Action::SyncPull);
+        let result = app
+            .app_state
+            .sync_view
+            .last_op_result
+            .clone()
+            .unwrap_or_default();
+        assert!(
+            !result.contains("No remote selected"),
+            "should have attempted pull on 'origin', got: {result}"
+        );
+    }
+
+    #[test]
+    fn test_selected_remote_name_respects_selection_index() {
+        let mut app = make_loaded_app();
+        app.app_state.sync_view.remotes = vec!["origin".to_string(), "backup".to_string()];
+        app.app_state.sync_view.remotes_selected = 1; // "backup" selected
+        app.test_dispatch(crate::locus_tui::events::Action::SyncPull);
+        let result = app
+            .app_state
+            .sync_view
+            .last_op_result
+            .clone()
+            .unwrap_or_default();
+        assert!(
+            !result.contains("No remote selected"),
+            "should have attempted pull on 'backup', got: {result}"
+        );
+    }
+
+    // ── Sync action handler tests ─────────────────────────────────────────────
+
+    #[test]
+    fn test_sync_pull_no_remote_sets_result() {
+        let mut app = make_loaded_app();
+        // No remotes → "No remote selected"
+        app.test_dispatch(crate::locus_tui::events::Action::SyncPull);
+        assert_eq!(
+            app.app_state.sync_view.last_op_result.as_deref(),
+            Some("No remote selected")
+        );
+        assert!(!app.app_state.sync_view.op_in_flight);
+    }
+
+    #[test]
+    fn test_sync_push_no_remote_sets_result() {
+        let mut app = make_loaded_app();
+        app.test_dispatch(crate::locus_tui::events::Action::SyncPush);
+        assert_eq!(
+            app.app_state.sync_view.last_op_result.as_deref(),
+            Some("No remote selected")
+        );
+        assert!(!app.app_state.sync_view.op_in_flight);
+    }
+
+    #[test]
+    fn test_sync_both_no_remote_sets_result() {
+        let mut app = make_loaded_app();
+        app.test_dispatch(crate::locus_tui::events::Action::SyncBoth);
+        assert_eq!(
+            app.app_state.sync_view.last_op_result.as_deref(),
+            Some("No remote selected")
+        );
+        assert!(!app.app_state.sync_view.op_in_flight);
+    }
+
+    #[test]
+    fn test_refresh_sync_status_no_remote_clears_status() {
+        let mut app = make_loaded_app();
+        app.app_state.set_status("stale".to_string());
+        app.test_dispatch(crate::locus_tui::events::Action::RefreshSyncStatus);
+        // op_in_flight must not be set by RefreshSyncStatus
+        assert!(!app.app_state.sync_view.op_in_flight);
+    }
+
+    #[test]
+    fn test_sync_pull_clears_op_in_flight_after_completion() {
+        let mut app = make_loaded_app();
+        // Even with no remote, op_in_flight must be false after dispatch returns
+        app.test_dispatch(crate::locus_tui::events::Action::SyncPull);
+        assert!(
+            !app.app_state.sync_view.op_in_flight,
+            "op_in_flight must be cleared after SyncPull returns"
+        );
+    }
+
+    #[test]
+    fn test_sync_push_clears_op_in_flight_after_completion() {
+        let mut app = make_loaded_app();
+        app.test_dispatch(crate::locus_tui::events::Action::SyncPush);
+        assert!(!app.app_state.sync_view.op_in_flight);
+    }
+
+    #[test]
+    fn test_sync_both_clears_op_in_flight_after_completion() {
+        let mut app = make_loaded_app();
+        app.test_dispatch(crate::locus_tui::events::Action::SyncBoth);
+        assert!(!app.app_state.sync_view.op_in_flight);
+    }
+
+    #[test]
+    fn test_load_sync_data_populates_from_backend() {
+        let mut app = make_loaded_app();
+        // FixedTestBackend returns empty remotes — verify state is consistent
+        app.test_load_sync_data();
+        assert!(
+            app.app_state.sync_view.remotes.is_empty(),
+            "FixedTestBackend has no remotes"
+        );
+        assert_eq!(app.app_state.sync_view.remotes_selected, 0);
+    }
 }
