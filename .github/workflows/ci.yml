@@ -115,7 +115,7 @@ jobs:
         run: cargo install cargo-tarpaulin
 
       - name: Generate coverage report
-        run: cargo tarpaulin --all-features --out Xml --test-timeout 300 --exclude-files "tests/property_tests.rs"
+        run: cargo tarpaulin --all-features --out Xml --timeout 300 --exclude-files "tests/property_tests.rs"
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
