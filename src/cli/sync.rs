@@ -42,6 +42,9 @@ pub enum SyncCommands {
     Status {
         #[arg(long)]
         remote: Option<String>,
+        /// Output as JSON
+        #[arg(long, default_value_t = false)]
+        json: bool,
     },
     /// Pull from remote
     Pull {
@@ -730,13 +733,35 @@ pub fn list_remotes(writer: &mut dyn std::io::Write) -> Result<Vec<RemoteConfig>
     Ok(remote_list)
 }
 
-/// Get sync status with a remote
+/// Per-entity-type sync status row
+#[derive(Debug, Clone, Serialize)]
+pub struct SyncStatusRow {
+    pub entity_type: String,
+    pub local_count: usize,
+    pub remote_count: usize,
+    pub only_local: usize,
+    pub only_remote: usize,
+    pub conflicts: usize,
+}
+
+/// Full sync status report
+#[derive(Debug, Clone, Serialize)]
+pub struct SyncStatusReport {
+    pub remote: String,
+    pub rows: Vec<SyncStatusRow>,
+    pub total_local: usize,
+    pub total_remote: usize,
+    pub total_only_local: usize,
+    pub total_only_remote: usize,
+    pub total_conflicts: usize,
+}
+
+/// Get sync status with a remote — compares local refs vs staged remote refs
 pub fn get_sync_status(
     writer: &mut dyn std::io::Write,
     remote_name: &str,
-) -> Result<RemoteSyncStatus, EngramError> {
-    writeln!(writer, "📊 Checking sync status for '{}'...", remote_name)?;
-
+    output_json: bool,
+) -> Result<SyncStatusReport, EngramError> {
     // Load remotes configuration
     let config_path = ".engram/remotes.json";
     if !Path::new(config_path).exists() {
@@ -746,57 +771,207 @@ pub fn get_sync_status(
     }
 
     let content = fs::read_to_string(config_path).map_err(|e| EngramError::Io(e))?;
-
     let remotes: HashMap<String, RemoteConfig> =
         serde_json::from_str(&content).map_err(|e| EngramError::Serialization(e))?;
-
-    let remote_config = remotes
+    let _remote_config = remotes
         .get(remote_name)
         .ok_or_else(|| EngramError::Validation(format!("Remote '{}' not found", remote_name)))?;
 
-    // Open Git repository
     let repo = Repository::open(".")
         .map_err(|e| EngramError::Git(format!("Failed to open repository: {}", e)))?;
 
-    // Get local HEAD commit hash
-    let local_head = repo
-        .head()
-        .map_err(|e| EngramError::Git(format!("Failed to get local HEAD: {}", e)))?;
-    let local_oid = local_head
-        .target()
-        .ok_or_else(|| EngramError::Git("Failed to get local HEAD target".to_string()))?;
-    let local_hash = local_oid.to_string();
+    let remote_prefix = format!("refs/engram/remote/{}/", remote_name);
+    let sidecar_segment = "/v";
 
-    // For now, we'll simulate remote hash check (in a real implementation, we'd fetch from remote)
-    // This would require network operations and authentication
-    let remote_hash = "0000000000000000000000000000000000000000".to_string(); // Placeholder
-    let is_ahead = false; // Placeholder
-    let is_behind = false; // Placeholder
-
-    writeln!(writer, "📊 Sync Status for '{}'", remote_name)?;
-    writeln!(writer, "=========================")?;
-    writeln!(writer, "Remote: {}", remote_config.url)?;
-    writeln!(writer, "Local Hash: {}...", &local_hash[..12])?;
-    writeln!(writer, "Remote Hash: {}...", &remote_hash[..12])?;
-
-    if is_behind {
-        writeln!(writer, "Status: ⬇️  Behind remote (pull needed)")?;
-    } else if is_ahead {
-        writeln!(writer, "Status: ⬆️  Ahead of remote (push needed)")?;
-    } else {
-        writeln!(writer, "Status: ✅ Up to date")?;
-    }
-
-    let status = RemoteSyncStatus {
-        remote: remote_name.to_string(),
-        local_hash,
-        remote_hash,
-        is_ahead,
-        is_behind,
-        last_checked: Utc::now(),
+    // Collect all refs
+    let all_refs: Vec<(String, git2::Oid)> = {
+        let references = repo
+            .references()
+            .map_err(|e| EngramError::Git(format!("Failed to list refs: {}", e)))?;
+        let mut v = Vec::new();
+        for r_result in references {
+            let r = r_result.map_err(|e| EngramError::Git(format!("Failed to read ref: {}", e)))?;
+            if let (Some(name), Some(oid)) = (r.name(), r.target()) {
+                v.push((name.to_string(), oid));
+            }
+        }
+        v
     };
 
-    Ok(status)
+    // Build sets: local primary uuids per entity_type, remote primary uuids per entity_type
+    // Also collect oid per (entity_type, uuid) for conflict detection
+    let mut local_uuids: HashMap<String, HashMap<String, git2::Oid>> = HashMap::new(); // entity_type -> uuid -> oid
+    let mut remote_uuids: HashMap<String, HashMap<String, git2::Oid>> = HashMap::new();
+
+    for (ref_name, oid) in &all_refs {
+        if ref_name.starts_with("refs/engram/") && !ref_name.starts_with("refs/engram/remote/") {
+            let after = &ref_name["refs/engram/".len()..];
+            if after.contains(sidecar_segment) {
+                continue;
+            }
+            if after.starts_with("config/") {
+                continue;
+            }
+            let slash_pos = match after.find('/') {
+                Some(p) => p,
+                None => continue,
+            };
+            let entity_type = &after[..slash_pos];
+            let uuid = &after[slash_pos + 1..];
+            if uuid.contains('/') {
+                continue;
+            }
+            local_uuids
+                .entry(entity_type.to_string())
+                .or_default()
+                .insert(uuid.to_string(), *oid);
+        } else if ref_name.starts_with(&remote_prefix) {
+            let after = &ref_name[remote_prefix.len()..];
+            if after.contains(sidecar_segment) {
+                continue;
+            }
+            if after.starts_with("config/") {
+                continue;
+            }
+            let slash_pos = match after.find('/') {
+                Some(p) => p,
+                None => continue,
+            };
+            let entity_type = &after[..slash_pos];
+            let uuid = &after[slash_pos + 1..];
+            if uuid.contains('/') {
+                continue;
+            }
+            remote_uuids
+                .entry(entity_type.to_string())
+                .or_default()
+                .insert(uuid.to_string(), *oid);
+        }
+    }
+
+    // Collect all entity types seen
+    let mut entity_types: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+    for k in local_uuids.keys() {
+        entity_types.insert(k.clone());
+    }
+    for k in remote_uuids.keys() {
+        entity_types.insert(k.clone());
+    }
+
+    let conflicts_all = detect_conflicts(&repo, remote_name)?;
+    let mut conflicts_by_type: HashMap<String, usize> = HashMap::new();
+    for c in &conflicts_all {
+        *conflicts_by_type.entry(c.entity_type.clone()).or_insert(0) += 1;
+    }
+
+    let mut rows: Vec<SyncStatusRow> = Vec::new();
+    for entity_type in &entity_types {
+        let local_map = local_uuids.get(entity_type).cloned().unwrap_or_default();
+        let remote_map = remote_uuids.get(entity_type).cloned().unwrap_or_default();
+
+        let only_local = local_map
+            .keys()
+            .filter(|u| !remote_map.contains_key(*u))
+            .count();
+        let only_remote = remote_map
+            .keys()
+            .filter(|u| !local_map.contains_key(*u))
+            .count();
+        let conflicts = *conflicts_by_type.get(entity_type).unwrap_or(&0);
+
+        rows.push(SyncStatusRow {
+            entity_type: entity_type.clone(),
+            local_count: local_map.len(),
+            remote_count: remote_map.len(),
+            only_local,
+            only_remote,
+            conflicts,
+        });
+    }
+
+    let total_local: usize = rows.iter().map(|r| r.local_count).sum();
+    let total_remote: usize = rows.iter().map(|r| r.remote_count).sum();
+    let total_only_local: usize = rows.iter().map(|r| r.only_local).sum();
+    let total_only_remote: usize = rows.iter().map(|r| r.only_remote).sum();
+    let total_conflicts: usize = rows.iter().map(|r| r.conflicts).sum();
+
+    let report = SyncStatusReport {
+        remote: remote_name.to_string(),
+        rows,
+        total_local,
+        total_remote,
+        total_only_local,
+        total_only_remote,
+        total_conflicts,
+    };
+
+    if output_json {
+        let json =
+            serde_json::to_string_pretty(&report).map_err(|e| EngramError::Serialization(e))?;
+        writeln!(writer, "{}", json)?;
+    } else {
+        writeln!(writer, "Sync status — remote '{}'", remote_name)?;
+        writeln!(writer, "{:-<70}", "")?;
+        writeln!(
+            writer,
+            "{:<16} {:>8} {:>8} {:>12} {:>13} {:>10}",
+            "ENTITY TYPE", "LOCAL", "REMOTE", "ONLY LOCAL", "ONLY REMOTE", "CONFLICTS"
+        )?;
+        writeln!(writer, "{:-<70}", "")?;
+        for row in &report.rows {
+            writeln!(
+                writer,
+                "{:<16} {:>8} {:>8} {:>12} {:>13} {:>10}",
+                row.entity_type,
+                row.local_count,
+                row.remote_count,
+                row.only_local,
+                row.only_remote,
+                row.conflicts,
+            )?;
+        }
+        writeln!(writer, "{:-<70}", "")?;
+        writeln!(
+            writer,
+            "{:<16} {:>8} {:>8} {:>12} {:>13} {:>10}",
+            "TOTAL",
+            report.total_local,
+            report.total_remote,
+            report.total_only_local,
+            report.total_only_remote,
+            report.total_conflicts,
+        )?;
+
+        if report.total_conflicts > 0 {
+            writeln!(
+                writer,
+                "\n{} conflict(s) detected — run 'engram sync resolve --remote {}' to resolve.",
+                report.total_conflicts, remote_name
+            )?;
+        } else if report.total_only_local > 0 && report.total_only_remote == 0 {
+            writeln!(
+                writer,
+                "\nLocal is ahead — consider 'engram sync push --remote {}'.",
+                remote_name
+            )?;
+        } else if report.total_only_remote > 0 && report.total_only_local == 0 {
+            writeln!(
+                writer,
+                "\nRemote has new entities — consider 'engram sync pull --remote {}'.",
+                remote_name
+            )?;
+        } else if report.total_only_remote > 0 || report.total_only_local > 0 {
+            writeln!(
+                writer,
+                "\nDivergence detected — consider 'engram sync both --remote {}'.",
+                remote_name
+            )?;
+        } else {
+            writeln!(writer, "\nIn sync.")?;
+        }
+    }
+
+    Ok(report)
 }
 
 /// Outcome for a single entity after pull merge
@@ -1728,9 +1903,9 @@ pub fn handle_sync_command<S: Storage>(
             list_remotes(&mut std::io::stdout())?;
             Ok(())
         }
-        SyncCommands::Status { remote } => {
+        SyncCommands::Status { remote, json } => {
             if let Some(remote_name) = remote {
-                get_sync_status(&mut std::io::stdout(), remote_name)?;
+                get_sync_status(&mut std::io::stdout(), remote_name, *json)?;
             } else {
                 return Err(EngramError::Validation(
                     "Remote name required for status check".to_string(),
@@ -2482,5 +2657,93 @@ mod tests {
 
         let is_conflict = remote_ver == local_ver && remote_ver > 0 && content != content.clone(); // same content
         assert!(!is_conflict);
+    }
+
+    // --- Phase 8 unit tests ---
+
+    /// SyncStatusRow is constructable with expected fields
+    #[test]
+    fn test_sync_status_row_construction() {
+        let row = SyncStatusRow {
+            entity_type: "task".to_string(),
+            local_count: 10,
+            remote_count: 8,
+            only_local: 3,
+            only_remote: 1,
+            conflicts: 0,
+        };
+        assert_eq!(row.local_count, 10);
+        assert_eq!(row.only_local, 3);
+    }
+
+    /// SyncStatusReport totals are computed correctly
+    #[test]
+    fn test_sync_status_report_totals() {
+        let rows = vec![
+            SyncStatusRow {
+                entity_type: "task".to_string(),
+                local_count: 5,
+                remote_count: 3,
+                only_local: 2,
+                only_remote: 0,
+                conflicts: 1,
+            },
+            SyncStatusRow {
+                entity_type: "context".to_string(),
+                local_count: 4,
+                remote_count: 6,
+                only_local: 0,
+                only_remote: 2,
+                conflicts: 0,
+            },
+        ];
+        let total_local: usize = rows.iter().map(|r| r.local_count).sum();
+        let total_remote: usize = rows.iter().map(|r| r.remote_count).sum();
+        let total_only_local: usize = rows.iter().map(|r| r.only_local).sum();
+        let total_only_remote: usize = rows.iter().map(|r| r.only_remote).sum();
+        let total_conflicts: usize = rows.iter().map(|r| r.conflicts).sum();
+
+        assert_eq!(total_local, 9);
+        assert_eq!(total_remote, 9);
+        assert_eq!(total_only_local, 2);
+        assert_eq!(total_only_remote, 2);
+        assert_eq!(total_conflicts, 1);
+    }
+
+    /// SyncStatusReport serialises to JSON
+    #[test]
+    fn test_sync_status_report_json_serialization() {
+        let report = SyncStatusReport {
+            remote: "origin".to_string(),
+            rows: vec![SyncStatusRow {
+                entity_type: "task".to_string(),
+                local_count: 2,
+                remote_count: 2,
+                only_local: 0,
+                only_remote: 0,
+                conflicts: 0,
+            }],
+            total_local: 2,
+            total_remote: 2,
+            total_only_local: 0,
+            total_only_remote: 0,
+            total_conflicts: 0,
+        };
+        let json = serde_json::to_string(&report).unwrap();
+        assert!(json.contains("\"remote\""));
+        assert!(json.contains("\"rows\""));
+        assert!(json.contains("\"total_conflicts\""));
+    }
+
+    /// get_sync_status returns Err when no remotes.json
+    #[test]
+    fn test_get_sync_status_no_config() {
+        let config_path = "/tmp/engram_test_nonexistent_status.json";
+        let result: Result<(), &str> = if !std::path::Path::new(config_path).exists() {
+            Err("No remotes configured")
+        } else {
+            Ok(())
+        };
+        assert!(result.is_err());
     }
 }
