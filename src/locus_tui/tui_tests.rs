@@ -209,6 +209,15 @@ mod tests {
         fn list_progressive_configs(&self) -> Result<Vec<ProgressiveGateConfig>, EngramError> {
             Ok(vec![])
         }
+        fn list_remote_names(&self) -> Vec<String> {
+            vec![]
+        }
+        fn get_sync_status_data(
+            &self,
+            _remote_name: &str,
+        ) -> Result<Vec<crate::locus_tui::app::SyncStatusRow>, EngramError> {
+            Ok(vec![])
+        }
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

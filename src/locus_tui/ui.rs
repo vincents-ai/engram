@@ -54,6 +54,7 @@ pub fn draw<S: Storage + RelationshipStorage>(
         ActiveView::Sandboxes => "Sandboxes",
         ActiveView::ExecutionResults => "Execution Results",
         ActiveView::ProgressiveConfigs => "Progressive Configs",
+        ActiveView::Sync => "Sync",
     };
     let title_text = format!(
         "Engram Locus  [{view_name}]  Tasks: {task_count}  Workflows: {workflow_count}  Tab:next  q:quit  t:theme"
@@ -151,6 +152,10 @@ pub fn draw<S: Storage + RelationshipStorage>(
         ActiveView::ProgressiveConfigs => {
             let border_style = Style::default().fg(app_state.theme.as_theme().border());
             draw_progressive_configs_view(f, chunks[1], app_state, border_style);
+        }
+        ActiveView::Sync => {
+            let border_style = Style::default().fg(app_state.theme.as_theme().border());
+            draw_sync_view(f, chunks[1], app_state, border_style);
         }
     }
 
@@ -1977,4 +1982,120 @@ fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
             Constraint::Percentage((100 - percent_x) / 2),
         ])
         .split(popup_layout[1])[1]
+}
+
+/// Render the Sync view: 3-pane layout with Remotes, Sync Status, and Last Operation.
+fn draw_sync_view(
+    f: &mut ratatui::Frame<'_>,
+    area: Rect,
+    app_state: &AppState,
+    border_style: Style,
+) {
+    use crate::locus_tui::app::SyncViewState;
+    let sync = &app_state.sync_view;
+
+    // Split vertically: Remotes (30%) | Status table (45%) | Last Op (25%)
+    let panes = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Percentage(28),
+            Constraint::Percentage(47),
+            Constraint::Percentage(25),
+        ])
+        .split(area);
+
+    // ── Pane 1: Remotes list ──────────────────────────────────────────────
+    let remote_items: Vec<ListItem> = if sync.remotes.is_empty() {
+        vec![ListItem::new("  (no remotes configured)")]
+    } else {
+        sync.remotes
+            .iter()
+            .enumerate()
+            .map(|(i, name)| {
+                let style = if i == sync.remotes_selected {
+                    Style::default()
+                        .fg(Color::Black)
+                        .bg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD)
+                } else {
+                    Style::default()
+                };
+                ListItem::new(format!("  {}", name)).style(style)
+            })
+            .collect()
+    };
+    let remotes_block = Block::default()
+        .title(" Remotes  [j/k to select] ")
+        .borders(Borders::ALL)
+        .border_style(border_style);
+    let remotes_list = List::new(remote_items).block(remotes_block);
+    f.render_widget(remotes_list, panes[0]);
+
+    // ── Pane 2: Sync status table ─────────────────────────────────────────
+    let header = Row::new(vec!["Type", "Local", "Remote", "Conflicts"])
+        .style(Style::default().add_modifier(Modifier::BOLD | Modifier::UNDERLINED));
+    let rows: Vec<Row> = if sync.status_rows.is_empty() {
+        vec![Row::new(vec!["  Press R to refresh status", "", "", ""])]
+    } else {
+        sync.status_rows
+            .iter()
+            .map(|r| {
+                let conflict_style = if r.conflicts > 0 {
+                    Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)
+                } else {
+                    Style::default()
+                };
+                Row::new(vec![
+                    Cell::from(r.entity_type.clone()),
+                    Cell::from(r.local_count.to_string()),
+                    Cell::from(r.remote_count.to_string()),
+                    Cell::from(r.conflicts.to_string()).style(conflict_style),
+                ])
+            })
+            .collect()
+    };
+    let status_block = Block::default()
+        .title(" Sync Status ")
+        .borders(Borders::ALL)
+        .border_style(border_style);
+    let status_table = Table::new(
+        rows,
+        [
+            Constraint::Percentage(40),
+            Constraint::Percentage(20),
+            Constraint::Percentage(20),
+            Constraint::Percentage(20),
+        ],
+    )
+    .header(header)
+    .block(status_block);
+    f.render_widget(status_table, panes[1]);
+
+    // ── Pane 3: Last operation + key hints ────────────────────────────────
+    let spinner_or_idle = if sync.op_in_flight { " ⟳  " } else { "    " };
+    let last_op = sync.last_op_result.as_deref().unwrap_or("No operation yet");
+    let op_lines = vec![
+        Line::from(format!("{}{}", spinner_or_idle, last_op)),
+        Line::from(""),
+        Line::from(vec![
+            Span::styled("[p]", Style::default().add_modifier(Modifier::BOLD)),
+            Span::raw("ull  "),
+            Span::styled("[u]", Style::default().add_modifier(Modifier::BOLD)),
+            Span::raw("push  "),
+            Span::styled("[b]", Style::default().add_modifier(Modifier::BOLD)),
+            Span::raw("oth  "),
+            Span::styled("[R]", Style::default().add_modifier(Modifier::BOLD)),
+            Span::raw("efresh status"),
+        ]),
+    ];
+    let op_block = Block::default()
+        .title(" Last Operation ")
+        .borders(Borders::ALL)
+        .border_style(border_style);
+    let op_para = Paragraph::new(op_lines)
+        .block(op_block)
+        .wrap(Wrap { trim: false });
+    f.render_widget(op_para, panes[2]);
+
+    let _ = SyncViewState::default; // keep the import used
 }

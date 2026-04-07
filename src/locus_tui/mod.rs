@@ -15,7 +15,7 @@ use crate::locus_tui::app::{
 };
 use crate::locus_tui::backend::{GitEngramBackend, LocusTuiBackend};
 use crate::locus_tui::events::Action;
-use crate::storage::{RelationshipStorage, Storage};
+use crate::storage::{RelationshipStorage, RemoteAuth, Storage};
 use crossterm::event::{DisableMouseCapture, EnableMouseCapture};
 use crossterm::execute;
 use crossterm::terminal::{
@@ -209,7 +209,154 @@ impl<S: Storage + RelationshipStorage + Send + 'static> LocusTuiApp<S> {
                         .set_status(format!("[{}] {}", result.entity_type, result.title));
                 }
             }
+            Action::SyncPull => {
+                self.app_state.sync_view.op_in_flight = true;
+                self.app_state
+                    .set_status("Pulling from remote…".to_string());
+                let remote = self.selected_remote_name();
+                let result = if let Some(ref name) = remote {
+                    match self.build_remote_auth(name) {
+                        Ok(auth) => crate::cli::sync::pull_from_remote(name.clone(), auth, false)
+                            .map(|outcomes| {
+                                let conflicts = outcomes
+                                    .iter()
+                                    .filter(|o| {
+                                        matches!(
+                                            o,
+                                            crate::cli::sync::PullEntityOutcome::Conflict { .. }
+                                        )
+                                    })
+                                    .count();
+                                format!("pull: {} fetched, {} conflicts", outcomes.len(), conflicts)
+                            })
+                            .unwrap_or_else(|e| format!("pull error: {}", e)),
+                        Err(e) => format!("auth error: {}", e),
+                    }
+                } else {
+                    "No remote selected".to_string()
+                };
+                self.app_state.sync_view.op_in_flight = false;
+                self.app_state.sync_view.last_op_result = Some(result.clone());
+                self.app_state.set_status(result);
+                self.refresh_sync_status();
+            }
+            Action::SyncPush => {
+                self.app_state.sync_view.op_in_flight = true;
+                self.app_state.set_status("Pushing to remote…".to_string());
+                let remote = self.selected_remote_name();
+                let result = if let Some(ref name) = remote {
+                    match self.build_remote_auth(name) {
+                        Ok(auth) => crate::cli::sync::push_to_remote(name.clone(), auth, false)
+                            .map(|count| format!("push: {} refs pushed", count))
+                            .unwrap_or_else(|e| format!("push error: {}", e)),
+                        Err(e) => format!("auth error: {}", e),
+                    }
+                } else {
+                    "No remote selected".to_string()
+                };
+                self.app_state.sync_view.op_in_flight = false;
+                self.app_state.sync_view.last_op_result = Some(result.clone());
+                self.app_state.set_status(result);
+                self.refresh_sync_status();
+            }
+            Action::SyncBoth => {
+                self.app_state.sync_view.op_in_flight = true;
+                self.app_state
+                    .set_status("Syncing (pull+push)…".to_string());
+                let remote = self.selected_remote_name();
+                let result = if let Some(ref name) = remote {
+                    match self.build_remote_auth(name) {
+                        Ok(auth) => crate::cli::sync::sync_both(name.clone(), auth, false)
+                            .map(|r| {
+                                format!(
+                                    "sync: {} fetched, {} pushed, {} conflicts",
+                                    r.pull_outcomes.len(),
+                                    r.push_count,
+                                    r.conflicts
+                                )
+                            })
+                            .unwrap_or_else(|e| format!("sync error: {}", e)),
+                        Err(e) => format!("auth error: {}", e),
+                    }
+                } else {
+                    "No remote selected".to_string()
+                };
+                self.app_state.sync_view.op_in_flight = false;
+                self.app_state.sync_view.last_op_result = Some(result.clone());
+                self.app_state.set_status(result);
+                self.refresh_sync_status();
+            }
+            Action::RefreshSyncStatus => {
+                self.app_state
+                    .set_status("Refreshing sync status…".to_string());
+                self.load_sync_data();
+                self.app_state.clear_status();
+            }
         }
+    }
+
+    /// Build a `RemoteAuth` from the stored `RemoteConfig` for the given remote name.
+    /// Reads `.engram/remotes.json` — same source the CLI uses.
+    fn build_remote_auth(&self, remote_name: &str) -> Result<RemoteAuth, String> {
+        use std::collections::HashMap;
+        use std::fs;
+        let content = fs::read_to_string(".engram/remotes.json")
+            .map_err(|e| format!("cannot read remotes.json: {}", e))?;
+        let remotes: HashMap<String, crate::cli::sync::RemoteConfig> =
+            serde_json::from_str(&content)
+                .map_err(|e| format!("cannot parse remotes.json: {}", e))?;
+        let cfg = remotes
+            .get(remote_name)
+            .ok_or_else(|| format!("remote '{}' not found", remote_name))?;
+        Ok(RemoteAuth {
+            auth_type: cfg.auth_type.clone().unwrap_or_else(|| "none".to_string()),
+            username: cfg.username.clone(),
+            password: None, // not stored; SSH key is preferred
+            key_path: cfg.ssh_key_path.clone(),
+        })
+    }
+
+    /// Load sync remotes and status into app state.
+    fn load_sync_data(&mut self) {
+        let remotes = self.backend.list_remote_names();
+        // Reset selected index if the list shrank.
+        if self.app_state.sync_view.remotes_selected >= remotes.len() {
+            self.app_state.sync_view.remotes_selected = 0;
+        }
+        // Fetch status for the selected remote (if any).
+        let selected_name = remotes
+            .get(self.app_state.sync_view.remotes_selected)
+            .cloned();
+        if let Some(ref name) = selected_name {
+            self.app_state.sync_view.status_rows =
+                self.backend.get_sync_status_data(name).unwrap_or_default();
+        } else {
+            self.app_state.sync_view.status_rows.clear();
+        }
+        self.app_state.sync_view.remotes = remotes;
+    }
+
+    /// Refresh the sync status pane (does not re-fetch remote names).
+    fn refresh_sync_status(&mut self) {
+        let selected_name = self
+            .app_state
+            .sync_view
+            .remotes
+            .get(self.app_state.sync_view.remotes_selected)
+            .cloned();
+        if let Some(ref name) = selected_name {
+            self.app_state.sync_view.status_rows =
+                self.backend.get_sync_status_data(name).unwrap_or_default();
+        }
+    }
+
+    /// Return the name of the currently selected remote, if any.
+    fn selected_remote_name(&self) -> Option<String> {
+        self.app_state
+            .sync_view
+            .remotes
+            .get(self.app_state.sync_view.remotes_selected)
+            .cloned()
     }
 
     /// Cycle the status of the currently selected task: Todo -> InProgress -> Done -> Todo.
