@@ -22,6 +22,23 @@ Use this skill when:
 
 ## The Pattern
 
+### 0. Engram-First Research Protocol
+
+**Before doing any research or writing any code**, internalize this rule:
+
+> **Every finding is written to engram the moment it is discovered — not at the end.**
+
+This prevents data loss if you hit context limits, token exhaustion, or tool errors mid-task. The pattern is strictly sequential per finding:
+
+```
+for each finding:
+  1. engram context create / engram reasoning create   ← write immediately
+  2. engram relationship create                        ← link immediately
+  3. only then: continue to next finding
+```
+
+**Never batch findings.** Never accumulate context and write at the end. If you have five findings, you make five separate `engram context create` calls as you go, each followed immediately by `engram relationship create`.
+
 ### 1. Claim the Task
 
 The first thing you do is mark the task as claimed so other agents don't duplicate work.
@@ -57,9 +74,16 @@ engram ask query "<keywords from your task title>"
 
 **Rule:** Never start work based only on the task title. Always check for linked context first.
 
-### 3. Store Every Finding Immediately
+### 3. Store Every Finding Immediately — No Batching
 
-Every time you discover something — a fact, an error, a working result — store it before moving to the next step. Do not accumulate findings and batch them at the end.
+**CRITICAL:** Write each finding to engram the moment you discover it. Do NOT accumulate findings and batch them at the end. Context limits and tool errors are real — if you batch and fail, everything is lost.
+
+Required sequence per finding:
+1. `engram context create` (or `engram reasoning create`) — write the finding
+2. `engram relationship create` — link it to your task UUID immediately
+3. Continue to the next finding only after both commands above succeed
+
+Every time you discover something — a fact, an error, a working result — store it before moving to the next step.
 
 **Raw facts, observations, error output:**
 
@@ -206,7 +230,7 @@ engram task update <TASK_UUID> --status blocked --reason "<short reason>"
 
 1. **Claim first** — `engram task update --status in_progress` before any work.
 2. **Pull context before acting** — `engram relationship connected` on your task UUID.
-3. **Store immediately** — write findings to engram as you go, not at the end.
+3. **Engram-first, per finding** — write each finding to engram the moment you discover it; do NOT batch at the end. Pattern: `create → relationship create → next finding`.
 4. **Link every record** — `engram relationship create` after every `context create`, `reasoning create`, or `adr create` (requires --source-type, --target-type, --agent).
 5. **Escalate blockers** — `engram escalation create` then set task to `blocked`. Never work around restrictions.
 6. **Report via engram** — your completion report is a reasoning record linked to your task UUID, not a conversation message.
@@ -217,6 +241,8 @@ engram task update <TASK_UUID> --status blocked --reason "<short reason>"
 Received: TASK_UUID = abc-002
 Task title: "Research: evaluate rate limit libraries for axum"
 
+[Step 0: Review engram-first protocol — write each finding immediately, no batching]
+
 [Step 1: Claim]
 engram task show abc-002
 engram task update abc-002 --status in_progress
@@ -225,7 +251,7 @@ engram task update abc-002 --status in_progress
 engram relationship connected --entity-id abc-002 --max-depth 2
 # Returns linked context — review before continuing
 
-[Step 3: Store findings]
+[Step 3: Finding 1 — write immediately, then link, then move on]
 engram context create \
   --title "tower-governor: production-ready rate limiting" \
   --content "tower-governor v0.3: integrates with tower middleware, supports Redis, 1200 downloads/week, last commit 3 weeks ago" \
@@ -236,7 +262,9 @@ engram relationship create \
   --source-id abc-002 --source-type task \
   --target-id cxt-010 --target-type context \
   --relationship-type relates_to --agent "researcher"
+# ← relationship linked. Now safe to move to next finding.
 
+[Step 3: Finding 2 — write immediately, then link, then move on]
 engram context create \
   --title "axum-ratelimit: alpha, not suitable" \
   --content "axum-ratelimit v0.1: alpha quality, no Redis support, 40 downloads/week, last commit 8 months ago" \
@@ -247,6 +275,7 @@ engram relationship create \
   --source-id abc-002 --source-type task \
   --target-id cxt-011 --target-type context \
   --relationship-type relates_to --agent "researcher"
+# ← relationship linked. Now safe to move to reasoning.
 
 [Step 4: Record reasoning]
 engram reasoning create \

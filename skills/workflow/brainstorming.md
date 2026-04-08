@@ -68,6 +68,37 @@ engram relationship create \
   --relationship-type relates_to --agent "<name>"
 ```
 
+### 3b. Ask-First Refinement Protocol
+
+Before finalising any stored entity, use engram to ask the user refinement questions rather than storing half-baked ideas as final.
+
+**Protocol:**
+1. Create all engram entities immediately as drafts (with `[DRAFT]` prefix in title)
+2. Ask the user targeted refinement questions (one at a time)
+3. Update/replace draft entities with finalised content once answers are received
+
+```bash
+# Step 1: Store a draft immediately
+engram context create \
+  --title "[DRAFT] Approach: <name>" \
+  --content "<initial thoughts — mark clearly as draft>" \
+  --source "brainstorming"
+# DRAFT_UUID = ...
+
+# Step 2: Ask the user a refinement question (one at a time)
+# "Should this approach use X or Y? Recommendation: X because..."
+# Wait for their answer before proceeding.
+
+# Step 3: Update with final content once answer received
+engram context update <DRAFT_UUID> \
+  --title "Approach: <name>" \
+  --content "<finalised content incorporating user's answer>"
+```
+
+**Rule:** Never store speculative content as final. Draft first, ask, then finalise. This prevents garbage data accumulating in the knowledge graph.
+
+**CLI vs UI split:** `engram` CLI commands are for agent interaction only. Locus is the human interface. Do not mix these — new commands belong in `engram` (for agents) or Locus (for humans), never both.
+
 ### 4. Record the Trade-off Reasoning
 
 ```bash
@@ -230,11 +261,13 @@ engram next
 ## Key Principles
 
 - **Search first** — `engram ask query` before brainstorming anything
+- **Draft first, ask, then finalise** — create entities with `[DRAFT]` prefix, ask the user refinement questions, update to final only after answers are received; never store half-baked ideas as final
 - **One question at a time** — don't overwhelm with multiple questions
 - **ADR for decisions** — approach selection is an architectural decision, use `engram adr create`
 - **YAGNI** — remove unnecessary features from all designs
 - **Link everything** — `engram relationship create` after every create
 - **Shell commands directly** — run git, ls, etc. in your shell; do NOT use `engram sandbox execute`
+- **CLI vs UI split** — `engram` CLI is for agents; Locus is for humans; do not mix them
 
 ## Related Skills
 
