@@ -9,6 +9,7 @@ pub mod auto_guide;
 pub mod compliance;
 pub mod context;
 pub mod convert;
+pub mod doc;
 pub mod escalation;
 pub mod git;
 pub mod help;
@@ -40,6 +41,7 @@ pub use analytics::*;
 pub use compliance::*;
 pub use context::*;
 pub use convert::*;
+pub use doc::*;
 pub use escalation::*;
 pub use help::*;
 pub use import::*;
@@ -101,6 +103,11 @@ pub enum Commands {
         /// Source file path
         #[arg(long, short = 'f')]
         file: String,
+    },
+    /// Documentation management
+    Doc {
+        #[command(subcommand)]
+        command: doc::DocCommands,
     },
     /// Import entities from structured markdown files
     Import {

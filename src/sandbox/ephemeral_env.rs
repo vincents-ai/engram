@@ -288,6 +288,9 @@ mod tests {
     fn test_fallback_to_direct_when_nix_unavailable() {
         let config = NixSandboxConfig::with_packages(vec!["jq".to_string()]);
         let sandbox = NixSandbox::new(config);
+        if sandbox.nix_available {
+            return;
+        }
         let result = sandbox.execute(
             "echo",
             &[("hello".to_string())],

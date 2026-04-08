@@ -561,6 +561,26 @@ impl ResponseFormatter {
             }
         }
 
+        let doc_fragments = data["doc_fragments"].as_array().unwrap_or(&empty_vec);
+        if !doc_fragments.is_empty() {
+            response.push_str("\nDoc Fragments:\n");
+            for (i, df) in doc_fragments.iter().enumerate() {
+                let title = df["title"].as_str().unwrap_or("Untitled");
+                let id = df["id"].as_str().unwrap_or("");
+                let topic = df["topic"].as_str().unwrap_or("");
+                let stale = df["stale"].as_bool().unwrap_or(false);
+                let stale_marker = if stale { " [stale]" } else { "" };
+                response.push_str(&format!(
+                    "  {}. [{}] {} (topic: {}){}\n",
+                    i + 1,
+                    &id[..8.min(id.len())],
+                    title,
+                    topic,
+                    stale_marker
+                ));
+            }
+        }
+
         Ok(response)
     }
 

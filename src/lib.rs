@@ -35,6 +35,7 @@ pub type Result<T> = StdResult<T, error::EngramError>;
 pub use config::Config;
 /// Re-export commonly used types
 pub use entities::*;
+pub use entities::doc_fragment::DocFragment;
 pub use error::EngramError;
 pub use storage::{MemoryEntity, Storage};
 

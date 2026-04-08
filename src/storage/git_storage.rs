@@ -65,6 +65,7 @@ impl GitStorage {
         registry.register::<crate::entities::EntityRelationship>();
         registry.register::<crate::entities::Theory>();
         registry.register::<crate::entities::StateReflection>();
+        registry.register::<crate::entities::DocFragment>();
 
         let mut storage = GitStorage {
             repository: Arc::new(Mutex::new(repository)),
