@@ -22,7 +22,10 @@ pub use flakiness_tracker::{
 };
 pub use hook::HookManager;
 pub use parser::{CommitMessageParser, ConventionalCommit};
-pub use quality_gates::{BuiltinValidators, QualityGate, QualityGatesExecutor};
+pub use quality_gates::{
+    BuiltinValidators, ComplexityAnalyzer, ComplexityLevel, GateContext, GateResult, LevelSelector,
+    QualityGate, QualityGateError, QualityGateResult, QualityGatesExecutor,
+};
 pub use stage_transitions::{
     StageTransitionManager, StageTransitionRule, TransitionCondition, TransitionEligibility,
 };

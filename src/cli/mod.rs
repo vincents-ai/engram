@@ -4,6 +4,7 @@
 //! for all entity types and operations.
 
 pub mod adr;
+pub mod analytics;
 pub mod auto_guide;
 pub mod compliance;
 pub mod context;
@@ -35,6 +36,7 @@ pub mod validation;
 pub mod workflow;
 
 pub use adr::*;
+pub use analytics::*;
 pub use compliance::*;
 pub use context::*;
 pub use convert::*;
@@ -245,6 +247,11 @@ pub enum Commands {
     Reflect {
         #[command(subcommand)]
         command: StateReflectionCommands,
+    },
+    /// Analytics: DORA metrics, task durations, bottleneck detection
+    Analytics {
+        #[command(subcommand)]
+        command: analytics::AnalyticsCommands,
     },
 }
 

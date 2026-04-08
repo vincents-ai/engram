@@ -5,9 +5,9 @@
 //! callers can hold `Box<dyn LocusTuiBackend>`.
 
 use crate::entities::{
-    AgentSandbox, Compliance, Context, EntityRelationship, EscalationRequest, ExecutionResult,
-    Knowledge, ProgressiveGateConfig, Reasoning, Rule, Session, Standard, StateReflection, Task,
-    Theory, Workflow, WorkflowInstance, ADR,
+    AgentSandbox, Compliance, Context, DoraMetricsReport, EntityRelationship, EscalationRequest,
+    ExecutionResult, Knowledge, ProgressiveGateConfig, Reasoning, Rule, Session, Standard,
+    StateReflection, Task, Theory, Workflow, WorkflowInstance, ADR,
 };
 use crate::error::EngramError;
 use crate::storage::{RelationshipStorage, Storage};
@@ -36,6 +36,7 @@ pub trait LocusTuiBackend: Send {
     fn list_sandboxes(&self) -> Result<Vec<AgentSandbox>, EngramError>;
     fn list_execution_results(&self) -> Result<Vec<ExecutionResult>, EngramError>;
     fn list_progressive_configs(&self) -> Result<Vec<ProgressiveGateConfig>, EngramError>;
+    fn list_dora_metrics_reports(&self) -> Result<Vec<DoraMetricsReport>, EngramError>;
     fn update_adr_status(
         &mut self,
         id: &str,
@@ -45,6 +46,14 @@ pub trait LocusTuiBackend: Send {
         &mut self,
         id: &str,
         status: crate::entities::TaskStatus,
+    ) -> Result<(), Box<dyn std::error::Error>>;
+    fn update_escalation_status(
+        &mut self,
+        id: &str,
+        status: crate::entities::EscalationStatus,
+        reviewer_id: &str,
+        reviewer_name: &str,
+        reason: &str,
     ) -> Result<(), Box<dyn std::error::Error>>;
     /// Return configured remote names (empty if no remotes.json or not a git repo).
     fn list_remote_names(&self) -> Vec<String>;
@@ -221,6 +230,14 @@ impl<S: Storage + RelationshipStorage + Send> LocusTuiBackend for EngramBackend<
             .collect())
     }
 
+    fn list_dora_metrics_reports(&self) -> Result<Vec<DoraMetricsReport>, EngramError> {
+        let entities = self.storage.get_all("dora_metrics_report")?;
+        Ok(entities
+            .into_iter()
+            .filter_map(|e| serde_json::from_value::<DoraMetricsReport>(e.data).ok())
+            .collect())
+    }
+
     fn update_adr_status(
         &mut self,
         id: &str,
@@ -260,6 +277,54 @@ impl<S: Storage + RelationshipStorage + Send> LocusTuiBackend for EngramBackend<
                 agent: task.agent.clone(),
                 timestamp: task.start_time,
                 data: serde_json::to_value(&task)?,
+            };
+            self.storage.store(&entity)?;
+        }
+        Ok(())
+    }
+
+    fn update_escalation_status(
+        &mut self,
+        id: &str,
+        status: crate::entities::EscalationStatus,
+        reviewer_id: &str,
+        reviewer_name: &str,
+        reason: &str,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let escalations = self.list_escalations()?;
+        if let Some(mut esc) = escalations
+            .into_iter()
+            .find(|e| e.id == id || e.id.starts_with(id))
+        {
+            if !esc.is_actionable() {
+                return Err(format!(
+                    "Escalation {} is not actionable (status: {:?})",
+                    id, esc.status
+                )
+                .into());
+            }
+            let reviewer = crate::entities::ReviewerInfo {
+                reviewer_id: reviewer_id.to_string(),
+                reviewer_name: reviewer_name.to_string(),
+                reviewer_email: None,
+                department: None,
+            };
+            let decision = crate::entities::ReviewDecision {
+                status,
+                reason: reason.to_string(),
+                conditions: Vec::new(),
+                approval_duration: None,
+                create_policy: false,
+                notes: None,
+            };
+            esc.assign_reviewer(reviewer);
+            esc.record_decision(decision);
+            let entity = crate::entities::GenericEntity {
+                id: esc.id.clone(),
+                entity_type: "escalation_request".to_string(),
+                agent: esc.agent.clone(),
+                timestamp: esc.created_at,
+                data: serde_json::to_value(&esc)?,
             };
             self.storage.store(&entity)?;
         }

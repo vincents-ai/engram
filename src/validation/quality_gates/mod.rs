@@ -1,19 +1,62 @@
 //! Quality Gates Framework
 //!
-//! Provides automated execution of quality gates (tests, builds, linting)
-//! with configurable validators and BDD Red-Green-Refactor cycle support.
+//! Unified quality gate system for engram. Provides automated execution of
+//! quality gates (tests, builds, linting) with configurable validators,
+//! BDD Red-Green-Refactor cycle support, flakiness tracking, and complexity
+//! analysis. This is the single entry point for all quality gate logic.
+
+pub mod complexity_analyzer;
+pub mod level_selector;
+pub mod validators;
+
+pub use complexity_analyzer::{ComplexityAnalyzer, ComplexityLevel};
+pub use level_selector::LevelSelector;
+pub use validators::*;
 
 use crate::entities::{Entity, ExecutionResult, ExpectedResult, ValidationStatus};
 use crate::error::EngramError;
 use crate::storage::Storage;
 use crate::validation::flakiness_tracker::{FlakinessConfig, FlakinessTracker};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
+use thiserror::Error;
 
-pub mod validators;
+#[derive(Error, Debug)]
+pub enum QualityGateError {
+    #[error("Storage error: {0}")]
+    StorageError(String),
+    #[error("Configuration error: {0}")]
+    ConfigError(String),
+    #[error("Analysis error: {0}")]
+    AnalysisError(String),
+    #[error("Gate execution failed: {0}")]
+    ExecutionError(String),
+}
 
-pub use validators::*;
+pub type QualityGateResult<T> = Result<T, QualityGateError>;
+
+/// Represents the result of a quality gate execution
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GateResult {
+    pub gate_type: String,
+    pub success: bool,
+    pub score: Option<f64>,
+    pub details: HashMap<String, serde_json::Value>,
+    pub execution_time_ms: u64,
+    pub recommendations: Vec<String>,
+}
+
+/// Context for quality gate execution
+#[derive(Debug, Clone)]
+pub struct GateContext {
+    pub task: crate::entities::Task,
+    pub changed_files: Vec<String>,
+    pub commit_message: Option<String>,
+    pub branch_name: Option<String>,
+    pub metadata: HashMap<String, serde_json::Value>,
+}
 
 /// Quality gate definition
 #[derive(Debug, Clone)]

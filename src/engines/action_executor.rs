@@ -4,6 +4,8 @@
 //! including external commands, notifications, and custom actions.
 
 use crate::error::EngramError;
+use crate::sandbox::ephemeral_env::NixSandboxConfig;
+use crate::sandbox::NixSandbox;
 use crate::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -45,6 +47,7 @@ pub struct ExternalCommandParams {
 /// Action executor
 pub struct ActionExecutor {
     allow_external_commands: bool,
+    nix_sandbox: Option<NixSandbox>,
 }
 
 impl ActionExecutor {
@@ -52,7 +55,23 @@ impl ActionExecutor {
     pub fn new(allow_external_commands: bool) -> Self {
         Self {
             allow_external_commands,
+            nix_sandbox: None,
         }
+    }
+
+    /// Create a new action executor with Nix sandbox support
+    pub fn with_nix_sandbox(allow_external_commands: bool, nix_config: NixSandboxConfig) -> Self {
+        Self {
+            allow_external_commands,
+            nix_sandbox: Some(NixSandbox::new(nix_config)),
+        }
+    }
+
+    /// Check if Nix sandbox is active and available
+    pub fn is_nix_sandbox_active(&self) -> bool {
+        self.nix_sandbox
+            .as_ref()
+            .map_or(false, |s| s.is_available())
     }
 
     /// Execute an action based on type and parameters
@@ -125,6 +144,40 @@ impl ActionExecutor {
             .unwrap_or(true);
 
         // Execute the command
+        if let Some(ref sandbox) = self.nix_sandbox {
+            let nix_packages: Vec<String> = parameters
+                .get("nix_packages")
+                .and_then(|v| v.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| v.as_str().map(String::from))
+                        .collect()
+                })
+                .unwrap_or_default();
+
+            if !nix_packages.is_empty() {
+                let nix_config = NixSandboxConfig::with_packages(nix_packages);
+                let nix_sandbox = NixSandbox::new(nix_config);
+                let exec_result = nix_sandbox.execute(
+                    command,
+                    &args,
+                    working_directory.as_deref(),
+                    &environment,
+                    Some(Duration::from_secs(timeout_seconds)),
+                )?;
+                return Ok(self.to_action_result(command, exec_result));
+            }
+
+            let exec_result = sandbox.execute(
+                command,
+                &args,
+                working_directory.as_deref(),
+                &environment,
+                Some(Duration::from_secs(timeout_seconds)),
+            )?;
+            return Ok(self.to_action_result(command, exec_result));
+        }
+
         self.run_command(
             command,
             &args,
@@ -221,6 +274,42 @@ impl ActionExecutor {
                 "Command timed out after {:?}",
                 timeout
             ))),
+        }
+    }
+
+    fn to_action_result(
+        &self,
+        command: &str,
+        exec_result: crate::sandbox::ExecutionResult,
+    ) -> ActionResult {
+        let mut metadata = HashMap::new();
+        metadata.insert(
+            "sandbox_used".to_string(),
+            exec_result.sandbox_used.to_string(),
+        );
+
+        ActionResult {
+            success: exec_result.success,
+            message: if exec_result.success {
+                format!("Command '{}' executed successfully", command)
+            } else {
+                format!(
+                    "Command '{}' failed with exit code {}",
+                    command, exec_result.exit_code
+                )
+            },
+            output: if exec_result.stdout.is_empty() {
+                None
+            } else {
+                Some(exec_result.stdout)
+            },
+            error: if exec_result.stderr.is_empty() {
+                None
+            } else {
+                Some(exec_result.stderr)
+            },
+            exit_code: Some(exec_result.exit_code),
+            metadata,
         }
     }
 
@@ -343,5 +432,57 @@ mod tests {
 
         let result = executor.execute_action("unknown_action", &params);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_executor_with_nix_sandbox_disabled() {
+        let executor = ActionExecutor::with_nix_sandbox(true, NixSandboxConfig::default());
+        assert!(!executor.is_nix_sandbox_active());
+    }
+
+    #[test]
+    fn test_executor_with_nix_sandbox_fallback() {
+        let config = NixSandboxConfig::with_packages(vec!["jq".to_string()]);
+        let executor = ActionExecutor::with_nix_sandbox(true, config);
+
+        let mut params = HashMap::new();
+        params.insert(
+            "command".to_string(),
+            serde_json::Value::String("echo".to_string()),
+        );
+        params.insert("args".to_string(), serde_json::json!(["sandbox-fallback"]));
+
+        let result = executor.execute_action("external_command", &params);
+        assert!(result.is_ok());
+        let action_result = result.unwrap();
+        assert!(action_result.success);
+        assert!(action_result.metadata.get("sandbox_used").is_some());
+    }
+
+    #[test]
+    fn test_executor_with_per_command_packages() {
+        let executor = ActionExecutor::with_nix_sandbox(
+            true,
+            NixSandboxConfig {
+                enabled: true,
+                packages: Vec::new(),
+                nixpkgs_rev: None,
+                timeout_seconds: 300,
+                fallback_to_direct: true,
+            },
+        );
+
+        let mut params = HashMap::new();
+        params.insert(
+            "command".to_string(),
+            serde_json::Value::String("echo".to_string()),
+        );
+        params.insert("args".to_string(), serde_json::json!(["per-cmd"]));
+        params.insert("nix_packages".to_string(), serde_json::json!(["coreutils"]));
+
+        let result = executor.execute_action("external_command", &params);
+        assert!(result.is_ok());
+        let action_result = result.unwrap();
+        assert!(action_result.success);
     }
 }

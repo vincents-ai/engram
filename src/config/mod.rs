@@ -183,6 +183,9 @@ pub struct ConfigFeatures {
     pub experimental: bool,
 
     pub enterprise: bool,
+
+    #[serde(default)]
+    pub nix_sandbox: bool,
 }
 
 impl Default for ConfigFeatures {
@@ -193,6 +196,7 @@ impl Default for ConfigFeatures {
             analytics: true,
             experimental: false,
             enterprise: false,
+            nix_sandbox: false,
         }
     }
 }
@@ -204,6 +208,7 @@ impl ConfigFeatures {
         self.analytics = other.analytics;
         self.experimental = other.experimental;
         self.enterprise = other.enterprise;
+        self.nix_sandbox = other.nix_sandbox;
     }
 
     pub fn validate(&self) -> Result<(), EngramError> {
@@ -452,6 +457,7 @@ mod tests {
             analytics: false,
             experimental: true,
             enterprise: true,
+            nix_sandbox: true,
         };
 
         features.merge(other);
@@ -460,6 +466,7 @@ mod tests {
         assert!(!features.analytics);
         assert!(features.experimental);
         assert!(features.enterprise);
+        assert!(features.nix_sandbox);
     }
 
     #[test]
@@ -683,5 +690,6 @@ mod tests {
         assert!(features.analytics);
         assert!(!features.experimental);
         assert!(!features.enterprise);
+        assert!(!features.nix_sandbox);
     }
 }

@@ -1,4 +1,4 @@
-use super::{GateContext, QualityGateResult};
+use super::{GateContext, QualityGateError, QualityGateResult};
 use crate::entities::progressive_config::GateLevel;
 
 pub struct LevelSelector;
@@ -14,9 +14,9 @@ impl LevelSelector {
             }
         }
 
-        available_levels.first().ok_or_else(|| {
-            super::QualityGateError::ConfigError("No gate levels available".to_string())
-        })
+        available_levels
+            .first()
+            .ok_or_else(|| QualityGateError::ConfigError("No gate levels available".to_string()))
     }
 
     fn matches_threshold(

@@ -425,6 +425,110 @@ impl<S: Storage> WorkflowAutomationEngine<S> {
 
         instance.step_count += 1;
 
+        let mut action_events = Vec::new();
+        let mut action_failed = false;
+
+        for action in &transition.actions {
+            let result = self
+                .action_executor
+                .execute_action(&action.action_type, &action.parameters);
+
+            let (success, message, action_metadata) = match &result {
+                Ok(ar) => (ar.success, ar.message.clone(), {
+                    let mut m = HashMap::new();
+                    if let Some(ref output) = ar.output {
+                        m.insert("output".to_string(), output.clone());
+                    }
+                    if let Some(ref error) = ar.error {
+                        m.insert("error".to_string(), error.clone());
+                    }
+                    if let Some(code) = ar.exit_code {
+                        m.insert("exit_code".to_string(), code.to_string());
+                    }
+                    m
+                }),
+                Err(e) => (false, e.to_string(), HashMap::new()),
+            };
+
+            let should_block =
+                action.on_failure.as_ref() == Some(&crate::entities::ActionFailurePolicy::Block);
+
+            if !success {
+                tracing::warn!(
+                    instance_id = instance_id,
+                    transition = %transition_name,
+                    action_id = %action.id,
+                    action_name = %action.name,
+                    "Transition action failed: {} (on_failure: {:?})",
+                    message,
+                    action.on_failure,
+                );
+
+                if should_block {
+                    action_failed = true;
+                }
+            }
+
+            let event = WorkflowExecutionEvent {
+                id: Uuid::new_v4().to_string(),
+                timestamp: Utc::now(),
+                event_type: WorkflowEventType::ActionExecuted,
+                from_state: Some(current_state.clone()),
+                to_state: Some(target_state_name.clone()),
+                transition_id: Some(transition.id.clone()),
+                agent: executing_agent.clone(),
+                message: format!(
+                    "Action '{}' ({}): {}",
+                    action.name,
+                    action.action_type,
+                    if success { "ok" } else { "failed" }
+                ),
+                metadata: {
+                    let mut m = action_metadata;
+                    m.insert("action_id".to_string(), action.id.clone());
+                    m.insert("action_name".to_string(), action.name.clone());
+                    m.insert("action_type".to_string(), action.action_type.clone());
+                    m.insert("success".to_string(), success.to_string());
+                    if !success && should_block {
+                        m.insert("blocked_transition".to_string(), "true".to_string());
+                    }
+                    m
+                },
+            };
+            instance.execution_history.push(event.clone());
+            action_events.push(event);
+        }
+
+        if action_failed {
+            let fail_event = WorkflowExecutionEvent {
+                id: Uuid::new_v4().to_string(),
+                timestamp: Utc::now(),
+                event_type: WorkflowEventType::Failed,
+                from_state: Some(current_state.clone()),
+                to_state: None,
+                transition_id: Some(transition.id.clone()),
+                agent: executing_agent.clone(),
+                message: "Transition blocked by failing action with on_failure=block".to_string(),
+                metadata: HashMap::new(),
+            };
+            instance.execution_history.push(fail_event.clone());
+            instance.updated_at = Utc::now();
+
+            self.storage.store(&instance.to_generic())?;
+
+            let mut all_events = action_events;
+            all_events.push(fail_event);
+
+            return Ok(WorkflowExecutionResult {
+                success: false,
+                instance_id: instance_id.to_string(),
+                current_state: current_state.clone(),
+                message: "Transition blocked by failing action".to_string(),
+                events: all_events,
+                variables_changed: HashMap::new(),
+            });
+        }
+
         let transition_event = WorkflowExecutionEvent {
             id: Uuid::new_v4().to_string(),
             timestamp: Utc::now(),
@@ -447,12 +551,15 @@ impl<S: Storage> WorkflowAutomationEngine<S> {
 
         self.storage.store(&instance.to_generic())?;
 
+        let mut all_events = action_events;
+        all_events.push(transition_event);
+
         Ok(WorkflowExecutionResult {
             success: true,
             instance_id: instance_id.to_string(),
             current_state: target_state_name,
             message: "Transition executed successfully".to_string(),
-            events: vec![transition_event],
+            events: all_events,
             variables_changed: HashMap::new(),
         })
     }
@@ -697,10 +804,53 @@ mod tests {
     }
 
     #[test]
-    fn test_workflow_engine_creation() {
-        let engine = create_test_engine();
-        assert_eq!(engine.active_instances.len(), 0);
-        assert_eq!(engine.event_queue.len(), 0);
+    fn test_transition_action_failure_block_policy() {
+        let executor = ActionExecutor::new(false);
+        let mut engine = WorkflowEngineBuilder::new()
+            .with_storage(MemoryStorage::new("test-agent"))
+            .with_action_executor(executor)
+            .build()
+            .unwrap();
+
+        let actions = vec![crate::entities::TransitionAction {
+            id: "act-block".to_string(),
+            name: "blocker".to_string(),
+            action_type: "external_command".to_string(),
+            parameters: {
+                let mut m = HashMap::new();
+                m.insert("command".to_string(), serde_json::json!("echo"));
+                m
+            },
+            on_failure: Some(crate::entities::ActionFailurePolicy::Block),
+        }];
+        let workflow_id = create_workflow_with_actions(&mut engine, actions);
+
+        let start_result = engine
+            .start_workflow(
+                workflow_id,
+                None,
+                None,
+                "test-agent".to_string(),
+                HashMap::new(),
+            )
+            .unwrap();
+
+        let result = engine
+            .execute_transition(
+                &start_result.instance_id,
+                "go".to_string(),
+                "test-agent".to_string(),
+            )
+            .unwrap();
+
+        assert!(!result.success);
+        assert_eq!(result.current_state, "initial");
+        let fail_events: Vec<_> = result
+            .events
+            .iter()
+            .filter(|e| matches!(e.event_type, WorkflowEventType::Failed))
+            .collect();
+        assert_eq!(fail_events.len(), 1);
     }
 
     #[test]
@@ -1021,5 +1171,244 @@ mod tests {
 
         let instances = engine.list_active_instances();
         assert_eq!(instances.len(), 2);
+    }
+
+    fn create_workflow_with_actions(
+        engine: &mut WorkflowAutomationEngine<MemoryStorage>,
+        actions: Vec<crate::entities::TransitionAction>,
+    ) -> String {
+        let state_start = crate::entities::WorkflowState {
+            id: "state-start".to_string(),
+            name: "initial".to_string(),
+            state_type: crate::entities::StateType::Start,
+            description: "Start state".to_string(),
+            is_final: false,
+            prompts: None,
+            guards: vec![],
+            post_functions: vec![],
+        };
+        let state_done = crate::entities::WorkflowState {
+            id: "state-done".to_string(),
+            name: "completed".to_string(),
+            state_type: crate::entities::StateType::Done,
+            description: "Finished".to_string(),
+            is_final: true,
+            prompts: None,
+            guards: vec![],
+            post_functions: vec![],
+        };
+
+        let workflow_id = "actions-workflow".to_string();
+        let mut workflow = crate::entities::Workflow::new(
+            "Actions Workflow".to_string(),
+            "Workflow with transition actions".to_string(),
+            "test-agent".to_string(),
+        );
+        workflow.id = workflow_id.clone();
+        workflow.states = vec![state_start.clone(), state_done.clone()];
+        workflow.transitions = vec![crate::entities::WorkflowTransition {
+            id: "t-go".to_string(),
+            name: "go".to_string(),
+            from_state: state_start.id.clone(),
+            to_state: state_done.id.clone(),
+            transition_type: crate::entities::TransitionType::Manual,
+            description: "Go to done".to_string(),
+            conditions: vec![],
+            actions,
+        }];
+        workflow.initial_state = state_start.id.clone();
+        workflow.final_states = vec![state_done.id.clone()];
+        workflow.activate();
+
+        engine.storage.store(&workflow.to_generic()).unwrap();
+        workflow_id
+    }
+
+    #[test]
+    fn test_transition_executes_notification_action() {
+        let mut engine = create_test_engine();
+        let actions = vec![crate::entities::TransitionAction {
+            id: "act-1".to_string(),
+            name: "notify".to_string(),
+            action_type: "notification".to_string(),
+            parameters: {
+                let mut m = HashMap::new();
+                m.insert(
+                    "message".to_string(),
+                    serde_json::json!("Hello from transition"),
+                );
+                m
+            },
+            on_failure: None,
+        }];
+        let workflow_id = create_workflow_with_actions(&mut engine, actions);
+
+        let start_result = engine
+            .start_workflow(
+                workflow_id,
+                None,
+                None,
+                "test-agent".to_string(),
+                HashMap::new(),
+            )
+            .unwrap();
+
+        let result = engine
+            .execute_transition(
+                &start_result.instance_id,
+                "go".to_string(),
+                "test-agent".to_string(),
+            )
+            .unwrap();
+
+        assert!(result.success);
+        assert_eq!(result.current_state, "completed");
+        let action_events: Vec<_> = result
+            .events
+            .iter()
+            .filter(|e| matches!(e.event_type, WorkflowEventType::ActionExecuted))
+            .collect();
+        assert_eq!(action_events.len(), 1);
+        assert_eq!(
+            action_events[0].metadata.get("action_name").unwrap(),
+            "notify"
+        );
+        assert_eq!(action_events[0].metadata.get("success").unwrap(), "true");
+    }
+
+    #[test]
+    fn test_transition_action_failure_continue_policy() {
+        let mut engine = create_test_engine();
+        let actions = vec![crate::entities::TransitionAction {
+            id: "act-fail".to_string(),
+            name: "bad-cmd".to_string(),
+            action_type: "external_command".to_string(),
+            parameters: {
+                let mut m = HashMap::new();
+                m.insert(
+                    "command".to_string(),
+                    serde_json::json!("nonexistent_binary_xyz"),
+                );
+                m
+            },
+            on_failure: None,
+        }];
+        let workflow_id = create_workflow_with_actions(&mut engine, actions);
+
+        let start_result = engine
+            .start_workflow(
+                workflow_id,
+                None,
+                None,
+                "test-agent".to_string(),
+                HashMap::new(),
+            )
+            .unwrap();
+
+        let result = engine
+            .execute_transition(
+                &start_result.instance_id,
+                "go".to_string(),
+                "test-agent".to_string(),
+            )
+            .unwrap();
+
+        assert!(result.success);
+        assert_eq!(result.current_state, "completed");
+        let action_events: Vec<_> = result
+            .events
+            .iter()
+            .filter(|e| matches!(e.event_type, WorkflowEventType::ActionExecuted))
+            .collect();
+        assert_eq!(action_events.len(), 1);
+        assert_eq!(action_events[0].metadata.get("success").unwrap(), "false");
+    }
+
+    #[test]
+    fn test_transition_with_multiple_actions_records_all() {
+        let mut engine = create_test_engine();
+        let actions = vec![
+            crate::entities::TransitionAction {
+                id: "act-1".to_string(),
+                name: "notify-1".to_string(),
+                action_type: "notification".to_string(),
+                parameters: {
+                    let mut m = HashMap::new();
+                    m.insert("message".to_string(), serde_json::json!("first"));
+                    m
+                },
+                on_failure: None,
+            },
+            crate::entities::TransitionAction {
+                id: "act-2".to_string(),
+                name: "notify-2".to_string(),
+                action_type: "notification".to_string(),
+                parameters: {
+                    let mut m = HashMap::new();
+                    m.insert("message".to_string(), serde_json::json!("second"));
+                    m
+                },
+                on_failure: None,
+            },
+        ];
+        let workflow_id = create_workflow_with_actions(&mut engine, actions);
+
+        let start_result = engine
+            .start_workflow(
+                workflow_id,
+                None,
+                None,
+                "test-agent".to_string(),
+                HashMap::new(),
+            )
+            .unwrap();
+
+        let result = engine
+            .execute_transition(
+                &start_result.instance_id,
+                "go".to_string(),
+                "test-agent".to_string(),
+            )
+            .unwrap();
+
+        assert!(result.success);
+        let action_events: Vec<_> = result
+            .events
+            .iter()
+            .filter(|e| matches!(e.event_type, WorkflowEventType::ActionExecuted))
+            .collect();
+        assert_eq!(action_events.len(), 2);
+    }
+
+    #[test]
+    fn test_transition_without_actions_still_works() {
+        let mut engine = create_test_engine();
+        let workflow_id = create_test_workflow_in_storage(&mut engine);
+
+        let start_result = engine
+            .start_workflow(
+                workflow_id,
+                None,
+                None,
+                "test-agent".to_string(),
+                HashMap::new(),
+            )
+            .unwrap();
+
+        let result = engine
+            .execute_transition(
+                &start_result.instance_id,
+                "start".to_string(),
+                "test-agent".to_string(),
+            )
+            .unwrap();
+
+        assert!(result.success);
+        let action_events: Vec<_> = result
+            .events
+            .iter()
+            .filter(|e| matches!(e.event_type, WorkflowEventType::ActionExecuted))
+            .collect();
+        assert_eq!(action_events.len(), 0);
     }
 }

@@ -267,6 +267,22 @@ pub struct TransitionCondition {
     pub logic: serde_json::Value,
 }
 
+/// How to handle action failure during a transition
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum ActionFailurePolicy {
+    /// Log the failure but continue the transition
+    Continue,
+    /// Abort the entire transition on failure
+    Block,
+}
+
+impl Default for ActionFailurePolicy {
+    fn default() -> Self {
+        Self::Continue
+    }
+}
+
 /// Transition action
 #[derive(Debug, Clone, Serialize, Deserialize, Validate, JsonSchema)]
 pub struct TransitionAction {
@@ -285,6 +301,14 @@ pub struct TransitionAction {
     /// Action parameters
     #[serde(rename = "parameters")]
     pub parameters: HashMap<String, serde_json::Value>,
+
+    /// Failure policy: "continue" (default) or "block"
+    #[serde(
+        rename = "on_failure",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
+    pub on_failure: Option<ActionFailurePolicy>,
 }
 
 /// Permission scheme

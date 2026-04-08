@@ -139,6 +139,12 @@ impl<S: Storage + RelationshipStorage + Send + 'static> LocusTuiApp<S> {
         self.app_state.all_progressive_configs =
             self.backend.list_progressive_configs().unwrap_or_default();
 
+        let dora_reports = self.backend.list_dora_metrics_reports().unwrap_or_default();
+        self.app_state.analytics_view.populate_dora(&dora_reports);
+        self.app_state
+            .analytics_view
+            .populate_quality_gate(&self.app_state.all_tasks);
+
         let rels = self.backend.list_relationships().unwrap_or_default();
         let title_map = build_title_map(
             &self.app_state.all_tasks,
@@ -292,6 +298,12 @@ impl<S: Storage + RelationshipStorage + Send + 'static> LocusTuiApp<S> {
                 self.load_sync_data();
                 self.app_state.clear_status();
             }
+            Action::EscalationApprove => {
+                self.approve_deny_escalation(true);
+            }
+            Action::EscalationDeny => {
+                self.approve_deny_escalation(false);
+            }
         }
     }
 
@@ -406,6 +418,53 @@ impl<S: Storage + RelationshipStorage + Send + 'static> LocusTuiApp<S> {
         // Persist to backend (borrow of app_state released above)
         if let Some((row_id, status_enum)) = persist {
             let _ = self.backend.update_task_status(&row_id, status_enum);
+        }
+    }
+
+    fn approve_deny_escalation(&mut self, approve: bool) {
+        let idx = self.app_state.escalations_selected;
+        let esc = match self.app_state.all_escalations.get(idx) {
+            Some(e) => e.clone(),
+            None => return,
+        };
+        if esc.status != crate::entities::EscalationStatus::Pending {
+            self.app_state.set_status(format!(
+                "Escalation {} is not pending ({:?})",
+                &esc.id[..8.min(esc.id.len())],
+                esc.status
+            ));
+            return;
+        }
+        let id = esc.id.clone();
+        let new_status = if approve {
+            crate::entities::EscalationStatus::Approved
+        } else {
+            crate::entities::EscalationStatus::Denied
+        };
+        let reason = if approve {
+            "Approved via Locus TUI".to_string()
+        } else {
+            "Denied via Locus TUI".to_string()
+        };
+        match self.backend.update_escalation_status(
+            &id,
+            new_status,
+            "locus-tui",
+            "Locus TUI Reviewer",
+            &reason,
+        ) {
+            Ok(()) => {
+                let action_word = if approve { "Approved" } else { "Denied" };
+                self.app_state.set_status(format!(
+                    "{} escalation {}",
+                    action_word,
+                    &id[..8.min(id.len())]
+                ));
+                self.load_all_data();
+            }
+            Err(e) => {
+                self.app_state.set_status(format!("Error: {}", e));
+            }
         }
     }
 

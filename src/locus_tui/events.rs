@@ -44,6 +44,9 @@ pub enum Action {
     SyncPush,
     SyncBoth,
     RefreshSyncStatus,
+    // Escalation view actions
+    EscalationApprove,
+    EscalationDeny,
 }
 
 /// Map a raw crossterm `KeyEvent` to a `KeyAction`.
@@ -529,6 +532,12 @@ fn handle_key(app: &mut AppState, key: KeyEvent) -> (bool, Option<Action>) {
                     }
                     _ => {}
                 }
+            } else if app.active_view == ActiveView::Escalations {
+                match c {
+                    'a' => return (true, Some(Action::EscalationApprove)),
+                    'd' => return (true, Some(Action::EscalationDeny)),
+                    _ => {}
+                }
             }
         }
         KeyAction::Unknown => {}
@@ -682,6 +691,7 @@ fn handle_mouse(app: &mut AppState, mouse: crossterm::event::MouseEvent) -> (boo
                         }
                     }
                     ActiveView::Search => {}
+                    ActiveView::Analytics => {}
                     ActiveView::Sync => {
                         let len = app.sync_view.remotes.len();
                         if item_idx < len {

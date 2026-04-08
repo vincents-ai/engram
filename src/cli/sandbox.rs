@@ -2,6 +2,7 @@
 
 use crate::entities::{AgentSandbox, Entity, SandboxLevel};
 use crate::error::EngramError;
+use crate::feedback::StructuredFeedback;
 use crate::storage::Storage;
 use clap::Subcommand;
 use serde::{Deserialize, Serialize};
@@ -152,6 +153,12 @@ pub enum SandboxCommands {
         #[arg(long)]
         json: bool,
     },
+    /// Run pre-flight environment checks before sandbox execution
+    Check {
+        /// Output in JSON format
+        #[arg(long)]
+        json: bool,
+    },
     /// Reset sandbox configuration to defaults
     Reset {
         /// Agent ID to reset
@@ -218,6 +225,7 @@ pub fn create_sandbox<S: Storage>(
 }
 
 use crate::cli::utils::{create_table, truncate};
+use crate::sandbox::preflight::run_preflight_checks;
 use prettytable::row;
 
 /// List sandbox configurations
@@ -583,6 +591,35 @@ pub fn reset_sandbox<S: Storage>(
         println!("  Agent: {}", new_sandbox.agent_id);
         println!("  Level: {:?}", new_sandbox.sandbox_level);
         println!("  ID: {}", new_sandbox.id);
+    }
+
+    Ok(())
+}
+
+pub fn check_preflight(json: bool) -> Result<(), EngramError> {
+    let workspace_dir = std::env::current_dir().map_err(|e| {
+        EngramError::Validation(format!("Cannot determine workspace directory: {}", e))
+    })?;
+
+    let report = run_preflight_checks(&workspace_dir, None);
+
+    if json {
+        println!("{}", report.to_pretty_json());
+    } else {
+        println!("{}", report.summary());
+        println!();
+        let mut table = create_table();
+        table.set_titles(row!["Check", "Status", "Message", "Detail"]);
+        for check in &report.checks {
+            let status_str = match check.status {
+                crate::sandbox::preflight::PreflightStatus::Pass => "PASS",
+                crate::sandbox::preflight::PreflightStatus::Warn => "WARN",
+                crate::sandbox::preflight::PreflightStatus::Fail => "FAIL",
+            };
+            let detail = truncate(check.detail.as_deref().unwrap_or("-"), 60);
+            table.add_row(row![check.name, status_str, check.message, detail]);
+        }
+        table.printstd();
     }
 
     Ok(())

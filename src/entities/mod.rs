@@ -5,6 +5,7 @@
 
 pub mod adr;
 pub mod agent_sandbox;
+pub mod bottleneck_report;
 pub mod compliance;
 pub mod context;
 pub mod dora_metrics_report;
@@ -19,6 +20,7 @@ pub mod session;
 pub mod standard;
 pub mod state_reflection;
 pub mod task;
+pub mod task_duration_report;
 pub mod theory;
 pub mod workflow;
 pub mod workflow_instance;
@@ -26,6 +28,7 @@ pub mod workflow_instance;
 // Re-export all entity types
 pub use adr::*;
 pub use agent_sandbox::*;
+pub use bottleneck_report::*;
 pub use compliance::*;
 pub use context::*;
 pub use dora_metrics_report::*;
@@ -40,6 +43,7 @@ pub use session::*;
 pub use standard::*;
 pub use state_reflection::*;
 pub use task::*;
+pub use task_duration_report::*;
 pub use theory::*;
 pub use workflow::*;
 pub use workflow_instance::*;

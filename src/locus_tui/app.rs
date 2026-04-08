@@ -1,7 +1,7 @@
 use crate::entities::{
-    AgentSandbox, Compliance, Context, EntityRelationship, EscalationRequest, ExecutionResult,
-    Knowledge, ProgressiveGateConfig, Reasoning, Rule, Session, Standard, StateReflection, Task,
-    TaskStatus, Theory, Workflow, WorkflowInstance, ADR,
+    AgentSandbox, Compliance, Context, DoraMetricsReport, EntityRelationship, EscalationRequest,
+    ExecutionResult, Knowledge, ProgressiveGateConfig, Reasoning, Rule, Session, Standard,
+    StateReflection, Task, TaskStatus, Theory, Workflow, WorkflowInstance, ADR,
 };
 use std::collections::HashMap;
 use std::time::Instant;
@@ -69,6 +69,81 @@ pub struct TaskSummary {
     pub done: usize,
 }
 
+/// DORA metric display values for the Analytics view.
+#[derive(Debug, Clone, Default)]
+pub struct DoraMetricsDisplay {
+    pub deployment_frequency: f64,
+    pub lead_time_for_changes: f64,
+    pub change_failure_rate: f64,
+    pub mean_time_to_recovery: f64,
+    pub commits_analyzed: u64,
+    pub executions_analyzed: u64,
+    pub escalations_analyzed: u64,
+    pub computed_at: Option<String>,
+    pub project_path: String,
+}
+
+/// Quality gate summary for the Analytics view.
+#[derive(Debug, Clone, Default)]
+pub struct QualityGateSummary {
+    pub total_tasks: usize,
+    pub completed_tasks: usize,
+    pub blocked_tasks: usize,
+    pub completion_rate: f64,
+}
+
+/// State for the Analytics view.
+#[derive(Debug, Clone, Default)]
+pub struct AnalyticsViewState {
+    pub dora: DoraMetricsDisplay,
+    pub quality_gate: QualityGateSummary,
+    pub has_data: bool,
+}
+
+impl AnalyticsViewState {
+    /// Populate DORA metrics from the most recent report.
+    pub fn populate_dora(&mut self, reports: &[DoraMetricsReport]) {
+        if let Some(latest) = reports.iter().max_by_key(|r| r.computed_at) {
+            self.dora = DoraMetricsDisplay {
+                deployment_frequency: latest.deployment_frequency,
+                lead_time_for_changes: latest.lead_time_for_changes,
+                change_failure_rate: latest.change_failure_rate,
+                mean_time_to_recovery: latest.mean_time_to_recovery,
+                commits_analyzed: latest.commits_analyzed,
+                executions_analyzed: latest.executions_analyzed,
+                escalations_analyzed: latest.escalations_analyzed,
+                computed_at: Some(latest.computed_at.format("%Y-%m-%d %H:%M").to_string()),
+                project_path: latest.project_path.clone(),
+            };
+            self.has_data = true;
+        }
+    }
+
+    /// Compute quality gate summary from task data.
+    pub fn populate_quality_gate(&mut self, tasks: &[Task]) {
+        let total = tasks.len();
+        let completed = tasks
+            .iter()
+            .filter(|t| matches!(t.status, TaskStatus::Done))
+            .count();
+        let blocked = tasks
+            .iter()
+            .filter(|t| matches!(t.status, TaskStatus::Blocked))
+            .count();
+        let rate = if total > 0 {
+            completed as f64 / total as f64 * 100.0
+        } else {
+            0.0
+        };
+        self.quality_gate = QualityGateSummary {
+            total_tasks: total,
+            completed_tasks: completed,
+            blocked_tasks: blocked,
+            completion_rate: rate,
+        };
+    }
+}
+
 /// A single row for the recent-tasks table.
 #[derive(Debug, Clone)]
 pub struct TaskRow {
@@ -124,6 +199,7 @@ pub enum ActiveView {
     Sandboxes,
     ExecutionResults,
     ProgressiveConfigs,
+    Analytics,
     Sync,
 }
 
@@ -175,6 +251,7 @@ impl ActiveView {
             Sandboxes,
             ExecutionResults,
             ProgressiveConfigs,
+            Analytics,
             Search,
             Sync,
         ]
@@ -276,6 +353,8 @@ pub struct AppState {
     pub progressive_configs_selected: usize,
     /// State for the Sync view.
     pub sync_view: SyncViewState,
+    /// State for the Analytics view.
+    pub analytics_view: AnalyticsViewState,
 }
 
 impl AppState {
@@ -338,6 +417,7 @@ impl AppState {
             all_progressive_configs: Vec::new(),
             progressive_configs_selected: 0,
             sync_view: SyncViewState::default(),
+            analytics_view: AnalyticsViewState::default(),
         }
     }
 
@@ -885,9 +965,6 @@ mod tests {
 
     #[test]
     fn test_next_view_cycles_through_all_variants() {
-        // all() order: Dashboard, Tasks, Reasoning, Relationships, Contexts, Adrs, Theories,
-        // Workflows, WorkflowInstances, Knowledge, Sessions, Compliance, Rules, Standards,
-        // StateReflections, Escalations, Sandboxes, ExecutionResults, ProgressiveConfigs, Search, Sync
         let mut state = AppState::new();
         assert_eq!(state.active_view, ActiveView::Dashboard);
         state.next_view();
@@ -927,24 +1004,25 @@ mod tests {
         state.next_view();
         assert_eq!(state.active_view, ActiveView::ProgressiveConfigs);
         state.next_view();
+        assert_eq!(state.active_view, ActiveView::Analytics);
+        state.next_view();
         assert_eq!(state.active_view, ActiveView::Search);
         state.next_view();
         assert_eq!(state.active_view, ActiveView::Sync);
-        // Should wrap back to Dashboard on step 22
         state.next_view();
         assert_eq!(state.active_view, ActiveView::Dashboard);
     }
 
     #[test]
     fn test_prev_view_cycles_backward() {
-        // Reverse of all() order, last element is Sync
         let mut state = AppState::new();
         assert_eq!(state.active_view, ActiveView::Dashboard);
-        // Going backward from Dashboard should wrap to Sync (last in all())
         state.prev_view();
         assert_eq!(state.active_view, ActiveView::Sync);
         state.prev_view();
         assert_eq!(state.active_view, ActiveView::Search);
+        state.prev_view();
+        assert_eq!(state.active_view, ActiveView::Analytics);
         state.prev_view();
         assert_eq!(state.active_view, ActiveView::ProgressiveConfigs);
         state.prev_view();

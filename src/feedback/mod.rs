@@ -5,7 +5,7 @@
 //! LLM context builders, and programmatic API callers.
 
 use crate::engines::action_executor::ActionResult;
-use crate::quality_gates::GateResult;
+use crate::validation::quality_gates::GateResult;
 use crate::validation::ValidationResult;
 use crate::Entity;
 use regex::Regex;

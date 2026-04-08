@@ -164,6 +164,10 @@ async fn run() -> Result<(), EngramError> {
             let mut storage = GitRefsStorage::new(".", "default")?;
             handle_reflection_command(command, &mut storage)?;
         }
+        cli::Commands::Analytics { command } => {
+            let mut storage = GitRefsStorage::new(".", "default")?;
+            cli::handle_analytics_command(&mut storage, command)?;
+        }
         cli::Commands::Perkeep { command } => {
             use engram::cli::perkeep::{
                 perkeep_backup, perkeep_health, perkeep_list, perkeep_restore,
@@ -1181,6 +1185,9 @@ fn handle_sandbox_command<S: engram::storage::Storage>(
         }
         engram::cli::SandboxCommands::Stats { agent_id, json } => {
             show_stats(storage, agent_id, json)?;
+        }
+        engram::cli::SandboxCommands::Check { json } => {
+            check_preflight(json)?;
         }
         engram::cli::SandboxCommands::Reset {
             agent_id,

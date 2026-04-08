@@ -8,7 +8,9 @@
 
 pub mod command_validator;
 pub mod escalation_handler;
+pub mod ephemeral_env;
 pub mod permission_engine;
+pub mod preflight;
 pub mod resource_monitor;
 
 use crate::entities::agent_sandbox::OperationType;
@@ -24,6 +26,7 @@ use thiserror::Error;
 
 pub use command_validator::CommandValidator;
 pub use escalation_handler::{EscalationHandler, EscalationStatistics};
+pub use ephemeral_env::{ExecutionResult, NixSandbox, NixSandboxConfig};
 pub use permission_engine::PermissionEngine;
 pub use resource_monitor::ResourceMonitor;
 

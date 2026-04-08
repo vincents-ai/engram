@@ -1,6 +1,6 @@
 use crate::entities::ContextRelevance;
 use crate::locus_integration::LocusIntegration;
-use crate::locus_tui::app::{ActiveView, AppState, TaskDetail};
+use crate::locus_tui::app::{ActiveView, AnalyticsViewState, AppState, TaskDetail};
 #[allow(unused_imports)]
 use crate::locus_tui::theme::Theme;
 use crate::storage::{RelationshipStorage, Storage};
@@ -54,6 +54,7 @@ pub fn draw<S: Storage + RelationshipStorage>(
         ActiveView::Sandboxes => "Sandboxes",
         ActiveView::ExecutionResults => "Execution Results",
         ActiveView::ProgressiveConfigs => "Progressive Configs",
+        ActiveView::Analytics => "Analytics",
         ActiveView::Sync => "Sync",
     };
     let title_text = format!(
@@ -152,6 +153,10 @@ pub fn draw<S: Storage + RelationshipStorage>(
         ActiveView::ProgressiveConfigs => {
             let border_style = Style::default().fg(app_state.theme.as_theme().border());
             draw_progressive_configs_view(f, chunks[1], app_state, border_style);
+        }
+        ActiveView::Analytics => {
+            let border_style = Style::default().fg(app_state.theme.as_theme().border());
+            draw_analytics_view(f, chunks[1], app_state, border_style);
         }
         ActiveView::Sync => {
             let border_style = Style::default().fg(app_state.theme.as_theme().border());
@@ -1081,6 +1086,10 @@ Relationships view\n\
   Enter             focus edge pane\n\
   Esc               return to nodes pane\n\
 \n\
+Escalations view\n\
+  a                 approve selected escalation\n\
+  d                 deny selected escalation\n\
+\n\
   q / Q             quit";
     let modal = Paragraph::new(text)
         .wrap(Wrap { trim: false })
@@ -1671,6 +1680,15 @@ fn draw_escalations_view(
     let theme = app.theme.as_theme();
     let selected = app.escalations_selected;
 
+    let vert = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Min(5),
+            Constraint::Length(10),
+            Constraint::Length(1),
+        ])
+        .split(area);
+
     let header_cells = ["Agent", "Operation", "Priority", "Status", "Created"]
         .map(|h| Cell::from(h).style(theme.header_row()));
     let header = Row::new(header_cells).height(1);
@@ -1710,6 +1728,17 @@ fn draw_escalations_view(
         })
         .collect();
 
+    let pending_count = app
+        .all_escalations
+        .iter()
+        .filter(|e| e.status == EscalationStatus::Pending)
+        .count();
+
+    let table_title = format!(
+        "Escalations ({}/{})",
+        pending_count,
+        app.all_escalations.len()
+    );
     let table = Table::new(
         rows,
         [
@@ -1723,7 +1752,7 @@ fn draw_escalations_view(
     .header(header)
     .block(
         Block::default()
-            .title(format!("Escalations ({})", app.all_escalations.len()))
+            .title(table_title)
             .borders(Borders::ALL)
             .border_style(border_style),
     )
@@ -1731,7 +1760,69 @@ fn draw_escalations_view(
 
     let mut ts = TableState::default();
     ts.select(Some(selected));
-    f.render_stateful_widget(table, area, &mut ts);
+    f.render_stateful_widget(table, vert[0], &mut ts);
+
+    let detail_text = app
+        .all_escalations
+        .get(selected)
+        .map(|e| {
+            let status = format!("{:?}", e.status);
+            let priority = format!("{:?}", e.priority);
+            let op_type = format!("{:?}", e.operation_type);
+            let decision_text = e
+                .decision
+                .as_ref()
+                .map(|d| {
+                    format!(
+                        "  Status:   {:?}\n  Reason:   {}\n  Reviewer: {}",
+                        d.status,
+                        d.reason,
+                        e.reviewer
+                            .as_ref()
+                            .map(|r| r.reviewer_name.as_str())
+                            .unwrap_or("-")
+                    )
+                })
+                .unwrap_or_else(|| "  (no decision yet)".to_string());
+            let justification = if e.justification.is_empty() {
+                "(none)".to_string()
+            } else {
+                e.justification.chars().take(200).collect()
+            };
+            let impact = e
+                .impact_if_denied
+                .as_deref()
+                .unwrap_or("(none)");
+            format!(
+                "ID:          {}\nAgent:       {}\nOperation:   {}\nPriority:    {}\nStatus:      {}\nCreated:     {}\nExpires:     {}\n\nJustification:\n  {}\n\nImpact if denied:\n  {}\n\nDecision:\n{}",
+                e.id.chars().take(8).collect::<String>(),
+                e.agent_id,
+                op_type,
+                priority,
+                status,
+                e.created_at.format("%Y-%m-%d %H:%M"),
+                e.expires_at.format("%Y-%m-%d %H:%M"),
+                justification,
+                impact,
+                decision_text,
+            )
+        })
+        .unwrap_or_else(|| "No escalation selected".to_string());
+
+    let detail = Paragraph::new(detail_text)
+        .wrap(Wrap { trim: true })
+        .style(Style::default().fg(theme.fg()))
+        .block(
+            Block::default()
+                .title("Detail")
+                .borders(Borders::ALL)
+                .border_style(border_style),
+        );
+    f.render_widget(detail, vert[1]);
+
+    let help = Paragraph::new("  j/k: navigate   a:approve   d:deny   Tab: next view")
+        .style(Style::default().fg(Color::DarkGray));
+    f.render_widget(help, vert[2]);
 }
 
 fn draw_sandboxes_view(
@@ -1961,6 +2052,192 @@ fn draw_progressive_configs_view(
     let help = Paragraph::new("  j/k: navigate   Tab: next view")
         .style(Style::default().fg(Color::DarkGray));
     f.render_widget(help, right_vert[1]);
+}
+
+fn draw_analytics_view(
+    f: &mut ratatui::Frame<'_>,
+    area: Rect,
+    app_state: &AppState,
+    border_style: Style,
+) {
+    let theme = app_state.theme.as_theme();
+    let analytics = &app_state.analytics_view;
+
+    let vert = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(9),
+            Constraint::Length(5),
+            Constraint::Min(3),
+            Constraint::Length(1),
+        ])
+        .split(area);
+
+    // ── Row 1: DORA Metrics — 4 gauge panels ────────────────────────────────
+    let dora_cols = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Percentage(25),
+            Constraint::Percentage(25),
+            Constraint::Percentage(25),
+            Constraint::Percentage(25),
+        ])
+        .split(vert[0]);
+
+    let make_gauge =
+        |title: &'static str, value: String, bar: String, color: Color| -> Paragraph<'static> {
+            let text = format!("\n  {value}\n  {bar}");
+            Paragraph::new(text)
+                .style(Style::default().fg(color))
+                .block(
+                    Block::default()
+                        .title(title)
+                        .borders(Borders::ALL)
+                        .border_style(border_style),
+                )
+        };
+
+    let df = analytics.dora.deployment_frequency;
+    let df_color = if df >= 1.0 {
+        theme.status_ok()
+    } else {
+        theme.status_warn()
+    };
+    let df_bar = build_bar(df, 10.0, 10);
+    let df_label = format!("{df:.1}/wk");
+
+    let lt = analytics.dora.lead_time_for_changes;
+    let lt_color = if lt <= 1.0 {
+        theme.status_ok()
+    } else {
+        theme.status_warn()
+    };
+    let lt_bar = build_bar(lt, 7.0, 10);
+    let lt_label = format!("{lt:.1}d");
+
+    let cfr = analytics.dora.change_failure_rate * 100.0;
+    let cfr_color = if cfr <= 15.0 {
+        theme.status_ok()
+    } else {
+        theme.status_err()
+    };
+    let cfr_bar = build_bar(cfr, 100.0, 10);
+    let cfr_label = format!("{cfr:.1}%");
+
+    let mttr = analytics.dora.mean_time_to_recovery;
+    let mttr_color = if mttr <= 1.0 {
+        theme.status_ok()
+    } else if mttr <= 24.0 {
+        theme.status_warn()
+    } else {
+        theme.status_err()
+    };
+    let mttr_bar = build_bar(mttr, 48.0, 10);
+    let mttr_label = format!("{mttr:.1}h");
+
+    f.render_widget(
+        make_gauge("Deploy Freq", df_label, df_bar, df_color),
+        dora_cols[0],
+    );
+    f.render_widget(
+        make_gauge("Lead Time", lt_label, lt_bar, lt_color),
+        dora_cols[1],
+    );
+    f.render_widget(
+        make_gauge("Fail Rate", cfr_label, cfr_bar, cfr_color),
+        dora_cols[2],
+    );
+    f.render_widget(
+        make_gauge("MTTR", mttr_label, mttr_bar, mttr_color),
+        dora_cols[3],
+    );
+
+    // ── Row 2: Quality Gate Summary ─────────────────────────────────────────
+    let qg = &analytics.quality_gate;
+    let qg_status = if qg.completion_rate >= 70.0 {
+        "PASS"
+    } else {
+        "FAIL"
+    };
+    let qg_color = if qg.completion_rate >= 70.0 {
+        theme.status_ok()
+    } else {
+        theme.status_err()
+    };
+    let qg_bar = build_bar(qg.completion_rate, 100.0, 20);
+
+    let qg_text = format!(
+        "  Completion: {qg_bar}  {rate:.0}%   Status: [{status}]   Tasks: {done}/{total}   Blocked: {blocked}",
+        rate = qg.completion_rate,
+        status = qg_status,
+        done = qg.completed_tasks,
+        total = qg.total_tasks,
+        blocked = qg.blocked_tasks,
+    );
+    let qg_widget = Paragraph::new(qg_text)
+        .style(Style::default().fg(qg_color))
+        .block(
+            Block::default()
+                .title("Quality Gate")
+                .borders(Borders::ALL)
+                .border_style(border_style),
+        );
+    f.render_widget(qg_widget, vert[1]);
+
+    // ── Row 3: Task Completion Stats ────────────────────────────────────────
+    let summary = &app_state.task_summary;
+    let stats_text = if analytics.has_data {
+        format!(
+            "  DORA Report: {}  Commits: {}  Executions: {}  Escalations: {}    Task Summary — Todo: {}  In Progress: {}  Done: {}  Total: {}",
+            analytics.dora.computed_at.as_deref().unwrap_or("N/A"),
+            analytics.dora.commits_analyzed,
+            analytics.dora.executions_analyzed,
+            analytics.dora.escalations_analyzed,
+            summary.todo,
+            summary.in_progress,
+            summary.done,
+            summary.total,
+        )
+    } else {
+        format!(
+            "  No DORA reports found. Run 'engram dora compute' to generate.    Task Summary — Todo: {}  In Progress: {}  Done: {}  Total: {}",
+            summary.todo,
+            summary.in_progress,
+            summary.done,
+            summary.total,
+        )
+    };
+    let stats_widget = Paragraph::new(stats_text)
+        .wrap(Wrap { trim: true })
+        .style(Style::default().fg(theme.fg()))
+        .block(
+            Block::default()
+                .title("Stats")
+                .borders(Borders::ALL)
+                .border_style(border_style),
+        );
+    f.render_widget(stats_widget, vert[2]);
+
+    // ── Help row ────────────────────────────────────────────────────────────
+    let help =
+        Paragraph::new("  Tab:next view   r:refresh").style(Style::default().fg(Color::DarkGray));
+    f.render_widget(help, vert[3]);
+
+    let _ = AnalyticsViewState::default;
+}
+
+/// Build a text-based progress bar: `███░░░░░░░`
+fn build_bar(value: f64, max: f64, width: usize) -> String {
+    let clamped = if max > 0.0 {
+        (value / max).min(1.0).max(0.0)
+    } else {
+        0.0
+    };
+    let filled = (clamped * width as f64).round() as usize;
+    let empty = width.saturating_sub(filled);
+    let filled_str = "\u{2588}".repeat(filled);
+    let empty_str = "\u{2591}".repeat(empty);
+    format!("{filled_str}{empty_str}")
 }
 
 /// Helper: return a rectangle centred within `r` with the given width/height percentages.

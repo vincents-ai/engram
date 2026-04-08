@@ -9,7 +9,7 @@
 #[cfg(test)]
 mod tests {
     use crate::entities::{
-        AgentSandbox, Compliance, Context, ContextRelevance, EntityRelationType,
+        AgentSandbox, Compliance, Context, ContextRelevance, DoraMetricsReport, EntityRelationType,
         EntityRelationship, EscalationRequest, ExecutionResult, Knowledge, ProgressiveGateConfig,
         Reasoning, Rule, Session, Standard, StateReflection, Task, TaskPriority, Theory, Workflow,
         WorkflowInstance, ADR,
@@ -173,6 +173,17 @@ mod tests {
             Ok(())
         }
 
+        fn update_escalation_status(
+            &mut self,
+            _id: &str,
+            _status: crate::entities::EscalationStatus,
+            _reviewer_id: &str,
+            _reviewer_name: &str,
+            _reason: &str,
+        ) -> Result<(), Box<dyn std::error::Error>> {
+            Ok(())
+        }
+
         fn list_workflows(&self) -> Result<Vec<Workflow>, EngramError> {
             Ok(vec![])
         }
@@ -208,6 +219,18 @@ mod tests {
         }
         fn list_progressive_configs(&self) -> Result<Vec<ProgressiveGateConfig>, EngramError> {
             Ok(vec![])
+        }
+        fn list_dora_metrics_reports(&self) -> Result<Vec<DoraMetricsReport>, EngramError> {
+            let mut report =
+                DoraMetricsReport::new("/tmp/project".to_string(), "agent".to_string());
+            report.deployment_frequency = 4.2;
+            report.lead_time_for_changes = 0.8;
+            report.change_failure_rate = 0.10;
+            report.mean_time_to_recovery = 2.5;
+            report.commits_analyzed = 42;
+            report.executions_analyzed = 10;
+            report.escalations_analyzed = 3;
+            Ok(vec![report])
         }
         fn list_remote_names(&self) -> Vec<String> {
             vec![]
@@ -718,8 +741,8 @@ mod tests {
     #[test]
     fn test_search_view_shows_input_bar() {
         let mut app = make_loaded_app();
-        // Navigate to Search (last view, index 19)
-        for _ in 0..19 {
+        // Navigate to Search (index 20)
+        for _ in 0..20 {
             app.app_state.next_view();
         }
         let content = render_to_string(&mut app);
@@ -729,7 +752,7 @@ mod tests {
     #[test]
     fn test_search_view_empty_state_prompt() {
         let mut app = make_loaded_app();
-        for _ in 0..19 {
+        for _ in 0..20 {
             app.app_state.next_view();
         }
         let content = render_to_string(&mut app);
@@ -893,19 +916,19 @@ mod tests {
     #[test]
     fn snapshot_search_view_empty() {
         let mut app = make_loaded_app();
-        for _ in 0..19 {
+        for _ in 0..20 {
             app.app_state.next_view();
-        } // Search (index 19)
+        } // Search (index 20)
         let content = render_to_string(&mut app);
         snapshot_with_redacted_ids("search_view_empty", &content);
     }
 
     // ── Sync view render tests ────────────────────────────────────────────────
 
-    /// Navigate from Dashboard to Sync view (index 20).
+    /// Navigate from Dashboard to Sync view (index 21).
     fn make_sync_app() -> LocusTuiApp<MemoryStorage> {
         let mut app = make_loaded_app();
-        for _ in 0..20 {
+        for _ in 0..21 {
             app.app_state.next_view();
         }
         app
@@ -1179,12 +1202,145 @@ mod tests {
     #[test]
     fn test_load_sync_data_populates_from_backend() {
         let mut app = make_loaded_app();
-        // FixedTestBackend returns empty remotes — verify state is consistent
         app.test_load_sync_data();
         assert!(
             app.app_state.sync_view.remotes.is_empty(),
             "FixedTestBackend has no remotes"
         );
         assert_eq!(app.app_state.sync_view.remotes_selected, 0);
+    }
+
+    // ── Analytics view render tests ────────────────────────────────────────────
+
+    /// Navigate from Dashboard to Analytics view (index 19).
+    fn make_analytics_app() -> LocusTuiApp<MemoryStorage> {
+        let mut app = make_loaded_app();
+        for _ in 0..19 {
+            app.app_state.next_view();
+        }
+        app
+    }
+
+    #[test]
+    fn test_analytics_view_renders_dora_metrics() {
+        let mut app = make_analytics_app();
+        let content = render_to_string(&mut app);
+        assert!(
+            content.contains("Deploy Freq"),
+            "missing Deploy Freq panel: {content}"
+        );
+        assert!(
+            content.contains("Lead Time"),
+            "missing Lead Time panel: {content}"
+        );
+        assert!(
+            content.contains("Fail Rate"),
+            "missing Fail Rate panel: {content}"
+        );
+        assert!(content.contains("MTTR"), "missing MTTR panel: {content}");
+    }
+
+    #[test]
+    fn test_analytics_view_renders_quality_gate() {
+        let mut app = make_analytics_app();
+        let content = render_to_string(&mut app);
+        assert!(
+            content.contains("Quality Gate"),
+            "missing Quality Gate panel: {content}"
+        );
+        assert!(
+            content.contains("PASS") || content.contains("FAIL"),
+            "missing pass/fail status: {content}"
+        );
+    }
+
+    #[test]
+    fn test_analytics_view_renders_stats() {
+        let mut app = make_analytics_app();
+        let content = render_to_string(&mut app);
+        assert!(content.contains("Stats"), "missing Stats panel: {content}");
+        assert!(
+            content.contains("DORA Report"),
+            "missing DORA Report data: {content}"
+        );
+    }
+
+    #[test]
+    fn test_analytics_view_shows_dora_values() {
+        let mut app = make_analytics_app();
+        let content = render_to_string(&mut app);
+        assert!(
+            content.contains("4.2"),
+            "expected deployment frequency 4.2: {content}"
+        );
+        assert!(
+            content.contains("10.0%"),
+            "expected change failure rate 10.0%: {content}"
+        );
+    }
+
+    #[test]
+    fn test_analytics_view_shows_task_completion_rate() {
+        let mut app = make_analytics_app();
+        let content = render_to_string(&mut app);
+        assert!(
+            content.contains("33%"),
+            "expected ~33% completion rate (1/3 tasks done): {content}"
+        );
+    }
+
+    #[test]
+    fn test_analytics_view_no_data_state() {
+        let storage = MemoryStorage::new("test-agent");
+        let backend: Box<dyn LocusTuiBackend> =
+            Box::new(crate::locus_tui::backend::EngramBackend::from_storage(
+                MemoryStorage::new("test-agent"),
+            ));
+        let mut app = LocusTuiApp::new_with_backend(storage, backend);
+        app.load_all_data();
+        for _ in 0..19 {
+            app.app_state.next_view();
+        }
+        let content = render_to_string(&mut app);
+        assert!(
+            content.contains("No DORA reports found"),
+            "expected no-data message: {content}"
+        );
+    }
+
+    #[test]
+    fn test_analytics_view_has_data_flag() {
+        let app = make_analytics_app();
+        assert!(
+            app.app_state.analytics_view.has_data,
+            "FixedTestBackend provides DORA data"
+        );
+    }
+
+    #[test]
+    fn test_analytics_populate_quality_gate() {
+        use crate::locus_tui::app::AnalyticsViewState;
+        let app = make_loaded_app();
+        let mut state = AnalyticsViewState::default();
+        state.populate_quality_gate(&app.app_state.all_tasks);
+        assert_eq!(state.quality_gate.total_tasks, 3);
+        assert_eq!(state.quality_gate.completed_tasks, 1);
+        assert_eq!(state.quality_gate.blocked_tasks, 0);
+        assert!(
+            (state.quality_gate.completion_rate - 33.33).abs() < 1.0,
+            "expected ~33% completion rate, got {}",
+            state.quality_gate.completion_rate
+        );
+    }
+
+    #[test]
+    fn test_analytics_populate_dora_picks_latest() {
+        use crate::locus_tui::app::AnalyticsViewState;
+        let mut state = AnalyticsViewState::default();
+        let reports = FixedTestBackend.list_dora_metrics_reports().unwrap();
+        state.populate_dora(&reports);
+        assert!(state.has_data);
+        assert_eq!(state.dora.deployment_frequency, 4.2);
+        assert_eq!(state.dora.change_failure_rate, 0.10);
     }
 }
