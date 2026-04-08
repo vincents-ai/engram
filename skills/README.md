@@ -4,16 +4,17 @@ This directory contains skills for working with Engram memory system. Skills are
 
 ## Overview
 
-**Total Skills: 57**
+**Total Skills: 58**
 
 Skills are organized by category and use Engram's entity system (context, reasoning, tasks, relationships) to create persistent, queryable memory across agent sessions.
 
 ## Skills by Category
 
-### Meta Skills (4)
+### Meta Skills (5)
 Core skills for working with Engram's memory system:
 
 - **use-engram-memory** (`meta/use-engram-memory.md`) - Store context, decisions, and reasoning in Engram entities
+- **commit-convention** (`meta/commit-convention.md`) - Commit format, hook setup, rejection handling, and why --no-verify is prohibited
 - **delegate-to-agents** (`meta/delegate-to-agents.md`) - Break down work and delegate to specialized agents
 - **audit-trail** (`meta/audit-trail.md`) - Create complete audit trail of all work
 - **dispatching-parallel-agents** (`meta/dispatching-parallel-agents.md`) - Execute parallel agent coordination
