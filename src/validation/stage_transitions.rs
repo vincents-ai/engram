@@ -468,7 +468,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_transition_eligibility_check_git_storage() {
+    async fn test_transition_eligibility_check_git_refs_storage() {
         let temp_dir = TempDir::new().unwrap();
         let storage = GitRefsStorage::new(temp_dir.path().to_str().unwrap(), "test-agent").unwrap();
         let mut manager = StageTransitionManager::new(storage).unwrap();

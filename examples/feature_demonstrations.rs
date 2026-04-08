@@ -122,10 +122,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Show storage backends
     println!("\n💾 Storage Backends:");
-    println!("   • GitStorage - Content-addressable Git-based storage");
+    println!("   • GitRefsStorage - Content-addressable Git refs-based storage");
     println!("   • MemoryStorage - In-memory storage for testing");
     println!("   • RelationshipStorage - Graph relationship queries");
-    println!("   • GitRefsStorage - Git references for collaboration");
 
     // Show configuration
     println!("\n⚙️ Configuration (.engram/config.yaml):");

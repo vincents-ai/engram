@@ -57,7 +57,7 @@ pub trait LocusTuiBackend: Send {
 
 /// Generic backend backed by any `Storage + RelationshipStorage`.
 ///
-/// `EngramBackend<GitStorage>` is the production backend;
+/// `EngramBackend<GitRefsStorage>` is the production backend;
 /// `EngramBackend<MemoryStorage>` is used in tests.
 pub struct EngramBackend<S: Storage + RelationshipStorage> {
     storage: S,

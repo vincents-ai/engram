@@ -2,7 +2,7 @@
 
 use engram::{
     entities::Task,
-    storage::{GitStorage, Storage},
+    storage::{GitRefsStorage, Storage},
     Entity,
 };
 
@@ -11,7 +11,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("=============================================");
 
     // Initialize storage
-    let mut storage = GitStorage::new(".", "example-agent")?;
+    let mut storage = GitRefsStorage::new(".", "example-agent")?;
     println!("✅ Storage initialized");
 
     // Create a sample task
@@ -55,7 +55,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!();
     println!("This example demonstrates:");
-    println!("1. Git-based storage initialization");
+    println!("1. Git refs-based storage initialization");
     println!("2. Entity creation and storage");
     println!("3. Entity retrieval");
     println!("4. Agent-based querying");
