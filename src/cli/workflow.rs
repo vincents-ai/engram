@@ -85,6 +85,10 @@ pub enum WorkflowCommands {
         /// Offset for pagination
         #[arg(long, default_value = "0")]
         offset: usize,
+
+        /// Show all results (no limit)
+        #[arg(long, conflicts_with = "limit")]
+        all: bool,
     },
     /// Add state to workflow
     AddState {
@@ -408,6 +412,7 @@ pub fn list_workflows<S: Storage>(
     search: Option<String>,
     limit: usize,
     offset: usize,
+    all: bool,
 ) -> Result<(), EngramError> {
     use crate::cli::utils::{create_table, truncate};
     use crate::storage::QueryFilter;
@@ -415,10 +420,12 @@ pub fn list_workflows<S: Storage>(
     use serde_json::Value;
     use std::collections::HashMap;
 
+    let effective_limit = if all { usize::MAX } else { limit };
+
     let mut filter = QueryFilter {
         entity_type: Some("workflow".to_string()),
         text_search: search,
-        limit: Some(limit),
+        limit: Some(effective_limit),
         offset: Some(offset),
         ..Default::default()
     };
@@ -448,6 +455,7 @@ pub fn list_workflows<S: Storage>(
         offset + result.entities.len(),
         result.total_count
     )?;
+    let shown_count = result.entities.len();
     writeln!(writer)?;
 
     let mut table = create_table();
@@ -506,11 +514,13 @@ pub fn list_workflows<S: Storage>(
     table.print(writer)?;
     writeln!(writer)?;
 
-    if result.has_more {
+    if result.has_more && !all {
         writeln!(
             writer,
-            "💡 Use --offset {} to see more workflows",
-            offset + limit
+            "(Showing {} of {} — use --all, --offset {}, or --limit N)",
+            shown_count,
+            result.total_count,
+            offset + effective_limit
         )?;
     }
 

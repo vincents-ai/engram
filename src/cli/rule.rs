@@ -119,6 +119,10 @@ pub enum RuleCommands {
         /// Offset for pagination
         #[arg(long, default_value = "0")]
         offset: usize,
+
+        /// Show all results (no limit)
+        #[arg(long, conflicts_with = "limit")]
+        all: bool,
     },
     /// Execute rule
     Execute {
@@ -361,15 +365,18 @@ pub fn list_rules<S: Storage>(
     search: Option<String>,
     limit: usize,
     offset: usize,
+    all: bool,
 ) -> Result<(), EngramError> {
     use crate::storage::QueryFilter;
     use serde_json::Value;
     use std::collections::HashMap;
 
+    let effective_limit = if all { usize::MAX } else { limit };
+
     let mut filter = QueryFilter {
         entity_type: Some("rule".to_string()),
         text_search: search,
-        limit: Some(limit),
+        limit: Some(effective_limit),
         offset: Some(offset),
         ..Default::default()
     };
@@ -473,8 +480,13 @@ pub fn list_rules<S: Storage>(
     table.printstd();
     println!();
 
-    if result.has_more {
-        println!("💡 Use --offset {} to see more rules", offset + limit);
+    if result.has_more && !all {
+        println!(
+            "(Showing {} of {} — use --all, --offset {}, or --limit N)",
+            result.entities.len(),
+            result.total_count,
+            offset + effective_limit
+        );
     }
 
     println!("💡 Use 'engram rule get <id>' to view full rule details");
@@ -653,7 +665,7 @@ mod tests {
         )
         .unwrap();
 
-        list_rules(&storage, None, None, None, None, None, 10, 0).unwrap();
+        list_rules(&storage, None, None, None, None, None, 10, 0, false).unwrap();
         list_rules(
             &storage,
             Some("validation".to_string()),
@@ -663,6 +675,7 @@ mod tests {
             None,
             10,
             0,
+            false,
         )
         .unwrap();
     }

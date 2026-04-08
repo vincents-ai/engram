@@ -76,6 +76,14 @@ pub enum StateReflectionCommands {
         /// Limit results
         #[arg(long, short)]
         limit: Option<usize>,
+
+        /// Show all results (no limit)
+        #[arg(long, conflicts_with = "limit")]
+        all: bool,
+
+        /// Offset for pagination
+        #[arg(long, short)]
+        offset: Option<usize>,
     },
     /// Show state reflection details
     Show {
@@ -251,6 +259,8 @@ pub fn list_reflections<S: Storage>(
     trigger_type: Option<String>,
     unresolved_only: bool,
     limit: Option<usize>,
+    all: bool,
+    offset: Option<usize>,
 ) -> Result<(), EngramError> {
     let ids = storage.list_ids(StateReflection::entity_type())?;
 
@@ -285,8 +295,16 @@ pub fn list_reflections<S: Storage>(
         }
     }
 
-    if let Some(limit_val) = limit {
-        items.truncate(limit_val);
+    let total_count = items.len();
+
+    if let Some(off) = offset {
+        items = items.into_iter().skip(off).collect();
+    }
+
+    if !all {
+        if let Some(limit_val) = limit {
+            items.truncate(limit_val);
+        }
     }
 
     if items.is_empty() {
@@ -305,7 +323,7 @@ pub fn list_reflections<S: Storage>(
         "Agent"
     ]);
 
-    for reflection in items {
+    for reflection in &items {
         let resolved_str = match reflection.resolved {
             Some(true) => "Yes",
             Some(false) => "No",
@@ -329,6 +347,15 @@ pub fn list_reflections<S: Storage>(
     }
 
     table.printstd();
+
+    if total_count > items.len() {
+        println!(
+            "(Showing {} of {} — use --all, --offset N, or --limit N)",
+            items.len(),
+            total_count
+        );
+    }
+
     Ok(())
 }
 

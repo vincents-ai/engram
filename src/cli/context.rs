@@ -90,6 +90,14 @@ pub enum ContextCommands {
         /// Limit number of results
         #[arg(long, short)]
         limit: Option<usize>,
+
+        /// Show all results (no limit)
+        #[arg(long, conflicts_with = "limit")]
+        all: bool,
+
+        /// Offset for pagination
+        #[arg(long, short)]
+        offset: Option<usize>,
     },
     /// Show context details
     Show {
@@ -297,12 +305,14 @@ pub fn list_contexts<S: Storage>(
     agent: Option<&str>,
     relevance: Option<&str>,
     limit: Option<usize>,
+    all: bool,
+    offset: Option<usize>,
 ) -> Result<(), EngramError> {
-    // Query contexts from storage
     let mut filter = crate::storage::QueryFilter {
         entity_type: Some("context".to_string()),
         agent: agent.map(|s| s.to_string()),
-        limit,
+        limit: if all { None } else { limit },
+        offset,
         ..Default::default()
     };
 
@@ -321,7 +331,12 @@ pub fn list_contexts<S: Storage>(
         return Ok(());
     }
 
-    println!("Found {} context(s)", result.entities.len());
+    println!(
+        "Found {} context(s) (showing {} of {})",
+        result.total_count,
+        result.entities.len(),
+        result.total_count
+    );
 
     let mut table = create_table();
     table.set_titles(row!["ID", "Title", "Relevance", "Source", "Agent"]);
@@ -343,7 +358,7 @@ pub fn list_contexts<S: Storage>(
     table.printstd();
 
     if result.has_more {
-        println!("(More results available - use --limit to see more)");
+        println!("(More results available — use --all, --offset N, or --limit N)");
     }
 
     Ok(())
@@ -683,10 +698,10 @@ mod tests {
         .unwrap();
 
         // Test listing all
-        list_contexts(&storage, None, None, None).unwrap();
+        list_contexts(&storage, None, None, None, false, None).unwrap();
 
         // Test filtering by relevance
-        list_contexts(&storage, None, Some("high"), None).unwrap();
+        list_contexts(&storage, None, Some("high"), None, false, None).unwrap();
     }
 
     #[test]

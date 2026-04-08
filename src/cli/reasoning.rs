@@ -139,6 +139,14 @@ pub enum ReasoningCommands {
         /// Limit number of results
         #[arg(long, short)]
         limit: Option<usize>,
+
+        /// Show all results (no limit)
+        #[arg(long, conflicts_with = "limit")]
+        all: bool,
+
+        /// Offset for pagination
+        #[arg(long, short)]
+        offset: Option<usize>,
     },
     /// Show reasoning details
     Show {
@@ -410,11 +418,14 @@ pub fn list_reasoning<S: Storage>(
     agent: Option<&str>,
     task_id: Option<&str>,
     limit: Option<usize>,
+    all: bool,
+    offset: Option<usize>,
 ) -> Result<(), EngramError> {
     let mut filter = crate::storage::QueryFilter {
         entity_type: Some("reasoning".to_string()),
         agent: agent.map(|s| s.to_string()),
-        limit,
+        limit: if all { None } else { limit },
+        offset,
         ..Default::default()
     };
 
@@ -432,7 +443,12 @@ pub fn list_reasoning<S: Storage>(
         return Ok(());
     }
 
-    println!("Found {} reasoning chain(s)", result.entities.len());
+    println!(
+        "Found {} reasoning chain(s) (showing {} of {})",
+        result.total_count,
+        result.entities.len(),
+        result.total_count
+    );
 
     let mut table = create_table();
     table.set_titles(row!["ID", "Status", "Title", "Task ID", "Agent"]);
@@ -458,7 +474,7 @@ pub fn list_reasoning<S: Storage>(
     table.printstd();
 
     if result.has_more {
-        println!("(More results available - use --limit to see more)");
+        println!("(More results available — use --all, --offset N, or --limit N)");
     }
 
     Ok(())
@@ -944,13 +960,13 @@ mod tests {
         .unwrap();
 
         // No filters
-        assert!(list_reasoning(&storage, None, None, None).is_ok());
+        assert!(list_reasoning(&storage, None, None, None, false, None).is_ok());
 
         // Filter by agent
-        assert!(list_reasoning(&storage, Some("agent1"), None, None).is_ok());
+        assert!(list_reasoning(&storage, Some("agent1"), None, None, false, None).is_ok());
 
         // Filter by task
-        assert!(list_reasoning(&storage, None, Some("task-2"), None).is_ok());
+        assert!(list_reasoning(&storage, None, Some("task-2"), None, false, None).is_ok());
     }
 
     #[test]

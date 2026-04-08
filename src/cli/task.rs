@@ -90,6 +90,14 @@ pub enum TaskCommands {
         /// Limit number of results
         #[arg(long, short)]
         limit: Option<usize>,
+
+        /// Show all results (no limit)
+        #[arg(long, conflicts_with = "limit")]
+        all: bool,
+
+        /// Offset for pagination
+        #[arg(long, short)]
+        offset: Option<usize>,
     },
     /// Show task details
     Show {
@@ -534,10 +542,21 @@ pub fn list_tasks<S: Storage>(
     agent: Option<&str>,
     status: Option<&str>,
     limit: Option<usize>,
+    all: bool,
+    offset: Option<usize>,
 ) -> Result<(), EngramError> {
-    let mut tasks = storage.query_by_agent(agent.unwrap_or("default"), Some("task"))?;
+    let effective_limit = if all { None } else { limit };
+    let filter = crate::storage::QueryFilter {
+        entity_type: Some("task".to_string()),
+        agent: Some(agent.unwrap_or("default").to_string()),
+        limit: effective_limit,
+        offset,
+        ..Default::default()
+    };
+    let result = storage.query(&filter)?;
 
     // Filter by status if specified
+    let mut tasks: Vec<_> = result.entities;
     if let Some(status_filter) = status {
         tasks.retain(|generic_task| {
             if let Ok(task_obj) = Task::from_generic(generic_task.clone()) {
@@ -548,17 +567,16 @@ pub fn list_tasks<S: Storage>(
         });
     }
 
-    // Apply limit
-    if let Some(limit_val) = limit {
-        tasks.truncate(limit_val);
-    }
-
     if tasks.is_empty() {
         println!("No tasks found");
         return Ok(());
     }
 
-    println!("📋 Tasks ({} found):", tasks.len());
+    println!(
+        "📋 Tasks ({} total, showing {}):",
+        result.total_count,
+        tasks.len()
+    );
 
     let mut table = create_table();
     table.set_titles(row![
@@ -589,6 +607,11 @@ pub fn list_tasks<S: Storage>(
     }
 
     table.printstd();
+
+    if result.has_more {
+        println!("(More results available — use --all, --offset N, or --limit N)");
+    }
+
     Ok(())
 }
 
@@ -1216,7 +1239,7 @@ mod tests {
         .unwrap();
 
         // Filter by agent
-        let result = list_tasks(&storage, Some("agent1"), None, None);
+        let result = list_tasks(&storage, Some("agent1"), None, None, false, None);
         assert!(result.is_ok());
         // Note: list_tasks prints to stdout, so we can't easily verify output content here
         // but we verify the function runs without error
@@ -1226,7 +1249,7 @@ mod tests {
     fn test_list_tasks_not_found() {
         let storage = create_test_storage();
         // Should succeed but print "No tasks found"
-        let result = list_tasks(&storage, Some("non-existent"), None, None);
+        let result = list_tasks(&storage, Some("non-existent"), None, None, false, None);
         assert!(result.is_ok());
     }
 

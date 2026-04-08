@@ -47,6 +47,14 @@ pub enum SessionCommands {
         /// Limit results
         #[arg(long, short)]
         limit: Option<usize>,
+
+        /// Show all results (no limit)
+        #[arg(long, conflicts_with = "limit")]
+        all: bool,
+
+        /// Offset for pagination
+        #[arg(long, short)]
+        offset: Option<usize>,
     },
 }
 
@@ -309,6 +317,8 @@ pub fn list_sessions<S: Storage>(
     storage: &S,
     agent_filter: Option<String>,
     limit: Option<usize>,
+    all: bool,
+    offset: Option<usize>,
 ) -> Result<(), EngramError> {
     let entity_ids = storage.list_ids(Session::entity_type())?;
 
@@ -328,8 +338,16 @@ pub fn list_sessions<S: Storage>(
 
     sessions.sort_by(|a, b| b.start_time.cmp(&a.start_time));
 
-    if let Some(lim) = limit {
-        sessions.truncate(lim);
+    let total_count = sessions.len();
+
+    if let Some(off) = offset {
+        sessions = sessions.into_iter().skip(off).collect();
+    }
+
+    if !all {
+        if let Some(lim) = limit {
+            sessions.truncate(lim);
+        }
     }
 
     if sessions.is_empty() {
@@ -337,13 +355,19 @@ pub fn list_sessions<S: Storage>(
         return Ok(());
     }
 
-    writeln!(writer, "Found {} sessions", sessions.len())?;
+    writeln!(
+        writer,
+        "Found {} sessions (showing {} of {})",
+        total_count,
+        sessions.len(),
+        total_count
+    )?;
     writeln!(writer)?;
 
     let mut table = create_table();
     table.set_titles(row!["ID", "St", "Agent", "Started", "Ended", "Duration"]);
 
-    for session in sessions {
+    for session in &sessions {
         let status_symbol = match session.status {
             SessionStatus::Active => "🟢",
             SessionStatus::Paused => "⏸️",
@@ -377,6 +401,13 @@ pub fn list_sessions<S: Storage>(
 
     table.print(writer)?;
     writeln!(writer)?;
+
+    if total_count > sessions.len() {
+        writeln!(
+            writer,
+            "(More results available — use --all, --offset N, or --limit N)"
+        )?;
+    }
 
     Ok(())
 }
@@ -434,7 +465,7 @@ mod tests {
         start_session(&mut storage, "agent2".to_string(), false).unwrap();
 
         let mut buffer = Vec::new();
-        list_sessions(&mut buffer, &storage, None, None).unwrap();
+        list_sessions(&mut buffer, &storage, None, None, false, None).unwrap();
         let output = String::from_utf8(buffer).unwrap();
 
         assert!(output.contains("Found 2 sessions"));
@@ -446,6 +477,8 @@ mod tests {
             &mut buffer_filtered,
             &storage,
             Some("agent1".to_string()),
+            None,
+            false,
             None,
         )
         .unwrap();
