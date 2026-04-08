@@ -45,6 +45,10 @@ pub struct WorkflowInstance {
     /// Execution history
     #[serde(rename = "execution_history")]
     pub execution_history: Vec<WorkflowExecutionEvent>,
+
+    /// Number of transitions executed so far
+    #[serde(rename = "step_count", default)]
+    pub step_count: u64,
 }
 
 impl Entity for WorkflowInstance {
@@ -144,6 +148,7 @@ mod tests {
             updated_at: now,
             completed_at: None,
             execution_history: vec![],
+            step_count: 0,
         };
 
         assert_eq!(instance.id, id);
@@ -177,6 +182,7 @@ mod tests {
             updated_at: now,
             completed_at: None,
             execution_history: vec![],
+            step_count: 0,
         };
 
         // Valid instance

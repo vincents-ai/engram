@@ -6,6 +6,7 @@
 use crate::entities::{Entity, ExecutionResult, ExpectedResult, ValidationStatus};
 use crate::error::EngramError;
 use crate::storage::Storage;
+use crate::validation::flakiness_tracker::{FlakinessConfig, FlakinessTracker};
 use std::collections::HashMap;
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
@@ -82,11 +83,26 @@ impl QualityGate {
 /// Quality gates executor
 pub struct QualityGatesExecutor<S: Storage> {
     storage: S,
+    flakiness_tracker: FlakinessTracker,
 }
 
 impl<S: Storage> QualityGatesExecutor<S> {
     pub fn new(storage: S) -> Self {
-        Self { storage }
+        Self {
+            storage,
+            flakiness_tracker: FlakinessTracker::new(),
+        }
+    }
+
+    pub fn with_flakiness_config(storage: S, config: FlakinessConfig) -> Self {
+        Self {
+            storage,
+            flakiness_tracker: FlakinessTracker::with_config(config),
+        }
+    }
+
+    pub fn flakiness_tracker(&self) -> &FlakinessTracker {
+        &self.flakiness_tracker
     }
 
     /// Execute a single quality gate
@@ -97,6 +113,25 @@ impl<S: Storage> QualityGatesExecutor<S> {
         gate: &QualityGate,
         agent: &str,
     ) -> Result<ExecutionResult, EngramError> {
+        if self
+            .flakiness_tracker
+            .is_blacklisted(&self.storage, &gate.name)
+        {
+            let mut execution_result = ExecutionResult::new(
+                task_id.to_string(),
+                workflow_stage.to_string(),
+                gate.name.clone(),
+                String::new(),
+                agent.to_string(),
+            );
+            execution_result.skip_execution(format!(
+                "Gate '{}' is blacklisted due to flakiness (auto-blacklisted). Manual review recommended.",
+                gate.name
+            ));
+            let generic = execution_result.to_generic();
+            self.storage.store(&generic)?;
+            return Ok(execution_result);
+        }
         let mut execution_result = ExecutionResult::new(
             task_id.to_string(),
             workflow_stage.to_string(),
@@ -163,8 +198,16 @@ impl<S: Storage> QualityGatesExecutor<S> {
             );
         }
 
+        let passed = execution_result.passed();
         let generic = execution_result.to_generic();
         self.storage.store(&generic)?;
+
+        let _ = self
+            .flakiness_tracker
+            .record_and_evaluate(&mut self.storage, &gate.name, passed);
+        let _ = self
+            .flakiness_tracker
+            .blacklist_if_flaky(&mut self.storage, &gate.name, agent);
 
         Ok(execution_result)
     }

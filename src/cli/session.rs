@@ -1,3 +1,4 @@
+use crate::entities::dora_metrics_report::DoraMetricsCalculator;
 use crate::entities::session::{DoraMetrics, SpaceMetrics};
 use crate::entities::{Entity, Session, SessionStatus};
 use crate::error::EngramError;
@@ -215,7 +216,7 @@ pub fn end_session<S: Storage>(
     }
 
     if session.dora_metrics.is_none() {
-        let metrics = calculate_basic_dora_metrics(&session);
+        let metrics = calculate_basic_dora_metrics(storage, &session);
         session.set_dora_metrics(metrics);
     }
 
@@ -294,17 +295,28 @@ fn calculate_basic_space_metrics(session: &Session) -> SpaceMetrics {
     }
 }
 
-/// Calculate basic DORA metrics for a session
-fn calculate_basic_dora_metrics(session: &Session) -> DoraMetrics {
-    DoraMetrics {
-        deployment_frequency: 0.0,
-        lead_time: if let Some(duration) = session.duration_seconds {
-            duration as f64 / 86400.0
-        } else {
-            0.0
+/// Calculate DORA metrics from git history and engram entities.
+///
+/// Computes real metrics and persists the result as a DoraMetricsReport entity.
+/// Falls back to session-duration-based lead time if git history is unavailable.
+fn calculate_basic_dora_metrics<S: Storage>(storage: &mut S, session: &Session) -> DoraMetrics {
+    let current_dir = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+
+    match DoraMetricsCalculator::compute(storage, &current_dir, &session.agent, 30) {
+        Ok(report) => {
+            let _ = storage.store(&report.to_generic());
+            report.to_session_dora_metrics()
+        }
+        Err(_) => DoraMetrics {
+            deployment_frequency: 0.0,
+            lead_time: if let Some(duration) = session.duration_seconds {
+                duration as f64 / 86400.0
+            } else {
+                0.0
+            },
+            change_failure_rate: 0.0,
+            mean_time_to_recover: 0.0,
         },
-        change_failure_rate: 0.0,
-        mean_time_to_recover: 0.0,
     }
 }
 

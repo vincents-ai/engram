@@ -5,6 +5,7 @@
 //! relationship requirements.
 
 pub mod config;
+pub mod flakiness_tracker;
 pub mod hook;
 pub mod parser;
 pub mod quality_gates;
@@ -16,6 +17,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 pub use config::ValidationConfig;
+pub use flakiness_tracker::{
+    FlakinessAssessment, FlakinessBlacklistEntry, FlakinessConfig, FlakinessTracker,
+};
 pub use hook::HookManager;
 pub use parser::{CommitMessageParser, ConventionalCommit};
 pub use quality_gates::{BuiltinValidators, QualityGate, QualityGatesExecutor};

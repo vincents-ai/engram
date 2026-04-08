@@ -195,6 +195,54 @@ pub enum EscalationCommands {
         #[arg(long)]
         json: bool,
     },
+    /// Approve an escalation request (convenience shortcut for review --status approved)
+    Approve {
+        /// Escalation request ID
+        #[arg()]
+        id: String,
+
+        /// Reason for approval
+        #[arg(long, short, default_value = "Approved via CLI")]
+        reason: String,
+
+        /// Reviewer ID
+        #[arg(long, default_value = "cli")]
+        reviewer_id: String,
+
+        /// Reviewer name
+        #[arg(long, default_value = "CLI User")]
+        reviewer_name: String,
+
+        /// Approval duration in seconds
+        #[arg(long)]
+        duration: Option<u64>,
+
+        /// Output in JSON format
+        #[arg(long)]
+        json: bool,
+    },
+    /// Deny an escalation request (convenience shortcut for review --status denied)
+    Deny {
+        /// Escalation request ID
+        #[arg()]
+        id: String,
+
+        /// Reason for denial
+        #[arg(long, short, default_value = "Denied via CLI")]
+        reason: String,
+
+        /// Reviewer ID
+        #[arg(long, default_value = "cli")]
+        reviewer_id: String,
+
+        /// Reviewer name
+        #[arg(long, default_value = "CLI User")]
+        reviewer_name: String,
+
+        /// Output in JSON format
+        #[arg(long)]
+        json: bool,
+    },
     /// Show escalation statistics
     Stats {
         /// Agent ID to show stats for
@@ -876,6 +924,130 @@ pub fn show_escalation_stats<S: Storage>(
                 println!("    {}: {}", op_type, count);
             }
         }
+    }
+
+    Ok(())
+}
+
+/// Approve an escalation request (convenience wrapper)
+pub fn approve_escalation<S: Storage>(
+    storage: &mut S,
+    id: String,
+    reason: String,
+    reviewer_id: String,
+    reviewer_name: String,
+    duration: Option<u64>,
+    json: bool,
+) -> Result<(), EngramError> {
+    let mut escalation = match storage.get(&id, "escalation_request")? {
+        Some(entity) => EscalationRequest::from_generic(entity)
+            .map_err(|e| EngramError::Validation(e.to_string()))?,
+        None => {
+            return Err(EngramError::NotFound(format!(
+                "Escalation request with ID {} not found",
+                id
+            )));
+        }
+    };
+
+    if !escalation.is_actionable() {
+        return Err(EngramError::InvalidOperation(format!(
+            "Escalation request {} is not actionable (status: {:?})",
+            id, escalation.status
+        )));
+    }
+
+    let reviewer_info = ReviewerInfo {
+        reviewer_id,
+        reviewer_name,
+        reviewer_email: None,
+        department: None,
+    };
+
+    let decision = ReviewDecision {
+        status: EscalationStatus::Approved,
+        reason,
+        conditions: Vec::new(),
+        approval_duration: duration,
+        create_policy: false,
+        notes: None,
+    };
+
+    escalation.assign_reviewer(reviewer_info);
+    escalation.record_decision(decision);
+
+    storage.store(&escalation.to_generic())?;
+
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&escalation.to_generic())?
+        );
+    } else {
+        println!("✅ Escalation request {} approved.", id);
+        if let Some(dur) = escalation.decision.as_ref().unwrap().approval_duration {
+            println!("  Valid for: {} seconds", dur);
+        }
+    }
+
+    Ok(())
+}
+
+/// Deny an escalation request (convenience wrapper)
+pub fn deny_escalation<S: Storage>(
+    storage: &mut S,
+    id: String,
+    reason: String,
+    reviewer_id: String,
+    reviewer_name: String,
+    json: bool,
+) -> Result<(), EngramError> {
+    let mut escalation = match storage.get(&id, "escalation_request")? {
+        Some(entity) => EscalationRequest::from_generic(entity)
+            .map_err(|e| EngramError::Validation(e.to_string()))?,
+        None => {
+            return Err(EngramError::NotFound(format!(
+                "Escalation request with ID {} not found",
+                id
+            )));
+        }
+    };
+
+    if !escalation.is_actionable() {
+        return Err(EngramError::InvalidOperation(format!(
+            "Escalation request {} is not actionable (status: {:?})",
+            id, escalation.status
+        )));
+    }
+
+    let reviewer_info = ReviewerInfo {
+        reviewer_id,
+        reviewer_name,
+        reviewer_email: None,
+        department: None,
+    };
+
+    let decision = ReviewDecision {
+        status: EscalationStatus::Denied,
+        reason,
+        conditions: Vec::new(),
+        approval_duration: None,
+        create_policy: false,
+        notes: None,
+    };
+
+    escalation.assign_reviewer(reviewer_info);
+    escalation.record_decision(decision);
+
+    storage.store(&escalation.to_generic())?;
+
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&escalation.to_generic())?
+        );
+    } else {
+        println!("❌ Escalation request {} denied.", id);
     }
 
     Ok(())

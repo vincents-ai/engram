@@ -9,6 +9,7 @@ pub mod cli;
 pub mod config;
 pub mod engines;
 pub mod entities;
+pub mod feedback;
 pub mod error;
 pub mod locus_cli;
 pub mod locus_handlers;

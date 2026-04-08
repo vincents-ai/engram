@@ -134,8 +134,7 @@ pub struct WorkflowAutomationEngine<S: Storage> {
     action_executor: ActionExecutor,
     active_instances: HashMap<String, WorkflowInstance>,
     event_queue: VecDeque<WorkflowExecutionEvent>,
-    #[allow(dead_code)]
-    max_execution_steps: usize,
+    max_execution_steps: u64,
 }
 
 /// Builder for workflow automation engine
@@ -143,7 +142,7 @@ pub struct WorkflowEngineBuilder<S: Storage> {
     storage: Option<S>,
     rule_engine: Option<RuleExecutionEngine>,
     action_executor: Option<ActionExecutor>,
-    max_execution_steps: usize,
+    max_execution_steps: u64,
 }
 
 impl<S: Storage> WorkflowEngineBuilder<S> {
@@ -152,7 +151,7 @@ impl<S: Storage> WorkflowEngineBuilder<S> {
             storage: None,
             rule_engine: None,
             action_executor: None,
-            max_execution_steps: 1000, // Default limit to prevent infinite loops
+            max_execution_steps: 1000,
         }
     }
 
@@ -171,7 +170,7 @@ impl<S: Storage> WorkflowEngineBuilder<S> {
         self
     }
 
-    pub fn with_max_execution_steps(mut self, max_steps: usize) -> Self {
+    pub fn with_max_execution_steps(mut self, max_steps: u64) -> Self {
         self.max_execution_steps = max_steps;
         self
     }
@@ -340,6 +339,7 @@ impl<S: Storage> WorkflowAutomationEngine<S> {
             updated_at: now,
             completed_at: None,
             execution_history: vec![start_event.clone()],
+            step_count: 0,
         };
 
         self.active_instances
@@ -415,6 +415,15 @@ impl<S: Storage> WorkflowAutomationEngine<S> {
             .any(|s| s.id == transition.to_state && s.is_final);
 
         let instance = self.active_instances.get_mut(instance_id).unwrap();
+
+        if instance.step_count >= self.max_execution_steps {
+            return Err(EngramError::InvalidOperation(format!(
+                "Workflow instance {} exceeded max execution steps ({})",
+                instance_id, self.max_execution_steps
+            )));
+        }
+
+        instance.step_count += 1;
 
         let transition_event = WorkflowExecutionEvent {
             id: Uuid::new_v4().to_string(),
@@ -841,6 +850,93 @@ mod tests {
             .unwrap();
 
         assert_eq!(engine.max_execution_steps, 500);
+    }
+
+    fn create_loop_workflow_in_storage(
+        engine: &mut WorkflowAutomationEngine<MemoryStorage>,
+    ) -> String {
+        let state_loop = crate::entities::WorkflowState {
+            id: "state-loop".to_string(),
+            name: "looping".to_string(),
+            state_type: crate::entities::StateType::InProgress,
+            description: "Loops forever".to_string(),
+            is_final: false,
+            prompts: None,
+            guards: vec![],
+            post_functions: vec![],
+        };
+
+        let workflow_id = "loop-workflow-def".to_string();
+        let mut workflow = crate::entities::Workflow::new(
+            "Loop Workflow".to_string(),
+            "A workflow with a self-loop".to_string(),
+            "test-agent".to_string(),
+        );
+        workflow.id = workflow_id.clone();
+        workflow.states = vec![state_loop.clone()];
+        workflow.transitions = vec![crate::entities::WorkflowTransition {
+            id: "t-loop".to_string(),
+            name: "loop".to_string(),
+            from_state: state_loop.id.clone(),
+            to_state: state_loop.id.clone(),
+            transition_type: crate::entities::TransitionType::Manual,
+            description: "Self-loop".to_string(),
+            conditions: vec![],
+            actions: vec![],
+        }];
+        workflow.initial_state = state_loop.id.clone();
+        workflow.final_states = vec![];
+        workflow.activate();
+
+        engine.storage.store(&workflow.to_generic()).unwrap();
+        workflow_id
+    }
+
+    #[test]
+    fn test_max_execution_steps_guard_fires() {
+        let storage = MemoryStorage::new("test-agent");
+        let mut engine = WorkflowEngineBuilder::new()
+            .with_storage(storage)
+            .with_max_execution_steps(3)
+            .build()
+            .unwrap();
+
+        let workflow_id = create_loop_workflow_in_storage(&mut engine);
+        let start_result = engine
+            .start_workflow(
+                workflow_id,
+                None,
+                None,
+                "test-agent".to_string(),
+                HashMap::new(),
+            )
+            .unwrap();
+
+        let instance_id = start_result.instance_id;
+
+        for i in 0..3 {
+            let result = engine.execute_transition(
+                &instance_id,
+                "loop".to_string(),
+                "test-agent".to_string(),
+            );
+            assert!(
+                result.is_ok(),
+                "Transition {} should succeed: {:?}",
+                i,
+                result.err()
+            );
+        }
+
+        let result =
+            engine.execute_transition(&instance_id, "loop".to_string(), "test-agent".to_string());
+        assert!(result.is_err());
+        let err_msg = format!("{}", result.unwrap_err());
+        assert!(
+            err_msg.contains("exceeded max execution steps"),
+            "Error message should mention step limit, got: {}",
+            err_msg
+        );
     }
 
     #[test]

@@ -1301,6 +1301,33 @@ fn handle_escalation_command<S: engram::storage::Storage>(
         } => {
             show_escalation_stats(storage, agent_id, days, json)?;
         }
+        engram::cli::EscalationCommands::Approve {
+            id,
+            reason,
+            reviewer_id,
+            reviewer_name,
+            duration,
+            json,
+        } => {
+            approve_escalation(
+                storage,
+                id,
+                reason,
+                reviewer_id,
+                reviewer_name,
+                duration,
+                json,
+            )?;
+        }
+        engram::cli::EscalationCommands::Deny {
+            id,
+            reason,
+            reviewer_id,
+            reviewer_name,
+            json,
+        } => {
+            deny_escalation(storage, id, reason, reviewer_id, reviewer_name, json)?;
+        }
     }
 
     Ok(())
