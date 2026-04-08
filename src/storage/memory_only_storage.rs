@@ -340,16 +340,22 @@ impl Storage for MemoryStorage {
 
         let total_count = all_entities.len();
         let offset = filter.offset.unwrap_or(0);
-        let limit = filter.limit.unwrap_or(50);
 
         let entities = if offset < total_count {
-            let end_idx = std::cmp::min(offset + limit, total_count);
-            all_entities[offset..end_idx].to_vec()
+            match filter.limit {
+                Some(limit) => {
+                    let end_idx = std::cmp::min(offset + limit, total_count);
+                    all_entities[offset..end_idx].to_vec()
+                }
+                None => all_entities[offset..].to_vec(),
+            }
         } else {
             Vec::new()
         };
 
-        let has_more = offset + entities.len() < total_count;
+        let has_more = filter
+            .limit
+            .map_or(false, |_| offset + entities.len() < total_count);
 
         Ok(QueryResult {
             entities,

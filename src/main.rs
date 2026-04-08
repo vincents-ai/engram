@@ -324,8 +324,10 @@ fn handle_task_command<
             agent,
             status,
             limit,
+            all,
+            offset,
         } => {
-            cli::list_tasks(storage, agent.as_deref(), status.as_deref(), limit)?;
+            cli::list_tasks(storage, agent.as_deref(), status.as_deref(), limit, all, offset)?;
         }
         cli::TaskCommands::Show { id } => {
             cli::show_task(storage, &id)?;
@@ -412,8 +414,10 @@ fn handle_context_command<S: engram::storage::Storage>(
             agent,
             relevance,
             limit,
+            all,
+            offset,
         } => {
-            cli::list_contexts(storage, agent.as_deref(), relevance.as_deref(), limit)?;
+            cli::list_contexts(storage, agent.as_deref(), relevance.as_deref(), limit, all, offset)?;
         }
         cli::ContextCommands::Show { id } => {
             cli::show_context(storage, &id)?;
@@ -506,8 +510,10 @@ fn handle_reasoning_command<S: engram::storage::Storage>(
             agent,
             task_id,
             limit,
+            all,
+            offset,
         } => {
-            cli::list_reasoning(storage, agent.as_deref(), task_id.as_deref(), limit)?;
+            cli::list_reasoning(storage, agent.as_deref(), task_id.as_deref(), limit, all, offset)?;
         }
         cli::ReasoningCommands::Show { id } => {
             cli::show_reasoning(storage, &id)?;
@@ -557,8 +563,8 @@ fn handle_knowledge_command<S: engram::storage::Storage>(
                 json_file,
             )?;
         }
-        cli::KnowledgeCommands::List { agent, kind, limit } => {
-            cli::list_knowledge(storage, agent, kind, limit)?;
+        cli::KnowledgeCommands::List { agent, kind, limit, all, offset } => {
+            cli::list_knowledge(storage, agent, kind, limit, all, offset)?;
         }
         cli::KnowledgeCommands::Show { id } => {
             cli::show_knowledge(storage, &id)?;
@@ -593,8 +599,8 @@ fn handle_session_command<S: engram::storage::Storage>(
         } => {
             end_session(storage, id, generate_summary)?;
         }
-        engram::cli::SessionCommands::List { agent, limit } => {
-            list_sessions(&mut std::io::stdout(), storage, agent, limit)?;
+        engram::cli::SessionCommands::List { agent, limit, all, offset } => {
+            list_sessions(&mut std::io::stdout(), storage, agent, limit, all, offset)?;
         }
     }
 
@@ -620,8 +626,10 @@ fn handle_compliance_command<S: engram::storage::Storage>(
             agent,
             category,
             limit,
+            all,
+            offset,
         } => {
-            cli::list_compliance(storage, agent.as_deref(), category.as_deref(), limit)?;
+            cli::list_compliance(storage, agent.as_deref(), category.as_deref(), limit, all, offset)?;
         }
         cli::ComplianceCommands::Show { id } => {
             cli::show_compliance(storage, &id)?;
@@ -702,6 +710,7 @@ fn handle_rule_command<S: engram::storage::Storage>(
             search,
             limit,
             offset,
+            all,
         } => {
             cli::list_rules(
                 storage,
@@ -712,6 +721,7 @@ fn handle_rule_command<S: engram::storage::Storage>(
                 search,
                 limit,
                 offset,
+                all,
             )?;
         }
         cli::RuleCommands::Execute {
@@ -783,6 +793,7 @@ fn handle_standard_command<S: engram::storage::Storage>(
             search,
             limit,
             offset,
+            all,
         } => {
             cli::list_standards(
                 &mut std::io::stdout(),
@@ -792,6 +803,7 @@ fn handle_standard_command<S: engram::storage::Storage>(
                 search,
                 limit,
                 offset,
+                all,
             )?;
         }
         cli::StandardCommands::AddRequirement {
@@ -863,8 +875,9 @@ fn handle_adr_command<S: engram::storage::Storage>(
             search,
             limit,
             offset,
+            all,
         } => {
-            cli::list_adrs(storage, status, search, limit, offset)?;
+            cli::list_adrs(storage, status, search, limit, offset, all)?;
         }
         cli::AdrCommands::Accept {
             id,
@@ -926,6 +939,7 @@ fn handle_workflow_command<S: engram::storage::Storage>(
             search,
             limit,
             offset,
+            all,
         } => {
             cli::list_workflows(
                 &mut std::io::stdout(),
@@ -934,6 +948,7 @@ fn handle_workflow_command<S: engram::storage::Storage>(
                 search,
                 limit,
                 offset,
+                all,
             )?;
         }
         cli::WorkflowCommands::AddState {
@@ -1464,8 +1479,10 @@ fn handle_theory_command<S: engram::storage::Storage>(
             agent,
             domain,
             limit,
+            all,
+            offset,
         } => {
-            list_theories(storage, agent, domain, limit)?;
+            list_theories(storage, agent, domain, limit, all, offset)?;
         }
         cli::TheoryCommands::Show { id, show_metrics } => {
             show_theory(storage, &id, show_metrics)?;
@@ -1527,8 +1544,10 @@ fn handle_reflection_command<S: engram::storage::Storage>(
             trigger_type,
             unresolved,
             limit,
+            all,
+            offset,
         } => {
-            list_reflections(storage, theory, trigger_type, unresolved, limit)?;
+            list_reflections(storage, theory, trigger_type, unresolved, limit, all, offset)?;
         }
         cli::StateReflectionCommands::Show { id } => {
             show_reflection(storage, &id)?;

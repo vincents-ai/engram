@@ -100,6 +100,10 @@ pub enum StandardCommands {
         /// Offset for pagination
         #[arg(long, default_value = "0")]
         offset: usize,
+
+        /// Show all results (no limit)
+        #[arg(long, conflicts_with = "limit")]
+        all: bool,
     },
     /// Add requirement to standard
     AddRequirement {
@@ -317,15 +321,18 @@ pub fn list_standards<S: Storage>(
     search: Option<String>,
     limit: usize,
     offset: usize,
+    all: bool,
 ) -> Result<(), EngramError> {
     use crate::storage::QueryFilter;
     use serde_json::Value;
     use std::collections::HashMap;
 
+    let effective_limit = if all { usize::MAX } else { limit };
+
     let mut filter = QueryFilter {
         entity_type: Some("standard".to_string()),
         text_search: search,
-        limit: Some(limit),
+        limit: Some(effective_limit),
         offset: Some(offset),
         ..Default::default()
     };
@@ -424,11 +431,13 @@ pub fn list_standards<S: Storage>(
     table.print(writer)?;
     writeln!(writer)?;
 
-    if result.has_more {
+    if result.has_more && !all {
         writeln!(
             writer,
-            "💡 Use --offset {} to see more standards",
-            offset + limit
+            "(Showing {} of {} — use --all, --offset {}, or --limit N)",
+            result.entities.len(),
+            result.total_count,
+            offset + effective_limit
         )?;
     }
 
@@ -702,7 +711,7 @@ mod tests {
 
         // List all
         let mut buffer = Vec::new();
-        let result = list_standards(&mut buffer, &storage, None, None, None, 10, 0);
+        let result = list_standards(&mut buffer, &storage, None, None, None, 10, 0, false);
         assert!(result.is_ok());
 
         // Filter by category
@@ -715,6 +724,7 @@ mod tests {
             None,
             10,
             0,
+            false,
         );
         assert!(result.is_ok());
     }

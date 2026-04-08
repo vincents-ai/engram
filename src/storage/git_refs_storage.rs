@@ -666,12 +666,16 @@ impl Storage for GitRefsStorage {
 
         // Apply pagination
         let offset = filter.offset.unwrap_or(0);
-        let limit = filter.limit.unwrap_or(50);
         let total = results.len();
 
-        let paginated_results = results.into_iter().skip(offset).take(limit).collect();
+        let paginated_results: Vec<_> = match filter.limit {
+            Some(limit) => results.into_iter().skip(offset).take(limit).collect(),
+            None => results.into_iter().skip(offset).collect(),
+        };
 
-        let has_more = offset + limit < total;
+        let has_more = filter
+            .limit
+            .map_or(false, |_| offset + paginated_results.len() < total);
         Ok(QueryResult {
             entities: paginated_results,
             total_count: total,

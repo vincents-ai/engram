@@ -41,6 +41,14 @@ pub enum ComplianceCommands {
         /// Limit results
         #[arg(long, short)]
         limit: Option<usize>,
+
+        /// Show all results (no limit)
+        #[arg(long, conflicts_with = "limit")]
+        all: bool,
+
+        /// Offset for pagination
+        #[arg(long, short)]
+        offset: Option<usize>,
     },
     /// Show compliance requirement details
     Show {
@@ -103,6 +111,8 @@ pub fn list_compliance<S: Storage>(
     agent: Option<&str>,
     category: Option<&str>,
     limit: Option<usize>,
+    all: bool,
+    offset: Option<usize>,
 ) -> Result<(), EngramError> {
     let mut compliance_items =
         storage.query_by_agent(agent.unwrap_or("default"), Some("compliance"))?;
@@ -118,9 +128,17 @@ pub fn list_compliance<S: Storage>(
         });
     }
 
+    let total_count = compliance_items.len();
+
+    if let Some(off) = offset {
+        compliance_items = compliance_items.into_iter().skip(off).collect();
+    }
+
     // Apply limit
-    if let Some(limit_val) = limit {
-        compliance_items.truncate(limit_val);
+    if !all {
+        if let Some(limit_val) = limit {
+            compliance_items.truncate(limit_val);
+        }
     }
 
     if compliance_items.is_empty() {
@@ -129,7 +147,8 @@ pub fn list_compliance<S: Storage>(
     }
 
     println!(
-        "🔍 Compliance Requirements ({} found):",
+        "🔍 Compliance Requirements ({} found, showing {}):",
+        total_count,
         compliance_items.len()
     );
 
@@ -159,6 +178,10 @@ pub fn list_compliance<S: Storage>(
     }
 
     table.printstd();
+
+    if total_count > compliance_items.len() {
+        println!("(More results available — use --all, --offset N, or --limit N)");
+    }
 
     Ok(())
 }
@@ -351,10 +374,10 @@ mod tests {
         .unwrap();
 
         // List all for agent1
-        list_compliance(&storage, Some("agent1"), None, None).unwrap();
+        list_compliance(&storage, Some("agent1"), None, None, false, None).unwrap();
 
         // Filter by category
-        list_compliance(&storage, Some("agent1"), Some("cat1"), None).unwrap();
+        list_compliance(&storage, Some("agent1"), Some("cat1"), None, false, None).unwrap();
     }
 
     #[test]
@@ -521,7 +544,7 @@ mod tests {
         // Since we can't easily capture output of list_compliance (it prints),
         // we can't verify what was printed, but we can verify it runs without error.
         // A better test would refactor list_compliance to return items, but for now:
-        let result = list_compliance(&storage, Some("agent1"), None, Some(1));
+        let result = list_compliance(&storage, Some("agent1"), None, Some(1), false, None);
         assert!(result.is_ok());
     }
 }
