@@ -8,7 +8,7 @@
 use engram::{
     cli::sync::{create_branch, create_credentials, delete_branch, list_branches, switch_branch},
     error::EngramError,
-    storage::{GitStorage, MemoryStorage, RemoteAuth},
+    storage::{GitRefsStorage, MemoryStorage, RemoteAuth},
 };
 use git2::{Repository, Signature};
 use std::env;
@@ -23,7 +23,7 @@ static TEST_MUTEX: Mutex<()> = Mutex::new(());
 #[allow(dead_code)]
 struct SyncTestFixture {
     temp_dir: TempDir,
-    storage: GitStorage,
+    storage: GitRefsStorage,
     repo_path: String,
 }
 
@@ -81,7 +81,7 @@ impl SyncTestFixture {
         repo.set_head("refs/heads/main")
             .map_err(|e| EngramError::Git(e.to_string()))?;
 
-        let storage = GitStorage::new(&repo_path.to_string_lossy(), "test-agent")?;
+        let storage = GitRefsStorage::new(&repo_path.to_string_lossy(), "test-agent")?;
 
         Ok(SyncTestFixture {
             temp_dir,

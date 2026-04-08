@@ -14,7 +14,7 @@ use engram::{
         TaskPriority, TaskStatus,
     },
     nlq::{EntityExtractor, IntentClassifier, NLQEngine, QueryIntent},
-    storage::{GitStorage, Storage},
+    storage::{GitRefsStorage, Storage},
 };
 use std::fs;
 use tempfile::TempDir;
@@ -24,7 +24,7 @@ use uuid::Uuid;
 #[allow(dead_code)]
 struct NLQTestFixture {
     temp_dir: TempDir,
-    storage: GitStorage,
+    storage: GitRefsStorage,
     repo_path: String,
 }
 
@@ -35,8 +35,8 @@ impl NLQTestFixture {
 
         fs::create_dir_all(&repo_path).expect("Failed to create storage directory");
 
-        let storage = GitStorage::new(temp_dir.path().to_str().unwrap(), "test-agent")
-            .expect("Failed to create GitStorage");
+        let storage = GitRefsStorage::new(temp_dir.path().to_str().unwrap(), "test-agent")
+            .expect("Failed to create GitRefsStorage");
 
         Self {
             temp_dir,

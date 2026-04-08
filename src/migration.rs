@@ -4,7 +4,7 @@
 //! architecture (.engram/ directory) to the Git refs storage architecture.
 
 use crate::error::EngramError;
-use crate::storage::{memory_entity::MemoryEntity, GitStorage, Storage};
+use crate::storage::{memory_entity::MemoryEntity, GitRefsStorage, Storage};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -12,7 +12,7 @@ use std::path::{Path, PathBuf};
 /// Migration configuration and state
 pub struct Migration {
     source_path: PathBuf,
-    target_storage: GitStorage,
+    target_storage: GitRefsStorage,
     dry_run: bool,
     backup_only: bool,
 }
@@ -35,7 +35,7 @@ impl Migration {
         backup_only: bool,
     ) -> Result<Self, EngramError> {
         let source_path = PathBuf::from(workspace_path).join(".engram");
-        let target_storage = GitStorage::new(workspace_path, agent)?;
+        let target_storage = GitRefsStorage::new(workspace_path, agent)?;
 
         Ok(Self {
             source_path,
@@ -50,10 +50,7 @@ impl Migration {
         let mut stats = MigrationStats::default();
 
         if !self.source_path.exists() {
-            return Err(EngramError::NotFound(format!(
-                "Source migration path does not exist: {}",
-                self.source_path.display()
-            )));
+            return Ok(stats);
         }
 
         if self.backup_only {

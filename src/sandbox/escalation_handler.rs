@@ -509,13 +509,13 @@ pub struct EscalationStatistics {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::storage::GitStorage;
+    use crate::storage::GitRefsStorage;
     use tempfile::TempDir;
 
     fn create_test_storage() -> (Box<dyn Storage>, TempDir) {
         let temp_dir = TempDir::new().unwrap();
         let storage =
-            Box::new(GitStorage::new(temp_dir.path().to_str().unwrap(), "test-agent").unwrap());
+            Box::new(GitRefsStorage::new(temp_dir.path().to_str().unwrap(), "test-agent").unwrap());
         (storage, temp_dir)
     }
 

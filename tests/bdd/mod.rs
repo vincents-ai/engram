@@ -13,14 +13,14 @@ use cucumber::World;
 use engram::{
     entities::*,
     error::EngramError,
-    storage::{GitStorage, Storage},
+    storage::{GitRefsStorage, Storage},
 };
 use std::collections::HashMap;
 
 /// BDD test world containing shared state
 #[derive(Debug, World)]
 pub struct EngramWorld {
-    storage: Option<GitStorage>,
+    storage: Option<GitRefsStorage>,
     pub current_agent: Option<String>,
     created_entities: HashMap<String, Vec<String>>,
     last_result: Option<std::result::Result<String, String>>,
@@ -55,7 +55,7 @@ impl EngramWorld {
     /// Initialize storage with agent
     pub fn initialize_storage(&mut self, agent: &str) {
         self.current_agent = Some(agent.to_string());
-        match GitStorage::new(&self.workspace_dir, agent) {
+        match GitRefsStorage::new(&self.workspace_dir, agent) {
             Ok(storage) => {
                 self.storage = Some(storage);
                 self.last_result = Some(Ok(format!("Storage initialized for agent {}", agent)));

@@ -4,7 +4,7 @@ use crate::nlq::{
     list_prompts, list_skills, search_prompts, search_skills, ExtractedEntity, ProcessedQuery,
     PromptsQuery, QueryIntent, SkillsQuery,
 };
-use crate::storage::{GitStorage, RelationshipStorage, Storage};
+use crate::storage::{GitRefsStorage, RelationshipStorage, Storage};
 use serde_json::{json, Value};
 
 pub struct QueryMapper;
@@ -269,8 +269,8 @@ impl QueryMapper {
         storage: &dyn Storage,
     ) -> Result<Value, EngramError> {
         if let Some(task_id) = self.extract_task_id(&processed_query.entities) {
-            if let Some(git_storage) = storage.as_any().downcast_ref::<GitStorage>() {
-                let relationships = git_storage.get_entity_relationships(&task_id)?;
+            if let Some(git_refs_storage) = storage.as_any().downcast_ref::<GitRefsStorage>() {
+                let relationships = git_refs_storage.get_entity_relationships(&task_id)?;
 
                 let mut related_entities = Vec::new();
                 for rel in relationships {

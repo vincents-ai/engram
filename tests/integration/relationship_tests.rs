@@ -2,7 +2,7 @@ use engram::{
     entities::{
         Entity, EntityRelationType, EntityRelationship, RelationshipDirection, RelationshipStrength,
     },
-    storage::{GitStorage, RelationshipStorage, TraversalAlgorithm},
+    storage::{GitRefsStorage, RelationshipStorage, TraversalAlgorithm},
 };
 use std::fs;
 use tempfile::TempDir;
@@ -13,10 +13,10 @@ use uuid::Uuid;
 mod relationship_integration_tests {
     use super::*;
 
-    fn setup_test_storage() -> (TempDir, GitStorage) {
+    fn setup_test_storage() -> (TempDir, GitRefsStorage) {
         let temp_dir = TempDir::new().expect("Failed to create temp directory");
-        let storage = GitStorage::new(temp_dir.path().to_str().unwrap(), "test-agent")
-            .expect("Failed to create GitStorage");
+        let storage = GitRefsStorage::new(temp_dir.path().to_str().unwrap(), "test-agent")
+            .expect("Failed to create GitRefsStorage");
         (temp_dir, storage)
     }
 
