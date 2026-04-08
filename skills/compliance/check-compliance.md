@@ -136,9 +136,9 @@ engram task update task-001 --status in_progress
 
 [Step 2: Run checks]
 Use prompts from:
-- ~/code/prompts/compliance_and_certification/prompts/audit_checkpoints/saas_it/soc2.yaml
-- ~/code/prompts/compliance_and_certification/prompts/audit_checkpoints/data_protection/gdpr.yaml
-- ~/code/prompts/compliance_and_certification/prompts/audit_checkpoints/software_development/owasp.yaml
+- ~/code/prompts/compliance_and_certification/prompts/audit_checkpoints/saas_it/soc2_iso27001_pci_audit_prompts.md
+- ~/code/prompts/compliance_and_certification/prompts/audit_checkpoints/data_protection/gdpr_ccpa_pipeda_audit_prompts.md
+- ~/code/prompts/compliance_and_certification/prompts/audit_checkpoints/software_development/owasp_sdl_iso12207_prompts.md
 
 [Step 3: Store results]
 engram compliance create \
@@ -212,17 +212,17 @@ engram ask query "<feature> compliance audit"
 
 | Area | Framework | Location |
 |------|-----------|----------|
-| Security | SOC2 | saas_it/soc2.yaml |
-| Security | ISO 27001 | saas_it/iso27001.yaml |
-| Privacy | GDPR | data_protection/gdpr.yaml |
-| Privacy | CCPA | data_protection/ccpa.yaml |
-| Security | OWASP | software_development/owasp.yaml |
-| Security | NIST CSF | cybersecurity_policies/nist-csf.yaml |
-| EU Regulation | AI Act | eu_regulations/ai_act.yaml |
-| EU Regulation | NIS2 | eu_regulations/nis2.yaml |
-| EU Regulation | DORA | eu_regulations/dora.yaml |
-| Gaming | GLI-19 | igaming/gli-19.yaml |
-| Gaming | MGA | igaming/mga.yaml |
+| Security | SOC2 | saas_it/soc2_iso27001_pci_audit_prompts.md |
+| Security | ISO 27001 | saas_it/soc2_iso27001_pci_audit_prompts.md |
+| Privacy | GDPR | data_protection/gdpr_ccpa_pipeda_audit_prompts.md |
+| Privacy | CCPA | data_protection/gdpr_ccpa_pipeda_audit_prompts.md |
+| Security | OWASP | software_development/owasp_sdl_iso12207_prompts.md |
+| Security | NIST CSF | cybersecurity_policies/nist_csf_risk_management_prompts.md |
+| EU Regulation | AI Act | eu_regulations/dsa_dma_ai_act_data_act_prompts.md |
+| EU Regulation | NIS2 | eu_regulations/nis2_dora_cybersecurity_prompts.md |
+| EU Regulation | DORA | eu_regulations/nis2_dora_cybersecurity_prompts.md |
+| Gaming | GLI-19 | igaming/gli_audit_prompts.md |
+| Gaming | MGA | igaming/mga_ukgc_g4_audit_prompts.md |
 
 See full catalog: `ls ~/code/prompts/compliance_and_certification/prompts/audit_checkpoints/`
 

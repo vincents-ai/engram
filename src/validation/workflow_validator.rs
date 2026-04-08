@@ -591,17 +591,6 @@ struct QualityGateExecutionSummary {
     pub validated_files: Vec<String>,
 }
 
-impl QualityGateExecutionSummary {
-    #[allow(dead_code)]
-    fn new() -> Self {
-        Self {
-            all_passed: true,
-            errors: Vec::new(),
-            validated_files: Vec::new(),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

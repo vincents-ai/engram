@@ -70,10 +70,7 @@ pub struct RuleExecutionResult {
 }
 
 /// Rule execution engine
-pub struct RuleExecutionEngine {
-    #[allow(dead_code)]
-    builtin_functions: HashMap<String, Box<dyn Fn(&[RuleValue]) -> Result<RuleValue, String>>>,
-}
+pub struct RuleExecutionEngine {}
 
 impl Default for RuleExecutionEngine {
     fn default() -> Self {
@@ -83,12 +80,7 @@ impl Default for RuleExecutionEngine {
 
 impl RuleExecutionEngine {
     pub fn new() -> Self {
-        let mut engine = Self {
-            builtin_functions: HashMap::new(),
-        };
-
-        engine.register_builtin_functions();
-        engine
+        Self {}
     }
 
     pub fn execute_rule(
@@ -400,8 +392,6 @@ impl RuleExecutionEngine {
 
         Ok(comparator(left_num, right_num))
     }
-
-    fn register_builtin_functions(&mut self) {}
 }
 
 impl fmt::Display for RuleValue {
@@ -501,12 +491,6 @@ mod tests {
                 "status": "pending"
             }),
         }
-    }
-
-    #[test]
-    fn test_rule_engine_creation() {
-        let engine = RuleExecutionEngine::new();
-        assert!(engine.builtin_functions.is_empty());
     }
 
     #[test]

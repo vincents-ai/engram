@@ -8,27 +8,24 @@ use std::path::Path;
 /// Manager for git pre-commit hooks
 pub struct HookManager {
     git_dir: String,
-    #[allow(dead_code)]
-    config: ValidationConfig,
 }
 
 impl HookManager {
     /// Create a new hook manager
     pub fn new<P: AsRef<Path>>(git_dir: P) -> Result<Self, EngramError> {
         let git_dir = git_dir.as_ref().to_string_lossy().to_string();
-        let config = ValidationConfig::default();
 
-        Ok(Self { git_dir, config })
+        Ok(Self { git_dir })
     }
 
     /// Create a hook manager with custom configuration
     pub fn with_config<P: AsRef<Path>>(
         git_dir: P,
-        config: ValidationConfig,
+        _config: ValidationConfig,
     ) -> Result<Self, EngramError> {
         let git_dir = git_dir.as_ref().to_string_lossy().to_string();
 
-        Ok(Self { git_dir, config })
+        Ok(Self { git_dir })
     }
 
     /// Generate the hook script content

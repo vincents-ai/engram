@@ -5,8 +5,6 @@ use std::time::{Duration, Instant};
 
 pub struct ResourceMonitor {
     agent_usage: HashMap<String, AgentResourceUsage>,
-    #[allow(dead_code)]
-    start_time: Instant,
 }
 
 #[derive(Debug, Clone)]
@@ -38,7 +36,6 @@ impl ResourceMonitor {
     pub fn new() -> Self {
         Self {
             agent_usage: HashMap::new(),
-            start_time: Instant::now(),
         }
     }
 

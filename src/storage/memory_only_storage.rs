@@ -11,8 +11,8 @@ use super::{
     RelationshipStorage, SortOrder, Storage, StorageStats, TraversalAlgorithm,
 };
 use crate::entities::{
-    Entity, EntityRegistry, EntityRelationType, EntityRelationship, GenericEntity,
-    RelationshipDirection, RelationshipFilter,
+    Entity, EntityRelationType, EntityRelationship, GenericEntity, RelationshipDirection,
+    RelationshipFilter,
 };
 use crate::error::EngramError;
 use chrono::{DateTime, Utc};
@@ -23,8 +23,6 @@ use std::sync::{Arc, Mutex};
 /// In-memory storage backend
 pub struct MemoryStorage {
     entities: Arc<Mutex<HashMap<String, MemoryEntity>>>,
-    #[allow(dead_code)]
-    entity_registry: EntityRegistry,
     current_agent: String,
     commits: Vec<GitCommit>,
     relationship_index: Arc<Mutex<RelationshipIndex>>,
@@ -33,23 +31,8 @@ pub struct MemoryStorage {
 impl MemoryStorage {
     /// Create new memory storage instance
     pub fn new(agent: &str) -> Self {
-        let mut registry = EntityRegistry::new();
-        registry.register::<crate::entities::Task>();
-        registry.register::<crate::entities::Context>();
-        registry.register::<crate::entities::Reasoning>();
-        registry.register::<crate::entities::Knowledge>();
-        registry.register::<crate::entities::Session>();
-        registry.register::<crate::entities::Compliance>();
-        registry.register::<crate::entities::Rule>();
-        registry.register::<crate::entities::Standard>();
-        registry.register::<crate::entities::ADR>();
-        registry.register::<crate::entities::Workflow>();
-        registry.register::<crate::entities::Theory>();
-        registry.register::<crate::entities::StateReflection>();
-
         Self {
             entities: Arc::new(Mutex::new(HashMap::new())),
-            entity_registry: registry,
             current_agent: agent.to_string(),
             commits: Vec::new(),
             relationship_index: Arc::new(Mutex::new(RelationshipIndex::new())),
