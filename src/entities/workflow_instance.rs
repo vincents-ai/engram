@@ -98,7 +98,8 @@ impl Entity for WorkflowInstance {
             entity_type: Self::entity_type().to_string(),
             agent: self.context.executing_agent.clone(),
             timestamp: self.updated_at,
-            data: serde_json::to_value(self).unwrap(),
+            data: serde_json::to_value(self)
+                .expect("WorkflowInstance serialization should not fail"),
         }
     }
 

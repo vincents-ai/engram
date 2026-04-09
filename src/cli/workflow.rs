@@ -574,6 +574,7 @@ pub fn add_state<S: Storage>(
             guards: Vec::new(),
             post_functions: Vec::new(),
             prompts: None,
+            commit_policy: None,
         };
 
         let state_id = state.id.clone();
@@ -633,6 +634,7 @@ pub fn add_transition<S: Storage>(
             description,
             conditions: Vec::new(),
             actions: Vec::new(),
+            trigger: None,
         };
 
         let transition_id = transition.id.clone();

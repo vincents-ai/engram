@@ -239,7 +239,7 @@ impl RuleExecutionEngine {
         Ok(action_descriptions)
     }
 
-    fn evaluate_expression(
+    pub fn evaluate_expression(
         &self,
         expression: &str,
         context: &RuleExecutionContext,

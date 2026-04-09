@@ -239,6 +239,7 @@ proptest! {
                 prompts: None,
                 guards: vec![],
                 post_functions: vec![],
+                commit_policy: None,
             }
         }).collect();
 

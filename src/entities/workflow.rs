@@ -39,6 +39,20 @@ pub enum TransitionType {
     Scheduled,
 }
 
+/// Trigger condition that can fire an automatic transition
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum TriggerCondition {
+    /// Fires when all subtasks of the workflow are completed
+    AllTasksDone,
+    /// Fires when a named quality gate passes
+    QualityGatePassed { name: String },
+    /// Fires after a duration (seconds)
+    Timer { duration_secs: u64 },
+    /// Fires when a specific entity type is created
+    EntityCreated { entity_type: String },
+}
+
 /// Workflow entity
 #[derive(Debug, Clone, Serialize, Deserialize, Validate, JsonSchema)]
 pub struct Workflow {
@@ -173,6 +187,14 @@ pub struct WorkflowState {
         default
     )]
     pub post_functions: Vec<StateFunction>,
+
+    /// Commit policy enforced while the workflow is in this state
+    #[serde(
+        rename = "commit_policy",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
+    pub commit_policy: Option<CommitPolicy>,
 }
 
 /// Workflow transition
@@ -209,6 +231,10 @@ pub struct WorkflowTransition {
     /// Actions to execute during transition
     #[serde(rename = "actions", skip_serializing_if = "Vec::is_empty", default)]
     pub actions: Vec<TransitionAction>,
+
+    /// Automatic trigger condition (only meaningful when transition_type is Automatic)
+    #[serde(rename = "trigger", skip_serializing_if = "Option::is_none", default)]
+    pub trigger: Option<TriggerCondition>,
 }
 
 /// State guard condition
@@ -229,6 +255,36 @@ pub struct StateGuard {
     /// Error message if guard fails
     #[serde(rename = "error_message")]
     pub error_message: String,
+}
+
+/// Commit policy enforced when a workflow is in a given state
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, JsonSchema, PartialEq)]
+pub struct CommitPolicy {
+    /// Allowed conventional commit types (e.g. ["feat", "fix"]). Empty = allow all.
+    #[serde(
+        rename = "allowed_commit_types",
+        skip_serializing_if = "Vec::is_empty",
+        default
+    )]
+    pub allowed_commit_types: Vec<String>,
+
+    /// Whether a commit in this state must reference a task ID
+    #[serde(rename = "require_task_reference")]
+    pub require_task_reference: bool,
+
+    /// Optional maximum number of commits allowed while in this state. None = unlimited.
+    #[serde(rename = "max_commits", skip_serializing_if = "Option::is_none")]
+    pub max_commits: Option<u32>,
+}
+
+impl Default for CommitPolicy {
+    fn default() -> Self {
+        Self {
+            allowed_commit_types: Vec::new(),
+            require_task_reference: true,
+            max_commits: None,
+        }
+    }
 }
 
 /// State function (post-function)
@@ -487,7 +543,7 @@ impl Entity for Workflow {
             entity_type: Self::entity_type().to_string(),
             agent: self.agent.clone(),
             timestamp: self.created_at,
-            data: serde_json::to_value(self).unwrap_or_default(),
+            data: serde_json::to_value(self).expect("Workflow serialization should not fail"),
         }
     }
 
@@ -523,6 +579,7 @@ mod tests {
             prompts: None,
             guards: vec![],
             post_functions: vec![],
+            commit_policy: None,
         }
     }
 
@@ -607,6 +664,7 @@ mod tests {
             description: "Submit for review".to_string(),
             conditions: vec![],
             actions: vec![],
+            trigger: None,
         };
 
         workflow.add_transition(transition);

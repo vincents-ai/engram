@@ -3,7 +3,9 @@
 //! Extends the standard commit validator to enforce stage-based policies
 //! and execute quality gates appropriate for the current workflow stage.
 
-use crate::entities::{Entity, EntityRelationType, RelationshipFilter, Task, Workflow};
+use crate::entities::{
+    CommitPolicy, Entity, EntityRelationType, RelationshipFilter, Task, Workflow,
+};
 use crate::error::EngramError;
 use crate::storage::{RelationshipStorage, Storage};
 use crate::validation::{
@@ -255,6 +257,16 @@ impl<S: Storage + RelationshipStorage> WorkflowValidator<S> {
             );
         }
 
+        // Enforce commit policy from the workflow state definition
+        if let Err(commit_policy_error) =
+            self.validate_workflow_state_commit_policy(&task_id, commit_message)
+        {
+            return ValidationResult::failure(
+                vec![commit_policy_error],
+                start_time.elapsed().as_millis() as u64,
+            );
+        }
+
         // Execute quality gates for this stage
         let quality_gate_results = QualityGateExecutionSummary {
             all_passed: true,
@@ -494,6 +506,55 @@ impl<S: Storage + RelationshipStorage> WorkflowValidator<S> {
         None
     }
 
+    /// Resolve the `CommitPolicy` attached to the workflow state that the
+    /// given task's workflow is currently in, and validate the commit message
+    /// against it. Returns `Ok(())` when there is no workflow, no state-level
+    /// commit policy, or the policy passes.
+    fn validate_workflow_state_commit_policy(
+        &self,
+        task_id: &str,
+        commit_message: &str,
+    ) -> Result<(), ValidationError> {
+        let workflow_id = match self.get_task_workflow_id(task_id) {
+            Ok(Some(id)) => id,
+            _ => return Ok(()),
+        };
+
+        let workflow = match self
+            .base_validator
+            .storage()
+            .get(&workflow_id, "workflow")
+        {
+            Ok(Some(entity)) => match Workflow::from_generic(entity) {
+                Ok(wf) => wf,
+                _ => return Ok(()),
+            },
+            _ => return Ok(()),
+        };
+
+        let current_state_id = self.resolve_current_state_id(&workflow);
+        let state = match workflow.states.iter().find(|s| s.id == current_state_id) {
+            Some(s) => s,
+            None => return Ok(()),
+        };
+
+        let policy = match &state.commit_policy {
+            Some(p) => p,
+            None => return Ok(()),
+        };
+
+        validate_commit_against_policy(policy, commit_message)
+    }
+
+    fn resolve_current_state_id(&self, workflow: &Workflow) -> String {
+        if let Some(stage) = workflow.metadata.get("current_stage") {
+            if let Some(s) = stage.as_str() {
+                return s.to_string();
+            }
+        }
+        workflow.initial_state.clone()
+    }
+
     /// Get workflow ID for a task
     fn get_task_workflow_id(&self, task_id: &str) -> Result<Option<String>, EngramError> {
         if let Some(generic_entity) = self.base_validator.storage().get(task_id, "task")? {
@@ -591,6 +652,121 @@ struct QualityGateExecutionSummary {
     pub validated_files: Vec<String>,
 }
 
+/// Validate a commit message against a `CommitPolicy` from a workflow state.
+///
+/// Returns `Ok(())` if the commit complies, or a `ValidationError` describing
+/// the violation.
+pub fn validate_commit_against_policy(
+    policy: &CommitPolicy,
+    commit_message: &str,
+) -> Result<(), ValidationError> {
+    let first_line = commit_message.lines().next().unwrap_or("").trim();
+
+    let commit_type = extract_conventional_commit_type(first_line);
+
+    if !policy.allowed_commit_types.is_empty() {
+        match &commit_type {
+            None => {
+                return Err(ValidationError::new(
+                    ValidationErrorType::PolicyViolation,
+                    format!(
+                        "Commit must use a conventional commit type. Allowed types: [{}]",
+                        policy.allowed_commit_types.join(", ")
+                    ),
+                )
+                .with_suggestion(format!(
+                    "Use one of: {}",
+                    policy
+                        .allowed_commit_types
+                        .iter()
+                        .map(|t| format!("{}:", t))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )));
+            }
+            Some(ct) if !policy.allowed_commit_types.iter().any(|a| a == ct) => {
+                return Err(ValidationError::new(
+                    ValidationErrorType::PolicyViolation,
+                    format!(
+                        "Commit type '{}' is not allowed in this workflow state. Allowed types: [{}]",
+                        ct,
+                        policy.allowed_commit_types.join(", ")
+                    ),
+                )
+                .with_suggestion(format!(
+                    "Use one of: {}",
+                    policy
+                        .allowed_commit_types
+                        .iter()
+                        .map(|t| format!("{}:", t))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )));
+            }
+            _ => {}
+        }
+    }
+
+    if policy.require_task_reference {
+        let has_task_ref = contains_task_reference(commit_message);
+        if !has_task_ref && commit_type.is_some() {
+            return Err(ValidationError::new(
+                ValidationErrorType::NoTaskReference,
+                "This workflow state requires a task reference in the commit message"
+                    .to_string(),
+            )
+            .with_suggestion(
+                "Include a task ID, e.g.: feat: add login [TASK-123]".to_string(),
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+fn extract_conventional_commit_type(first_line: &str) -> Option<String> {
+    let known_types = [
+        "feat", "fix", "docs", "style", "refactor", "test", "chore", "perf", "ci", "build",
+        "revert",
+    ];
+    for t in &known_types {
+        if first_line.starts_with(t) {
+            return Some(t.to_string());
+        }
+    }
+    None
+}
+
+fn contains_task_reference(message: &str) -> bool {
+    let uuid_pattern =
+        regex::Regex::new(r"\[[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\]");
+    let brackets_pattern = regex::Regex::new(r"\[[A-Z]+-\d+\]");
+    let colon_pattern = regex::Regex::new(r"\[task:[a-z0-9-]+\]");
+    let refs_pattern = regex::Regex::new(r"Refs:\s*#\d+");
+
+    if let Ok(re) = uuid_pattern {
+        if re.is_match(message) {
+            return true;
+        }
+    }
+    if let Ok(re) = brackets_pattern {
+        if re.is_match(message) {
+            return true;
+        }
+    }
+    if let Ok(re) = colon_pattern {
+        if re.is_match(message) {
+            return true;
+        }
+    }
+    if let Ok(re) = refs_pattern {
+        if re.is_match(message) {
+            return true;
+        }
+    }
+    false
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -648,6 +824,7 @@ mod tests {
             description: "Start review".to_string(),
             conditions: vec![],
             actions: vec![],
+            trigger: None,
         });
 
         assert!(validator
@@ -661,5 +838,196 @@ mod tests {
         assert!(validator
             .validate_transition("todo", "inprogress", Some(&workflow))
             .is_err());
+    }
+
+    #[test]
+    fn test_commit_policy_allows_any_when_empty() {
+        let policy = CommitPolicy {
+            allowed_commit_types: Vec::new(),
+            require_task_reference: false,
+            max_commits: None,
+        };
+        assert!(validate_commit_against_policy(&policy, "feat: anything goes").is_ok());
+        assert!(validate_commit_against_policy(&policy, "fix: also fine").is_ok());
+    }
+
+    #[test]
+    fn test_commit_policy_rejects_disallowed_type() {
+        let policy = CommitPolicy {
+            allowed_commit_types: vec!["fix".to_string(), "refactor".to_string()],
+            require_task_reference: false,
+            max_commits: None,
+        };
+        let result = validate_commit_against_policy(&policy, "feat: new feature");
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert_eq!(err.error_type, ValidationErrorType::PolicyViolation);
+        assert!(err.message.contains("'feat'"));
+        assert!(err.message.contains("fix"));
+    }
+
+    #[test]
+    fn test_commit_policy_allows_matching_type() {
+        let policy = CommitPolicy {
+            allowed_commit_types: vec!["fix".to_string(), "refactor".to_string()],
+            require_task_reference: false,
+            max_commits: None,
+        };
+        assert!(validate_commit_against_policy(&policy, "fix: bug fix").is_ok());
+        assert!(validate_commit_against_policy(&policy, "refactor: clean up").is_ok());
+    }
+
+    #[test]
+    fn test_commit_policy_rejects_non_conventional_when_types_set() {
+        let policy = CommitPolicy {
+            allowed_commit_types: vec!["feat".to_string()],
+            require_task_reference: false,
+            max_commits: None,
+        };
+        let result = validate_commit_against_policy(&policy, "random message without type");
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().error_type, ValidationErrorType::PolicyViolation);
+    }
+
+    #[test]
+    fn test_commit_policy_requires_task_reference() {
+        let policy = CommitPolicy {
+            allowed_commit_types: vec![],
+            require_task_reference: true,
+            max_commits: None,
+        };
+        let result = validate_commit_against_policy(&policy, "feat: no task ref here");
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().error_type, ValidationErrorType::NoTaskReference);
+    }
+
+    #[test]
+    fn test_commit_policy_task_ref_passes() {
+        let policy = CommitPolicy {
+            allowed_commit_types: vec![],
+            require_task_reference: true,
+            max_commits: None,
+        };
+        assert!(validate_commit_against_policy(
+            &policy,
+            "feat: with task ref [TASK-123]"
+        )
+        .is_ok());
+        assert!(validate_commit_against_policy(
+            &policy,
+            "fix: uuid ref [69190cf0-243a-4979-b4c1-604ba48f72eb]"
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn test_commit_policy_combined_type_and_task_ref() {
+        let policy = CommitPolicy {
+            allowed_commit_types: vec!["fix".to_string()],
+            require_task_reference: true,
+            max_commits: None,
+        };
+        assert!(validate_commit_against_policy(
+            &policy,
+            "fix: correct [TASK-1]"
+        )
+        .is_ok());
+
+        let result = validate_commit_against_policy(
+            &policy,
+            "fix: no task ref but right type",
+        );
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().error_type, ValidationErrorType::NoTaskReference);
+
+        let result2 =
+            validate_commit_against_policy(&policy, "feat: wrong type [TASK-1]");
+        assert!(result2.is_err());
+        assert_eq!(
+            result2.unwrap_err().error_type,
+            ValidationErrorType::PolicyViolation
+        );
+    }
+
+    #[test]
+    fn test_commit_policy_no_task_ref_required() {
+        let policy = CommitPolicy {
+            allowed_commit_types: vec!["chore".to_string()],
+            require_task_reference: false,
+            max_commits: None,
+        };
+        assert!(validate_commit_against_policy(&policy, "chore: cleanup").is_ok());
+    }
+
+    #[test]
+    fn test_extract_conventional_commit_type() {
+        assert_eq!(
+            extract_conventional_commit_type("feat: add feature"),
+            Some("feat".to_string())
+        );
+        assert_eq!(
+            extract_conventional_commit_type("fix(scope): bug"),
+            Some("fix".to_string())
+        );
+        assert_eq!(
+            extract_conventional_commit_type("revert: something"),
+            Some("revert".to_string())
+        );
+        assert_eq!(
+            extract_conventional_commit_type("random message"),
+            None
+        );
+    }
+
+    #[test]
+    fn test_contains_task_reference() {
+        assert!(contains_task_reference("feat: [TASK-123]"));
+        assert!(contains_task_reference(
+            "fix: [69190cf0-243a-4979-b4c1-604ba48f72eb]"
+        ));
+        assert!(contains_task_reference("feat: [task:auth-impl-001]"));
+        assert!(contains_task_reference("feat: stuff\n\nRefs: #456"));
+        assert!(!contains_task_reference("feat: no ref"));
+    }
+
+    #[test]
+    fn test_commit_policy_on_workflow_state() {
+        use crate::entities::workflow::{StateType, WorkflowState};
+
+        let review_policy = CommitPolicy {
+            allowed_commit_types: vec!["fix".to_string(), "refactor".to_string()],
+            require_task_reference: true,
+            max_commits: None,
+        };
+
+        let state_review = WorkflowState {
+            id: "state-review".to_string(),
+            name: "review".to_string(),
+            state_type: StateType::Review,
+            description: "Under review".to_string(),
+            is_final: false,
+            prompts: None,
+            guards: vec![],
+            post_functions: vec![],
+            commit_policy: Some(review_policy.clone()),
+        };
+
+        assert!(validate_commit_against_policy(
+            state_review.commit_policy.as_ref().unwrap(),
+            "fix: addressed review [TASK-42]"
+        )
+        .is_ok());
+
+        assert!(validate_commit_against_policy(
+            state_review.commit_policy.as_ref().unwrap(),
+            "feat: new feature [TASK-42]"
+        )
+        .is_err());
+
+        assert!(validate_commit_against_policy(
+            state_review.commit_policy.as_ref().unwrap(),
+            "fix: no task ref"
+        )
+        .is_err());
     }
 }
