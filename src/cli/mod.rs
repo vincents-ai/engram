@@ -5,6 +5,7 @@
 
 pub mod adr;
 pub mod analytics;
+pub mod health;
 pub mod auto_guide;
 pub mod compliance;
 pub mod context;
@@ -16,7 +17,9 @@ pub mod help;
 pub mod import;
 pub mod info;
 pub mod knowledge;
+pub mod lesson;
 pub mod perkeep;
+pub mod persona;
 pub mod prompts;
 pub mod reasoning;
 pub mod relationship;
@@ -38,6 +41,7 @@ pub mod workflow;
 
 pub use adr::*;
 pub use analytics::*;
+pub use health::HealthCommands;
 pub use compliance::*;
 pub use context::*;
 pub use convert::*;
@@ -47,7 +51,9 @@ pub use help::*;
 pub use import::*;
 pub use info::*;
 pub use knowledge::*;
+pub use lesson::*;
 pub use perkeep::*;
+pub use persona::*;
 pub use prompts::*;
 pub use reasoning::*;
 pub use relationship::*;
@@ -145,6 +151,16 @@ pub enum Commands {
     Knowledge {
         #[command(subcommand)]
         command: KnowledgeCommands,
+    },
+    /// Lessons learned — mistakes, corrections, and prevention rules
+    Lesson {
+        #[command(subcommand)]
+        command: LessonCommands,
+    },
+    /// Expert persona management (SEP/PersonaArchitect)
+    Persona {
+        #[command(subcommand)]
+        command: PersonaCommands,
     },
     /// Coding session tracking
     Session {
@@ -275,6 +291,11 @@ pub enum Commands {
     Analytics {
         #[command(subcommand)]
         command: analytics::AnalyticsCommands,
+    },
+    /// Project health audit: churn, bus factor, bug clusters, velocity, score
+    Health {
+        #[command(subcommand)]
+        command: HealthCommands,
     },
 }
 

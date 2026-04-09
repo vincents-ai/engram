@@ -61,6 +61,14 @@ async fn run() -> Result<(), EngramError> {
             let mut storage = GitRefsStorage::new(".", "default")?;
             handle_knowledge_command(command, &mut storage)?;
         }
+        cli::Commands::Lesson { command } => {
+            let mut storage = GitRefsStorage::new(".", "default")?;
+            handle_lesson_command(command, &mut storage)?;
+        }
+        cli::Commands::Persona { command } => {
+            let mut storage = GitRefsStorage::new(".", "default")?;
+            handle_persona_command(command, &mut storage)?;
+        }
         cli::Commands::Session { command } => {
             let mut storage = GitRefsStorage::new(".", "default")?;
             handle_session_command(command, &mut storage)?;
@@ -188,6 +196,10 @@ async fn run() -> Result<(), EngramError> {
         cli::Commands::Analytics { command } => {
             let mut storage = GitRefsStorage::new(".", "default")?;
             cli::handle_analytics_command(&mut storage, command)?;
+        }
+        cli::Commands::Health { command } => {
+            let mut storage = GitRefsStorage::new(".", "default")?;
+            cli::health::handle_health_command(&mut storage, command)?;
         }
         cli::Commands::Perkeep { command } => {
             use engram::cli::perkeep::{
@@ -558,6 +570,144 @@ fn handle_reasoning_command<S: engram::storage::Storage>(
         }
         cli::ReasoningCommands::Delete { id } => {
             cli::delete_reasoning(storage, &id)?;
+        }
+    }
+    Ok(())
+}
+
+/// Handle lesson commands
+fn handle_lesson_command<S: engram::storage::Storage>(
+    command: engram::cli::LessonCommands,
+    storage: &mut S,
+) -> Result<(), EngramError> {
+    match command {
+        cli::LessonCommands::Create {
+            title,
+            mistake,
+            correction,
+            prevention_rule,
+            domain,
+            category,
+            severity,
+            agent,
+            tags,
+        } => {
+            cli::create_lesson(
+                storage,
+                title,
+                mistake,
+                correction,
+                prevention_rule,
+                domain,
+                category,
+                severity,
+                agent,
+                tags,
+            )?;
+        }
+        cli::LessonCommands::List {
+            agent,
+            category,
+            domain,
+            severity,
+            limit,
+            all,
+            offset,
+        } => {
+            cli::list_lessons(storage, agent, category, domain, severity, limit, all, offset)?;
+        }
+        cli::LessonCommands::Show { id } => {
+            cli::show_lesson(storage, &id)?;
+        }
+        cli::LessonCommands::Update {
+            id,
+            mistake,
+            correction,
+            prevention_rule,
+            add_tag,
+        } => {
+            cli::update_lesson(storage, &id, mistake, correction, prevention_rule, add_tag)?;
+        }
+        cli::LessonCommands::Delete { id } => {
+            cli::delete_lesson(storage, &id)?;
+        }
+    }
+    Ok(())
+}
+
+/// Handle persona commands
+fn handle_persona_command<S: engram::storage::Storage>(
+    command: engram::cli::PersonaCommands,
+    storage: &mut S,
+) -> Result<(), EngramError> {
+    match command {
+        cli::PersonaCommands::Create {
+            slug,
+            title,
+            description,
+            instructions,
+            domain,
+            base_persona,
+            agent,
+            tags,
+            cov_questions,
+            fap_entries,
+            ov_requirements,
+        } => {
+            cli::create_persona(
+                storage,
+                slug,
+                title,
+                description,
+                instructions,
+                domain,
+                base_persona,
+                agent,
+                tags,
+                cov_questions,
+                fap_entries,
+                ov_requirements,
+            )?;
+        }
+        cli::PersonaCommands::List {
+            agent,
+            domain,
+            tag,
+            limit,
+            all,
+            offset,
+        } => {
+            cli::list_personas(storage, agent, domain, tag, limit, all, offset)?;
+        }
+        cli::PersonaCommands::Show { id } => {
+            cli::show_persona(storage, &id)?;
+        }
+        cli::PersonaCommands::Update {
+            id,
+            title,
+            description,
+            instructions,
+            domain,
+            add_tag,
+            add_cov,
+            add_ov,
+            add_fap,
+        } => {
+            cli::update_persona(
+                storage,
+                &id,
+                title,
+                description,
+                instructions,
+                domain,
+                add_tag,
+                add_cov,
+                add_ov,
+                add_fap,
+            )?;
+        }
+        cli::PersonaCommands::Delete { id } => {
+            cli::delete_persona(storage, &id)?;
         }
     }
     Ok(())
