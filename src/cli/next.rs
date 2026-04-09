@@ -165,9 +165,12 @@ pub fn handle_next_command<S: Storage>(
         })
         .and_then(|cfg| cfg.persona)
         .and_then(|persona_name| {
-            let result = crate::personas::find_persona(&persona_name);
+            let result = crate::personas::find_persona(&persona_name, storage);
             if result.is_none() {
-                eprintln!("⚠️  Persona '{}' not found in embedded set", persona_name);
+                eprintln!(
+                    "⚠️  Persona '{}' not found in storage or embedded set",
+                    persona_name
+                );
             }
             result
         })

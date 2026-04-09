@@ -119,3 +119,6 @@ default = ["sandbox", "tui"]
 sandbox = []
 tui = ["crossterm", "ratatui"]
 vector-search = ["rusqlite", "sqlite-vec", "fastembed", "ndarray", "bytemuck"]
+
+[workspace]
+members = ["."]
