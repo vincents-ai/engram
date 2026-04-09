@@ -520,11 +520,7 @@ impl<S: Storage + RelationshipStorage> WorkflowValidator<S> {
             _ => return Ok(()),
         };
 
-        let workflow = match self
-            .base_validator
-            .storage()
-            .get(&workflow_id, "workflow")
-        {
+        let workflow = match self.base_validator.storage().get(&workflow_id, "workflow") {
             Ok(Some(entity)) => match Workflow::from_generic(entity) {
                 Ok(wf) => wf,
                 _ => return Ok(()),
@@ -712,12 +708,9 @@ pub fn validate_commit_against_policy(
         if !has_task_ref && commit_type.is_some() {
             return Err(ValidationError::new(
                 ValidationErrorType::NoTaskReference,
-                "This workflow state requires a task reference in the commit message"
-                    .to_string(),
+                "This workflow state requires a task reference in the commit message".to_string(),
             )
-            .with_suggestion(
-                "Include a task ID, e.g.: feat: add login [TASK-123]".to_string(),
-            ));
+            .with_suggestion("Include a task ID, e.g.: feat: add login [TASK-123]".to_string()));
         }
     }
 
@@ -886,7 +879,10 @@ mod tests {
         };
         let result = validate_commit_against_policy(&policy, "random message without type");
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err().error_type, ValidationErrorType::PolicyViolation);
+        assert_eq!(
+            result.unwrap_err().error_type,
+            ValidationErrorType::PolicyViolation
+        );
     }
 
     #[test]
@@ -898,7 +894,10 @@ mod tests {
         };
         let result = validate_commit_against_policy(&policy, "feat: no task ref here");
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err().error_type, ValidationErrorType::NoTaskReference);
+        assert_eq!(
+            result.unwrap_err().error_type,
+            ValidationErrorType::NoTaskReference
+        );
     }
 
     #[test]
@@ -908,11 +907,7 @@ mod tests {
             require_task_reference: true,
             max_commits: None,
         };
-        assert!(validate_commit_against_policy(
-            &policy,
-            "feat: with task ref [TASK-123]"
-        )
-        .is_ok());
+        assert!(validate_commit_against_policy(&policy, "feat: with task ref [TASK-123]").is_ok());
         assert!(validate_commit_against_policy(
             &policy,
             "fix: uuid ref [69190cf0-243a-4979-b4c1-604ba48f72eb]"
@@ -927,21 +922,16 @@ mod tests {
             require_task_reference: true,
             max_commits: None,
         };
-        assert!(validate_commit_against_policy(
-            &policy,
-            "fix: correct [TASK-1]"
-        )
-        .is_ok());
+        assert!(validate_commit_against_policy(&policy, "fix: correct [TASK-1]").is_ok());
 
-        let result = validate_commit_against_policy(
-            &policy,
-            "fix: no task ref but right type",
-        );
+        let result = validate_commit_against_policy(&policy, "fix: no task ref but right type");
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err().error_type, ValidationErrorType::NoTaskReference);
+        assert_eq!(
+            result.unwrap_err().error_type,
+            ValidationErrorType::NoTaskReference
+        );
 
-        let result2 =
-            validate_commit_against_policy(&policy, "feat: wrong type [TASK-1]");
+        let result2 = validate_commit_against_policy(&policy, "feat: wrong type [TASK-1]");
         assert!(result2.is_err());
         assert_eq!(
             result2.unwrap_err().error_type,
@@ -973,10 +963,7 @@ mod tests {
             extract_conventional_commit_type("revert: something"),
             Some("revert".to_string())
         );
-        assert_eq!(
-            extract_conventional_commit_type("random message"),
-            None
-        );
+        assert_eq!(extract_conventional_commit_type("random message"), None);
     }
 
     #[test]

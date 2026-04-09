@@ -14,7 +14,7 @@ use crate::error::EngramError;
 use crate::storage::Storage;
 use serde::{Deserialize, Serialize};
 
-pub use deep_walk::{ConnectedEntity, DeepWalker, DeepWalkResult};
+pub use deep_walk::{ConnectedEntity, DeepWalkResult, DeepWalker};
 pub use entity_extractor::EntityExtractor;
 pub use intent_classifier::IntentClassifier;
 pub use query_mapper::QueryMapper;
@@ -95,7 +95,8 @@ impl NLQEngine {
         context: Option<String>,
         storage: &dyn Storage,
     ) -> Result<QueryResult, EngramError> {
-        self.process_query_with_deep(query, context, storage, false, None).await
+        self.process_query_with_deep(query, context, storage, false, None)
+            .await
     }
 
     /// Process a natural language query with optional deep relationship walking
@@ -156,13 +157,17 @@ impl NLQEngine {
         storage: &dyn Storage,
         max_depth: Option<usize>,
     ) -> Result<serde_json::Value, EngramError> {
-        if let Some(git_refs_storage) = storage.as_any().downcast_ref::<crate::storage::GitRefsStorage>() {
+        if let Some(git_refs_storage) = storage
+            .as_any()
+            .downcast_ref::<crate::storage::GitRefsStorage>()
+        {
             let entity_ids = DeepWalker::resolve_entity_ids(data);
             if entity_ids.is_empty() {
                 return Ok(data.clone());
             }
 
-            let walk_result = DeepWalker::walk_from_entities(git_refs_storage, &entity_ids, max_depth)?;
+            let walk_result =
+                DeepWalker::walk_from_entities(git_refs_storage, &entity_ids, max_depth)?;
 
             let mut enriched = data.clone();
             let connected_json: Vec<serde_json::Value> = walk_result

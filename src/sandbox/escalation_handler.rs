@@ -1384,7 +1384,12 @@ mod tests {
             let mut h = EscalationHandler::new(s);
             let req = make_req("a", "op", "r");
             let id = h
-                .create_escalation(&req, "b".into(), op_type.clone(), EscalationPriority::Normal)
+                .create_escalation(
+                    &req,
+                    "b".into(),
+                    op_type.clone(),
+                    EscalationPriority::Normal,
+                )
                 .await
                 .unwrap();
             let esc = h.get_escalation(&id).await.unwrap();
@@ -1408,14 +1413,24 @@ mod tests {
             .unwrap();
         let rev = make_reviewer("rv1", "Reviewer One");
         let conditions = vec!["Log all access".into(), "Time-limited".into()];
-        h.approve_escalation(&id, rev.clone(), "Test approve".into(), conditions.clone(), Some(7200), true)
-            .await
-            .unwrap();
+        h.approve_escalation(
+            &id,
+            rev.clone(),
+            "Test approve".into(),
+            conditions.clone(),
+            Some(7200),
+            true,
+        )
+        .await
+        .unwrap();
         let esc = h.get_escalation(&id).await.unwrap();
         assert_eq!(esc.status, EscalationStatus::Approved);
         assert_eq!(esc.reviewer.as_ref().unwrap().reviewer_id, "rv1");
         assert_eq!(esc.reviewer.as_ref().unwrap().reviewer_name, "Reviewer One");
-        assert_eq!(esc.reviewer.as_ref().unwrap().department.as_deref(), Some("Security"));
+        assert_eq!(
+            esc.reviewer.as_ref().unwrap().department.as_deref(),
+            Some("Security")
+        );
         let dec = esc.decision.unwrap();
         assert_eq!(dec.status, EscalationStatus::Approved);
         assert_eq!(dec.reason, "Test approve");
@@ -1701,7 +1716,9 @@ mod tests {
             )
             .await
             .unwrap();
-        h.cancel_escalation(&id3, Some("done".into())).await.unwrap();
+        h.cancel_escalation(&id3, Some("done".into()))
+            .await
+            .unwrap();
 
         let id4 = h
             .create_escalation(
@@ -1750,9 +1767,7 @@ mod tests {
         for i in 0..5 {
             let p = path.clone();
             handles.push(tokio::spawn(async move {
-                let storage = Box::new(
-                    GitRefsStorage::new(&p, &format!("agent-{}", i)).unwrap(),
-                );
+                let storage = Box::new(GitRefsStorage::new(&p, &format!("agent-{}", i)).unwrap());
                 let mut h = EscalationHandler::new(storage);
                 let req = SandboxRequest {
                     agent_id: format!("agent-{}", i),
@@ -1845,11 +1860,7 @@ mod tests {
         let mut esc = h.get_escalation(&id).await.unwrap();
         esc.reviewed_at = Some(Utc::now() - chrono::Duration::seconds(10));
         h.update_escalation(&esc).await.unwrap();
-        assert!(h
-            .has_active_approval("a", "op")
-            .await
-            .unwrap()
-            .is_none());
+        assert!(h.has_active_approval("a", "op").await.unwrap().is_none());
     }
 
     #[tokio::test]
@@ -1876,13 +1887,19 @@ mod tests {
         let esc = h.get_escalation(&id).await.unwrap();
         assert_eq!(esc.session_id.as_deref(), Some("sess-99"));
         assert!(esc.impact_if_denied.is_some());
-        assert!(esc.impact_if_denied.as_ref().unwrap().contains("file_delete"));
-        assert_eq!(
-            esc.operation_context.block_reason,
-            "blocked"
-        );
+        assert!(esc
+            .impact_if_denied
+            .as_ref()
+            .unwrap()
+            .contains("file_delete"));
+        assert_eq!(esc.operation_context.block_reason, "blocked");
         assert!(esc.operation_context.risk_assessment.is_some());
-        assert!(esc.operation_context.risk_assessment.as_ref().unwrap().contains("High risk"));
+        assert!(esc
+            .operation_context
+            .risk_assessment
+            .as_ref()
+            .unwrap()
+            .contains("High risk"));
         assert!(!esc.operation_context.alternatives.is_empty());
     }
 
@@ -1998,9 +2015,7 @@ mod tests {
             .await
             .unwrap();
         let rev2 = make_reviewer("rv2", "R2");
-        let result = h
-            .deny_escalation(&id, rev2, "also no".into(), None)
-            .await;
+        let result = h.deny_escalation(&id, rev2, "also no".into(), None).await;
         assert!(result.is_err());
         assert_eq!(
             h.get_escalation(&id).await.unwrap().status,
@@ -2121,7 +2136,10 @@ mod tests {
             .await
             .unwrap();
         let esc = h.get_escalation(&id).await.unwrap();
-        assert_eq!(esc.operation_context.parameters.get("key1").unwrap(), "val1");
+        assert_eq!(
+            esc.operation_context.parameters.get("key1").unwrap(),
+            "val1"
+        );
         assert_eq!(esc.operation_context.parameters.get("key2").unwrap(), 42);
     }
 
