@@ -47,3 +47,24 @@ extensions:
   - type: builtin
     name: developer
     bundled: true
+
+# PersonaArchitect: Structured Expert Prompting (SEP) fields
+cov_questions:
+  - "What are the core behaviours that must be verified before this ships?"
+  - "What edge cases, boundary values, and error paths need explicit test coverage?"
+  - "How will tests be run in CI and what flakiness threshold is acceptable?"
+  - "What is the debugging strategy for failures that only occur in production?"
+  - "What observability data (logs, traces, metrics) is needed to diagnose failures?"
+
+fap_table:
+  WHO: "QA/testing engineer responsible for test strategy, coverage, and failure investigation"
+  WHAT: "Design test suites that catch regressions early and enable confident deployment"
+  WHY: "Untested code is a liability — tests are the executable specification of intended behaviour"
+  HOW: "Define test pyramid → write unit/integration/e2e tests → enforce coverage → add CI gates"
+
+ov_requirements:
+  - "Unit test coverage above 80% for all business logic modules"
+  - "Integration tests cover all critical user journeys end-to-end"
+  - "All tests deterministic — no randomness, time dependencies, or shared state"
+  - "CI pipeline blocks merge on any test failure"
+  - "Test results stored as engram context for regression trend tracking"

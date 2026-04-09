@@ -215,6 +215,148 @@ impl Entity for BottleneckReport {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::entities::task::{Task, TaskPriority, TaskStatus};
+    use crate::storage::{GitCommit, QueryFilter, QueryResult, Storage, StorageStats};
+    use serde_json::Value;
+    use std::collections::HashMap as StdHashMap;
+
+    struct MockStorage {
+        tasks: Vec<Task>,
+    }
+
+    impl Storage for MockStorage {
+        fn get(
+            &self,
+            _: &str,
+            _: &str,
+        ) -> Result<Option<crate::entities::GenericEntity>, crate::EngramError> {
+            Ok(None)
+        }
+        fn store(&mut self, _: &crate::entities::GenericEntity) -> Result<(), crate::EngramError> {
+            Ok(())
+        }
+        fn delete(&mut self, _: &str, _: &str) -> Result<(), crate::EngramError> {
+            Ok(())
+        }
+        fn query(&self, _: &QueryFilter) -> Result<QueryResult, crate::EngramError> {
+            Ok(QueryResult {
+                entities: vec![],
+                total_count: 0,
+                has_more: false,
+            })
+        }
+        fn query_by_agent(
+            &self,
+            _: &str,
+            _: Option<&str>,
+        ) -> Result<Vec<crate::entities::GenericEntity>, crate::EngramError> {
+            Ok(vec![])
+        }
+        fn query_by_time_range(
+            &self,
+            _: chrono::DateTime<chrono::Utc>,
+            _: chrono::DateTime<chrono::Utc>,
+        ) -> Result<Vec<crate::entities::GenericEntity>, crate::EngramError> {
+            Ok(vec![])
+        }
+        fn query_by_type(
+            &self,
+            _: &str,
+            _: Option<&StdHashMap<String, Value>>,
+            _: Option<usize>,
+            _: Option<usize>,
+        ) -> Result<QueryResult, crate::EngramError> {
+            Ok(QueryResult {
+                entities: vec![],
+                total_count: 0,
+                has_more: false,
+            })
+        }
+        fn text_search(
+            &self,
+            _: &str,
+            _: Option<&[String]>,
+            _: Option<usize>,
+        ) -> Result<Vec<crate::entities::GenericEntity>, crate::EngramError> {
+            Ok(vec![])
+        }
+        fn count(&self, _: &QueryFilter) -> Result<usize, crate::EngramError> {
+            Ok(0)
+        }
+        fn list_ids(&self, _: &str) -> Result<Vec<String>, crate::EngramError> {
+            Ok(vec![])
+        }
+        fn get_all(
+            &self,
+            _: &str,
+        ) -> Result<Vec<crate::entities::GenericEntity>, crate::EngramError> {
+            Ok(self.tasks.iter().map(|t| t.to_generic()).collect())
+        }
+        fn sync(&mut self) -> Result<(), crate::EngramError> {
+            Ok(())
+        }
+        fn current_branch(&self) -> Result<String, crate::EngramError> {
+            Ok("main".to_string())
+        }
+        fn create_branch(&mut self, _: &str) -> Result<(), crate::EngramError> {
+            Ok(())
+        }
+        fn switch_branch(&mut self, _: &str) -> Result<(), crate::EngramError> {
+            Ok(())
+        }
+        fn merge_branches(&mut self, _: &str, _: &str) -> Result<(), crate::EngramError> {
+            Ok(())
+        }
+        fn history(&self, _: Option<usize>) -> Result<Vec<GitCommit>, crate::EngramError> {
+            Ok(vec![])
+        }
+        fn bulk_store(
+            &mut self,
+            _: &[crate::entities::GenericEntity],
+        ) -> Result<(), crate::EngramError> {
+            Ok(())
+        }
+        fn get_stats(&self) -> Result<StorageStats, crate::EngramError> {
+            Ok(StorageStats::default())
+        }
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+    }
+
+    fn make_task(
+        id: &str,
+        status: TaskStatus,
+        start: DateTime<Utc>,
+        end: Option<DateTime<Utc>>,
+    ) -> Task {
+        let block_reason = if status == TaskStatus::Blocked {
+            Some("waiting".to_string())
+        } else {
+            None
+        };
+        Task {
+            id: id.to_string(),
+            title: format!("Task {}", id),
+            description: "desc".to_string(),
+            status,
+            priority: TaskPriority::Medium,
+            agent: "test-agent".to_string(),
+            start_time: start,
+            end_time: end,
+            parent: None,
+            children: vec![],
+            context_ids: vec![],
+            knowledge: vec![],
+            files: vec![],
+            outcome: None,
+            workflow_id: None,
+            workflow_state: None,
+            block_reason,
+            tags: vec![],
+            metadata: HashMap::new(),
+        }
+    }
 
     #[test]
     fn test_bottleneck_report_new() {
@@ -253,5 +395,196 @@ mod tests {
         let restored: BottleneckEntry = serde_json::from_str(&json).unwrap();
         assert_eq!(restored.block_reason, Some("waiting".to_string()));
         assert!((restored.duration_hours - 48.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_compute_no_tasks() {
+        let storage = MockStorage { tasks: vec![] };
+        let report =
+            BottleneckReport::compute(&storage, std::path::Path::new("/repo"), "agent", 5).unwrap();
+        assert_eq!(report.total_analyzed, 0);
+        assert!(report.slowest_tasks.is_empty());
+        assert!(report.blocked_tasks.is_empty());
+        assert_eq!(report.blocked_count, 0);
+    }
+
+    #[test]
+    fn test_compute_single_task() {
+        let start = Utc::now() - chrono::Duration::hours(2);
+        let end = Some(Utc::now());
+        let storage = MockStorage {
+            tasks: vec![make_task("t1", TaskStatus::Done, start, end)],
+        };
+        let report =
+            BottleneckReport::compute(&storage, std::path::Path::new("/repo"), "agent", 5).unwrap();
+        assert_eq!(report.total_analyzed, 1);
+        assert_eq!(report.slowest_tasks.len(), 1);
+        assert_eq!(report.slowest_tasks[0].task_id, "t1");
+        assert!((report.slowest_tasks[0].duration_hours - 2.0).abs() < 0.01);
+        assert_eq!(report.blocked_count, 0);
+    }
+
+    #[test]
+    fn test_compute_multiple_tasks_ordering() {
+        let base = Utc::now();
+        let t1 = make_task(
+            "fast",
+            TaskStatus::Done,
+            base - chrono::Duration::hours(1),
+            Some(base),
+        );
+        let t2 = make_task(
+            "medium",
+            TaskStatus::Done,
+            base - chrono::Duration::hours(5),
+            Some(base),
+        );
+        let t3 = make_task(
+            "slow",
+            TaskStatus::Done,
+            base - chrono::Duration::hours(10),
+            Some(base),
+        );
+        let storage = MockStorage {
+            tasks: vec![t1, t2, t3],
+        };
+        let report =
+            BottleneckReport::compute(&storage, std::path::Path::new("/repo"), "agent", 5).unwrap();
+        assert_eq!(report.slowest_tasks.len(), 3);
+        assert_eq!(report.slowest_tasks[0].task_id, "slow");
+        assert_eq!(report.slowest_tasks[1].task_id, "medium");
+        assert_eq!(report.slowest_tasks[2].task_id, "fast");
+    }
+
+    #[test]
+    fn test_compute_top_n_limit() {
+        let base = Utc::now();
+        let tasks: Vec<Task> = (0..5)
+            .map(|i| {
+                make_task(
+                    &format!("t{}", i),
+                    TaskStatus::Done,
+                    base - chrono::Duration::hours(i as i64 + 1),
+                    Some(base),
+                )
+            })
+            .collect();
+        let storage = MockStorage { tasks };
+        let report =
+            BottleneckReport::compute(&storage, std::path::Path::new("/repo"), "agent", 2).unwrap();
+        assert_eq!(report.total_analyzed, 5);
+        assert_eq!(report.slowest_tasks.len(), 2);
+        assert_eq!(report.slowest_tasks[0].task_id, "t4");
+        assert_eq!(report.slowest_tasks[1].task_id, "t3");
+    }
+
+    #[test]
+    fn test_compute_blocked_tasks_identification() {
+        let base = Utc::now();
+        let blocked = make_task(
+            "b1",
+            TaskStatus::Blocked,
+            base - chrono::Duration::hours(3),
+            None,
+        );
+        let done = make_task(
+            "d1",
+            TaskStatus::Done,
+            base - chrono::Duration::hours(1),
+            Some(base),
+        );
+        let storage = MockStorage {
+            tasks: vec![blocked, done],
+        };
+        let report =
+            BottleneckReport::compute(&storage, std::path::Path::new("/repo"), "agent", 5).unwrap();
+        assert_eq!(report.blocked_count, 1);
+        assert_eq!(report.blocked_tasks.len(), 1);
+        assert_eq!(report.blocked_tasks[0].task_id, "b1");
+        assert_eq!(
+            report.blocked_tasks[0].block_reason,
+            Some("waiting".to_string())
+        );
+    }
+
+    #[test]
+    fn test_compute_incomplete_task_uses_now() {
+        let start = Utc::now() - chrono::Duration::hours(4);
+        let storage = MockStorage {
+            tasks: vec![make_task("t1", TaskStatus::InProgress, start, None)],
+        };
+        let report =
+            BottleneckReport::compute(&storage, std::path::Path::new("/repo"), "agent", 5).unwrap();
+        assert_eq!(report.total_analyzed, 1);
+        assert!((report.slowest_tasks[0].duration_hours - 4.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_compute_all_same_duration() {
+        let base = Utc::now();
+        let t1 = make_task(
+            "a",
+            TaskStatus::Done,
+            base - chrono::Duration::hours(3),
+            Some(base),
+        );
+        let t2 = make_task(
+            "b",
+            TaskStatus::Done,
+            base - chrono::Duration::hours(3),
+            Some(base),
+        );
+        let t3 = make_task(
+            "c",
+            TaskStatus::Done,
+            base - chrono::Duration::hours(3),
+            Some(base),
+        );
+        let storage = MockStorage {
+            tasks: vec![t1, t2, t3],
+        };
+        let report =
+            BottleneckReport::compute(&storage, std::path::Path::new("/repo"), "agent", 5).unwrap();
+        assert_eq!(report.slowest_tasks.len(), 3);
+        for entry in &report.slowest_tasks {
+            assert!((entry.duration_hours - 3.0).abs() < 0.01);
+        }
+    }
+
+    #[test]
+    fn test_compute_zero_duration_task() {
+        let now = Utc::now();
+        let storage = MockStorage {
+            tasks: vec![make_task("t1", TaskStatus::Done, now, Some(now))],
+        };
+        let report =
+            BottleneckReport::compute(&storage, std::path::Path::new("/repo"), "agent", 5).unwrap();
+        assert_eq!(report.slowest_tasks.len(), 1);
+        assert!((report.slowest_tasks[0].duration_hours).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_compute_blocked_tasks_sorted_longest_first() {
+        let base = Utc::now();
+        let b1 = make_task(
+            "b1",
+            TaskStatus::Blocked,
+            base - chrono::Duration::hours(1),
+            None,
+        );
+        let b2 = make_task(
+            "b2",
+            TaskStatus::Blocked,
+            base - chrono::Duration::hours(8),
+            None,
+        );
+        let storage = MockStorage {
+            tasks: vec![b1, b2],
+        };
+        let report =
+            BottleneckReport::compute(&storage, std::path::Path::new("/repo"), "agent", 5).unwrap();
+        assert_eq!(report.blocked_tasks.len(), 2);
+        assert_eq!(report.blocked_tasks[0].task_id, "b2");
+        assert_eq!(report.blocked_tasks[1].task_id, "b1");
     }
 }

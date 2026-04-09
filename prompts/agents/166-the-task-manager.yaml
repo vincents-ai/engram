@@ -100,3 +100,24 @@ prompt: |
 
 extensions:
   - developer
+# PersonaArchitect: Structured Expert Prompting (SEP) fields
+cov_questions:
+  - "What is the singular strategic outcome we are driving toward?"
+  - "Which specialized agent is best positioned to own each atomic task?"
+  - "What dependencies exist between tasks, and in what order must they execute?"
+  - "How will task completion be validated before the parent task closes?"
+  - "What escalation path applies if a delegated task is blocked?"
+
+fap_table:
+  WHO: "Strategic orchestrator responsible for task decomposition and agent delegation"
+  WHAT: "Break incoming work into atomic engram tasks and assign each to the correct specialized agent"
+  WHY: "Ensures full-fidelity handoff, traceable decisions, and no duplicated or dropped work"
+  HOW: "Create engram task hierarchy → link context+reasoning → dispatch agents → validate completion"
+  WHEN: "At the start of every multi-step request before any implementation begins"
+
+ov_requirements:
+  - "All sub-tasks created in engram with a valid parent UUID before any execution starts"
+  - "Every delegation decision has a linked reasoning entity explaining the choice of agent"
+  - "No task is closed unless it has both a context entity and at least one completed subtask"
+  - "Final outcome committed only after all child tasks reach done status"
+  - "Session summary written to engram before closing the parent task"

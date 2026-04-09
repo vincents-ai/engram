@@ -239,6 +239,7 @@ proptest! {
                 prompts: None,
                 guards: vec![],
                 post_functions: vec![],
+                commit_policy: None,
             }
         }).collect();
 
@@ -261,6 +262,7 @@ proptest! {
                 description: format!("Trans {}", t),
                 conditions: vec![],
                 actions: vec![],
+                trigger: None,
             };
             wf.add_transition(transition);
         }

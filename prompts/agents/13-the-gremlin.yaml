@@ -39,3 +39,24 @@ extensions:
   - type: builtin
     name: developer
     bundled: true
+
+# PersonaArchitect: Structured Expert Prompting (SEP) fields
+cov_questions:
+  - "What is the target task and metric that defines model success?"
+  - "What data distribution does the model need to generalise over?"
+  - "What latency and resource constraints apply at inference time?"
+  - "How will the model be monitored for drift in production?"
+  - "What are the ethical and bias considerations for this model's outputs?"
+
+fap_table:
+  WHO: "ML engineer responsible for model training pipelines, evaluation, and production deployment"
+  WHAT: "Train, evaluate, and deploy ML models that meet accuracy and latency targets"
+  WHY: "Production ML requires rigorous evaluation and monitoring to prevent silent failures"
+  HOW: "Curate dataset → define metrics → train → evaluate on holdout → optimise for inference → monitor"
+
+ov_requirements:
+  - "Model evaluation includes both held-out test set and representative production examples"
+  - "Inference latency benchmarked on target hardware before deployment"
+  - "Bias and fairness analysis completed for any model affecting user decisions"
+  - "Model card stored as engram context with training data, metrics, and known limitations"
+  - "Monitoring plan defined with drift detection and retraining triggers"

@@ -298,11 +298,11 @@ impl ResponseFormatter {
         }
 
         let empty_vec = vec![];
-        let mut response = format!("Found {} result(s) for '{}':\n", total, query);
+        let mut response = format!("Found {} result(s) for '{}':", total, query);
 
         let tasks = data["tasks"].as_array().unwrap_or(&empty_vec);
         if !tasks.is_empty() {
-            response.push_str("\nTasks:\n");
+            response.push_str("\n\nTasks:\n");
             for (i, task) in tasks.iter().enumerate() {
                 let title = task["title"].as_str().unwrap_or("Untitled");
                 let id = task["id"].as_str().unwrap_or("");
@@ -319,7 +319,7 @@ impl ResponseFormatter {
 
         let contexts = data["contexts"].as_array().unwrap_or(&empty_vec);
         if !contexts.is_empty() {
-            response.push_str("\nContext:\n");
+            response.push_str("\n\nContext:\n");
             for (i, ctx) in contexts.iter().enumerate() {
                 let title = ctx["title"].as_str().unwrap_or("Untitled");
                 let id = ctx["id"].as_str().unwrap_or("");
@@ -334,7 +334,7 @@ impl ResponseFormatter {
 
         let reasoning = data["reasoning"].as_array().unwrap_or(&empty_vec);
         if !reasoning.is_empty() {
-            response.push_str("\nReasoning:\n");
+            response.push_str("\n\nReasoning:\n");
             for (i, rsn) in reasoning.iter().enumerate() {
                 let title = rsn["title"].as_str().unwrap_or("Untitled");
                 let id = rsn["id"].as_str().unwrap_or("");
@@ -349,7 +349,7 @@ impl ResponseFormatter {
 
         let knowledge = data["knowledge"].as_array().unwrap_or(&empty_vec);
         if !knowledge.is_empty() {
-            response.push_str("\nKnowledge:\n");
+            response.push_str("\n\nKnowledge:\n");
             for (i, k) in knowledge.iter().enumerate() {
                 let title = k["title"].as_str().unwrap_or("Untitled");
                 let id = k["id"].as_str().unwrap_or("");
@@ -364,7 +364,7 @@ impl ResponseFormatter {
 
         let rules = data["rules"].as_array().unwrap_or(&empty_vec);
         if !rules.is_empty() {
-            response.push_str("\nRules:\n");
+            response.push_str("\n\nRules:\n");
             for (i, r) in rules.iter().enumerate() {
                 let title = r["title"].as_str().unwrap_or("Untitled");
                 let id = r["id"].as_str().unwrap_or("");
@@ -379,7 +379,7 @@ impl ResponseFormatter {
 
         let standards = data["standards"].as_array().unwrap_or(&empty_vec);
         if !standards.is_empty() {
-            response.push_str("\nStandards:\n");
+            response.push_str("\n\nStandards:\n");
             for (i, s) in standards.iter().enumerate() {
                 let title = s["title"].as_str().unwrap_or("Untitled");
                 let id = s["id"].as_str().unwrap_or("");
@@ -394,7 +394,7 @@ impl ResponseFormatter {
 
         let adrs = data["adrs"].as_array().unwrap_or(&empty_vec);
         if !adrs.is_empty() {
-            response.push_str("\nADRs:\n");
+            response.push_str("\n\nADRs:\n");
             for (i, adr) in adrs.iter().enumerate() {
                 let title = adr["title"].as_str().unwrap_or("Untitled");
                 let id = adr["id"].as_str().unwrap_or("");
@@ -411,7 +411,7 @@ impl ResponseFormatter {
 
         let theories = data["theories"].as_array().unwrap_or(&empty_vec);
         if !theories.is_empty() {
-            response.push_str("\nTheories:\n");
+            response.push_str("\n\nTheories:\n");
             for (i, t) in theories.iter().enumerate() {
                 let title = t["title"].as_str().unwrap_or("Untitled");
                 let id = t["id"].as_str().unwrap_or("");
@@ -426,7 +426,7 @@ impl ResponseFormatter {
 
         let compliance = data["compliance"].as_array().unwrap_or(&empty_vec);
         if !compliance.is_empty() {
-            response.push_str("\nCompliance:\n");
+            response.push_str("\n\nCompliance:\n");
             for (i, c) in compliance.iter().enumerate() {
                 let title = c["title"].as_str().unwrap_or("Untitled");
                 let id = c["id"].as_str().unwrap_or("");
@@ -441,7 +441,7 @@ impl ResponseFormatter {
 
         let sessions = data["sessions"].as_array().unwrap_or(&empty_vec);
         if !sessions.is_empty() {
-            response.push_str("\nSessions:\n");
+            response.push_str("\n\nSessions:\n");
             for (i, s) in sessions.iter().enumerate() {
                 let title = s["title"].as_str().unwrap_or("Untitled");
                 let id = s["id"].as_str().unwrap_or("");
@@ -456,7 +456,7 @@ impl ResponseFormatter {
 
         let reflections = data["state_reflections"].as_array().unwrap_or(&empty_vec);
         if !reflections.is_empty() {
-            response.push_str("\nState Reflections:\n");
+            response.push_str("\n\nState Reflections:\n");
             for (i, r) in reflections.iter().enumerate() {
                 let title = r["title"].as_str().unwrap_or("Untitled");
                 let id = r["id"].as_str().unwrap_or("");
@@ -471,7 +471,7 @@ impl ResponseFormatter {
 
         let workflows = data["workflows"].as_array().unwrap_or(&empty_vec);
         if !workflows.is_empty() {
-            response.push_str("\nWorkflows:\n");
+            response.push_str("\n\nWorkflows:\n");
             for (i, w) in workflows.iter().enumerate() {
                 let title = w["title"].as_str().unwrap_or("Untitled");
                 let id = w["id"].as_str().unwrap_or("");
@@ -486,7 +486,7 @@ impl ResponseFormatter {
 
         let instances = data["workflow_instances"].as_array().unwrap_or(&empty_vec);
         if !instances.is_empty() {
-            response.push_str("\nWorkflow Instances:\n");
+            response.push_str("\n\nWorkflow Instances:\n");
             for (i, wi) in instances.iter().enumerate() {
                 let title = wi["title"].as_str().unwrap_or("Untitled");
                 let id = wi["id"].as_str().unwrap_or("");
@@ -501,7 +501,7 @@ impl ResponseFormatter {
 
         let sandboxes = data["agent_sandboxes"].as_array().unwrap_or(&empty_vec);
         if !sandboxes.is_empty() {
-            response.push_str("\nAgent Sandboxes:\n");
+            response.push_str("\n\nAgent Sandboxes:\n");
             for (i, sb) in sandboxes.iter().enumerate() {
                 let title = sb["title"].as_str().unwrap_or("Untitled");
                 let id = sb["id"].as_str().unwrap_or("");
@@ -516,7 +516,7 @@ impl ResponseFormatter {
 
         let escalations = data["escalation_requests"].as_array().unwrap_or(&empty_vec);
         if !escalations.is_empty() {
-            response.push_str("\nEscalation Requests:\n");
+            response.push_str("\n\nEscalation Requests:\n");
             for (i, er) in escalations.iter().enumerate() {
                 let title = er["title"].as_str().unwrap_or("Untitled");
                 let id = er["id"].as_str().unwrap_or("");
@@ -531,7 +531,7 @@ impl ResponseFormatter {
 
         let exec_results = data["execution_results"].as_array().unwrap_or(&empty_vec);
         if !exec_results.is_empty() {
-            response.push_str("\nExecution Results:\n");
+            response.push_str("\n\nExecution Results:\n");
             for (i, er) in exec_results.iter().enumerate() {
                 let title = er["title"].as_str().unwrap_or("Untitled");
                 let id = er["id"].as_str().unwrap_or("");
@@ -548,7 +548,7 @@ impl ResponseFormatter {
             .as_array()
             .unwrap_or(&empty_vec);
         if !gate_configs.is_empty() {
-            response.push_str("\nProgressive Gate Configs:\n");
+            response.push_str("\n\nProgressive Gate Configs:\n");
             for (i, pgc) in gate_configs.iter().enumerate() {
                 let title = pgc["title"].as_str().unwrap_or("Untitled");
                 let id = pgc["id"].as_str().unwrap_or("");
@@ -563,7 +563,7 @@ impl ResponseFormatter {
 
         let doc_fragments = data["doc_fragments"].as_array().unwrap_or(&empty_vec);
         if !doc_fragments.is_empty() {
-            response.push_str("\nDoc Fragments:\n");
+            response.push_str("\n\nDoc Fragments:\n");
             for (i, df) in doc_fragments.iter().enumerate() {
                 let title = df["title"].as_str().unwrap_or("Untitled");
                 let id = df["id"].as_str().unwrap_or("");
@@ -581,7 +581,51 @@ impl ResponseFormatter {
             }
         }
 
+        if let Some(deep_walk) = data.get("deep_walk") {
+            response.push_str(&self.format_deep_walk_section(deep_walk)?);
+        }
+
         Ok(response)
+    }
+
+    fn format_deep_walk_section(&self, deep_walk: &Value) -> Result<String, EngramError> {
+        let total = deep_walk["total_connected"].as_u64().unwrap_or(0);
+        if total == 0 {
+            return Ok(String::new());
+        }
+
+        let max_depth = deep_walk["max_depth"].as_u64().unwrap_or(2);
+        let seed_count = deep_walk["seed_count"].as_u64().unwrap_or(0);
+        let empty_vec = vec![];
+        let connected = deep_walk["connected_entities"]
+            .as_array()
+            .unwrap_or(&empty_vec);
+
+        let mut section = format!(
+            "\n\nConnected Entities (depth {} from {} seeds):\n",
+            max_depth, seed_count
+        );
+
+        for (i, entity) in connected.iter().enumerate() {
+            let eid = entity["entity_id"].as_str().unwrap_or("");
+            let etype = entity["entity_type"].as_str().unwrap_or("unknown");
+            let depth = entity["depth"].as_u64().unwrap_or(0);
+            let rel_type = entity["relationship_type"].as_str().unwrap_or("Unknown");
+            let direction = entity["direction"].as_str().unwrap_or("unknown");
+            let arrow = if direction == "outbound" { "->" } else { "<-" };
+
+            section.push_str(&format!(
+                "  {}. [{}] {} {} {} ({})\n",
+                i + 1,
+                &eid[..8.min(eid.len())],
+                arrow,
+                etype,
+                rel_type,
+                depth
+            ));
+        }
+
+        Ok(section)
     }
 
     fn format_unknown(&self, data: &Value) -> Result<String, EngramError> {
@@ -655,5 +699,76 @@ mod tests {
 
         let result = formatter.format_task_details(&data).unwrap();
         assert!(result.contains("Error: Task not found"));
+    }
+
+    #[test]
+    fn test_format_deep_walk_section() {
+        let formatter = ResponseFormatter::new();
+        let data = json!({
+            "query": "test query",
+            "total_matches": 1,
+            "tasks": [{"id": "task-1", "title": "Test"}],
+            "deep_walk": {
+                "enabled": true,
+                "seed_count": 1,
+                "max_depth": 2,
+                "total_connected": 2,
+                "connected_entities": [
+                    {
+                        "entity_id": "ctx-abc",
+                        "entity_type": "context",
+                        "depth": 1,
+                        "relationship_type": "Explains",
+                        "direction": "outbound"
+                    },
+                    {
+                        "entity_id": "rsn-def",
+                        "entity_type": "reasoning",
+                        "depth": 2,
+                        "relationship_type": "DependsOn",
+                        "direction": "inbound"
+                    }
+                ]
+            }
+        });
+
+        let result = formatter.format_full_text_search(&data).unwrap();
+        assert!(result.contains("Connected Entities"));
+        assert!(result.contains("depth 2 from 1 seeds"));
+        assert!(result.contains("-> context Explains (1)"));
+        assert!(result.contains("<- reasoning DependsOn (2)"));
+    }
+
+    #[test]
+    fn test_format_deep_walk_empty() {
+        let formatter = ResponseFormatter::new();
+        let data = json!({
+            "query": "test query",
+            "total_matches": 1,
+            "tasks": [{"id": "task-1", "title": "Test"}],
+            "deep_walk": {
+                "enabled": true,
+                "seed_count": 1,
+                "max_depth": 2,
+                "total_connected": 0,
+                "connected_entities": []
+            }
+        });
+
+        let result = formatter.format_full_text_search(&data).unwrap();
+        assert!(!result.contains("Connected Entities"));
+    }
+
+    #[test]
+    fn test_format_no_deep_walk() {
+        let formatter = ResponseFormatter::new();
+        let data = json!({
+            "query": "test query",
+            "total_matches": 1,
+            "tasks": [{"id": "task-1", "title": "Test"}]
+        });
+
+        let result = formatter.format_full_text_search(&data).unwrap();
+        assert!(!result.contains("Connected Entities"));
     }
 }

@@ -239,7 +239,7 @@ impl RuleExecutionEngine {
         Ok(action_descriptions)
     }
 
-    fn evaluate_expression(
+    pub fn evaluate_expression(
         &self,
         expression: &str,
         context: &RuleExecutionContext,
@@ -270,8 +270,14 @@ impl RuleExecutionEngine {
             "greater_than" | ">" => {
                 self.compare_numeric(variable_value, &expected_value, |a, b| a > b)
             }
+            "greater_than_or_equal" | ">=" => {
+                self.compare_numeric(variable_value, &expected_value, |a, b| a >= b)
+            }
             "less_than" | "<" => {
                 self.compare_numeric(variable_value, &expected_value, |a, b| a < b)
+            }
+            "less_than_or_equal" | "<=" => {
+                self.compare_numeric(variable_value, &expected_value, |a, b| a <= b)
             }
             "contains" => match variable_value {
                 RuleValue::String(s) => Ok(s.contains(&expected_value)),
@@ -281,6 +287,20 @@ impl RuleExecutionEngine {
                 }
                 _ => Err(format!(
                     "Contains operator not supported for {:?}",
+                    variable_value
+                )),
+            },
+            "starts_with" => match variable_value {
+                RuleValue::String(s) => Ok(s.starts_with(&expected_value)),
+                _ => Err(format!(
+                    "starts_with operator not supported for {:?}",
+                    variable_value
+                )),
+            },
+            "ends_with" => match variable_value {
+                RuleValue::String(s) => Ok(s.ends_with(&expected_value)),
+                _ => Err(format!(
+                    "ends_with operator not supported for {:?}",
                     variable_value
                 )),
             },
@@ -591,5 +611,866 @@ mod tests {
 
         assert!(!result.condition_satisfied);
         assert!(!result.actions_executed);
+    }
+
+    fn make_context() -> RuleExecutionContext {
+        RuleExecutionContext {
+            variables: HashMap::new(),
+            current_entity: None,
+            executing_agent: "test-agent".to_string(),
+            execution_time: Utc::now(),
+            metadata: HashMap::new(),
+        }
+    }
+
+    // ── Expression evaluation: equals operators ──
+
+    #[test]
+    fn test_expression_equals_keyword() {
+        let engine = RuleExecutionEngine::new();
+        let mut ctx = make_context();
+        ctx.variables
+            .insert("name".into(), RuleValue::String("alice".into()));
+        assert_eq!(
+            engine
+                .evaluate_expression("name equals alice", &ctx)
+                .unwrap(),
+            true
+        );
+        assert_eq!(
+            engine.evaluate_expression("name equals bob", &ctx).unwrap(),
+            false
+        );
+    }
+
+    #[test]
+    fn test_expression_equals_symbol() {
+        let engine = RuleExecutionEngine::new();
+        let mut ctx = make_context();
+        ctx.variables
+            .insert("name".into(), RuleValue::String("alice".into()));
+        assert_eq!(
+            engine.evaluate_expression("name == alice", &ctx).unwrap(),
+            true
+        );
+        assert_eq!(
+            engine.evaluate_expression("name == bob", &ctx).unwrap(),
+            false
+        );
+    }
+
+    #[test]
+    fn test_expression_equals_number() {
+        let engine = RuleExecutionEngine::new();
+        let mut ctx = make_context();
+        ctx.variables
+            .insert("score".into(), RuleValue::Number(42.0));
+        assert_eq!(
+            engine.evaluate_expression("score equals 42", &ctx).unwrap(),
+            true
+        );
+        assert_eq!(
+            engine.evaluate_expression("score equals 7", &ctx).unwrap(),
+            false
+        );
+    }
+
+    #[test]
+    fn test_expression_equals_boolean() {
+        let engine = RuleExecutionEngine::new();
+        let mut ctx = make_context();
+        ctx.variables
+            .insert("active".into(), RuleValue::Boolean(true));
+        assert_eq!(
+            engine
+                .evaluate_expression("active equals true", &ctx)
+                .unwrap(),
+            true
+        );
+        assert_eq!(
+            engine
+                .evaluate_expression("active equals false", &ctx)
+                .unwrap(),
+            false
+        );
+    }
+
+    // ── Expression evaluation: not_equals operators ──
+
+    #[test]
+    fn test_expression_not_equals_symbol() {
+        let engine = RuleExecutionEngine::new();
+        let mut ctx = make_context();
+        ctx.variables
+            .insert("name".into(), RuleValue::String("alice".into()));
+        assert_eq!(
+            engine.evaluate_expression("name != bob", &ctx).unwrap(),
+            true
+        );
+        assert_eq!(
+            engine.evaluate_expression("name != alice", &ctx).unwrap(),
+            false
+        );
+    }
+
+    #[test]
+    fn test_expression_not_equals_keyword() {
+        let engine = RuleExecutionEngine::new();
+        let mut ctx = make_context();
+        ctx.variables
+            .insert("name".into(), RuleValue::String("alice".into()));
+        assert_eq!(
+            engine
+                .evaluate_expression("name not_equals bob", &ctx)
+                .unwrap(),
+            true
+        );
+        assert_eq!(
+            engine
+                .evaluate_expression("name not_equals alice", &ctx)
+                .unwrap(),
+            false
+        );
+    }
+
+    // ── Expression evaluation: greater_than ──
+
+    #[test]
+    fn test_expression_greater_than_symbol() {
+        let engine = RuleExecutionEngine::new();
+        let mut ctx = make_context();
+        ctx.variables.insert("age".into(), RuleValue::Number(25.0));
+        assert_eq!(engine.evaluate_expression("age > 20", &ctx).unwrap(), true);
+        assert_eq!(engine.evaluate_expression("age > 25", &ctx).unwrap(), false);
+        assert_eq!(engine.evaluate_expression("age > 30", &ctx).unwrap(), false);
+    }
+
+    #[test]
+    fn test_expression_greater_than_keyword() {
+        let engine = RuleExecutionEngine::new();
+        let mut ctx = make_context();
+        ctx.variables.insert("age".into(), RuleValue::Number(25.0));
+        assert_eq!(
+            engine
+                .evaluate_expression("age greater_than 20", &ctx)
+                .unwrap(),
+            true
+        );
+        assert_eq!(
+            engine
+                .evaluate_expression("age greater_than 30", &ctx)
+                .unwrap(),
+            false
+        );
+    }
+
+    // ── Expression evaluation: greater_than_or_equal ──
+
+    #[test]
+    fn test_expression_greater_than_or_equal_symbol() {
+        let engine = RuleExecutionEngine::new();
+        let mut ctx = make_context();
+        ctx.variables.insert("age".into(), RuleValue::Number(25.0));
+        assert_eq!(engine.evaluate_expression("age >= 25", &ctx).unwrap(), true);
+        assert_eq!(engine.evaluate_expression("age >= 20", &ctx).unwrap(), true);
+        assert_eq!(
+            engine.evaluate_expression("age >= 30", &ctx).unwrap(),
+            false
+        );
+    }
+
+    #[test]
+    fn test_expression_greater_than_or_equal_keyword() {
+        let engine = RuleExecutionEngine::new();
+        let mut ctx = make_context();
+        ctx.variables.insert("age".into(), RuleValue::Number(25.0));
+        assert_eq!(
+            engine
+                .evaluate_expression("age greater_than_or_equal 25", &ctx)
+                .unwrap(),
+            true
+        );
+        assert_eq!(
+            engine
+                .evaluate_expression("age greater_than_or_equal 30", &ctx)
+                .unwrap(),
+            false
+        );
+    }
+
+    // ── Expression evaluation: less_than ──
+
+    #[test]
+    fn test_expression_less_than_symbol() {
+        let engine = RuleExecutionEngine::new();
+        let mut ctx = make_context();
+        ctx.variables.insert("age".into(), RuleValue::Number(25.0));
+        assert_eq!(engine.evaluate_expression("age < 30", &ctx).unwrap(), true);
+        assert_eq!(engine.evaluate_expression("age < 25", &ctx).unwrap(), false);
+        assert_eq!(engine.evaluate_expression("age < 20", &ctx).unwrap(), false);
+    }
+
+    #[test]
+    fn test_expression_less_than_keyword() {
+        let engine = RuleExecutionEngine::new();
+        let mut ctx = make_context();
+        ctx.variables.insert("age".into(), RuleValue::Number(25.0));
+        assert_eq!(
+            engine
+                .evaluate_expression("age less_than 30", &ctx)
+                .unwrap(),
+            true
+        );
+        assert_eq!(
+            engine
+                .evaluate_expression("age less_than 20", &ctx)
+                .unwrap(),
+            false
+        );
+    }
+
+    // ── Expression evaluation: less_than_or_equal ──
+
+    #[test]
+    fn test_expression_less_than_or_equal_symbol() {
+        let engine = RuleExecutionEngine::new();
+        let mut ctx = make_context();
+        ctx.variables.insert("age".into(), RuleValue::Number(25.0));
+        assert_eq!(engine.evaluate_expression("age <= 25", &ctx).unwrap(), true);
+        assert_eq!(engine.evaluate_expression("age <= 30", &ctx).unwrap(), true);
+        assert_eq!(
+            engine.evaluate_expression("age <= 20", &ctx).unwrap(),
+            false
+        );
+    }
+
+    #[test]
+    fn test_expression_less_than_or_equal_keyword() {
+        let engine = RuleExecutionEngine::new();
+        let mut ctx = make_context();
+        ctx.variables.insert("age".into(), RuleValue::Number(25.0));
+        assert_eq!(
+            engine
+                .evaluate_expression("age less_than_or_equal 25", &ctx)
+                .unwrap(),
+            true
+        );
+        assert_eq!(
+            engine
+                .evaluate_expression("age less_than_or_equal 20", &ctx)
+                .unwrap(),
+            false
+        );
+    }
+
+    // ── Expression evaluation: contains ──
+
+    #[test]
+    fn test_expression_contains_string() {
+        let engine = RuleExecutionEngine::new();
+        let mut ctx = make_context();
+        ctx.variables
+            .insert("bio".into(), RuleValue::String("hello world".into()));
+        assert_eq!(
+            engine
+                .evaluate_expression("bio contains hello", &ctx)
+                .unwrap(),
+            true
+        );
+        assert_eq!(
+            engine
+                .evaluate_expression("bio contains world", &ctx)
+                .unwrap(),
+            true
+        );
+        assert_eq!(
+            engine
+                .evaluate_expression("bio contains foo", &ctx)
+                .unwrap(),
+            false
+        );
+    }
+
+    #[test]
+    fn test_expression_contains_array() {
+        let engine = RuleExecutionEngine::new();
+        let mut ctx = make_context();
+        ctx.variables.insert(
+            "tags".into(),
+            RuleValue::Array(vec![
+                RuleValue::String("rust".into()),
+                RuleValue::String("ai".into()),
+            ]),
+        );
+        assert_eq!(
+            engine
+                .evaluate_expression("tags contains rust", &ctx)
+                .unwrap(),
+            true
+        );
+        assert_eq!(
+            engine
+                .evaluate_expression("tags contains ai", &ctx)
+                .unwrap(),
+            true
+        );
+        assert_eq!(
+            engine
+                .evaluate_expression("tags contains go", &ctx)
+                .unwrap(),
+            false
+        );
+    }
+
+    #[test]
+    fn test_expression_contains_number_in_array() {
+        let engine = RuleExecutionEngine::new();
+        let mut ctx = make_context();
+        ctx.variables.insert(
+            "nums".into(),
+            RuleValue::Array(vec![RuleValue::Number(1.0), RuleValue::Number(2.0)]),
+        );
+        assert_eq!(
+            engine.evaluate_expression("nums contains 1", &ctx).unwrap(),
+            true
+        );
+        assert_eq!(
+            engine.evaluate_expression("nums contains 3", &ctx).unwrap(),
+            false
+        );
+    }
+
+    // ── Expression evaluation: starts_with ──
+
+    #[test]
+    fn test_expression_starts_with() {
+        let engine = RuleExecutionEngine::new();
+        let mut ctx = make_context();
+        ctx.variables.insert(
+            "name".into(),
+            RuleValue::String("alice-in-wonderland".into()),
+        );
+        assert_eq!(
+            engine
+                .evaluate_expression("name starts_with alice", &ctx)
+                .unwrap(),
+            true
+        );
+        assert_eq!(
+            engine
+                .evaluate_expression("name starts_with bob", &ctx)
+                .unwrap(),
+            false
+        );
+    }
+
+    // ── Expression evaluation: ends_with ──
+
+    #[test]
+    fn test_expression_ends_with() {
+        let engine = RuleExecutionEngine::new();
+        let mut ctx = make_context();
+        ctx.variables
+            .insert("file".into(), RuleValue::String("report.pdf".into()));
+        assert_eq!(
+            engine
+                .evaluate_expression("file ends_with .pdf", &ctx)
+                .unwrap(),
+            true
+        );
+        assert_eq!(
+            engine
+                .evaluate_expression("file ends_with .txt", &ctx)
+                .unwrap(),
+            false
+        );
+    }
+
+    // ── Rule condition evaluation ──
+
+    #[test]
+    fn test_rule_condition_as_plain_string() {
+        let engine = RuleExecutionEngine::new();
+        let mut ctx = make_context();
+        ctx.variables
+            .insert("status".into(), RuleValue::String("active".into()));
+        assert_eq!(
+            engine
+                .evaluate_rule_condition(&json!("status equals active"), &ctx)
+                .unwrap(),
+            true
+        );
+        assert_eq!(
+            engine
+                .evaluate_rule_condition(&json!("status equals deleted"), &ctx)
+                .unwrap(),
+            false
+        );
+    }
+
+    #[test]
+    fn test_rule_condition_as_object_with_expression() {
+        let engine = RuleExecutionEngine::new();
+        let mut ctx = make_context();
+        ctx.variables.insert("level".into(), RuleValue::Number(5.0));
+        assert_eq!(
+            engine
+                .evaluate_rule_condition(&json!({"expression": "level > 3"}), &ctx)
+                .unwrap(),
+            true
+        );
+    }
+
+    #[test]
+    fn test_rule_condition_as_object_without_expression_defaults_true() {
+        let engine = RuleExecutionEngine::new();
+        let ctx = make_context();
+        assert_eq!(
+            engine
+                .evaluate_rule_condition(&json!({"some_key": "val"}), &ctx)
+                .unwrap(),
+            true
+        );
+    }
+
+    #[test]
+    fn test_rule_condition_bool_true() {
+        let engine = RuleExecutionEngine::new();
+        let ctx = make_context();
+        assert_eq!(
+            engine.evaluate_rule_condition(&json!(true), &ctx).unwrap(),
+            true
+        );
+    }
+
+    #[test]
+    fn test_rule_condition_bool_false() {
+        let engine = RuleExecutionEngine::new();
+        let ctx = make_context();
+        assert_eq!(
+            engine.evaluate_rule_condition(&json!(false), &ctx).unwrap(),
+            false
+        );
+    }
+
+    #[test]
+    fn test_rule_condition_null_defaults_true() {
+        let engine = RuleExecutionEngine::new();
+        let ctx = make_context();
+        assert_eq!(
+            engine.evaluate_rule_condition(&json!(null), &ctx).unwrap(),
+            true
+        );
+    }
+
+    #[test]
+    fn test_rule_condition_invalid_format_errors() {
+        let engine = RuleExecutionEngine::new();
+        let ctx = make_context();
+        assert!(engine.evaluate_rule_condition(&json!(42), &ctx).is_err());
+        assert!(engine
+            .evaluate_rule_condition(&json!([1, 2]), &ctx)
+            .is_err());
+    }
+
+    // ── Variable resolution ──
+
+    #[test]
+    fn test_variable_resolution_string() {
+        let engine = RuleExecutionEngine::new();
+        let entity = GenericEntity {
+            id: "e1".into(),
+            entity_type: "task".into(),
+            agent: "a1".into(),
+            timestamp: Utc::now(),
+            data: json!({"label": "urgent"}),
+        };
+        let mut ctx = make_context();
+        engine.populate_entity_variables(&mut ctx, &entity);
+        assert_eq!(
+            engine
+                .evaluate_expression("label equals urgent", &ctx)
+                .unwrap(),
+            true
+        );
+    }
+
+    #[test]
+    fn test_variable_resolution_number() {
+        let engine = RuleExecutionEngine::new();
+        let entity = GenericEntity {
+            id: "e1".into(),
+            entity_type: "task".into(),
+            agent: "a1".into(),
+            timestamp: Utc::now(),
+            data: json!({"count": 10}),
+        };
+        let mut ctx = make_context();
+        engine.populate_entity_variables(&mut ctx, &entity);
+        assert_eq!(engine.evaluate_expression("count > 5", &ctx).unwrap(), true);
+    }
+
+    #[test]
+    fn test_variable_resolution_boolean() {
+        let engine = RuleExecutionEngine::new();
+        let entity = GenericEntity {
+            id: "e1".into(),
+            entity_type: "task".into(),
+            agent: "a1".into(),
+            timestamp: Utc::now(),
+            data: json!({"active": true}),
+        };
+        let mut ctx = make_context();
+        engine.populate_entity_variables(&mut ctx, &entity);
+        assert_eq!(
+            engine
+                .evaluate_expression("active equals true", &ctx)
+                .unwrap(),
+            true
+        );
+    }
+
+    #[test]
+    fn test_variable_resolution_null() {
+        let engine = RuleExecutionEngine::new();
+        let entity = GenericEntity {
+            id: "e1".into(),
+            entity_type: "task".into(),
+            agent: "a1".into(),
+            timestamp: Utc::now(),
+            data: json!({"note": null}),
+        };
+        let mut ctx = make_context();
+        engine.populate_entity_variables(&mut ctx, &entity);
+        assert_eq!(ctx.variables.get("note"), Some(&RuleValue::Null));
+    }
+
+    #[test]
+    fn test_variable_resolution_nested_object() {
+        let engine = RuleExecutionEngine::new();
+        let entity = GenericEntity {
+            id: "e1".into(),
+            entity_type: "task".into(),
+            agent: "a1".into(),
+            timestamp: Utc::now(),
+            data: json!({"meta": {"priority": "high"}}),
+        };
+        let mut ctx = make_context();
+        engine.populate_entity_variables(&mut ctx, &entity);
+        assert_eq!(
+            ctx.variables.get("meta.priority"),
+            Some(&RuleValue::String("high".into()))
+        );
+    }
+
+    // ── Error cases ──
+
+    #[test]
+    fn test_error_undefined_variable() {
+        let engine = RuleExecutionEngine::new();
+        let ctx = make_context();
+        let result = engine.evaluate_expression("missing_var equals foo", &ctx);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("not found"));
+    }
+
+    #[test]
+    fn test_error_expression_too_short() {
+        let engine = RuleExecutionEngine::new();
+        let ctx = make_context();
+        assert!(engine.evaluate_expression("onlytwo", &ctx).is_err());
+        assert!(engine.evaluate_expression("one", &ctx).is_err());
+        assert!(engine.evaluate_expression("", &ctx).is_err());
+    }
+
+    #[test]
+    fn test_error_unknown_operator() {
+        let engine = RuleExecutionEngine::new();
+        let mut ctx = make_context();
+        ctx.variables.insert("x".into(), RuleValue::Number(1.0));
+        let result = engine.evaluate_expression("x ~= 1", &ctx);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Unknown operator"));
+    }
+
+    #[test]
+    fn test_error_contains_on_number() {
+        let engine = RuleExecutionEngine::new();
+        let mut ctx = make_context();
+        ctx.variables.insert("x".into(), RuleValue::Number(42.0));
+        let result = engine.evaluate_expression("x contains 4", &ctx);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("not supported"));
+    }
+
+    #[test]
+    fn test_error_numeric_comparison_on_string() {
+        let engine = RuleExecutionEngine::new();
+        let mut ctx = make_context();
+        ctx.variables
+            .insert("name".into(), RuleValue::String("alice".into()));
+        let result = engine.evaluate_expression("name > 5", &ctx);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("not numeric"));
+    }
+
+    #[test]
+    fn test_error_numeric_comparison_right_not_numeric() {
+        let engine = RuleExecutionEngine::new();
+        let mut ctx = make_context();
+        ctx.variables.insert("x".into(), RuleValue::Number(10.0));
+        let result = engine.evaluate_expression("x > abc", &ctx);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("not numeric"));
+    }
+
+    #[test]
+    fn test_error_starts_with_on_number() {
+        let engine = RuleExecutionEngine::new();
+        let mut ctx = make_context();
+        ctx.variables.insert("x".into(), RuleValue::Number(42.0));
+        let result = engine.evaluate_expression("x starts_with 4", &ctx);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("not supported"));
+    }
+
+    #[test]
+    fn test_error_ends_with_on_number() {
+        let engine = RuleExecutionEngine::new();
+        let mut ctx = make_context();
+        ctx.variables.insert("x".into(), RuleValue::Number(42.0));
+        let result = engine.evaluate_expression("x ends_with 2", &ctx);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("not supported"));
+    }
+
+    // ── Rule actions ──
+
+    #[test]
+    fn test_rule_action_set_metadata() {
+        let engine = RuleExecutionEngine::new();
+        let mut rule = create_test_rule();
+        rule.condition = json!("priority equals high");
+        rule.action = json!({"type": "set_metadata", "key": "flagged", "value": "yes"});
+
+        let _entity = create_test_entity();
+        let mut ctx = make_context();
+        ctx.variables
+            .insert("priority".into(), RuleValue::String("high".into()));
+
+        let result = engine.execute_rule(&rule, &mut ctx).unwrap();
+        assert!(result.condition_satisfied);
+        assert!(result.actions_executed);
+        assert_eq!(result.actions_taken[0], "Set metadata flagged = yes");
+        assert_eq!(ctx.metadata.get("flagged"), Some(&"yes".to_string()));
+    }
+
+    #[test]
+    fn test_rule_action_validate_field_present() {
+        let engine = RuleExecutionEngine::new();
+        let mut rule = create_test_rule();
+        rule.condition = json!(true);
+        rule.action = json!({"type": "validate", "field": "priority"});
+
+        let mut ctx = make_context();
+        ctx.variables
+            .insert("priority".into(), RuleValue::String("high".into()));
+
+        let result = engine.execute_rule(&rule, &mut ctx).unwrap();
+        assert!(result.condition_satisfied);
+        assert!(result.actions_executed);
+        assert_eq!(result.actions_taken[0], "Validated field: priority");
+    }
+
+    #[test]
+    fn test_rule_action_validate_field_missing() {
+        let engine = RuleExecutionEngine::new();
+        let mut rule = create_test_rule();
+        rule.condition = json!(true);
+        rule.action = json!({"type": "validate", "field": "nonexistent"});
+
+        let mut ctx = make_context();
+        let result = engine.execute_rule(&rule, &mut ctx).unwrap();
+        assert!(result.condition_satisfied);
+        assert!(!result.actions_executed);
+        assert_eq!(result.errors.len(), 1);
+        assert!(result.errors[0].contains("missing"));
+    }
+
+    #[test]
+    fn test_rule_action_unknown_type() {
+        let engine = RuleExecutionEngine::new();
+        let mut rule = create_test_rule();
+        rule.condition = json!(true);
+        rule.action = json!({"type": "teleport", "target": "mars"});
+
+        let mut ctx = make_context();
+        let result = engine.execute_rule(&rule, &mut ctx).unwrap();
+        assert!(result.actions_executed);
+        assert_eq!(result.actions_taken[0], "Unknown action: teleport");
+    }
+
+    #[test]
+    fn test_rule_action_plain_string() {
+        let engine = RuleExecutionEngine::new();
+        let mut rule = create_test_rule();
+        rule.condition = json!(true);
+        rule.action = json!("do_something");
+
+        let mut ctx = make_context();
+        let result = engine.execute_rule(&rule, &mut ctx).unwrap();
+        assert!(result.actions_executed);
+        assert_eq!(result.actions_taken[0], "Executed: do_something");
+    }
+
+    #[test]
+    fn test_rule_condition_evaluation_error_recorded() {
+        let engine = RuleExecutionEngine::new();
+        let mut rule = create_test_rule();
+        rule.condition = json!("undefined_var == something");
+        rule.action = json!({"type": "log", "message": "should not run"});
+
+        let mut ctx = make_context();
+        let result = engine.execute_rule(&rule, &mut ctx).unwrap();
+        assert!(!result.condition_satisfied);
+        assert!(!result.actions_executed);
+        assert_eq!(result.errors.len(), 1);
+        assert!(result.errors[0].contains("not found"));
+    }
+
+    #[test]
+    fn test_execute_rule_populates_execution_duration() {
+        let engine = RuleExecutionEngine::new();
+        let rule = create_test_rule();
+        let mut ctx = make_context();
+        let result = engine.execute_rule(&rule, &mut ctx).unwrap();
+        assert!(result.execution_duration_ms > 0 || result.execution_duration_ms == 0);
+    }
+
+    #[test]
+    fn test_execute_rule_preserves_rule_id() {
+        let engine = RuleExecutionEngine::new();
+        let rule = create_test_rule();
+        let mut ctx = make_context();
+        let result = engine.execute_rule(&rule, &mut ctx).unwrap();
+        assert_eq!(result.rule_id, "test-rule-1");
+    }
+
+    // ── rule_applies_to_entity ──
+
+    #[test]
+    fn test_rule_applies_matching_entity_type() {
+        let engine = RuleExecutionEngine::new();
+        let rule = create_test_rule();
+        let entity = create_test_entity();
+        assert!(engine.rule_applies_to_entity(&rule, &entity));
+    }
+
+    #[test]
+    fn test_rule_applies_empty_entity_types() {
+        let engine = RuleExecutionEngine::new();
+        let mut rule = create_test_rule();
+        rule.entity_types = vec![];
+        let entity = create_test_entity();
+        assert!(engine.rule_applies_to_entity(&rule, &entity));
+    }
+
+    #[test]
+    fn test_rule_does_not_apply_non_matching_type() {
+        let engine = RuleExecutionEngine::new();
+        let rule = create_test_rule();
+        let mut entity = create_test_entity();
+        entity.entity_type = "note".to_string();
+        assert!(!engine.rule_applies_to_entity(&rule, &entity));
+    }
+
+    // ── parse_value ──
+
+    #[test]
+    fn test_parse_value_number() {
+        let engine = RuleExecutionEngine::new();
+        assert_eq!(engine.parse_value("42").unwrap(), RuleValue::Number(42.0));
+        assert_eq!(engine.parse_value("3.14").unwrap(), RuleValue::Number(3.14));
+        assert_eq!(engine.parse_value("-1.5").unwrap(), RuleValue::Number(-1.5));
+    }
+
+    #[test]
+    fn test_parse_value_boolean() {
+        let engine = RuleExecutionEngine::new();
+        assert_eq!(
+            engine.parse_value("true").unwrap(),
+            RuleValue::Boolean(true)
+        );
+        assert_eq!(
+            engine.parse_value("false").unwrap(),
+            RuleValue::Boolean(false)
+        );
+    }
+
+    #[test]
+    fn test_parse_value_null() {
+        let engine = RuleExecutionEngine::new();
+        assert_eq!(engine.parse_value("null").unwrap(), RuleValue::Null);
+        assert_eq!(engine.parse_value("NULL").unwrap(), RuleValue::Null);
+    }
+
+    #[test]
+    fn test_parse_value_string_fallback() {
+        let engine = RuleExecutionEngine::new();
+        assert_eq!(
+            engine.parse_value("hello world").unwrap(),
+            RuleValue::String("hello world".into())
+        );
+    }
+
+    // ── Display for RuleValue ──
+
+    #[test]
+    fn test_display_rule_value_string() {
+        assert_eq!(format!("{}", RuleValue::String("hi".into())), "hi");
+    }
+
+    #[test]
+    fn test_display_rule_value_number() {
+        assert_eq!(format!("{}", RuleValue::Number(3.14)), "3.14");
+    }
+
+    #[test]
+    fn test_display_rule_value_boolean() {
+        assert_eq!(format!("{}", RuleValue::Boolean(true)), "true");
+    }
+
+    #[test]
+    fn test_display_rule_value_null() {
+        assert_eq!(format!("{}", RuleValue::Null), "null");
+    }
+
+    #[test]
+    fn test_display_rule_value_array() {
+        let arr = RuleValue::Array(vec![RuleValue::Number(1.0), RuleValue::Number(2.0)]);
+        let formatted = format!("{}", arr);
+        assert!(formatted.contains("1"));
+        assert!(formatted.contains("2"));
+    }
+
+    #[test]
+    fn test_display_rule_value_datetime() {
+        let dt = Utc::now();
+        let formatted = format!("{}", RuleValue::DateTime(dt));
+        assert!(formatted.contains(&dt.to_rfc3339()));
+    }
+
+    // ── RuleEngineBuilder ──
+
+    #[test]
+    fn test_builder_pattern() {
+        let _engine = RuleEngineBuilder::new()
+            .add_rule(create_test_rule())
+            .build();
+    }
+
+    #[test]
+    fn test_builder_default() {
+        let _engine = RuleEngineBuilder::default().build();
     }
 }

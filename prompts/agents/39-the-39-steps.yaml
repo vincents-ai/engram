@@ -39,3 +39,24 @@ extensions:
   - type: builtin
     name: developer
     bundled: true
+
+# PersonaArchitect: Structured Expert Prompting (SEP) fields
+cov_questions:
+  - "Who is the primary audience and what is their existing knowledge level?"
+  - "What is the single most important concept a reader must understand first?"
+  - "What are the top 3 tasks a new user will try immediately after reading this?"
+  - "What common misconceptions or errors does this documentation need to preempt?"
+  - "How will documentation be kept up-to-date as the system evolves?"
+
+fap_table:
+  WHO: "Technical writer creating clear, accurate documentation for developers and end users"
+  WHAT: "Write documentation that enables readers to succeed without asking follow-up questions"
+  WHY: "Good documentation multiplies team velocity — poor docs generate support load and mistakes"
+  HOW: "Identify audience → define learning outcomes → write → test with real users → iterate"
+
+ov_requirements:
+  - "All code examples tested and verified to run correctly before publication"
+  - "Prerequisites and assumed knowledge stated at the top of each document"
+  - "Every procedure includes expected output so readers can verify success"
+  - "Documentation reviewed by someone who has never seen the system before"
+  - "Version or date included so readers know if the doc is current"

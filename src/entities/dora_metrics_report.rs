@@ -522,4 +522,502 @@ mod tests {
             }
         }
     }
+
+    struct MockStorage {
+        entities: HashMap<String, Vec<GenericEntity>>,
+    }
+
+    impl MockStorage {
+        fn new() -> Self {
+            Self {
+                entities: HashMap::new(),
+            }
+        }
+
+        fn with_entities(entity_type: &str, entities: Vec<GenericEntity>) -> Self {
+            let mut map = HashMap::new();
+            map.insert(entity_type.to_string(), entities);
+            Self { entities: map }
+        }
+    }
+
+    use crate::storage::{GitCommit, QueryFilter, QueryResult, Storage, StorageStats};
+    use std::collections::HashMap as StdHashMap;
+
+    impl Storage for MockStorage {
+        fn store(&mut self, _entity: &GenericEntity) -> Result<(), crate::EngramError> {
+            Ok(())
+        }
+        fn get(
+            &self,
+            _id: &str,
+            _entity_type: &str,
+        ) -> Result<Option<GenericEntity>, crate::EngramError> {
+            Ok(None)
+        }
+        fn query(&self, _filter: &QueryFilter) -> Result<QueryResult, crate::EngramError> {
+            Ok(QueryResult {
+                entities: vec![],
+                total_count: 0,
+                has_more: false,
+            })
+        }
+        fn query_by_agent(
+            &self,
+            _agent: &str,
+            _entity_type: Option<&str>,
+        ) -> Result<Vec<GenericEntity>, crate::EngramError> {
+            Ok(vec![])
+        }
+        fn query_by_time_range(
+            &self,
+            _start: chrono::DateTime<Utc>,
+            _end: chrono::DateTime<Utc>,
+        ) -> Result<Vec<GenericEntity>, crate::EngramError> {
+            Ok(vec![])
+        }
+        fn query_by_type(
+            &self,
+            _entity_type: &str,
+            _filters: Option<&StdHashMap<String, serde_json::Value>>,
+            _limit: Option<usize>,
+            _offset: Option<usize>,
+        ) -> Result<QueryResult, crate::EngramError> {
+            Ok(QueryResult {
+                entities: vec![],
+                total_count: 0,
+                has_more: false,
+            })
+        }
+        fn text_search(
+            &self,
+            _query: &str,
+            _entity_types: Option<&[String]>,
+            _limit: Option<usize>,
+        ) -> Result<Vec<GenericEntity>, crate::EngramError> {
+            Ok(vec![])
+        }
+        fn count(&self, _filter: &QueryFilter) -> Result<usize, crate::EngramError> {
+            Ok(0)
+        }
+        fn delete(&mut self, _id: &str, _entity_type: &str) -> Result<(), crate::EngramError> {
+            Ok(())
+        }
+        fn list_ids(&self, _entity_type: &str) -> Result<Vec<String>, crate::EngramError> {
+            Ok(vec![])
+        }
+        fn get_all(&self, entity_type: &str) -> Result<Vec<GenericEntity>, crate::EngramError> {
+            Ok(self.entities.get(entity_type).cloned().unwrap_or_default())
+        }
+        fn sync(&mut self) -> Result<(), crate::EngramError> {
+            Ok(())
+        }
+        fn current_branch(&self) -> Result<String, crate::EngramError> {
+            Ok("main".to_string())
+        }
+        fn create_branch(&mut self, _name: &str) -> Result<(), crate::EngramError> {
+            Ok(())
+        }
+        fn switch_branch(&mut self, _name: &str) -> Result<(), crate::EngramError> {
+            Ok(())
+        }
+        fn merge_branches(&mut self, _src: &str, _tgt: &str) -> Result<(), crate::EngramError> {
+            Ok(())
+        }
+        fn history(&self, _limit: Option<usize>) -> Result<Vec<GitCommit>, crate::EngramError> {
+            Ok(vec![])
+        }
+        fn bulk_store(&mut self, _entities: &[GenericEntity]) -> Result<(), crate::EngramError> {
+            Ok(())
+        }
+        fn get_stats(&self) -> Result<StorageStats, crate::EngramError> {
+            Ok(StorageStats::default())
+        }
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+    }
+
+    fn make_execution_result(id: &str, status: &str) -> GenericEntity {
+        GenericEntity {
+            id: id.to_string(),
+            entity_type: "execution_result".to_string(),
+            agent: "test-agent".to_string(),
+            timestamp: Utc::now(),
+            data: serde_json::json!({ "validation_status": status }),
+        }
+    }
+
+    fn make_escalation(
+        id: &str,
+        created_at: &str,
+        reviewed_at: &str,
+        status: &str,
+    ) -> GenericEntity {
+        GenericEntity {
+            id: id.to_string(),
+            entity_type: "escalation_request".to_string(),
+            agent: "test-agent".to_string(),
+            timestamp: Utc::now(),
+            data: serde_json::json!({
+                "created_at": created_at,
+                "reviewed_at": reviewed_at,
+                "status": status,
+            }),
+        }
+    }
+
+    #[test]
+    fn test_deployment_frequency_zero_commits() {
+        let repo_path = std::env::var("CARGO_MANIFEST_DIR")
+            .map(|p| std::path::PathBuf::from(p))
+            .unwrap_or_else(|_| std::path::PathBuf::from("."));
+
+        let far_future = Utc::now() + chrono::Duration::days(365);
+        let result = DoraMetricsCalculator::compute_from_git(
+            &repo_path,
+            far_future,
+            far_future + chrono::Duration::days(1),
+        );
+
+        let (dep_freq, lead_time, commits) = result.unwrap();
+        assert_eq!(dep_freq, 0.0);
+        assert_eq!(lead_time, 0.0);
+        assert_eq!(commits, 0);
+    }
+
+    #[test]
+    fn test_deployment_frequency_burst_pattern() {
+        let day = 86400i64;
+        let timestamps: Vec<i64> = (0..20).map(|i| day * 10 + i * 60).collect();
+        let freq = DoraMetricsCalculator::median_commit_span_days(&timestamps);
+        let expected = (19 * 60) as f64 / 86400.0;
+        assert!((freq - expected).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_deployment_frequency_steady_pattern() {
+        let day = 86400i64;
+        let timestamps: Vec<i64> = (0..7)
+            .flat_map(|d| {
+                let base = day * (10 + d);
+                vec![base, base + 3600]
+            })
+            .collect();
+        let mut spans: Vec<f64> = Vec::new();
+        for _d in 0..7 {
+            spans.push(3600.0 / 86400.0);
+        }
+        spans.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        let expected: f64 = spans[3];
+        let result = DoraMetricsCalculator::median_commit_span_days(&timestamps);
+        assert!((result - expected).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_lead_time_single_commit_per_day() {
+        let day = 86400i64;
+        let timestamps: Vec<i64> = (0..5).map(|d| day * (20 + d) + 43200).collect();
+        let result = DoraMetricsCalculator::median_commit_span_days(&timestamps);
+        assert_eq!(result, 0.0);
+    }
+
+    #[test]
+    fn test_lead_time_wide_spread() {
+        let day = 86400i64;
+        let timestamps = vec![day * 10, day * 10 + 10 * 3600, day * 11, day * 11 + 60];
+        let result = DoraMetricsCalculator::median_commit_span_days(&timestamps);
+        let expected: f64 = ((10.0 * 3600.0 / 86400.0) + (60.0 / 86400.0)) / 2.0;
+        assert!((result - expected).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_lead_time_odd_number_of_days() {
+        let day = 86400i64;
+        let timestamps = vec![
+            day * 10,
+            day * 10 + 1800,
+            day * 11,
+            day * 11 + 3600,
+            day * 12,
+            day * 12 + 7200,
+        ];
+        let result = DoraMetricsCalculator::median_commit_span_days(&timestamps);
+        let expected = 3600.0 / 86400.0;
+        assert!((result - expected).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_change_failure_rate_all_pass() {
+        let entities = vec![
+            make_execution_result("e1", "passed"),
+            make_execution_result("e2", "passed"),
+            make_execution_result("e3", "passed"),
+        ];
+        let storage = MockStorage::with_entities("execution_result", entities);
+        let (rate, total) =
+            DoraMetricsCalculator::compute_change_failure_rate(&storage, "test").unwrap();
+        assert_eq!(rate, 0.0);
+        assert_eq!(total, 3);
+    }
+
+    #[test]
+    fn test_change_failure_rate_all_fail() {
+        let entities = vec![
+            make_execution_result("e1", "failed"),
+            make_execution_result("e2", "failed"),
+        ];
+        let storage = MockStorage::with_entities("execution_result", entities);
+        let (rate, total) =
+            DoraMetricsCalculator::compute_change_failure_rate(&storage, "test").unwrap();
+        assert_eq!(rate, 1.0);
+        assert_eq!(total, 2);
+    }
+
+    #[test]
+    fn test_change_failure_rate_mixed() {
+        let entities = vec![
+            make_execution_result("e1", "passed"),
+            make_execution_result("e2", "failed"),
+            make_execution_result("e3", "passed"),
+            make_execution_result("e4", "failed"),
+            make_execution_result("e5", "passed"),
+        ];
+        let storage = MockStorage::with_entities("execution_result", entities);
+        let (rate, total) =
+            DoraMetricsCalculator::compute_change_failure_rate(&storage, "test").unwrap();
+        assert!((rate - 0.4).abs() < 0.001);
+        assert_eq!(total, 5);
+    }
+
+    #[test]
+    fn test_change_failure_rate_empty() {
+        let storage = MockStorage::new();
+        let (rate, total) =
+            DoraMetricsCalculator::compute_change_failure_rate(&storage, "test").unwrap();
+        assert_eq!(rate, 0.0);
+        assert_eq!(total, 0);
+    }
+
+    #[test]
+    fn test_change_failure_rate_ignores_unknown_status() {
+        let entities = vec![
+            make_execution_result("e1", "passed"),
+            make_execution_result("e2", "skipped"),
+            make_execution_result("e3", "unknown"),
+        ];
+        let storage = MockStorage::with_entities("execution_result", entities);
+        let (rate, total) =
+            DoraMetricsCalculator::compute_change_failure_rate(&storage, "test").unwrap();
+        assert_eq!(rate, 0.0);
+        assert_eq!(total, 1);
+    }
+
+    #[test]
+    fn test_mttr_empty() {
+        let storage = MockStorage::new();
+        let (mttr, count) =
+            DoraMetricsCalculator::compute_mttr_from_entities(&storage, "test").unwrap();
+        assert_eq!(mttr, 0.0);
+        assert_eq!(count, 0);
+    }
+
+    #[test]
+    fn test_mttr_approved_escalations() {
+        let entities = vec![
+            make_escalation(
+                "esc1",
+                "2026-01-01T10:00:00Z",
+                "2026-01-01T12:00:00Z",
+                "approved",
+            ),
+            make_escalation(
+                "esc2",
+                "2026-01-02T08:00:00Z",
+                "2026-01-02T09:00:00Z",
+                "approved",
+            ),
+        ];
+        let storage = MockStorage::with_entities("escalation_request", entities);
+        let (mttr, count) =
+            DoraMetricsCalculator::compute_mttr_from_entities(&storage, "test").unwrap();
+        assert!((mttr - 1.5).abs() < 0.001);
+        assert_eq!(count, 2);
+    }
+
+    #[test]
+    fn test_mttr_denied_escalations() {
+        let entities = vec![make_escalation(
+            "esc1",
+            "2026-01-01T10:00:00Z",
+            "2026-01-01T11:30:00Z",
+            "denied",
+        )];
+        let storage = MockStorage::with_entities("escalation_request", entities);
+        let (mttr, count) =
+            DoraMetricsCalculator::compute_mttr_from_entities(&storage, "test").unwrap();
+        assert!((mttr - 1.5).abs() < 0.001);
+        assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn test_mttr_ignores_pending() {
+        let entities = vec![
+            make_escalation(
+                "esc1",
+                "2026-01-01T10:00:00Z",
+                "2026-01-01T12:00:00Z",
+                "approved",
+            ),
+            make_escalation(
+                "esc2",
+                "2026-01-02T08:00:00Z",
+                "2026-01-02T09:00:00Z",
+                "pending",
+            ),
+        ];
+        let storage = MockStorage::with_entities("escalation_request", entities);
+        let (mttr, count) =
+            DoraMetricsCalculator::compute_mttr_from_entities(&storage, "test").unwrap();
+        assert_eq!(count, 1);
+        assert!((mttr - 2.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_mttr_ignores_missing_reviewed_at() {
+        let entities = vec![GenericEntity {
+            id: "esc1".to_string(),
+            entity_type: "escalation_request".to_string(),
+            agent: "test-agent".to_string(),
+            timestamp: Utc::now(),
+            data: serde_json::json!({
+                "created_at": "2026-01-01T10:00:00Z",
+                "status": "approved",
+            }),
+        }];
+        let storage = MockStorage::with_entities("escalation_request", entities);
+        let (mttr, count) =
+            DoraMetricsCalculator::compute_mttr_from_entities(&storage, "test").unwrap();
+        assert_eq!(mttr, 0.0);
+        assert_eq!(count, 0);
+    }
+
+    #[test]
+    fn test_mttr_cross_day_resolution() {
+        let entities = vec![make_escalation(
+            "esc1",
+            "2026-01-01T22:00:00Z",
+            "2026-01-02T02:00:00Z",
+            "approved",
+        )];
+        let storage = MockStorage::with_entities("escalation_request", entities);
+        let (mttr, count) =
+            DoraMetricsCalculator::compute_mttr_from_entities(&storage, "test").unwrap();
+        assert!((mttr - 4.0).abs() < 0.001);
+        assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn test_validation_rejects_empty_project_path() {
+        let mut report = DoraMetricsReport::new("".to_string(), "agent".to_string());
+        assert!(report.validate_entity().is_err());
+        report.project_path = "  ".to_string();
+        assert!(report.validate_entity().is_ok());
+    }
+
+    #[test]
+    fn test_window_bounds() {
+        let report = DoraMetricsReport::new("/repo".to_string(), "agent".to_string());
+        assert!(report.window_start <= report.computed_at);
+        assert!(report.window_end >= report.computed_at);
+    }
+
+    #[test]
+    fn test_report_json_serialization_roundtrip() {
+        let mut report = DoraMetricsReport::new("/my/project".to_string(), "my-agent".to_string());
+        report.deployment_frequency = 12.5;
+        report.lead_time_for_changes = 0.8;
+        report.change_failure_rate = 0.22;
+        report.mean_time_to_recovery = 6.0;
+        report.commits_analyzed = 100;
+        report.executions_analyzed = 50;
+        report.escalations_analyzed = 7;
+        report
+            .metadata
+            .insert("env".to_string(), serde_json::json!("production"));
+
+        let json = serde_json::to_string(&report).unwrap();
+        let deserialized: DoraMetricsReport = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(deserialized.id, report.id);
+        assert_eq!(deserialized.project_path, "/my/project");
+        assert_eq!(deserialized.agent, "my-agent");
+        assert_eq!(deserialized.deployment_frequency, 12.5);
+        assert_eq!(deserialized.lead_time_for_changes, 0.8);
+        assert_eq!(deserialized.change_failure_rate, 0.22);
+        assert_eq!(deserialized.mean_time_to_recovery, 6.0);
+        assert_eq!(deserialized.commits_analyzed, 100);
+        assert_eq!(deserialized.executions_analyzed, 50);
+        assert_eq!(deserialized.escalations_analyzed, 7);
+        assert_eq!(deserialized.metadata.get("env").unwrap(), "production");
+    }
+
+    #[test]
+    fn test_report_json_omits_empty_metadata() {
+        let report = DoraMetricsReport::new("/repo".to_string(), "agent".to_string());
+        let json = serde_json::to_string(&report).unwrap();
+        assert!(!json.contains("metadata"));
+    }
+
+    #[test]
+    fn test_report_persistence_roundtrip() {
+        let mut report =
+            DoraMetricsReport::new("/persist/test".to_string(), "agent-01".to_string());
+        report.deployment_frequency = 3.0;
+        report.lead_time_for_changes = 1.5;
+        report.change_failure_rate = 0.1;
+        report.mean_time_to_recovery = 2.0;
+        report.commits_analyzed = 20;
+        report.executions_analyzed = 5;
+        report.escalations_analyzed = 2;
+
+        let generic = report.to_generic();
+        assert_eq!(generic.entity_type, "dora_metrics_report");
+        assert_eq!(generic.agent, "agent-01");
+
+        let restored = DoraMetricsReport::from_generic(generic.clone()).unwrap();
+        assert_eq!(restored.id, report.id);
+        assert_eq!(restored.project_path, report.project_path);
+        assert_eq!(restored.computed_at, report.computed_at);
+        assert_eq!(restored.deployment_frequency, 3.0);
+        assert_eq!(restored.lead_time_for_changes, 1.5);
+        assert_eq!(restored.change_failure_rate, 0.1);
+        assert_eq!(restored.mean_time_to_recovery, 2.0);
+        assert_eq!(restored.commits_analyzed, 20);
+        assert_eq!(restored.executions_analyzed, 5);
+        assert_eq!(restored.escalations_analyzed, 2);
+
+        let double_restored = DoraMetricsReport::from_generic(restored.to_generic()).unwrap();
+        assert_eq!(double_restored.id, report.id);
+    }
+
+    #[test]
+    fn test_entity_trait_methods() {
+        let report = DoraMetricsReport::new("/repo".to_string(), "cli-agent".to_string());
+        assert_eq!(DoraMetricsReport::entity_type(), "dora_metrics_report");
+        assert_eq!(report.id(), report.id.as_str());
+        assert_eq!(report.agent(), "cli-agent");
+        assert_eq!(report.timestamp(), report.computed_at);
+        assert!(report.validate_entity().is_ok());
+    }
+
+    #[test]
+    fn test_to_session_dora_metrics_zero_values() {
+        let report = DoraMetricsReport::new("/repo".to_string(), "agent".to_string());
+        let metrics = report.to_session_dora_metrics();
+        assert_eq!(metrics.deployment_frequency, 0.0);
+        assert_eq!(metrics.lead_time, 0.0);
+        assert_eq!(metrics.change_failure_rate, 0.0);
+        assert_eq!(metrics.mean_time_to_recover, 0.0);
+    }
 }

@@ -40,3 +40,24 @@ extensions:
   - type: builtin
     name: developer
     bundled: true
+
+# PersonaArchitect: Structured Expert Prompting (SEP) fields
+cov_questions:
+  - "Who is the target customer segment and what is their willingness to pay?"
+  - "What pricing model best aligns with customer value delivery (seat, usage, outcome)?"
+  - "What are the primary conversion blockers in the current acquisition funnel?"
+  - "How do competitors price comparable offerings and where do we have an advantage?"
+  - "What are the unit economics at target scale (LTV:CAC, gross margin)?"
+
+fap_table:
+  WHO: "Monetisation strategist focused on pricing design, revenue optimisation, and funnel performance"
+  WHAT: "Design pricing strategy and identify conversion improvements backed by market data"
+  WHY: "Sustainable revenue growth requires pricing that reflects customer value and competitive positioning"
+  HOW: "Analyse market → model pricing scenarios → identify funnel friction → recommend A/B tests"
+
+ov_requirements:
+  - "All pricing recommendations supported by comparable market benchmarks"
+  - "Unit economics model (LTV, CAC, payback period) included in analysis"
+  - "Conversion funnel analysis identifies top-3 drop-off points with proposed fixes"
+  - "Revenue projections include sensitivity analysis for key assumptions"
+  - "Findings stored as engram context linked to the relevant business task"

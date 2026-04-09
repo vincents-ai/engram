@@ -166,3 +166,24 @@ response:
       - task_id
       - status
       - architecture_context_id
+
+# PersonaArchitect: Structured Expert Prompting (SEP) fields
+cov_questions:
+  - "What are the non-functional requirements (latency, availability, consistency) driving this design?"
+  - "What are the expected scale characteristics over the next 12–24 months?"
+  - "What are the primary failure modes and how does the design tolerate them?"
+  - "How does this design interact with existing system boundaries and contracts?"
+  - "What ADRs or prior architectural decisions constrain the solution space?"
+
+fap_table:
+  WHO: "Systems architect responsible for design decisions, ADR authorship, and technical direction"
+  WHAT: "Produce defensible architectural designs with documented trade-offs stored in engram"
+  WHY: "Ensure system evolves coherently, constraints are respected, and decisions are traceable"
+  HOW: "Gather requirements → explore alternatives → document trade-offs as ADRs → validate against NFRs"
+
+ov_requirements:
+  - "Every design decision recorded as an engram ADR entity with alternatives considered"
+  - "Non-functional requirements explicitly verified against the proposed design"
+  - "Failure modes and mitigation strategies included in each major component's design"
+  - "Design reviewed against existing ADRs to surface conflicts before implementation"
+  - "Architecture diagram or textual description stored as engram context"

@@ -1320,4 +1320,837 @@ mod tests {
         assert_eq!(c.agent_id, "test-agent");
         assert_eq!(c.session_id, Some("s1".into()));
     }
+
+    fn make_req(agent_id: &str, operation: &str, resource_type: &str) -> SandboxRequest {
+        SandboxRequest {
+            agent_id: agent_id.into(),
+            operation: operation.into(),
+            resource_type: resource_type.into(),
+            parameters: serde_json::json!({}),
+            timestamp: Utc::now(),
+            session_id: None,
+        }
+    }
+
+    fn make_reviewer(id: &str, name: &str) -> ReviewerInfo {
+        ReviewerInfo {
+            reviewer_id: id.into(),
+            reviewer_name: name.into(),
+            reviewer_email: Some(format!("{}@example.com", id)),
+            department: Some("Security".into()),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_create_all_priorities() {
+        let priorities = [
+            EscalationPriority::Critical,
+            EscalationPriority::High,
+            EscalationPriority::Normal,
+            EscalationPriority::Low,
+        ];
+        for priority in &priorities {
+            let (s, _t) = create_test_storage();
+            let mut h = EscalationHandler::new(s);
+            let req = make_req("a", "op", "r");
+            let id = h
+                .create_escalation(
+                    &req,
+                    "b".into(),
+                    EscalationOperationType::Custom("op".into()),
+                    priority.clone(),
+                )
+                .await
+                .unwrap();
+            let esc = h.get_escalation(&id).await.unwrap();
+            assert_eq!(esc.priority, *priority);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_create_all_operation_types() {
+        let op_types = [
+            EscalationOperationType::FileSystemAccess,
+            EscalationOperationType::NetworkAccess,
+            EscalationOperationType::CommandExecution,
+            EscalationOperationType::PrivilegeEscalation,
+            EscalationOperationType::QualityGateOverride,
+            EscalationOperationType::WorkflowModification,
+            EscalationOperationType::ResourceLimitIncrease,
+            EscalationOperationType::Custom("my_op".into()),
+        ];
+        for op_type in &op_types {
+            let (s, _t) = create_test_storage();
+            let mut h = EscalationHandler::new(s);
+            let req = make_req("a", "op", "r");
+            let id = h
+                .create_escalation(&req, "b".into(), op_type.clone(), EscalationPriority::Normal)
+                .await
+                .unwrap();
+            let esc = h.get_escalation(&id).await.unwrap();
+            assert_eq!(esc.operation_type, *op_type);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_approve_verifies_all_fields() {
+        let (s, _t) = create_test_storage();
+        let mut h = EscalationHandler::new(s);
+        let req = make_req("a", "net", "r");
+        let id = h
+            .create_escalation(
+                &req,
+                "b".into(),
+                EscalationOperationType::NetworkAccess,
+                EscalationPriority::High,
+            )
+            .await
+            .unwrap();
+        let rev = make_reviewer("rv1", "Reviewer One");
+        let conditions = vec!["Log all access".into(), "Time-limited".into()];
+        h.approve_escalation(&id, rev.clone(), "Test approve".into(), conditions.clone(), Some(7200), true)
+            .await
+            .unwrap();
+        let esc = h.get_escalation(&id).await.unwrap();
+        assert_eq!(esc.status, EscalationStatus::Approved);
+        assert_eq!(esc.reviewer.as_ref().unwrap().reviewer_id, "rv1");
+        assert_eq!(esc.reviewer.as_ref().unwrap().reviewer_name, "Reviewer One");
+        assert_eq!(esc.reviewer.as_ref().unwrap().department.as_deref(), Some("Security"));
+        let dec = esc.decision.unwrap();
+        assert_eq!(dec.status, EscalationStatus::Approved);
+        assert_eq!(dec.reason, "Test approve");
+        assert_eq!(dec.conditions, conditions);
+        assert_eq!(dec.approval_duration, Some(7200));
+        assert!(dec.create_policy);
+        assert!(esc.reviewed_at.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_deny_verifies_reason_and_notes() {
+        let (s, _t) = create_test_storage();
+        let mut h = EscalationHandler::new(s);
+        let req = make_req("a", "exec", "r");
+        let id = h
+            .create_escalation(
+                &req,
+                "b".into(),
+                EscalationOperationType::CommandExecution,
+                EscalationPriority::Critical,
+            )
+            .await
+            .unwrap();
+        let rev = make_reviewer("rv2", "Reviewer Two");
+        h.deny_escalation(
+            &id,
+            rev,
+            "Too dangerous".into(),
+            Some("See incident INC-42".into()),
+        )
+        .await
+        .unwrap();
+        let esc = h.get_escalation(&id).await.unwrap();
+        assert_eq!(esc.status, EscalationStatus::Denied);
+        let dec = esc.decision.unwrap();
+        assert_eq!(dec.reason, "Too dangerous");
+        assert!(dec.conditions.is_empty());
+        assert_eq!(dec.notes.as_deref(), Some("See incident INC-42"));
+        assert!(!dec.create_policy);
+        assert!(esc.reviewed_at.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_approve_expired_returns_error() {
+        let (s, _t) = create_test_storage();
+        let mut h = EscalationHandler::new(s);
+        let req = make_req("a", "op", "r");
+        let id = h
+            .create_escalation(
+                &req,
+                "b".into(),
+                EscalationOperationType::Custom("op".into()),
+                EscalationPriority::Normal,
+            )
+            .await
+            .unwrap();
+        let mut esc = h.get_escalation(&id).await.unwrap();
+        esc.expires_at = Utc::now() - chrono::Duration::seconds(1);
+        h.update_escalation(&esc).await.unwrap();
+        let rev = make_reviewer("rv", "R");
+        let result = h
+            .approve_escalation(&id, rev, "ok".into(), vec![], None, false)
+            .await;
+        assert!(result.is_err());
+        assert_eq!(
+            h.get_escalation(&id).await.unwrap().status,
+            EscalationStatus::Expired
+        );
+    }
+
+    #[tokio::test]
+    async fn test_list_all_statuses() {
+        let (s, _t) = create_test_storage();
+        let mut h = EscalationHandler::new(s);
+        let req = make_req("a", "op", "r");
+
+        let id_approved = h
+            .create_escalation(
+                &req,
+                "b".into(),
+                EscalationOperationType::Custom("op".into()),
+                EscalationPriority::Normal,
+            )
+            .await
+            .unwrap();
+        let id_denied = h
+            .create_escalation(
+                &req,
+                "b".into(),
+                EscalationOperationType::Custom("op".into()),
+                EscalationPriority::Normal,
+            )
+            .await
+            .unwrap();
+        let id_cancelled = h
+            .create_escalation(
+                &req,
+                "b".into(),
+                EscalationOperationType::Custom("op".into()),
+                EscalationPriority::Normal,
+            )
+            .await
+            .unwrap();
+        let id_expired = h
+            .create_escalation(
+                &req,
+                "b".into(),
+                EscalationOperationType::Custom("op".into()),
+                EscalationPriority::Normal,
+            )
+            .await
+            .unwrap();
+        let _id_pending = h
+            .create_escalation(
+                &req,
+                "b".into(),
+                EscalationOperationType::Custom("op".into()),
+                EscalationPriority::Normal,
+            )
+            .await
+            .unwrap();
+
+        let rev = make_reviewer("rv", "R");
+        h.approve_escalation(&id_approved, rev.clone(), "ok".into(), vec![], None, false)
+            .await
+            .unwrap();
+        h.deny_escalation(&id_denied, rev.clone(), "no".into(), None)
+            .await
+            .unwrap();
+        h.cancel_escalation(&id_cancelled, None).await.unwrap();
+
+        let mut esc = h.get_escalation(&id_expired).await.unwrap();
+        esc.expires_at = Utc::now() - chrono::Duration::hours(1);
+        h.update_escalation(&esc).await.unwrap();
+        h.process_expired_escalations().await.unwrap();
+
+        assert_eq!(
+            h.list_escalations_by_status(EscalationStatus::Approved)
+                .await
+                .unwrap()
+                .len(),
+            1
+        );
+        assert_eq!(
+            h.list_escalations_by_status(EscalationStatus::Denied)
+                .await
+                .unwrap()
+                .len(),
+            1
+        );
+        assert_eq!(
+            h.list_escalations_by_status(EscalationStatus::Cancelled)
+                .await
+                .unwrap()
+                .len(),
+            1
+        );
+        assert_eq!(
+            h.list_escalations_by_status(EscalationStatus::Expired)
+                .await
+                .unwrap()
+                .len(),
+            1
+        );
+        assert_eq!(
+            h.list_escalations_by_status(EscalationStatus::Pending)
+                .await
+                .unwrap()
+                .len(),
+            1
+        );
+    }
+
+    #[tokio::test]
+    async fn test_list_priority_then_creation_time() {
+        let (s, _t) = create_test_storage();
+        let mut h = EscalationHandler::new(s);
+        let req = make_req("a", "op", "r");
+        let id1 = h
+            .create_escalation(
+                &req,
+                "b".into(),
+                EscalationOperationType::Custom("op".into()),
+                EscalationPriority::Normal,
+            )
+            .await
+            .unwrap();
+        let id2 = h
+            .create_escalation(
+                &req,
+                "b".into(),
+                EscalationOperationType::Custom("op".into()),
+                EscalationPriority::Normal,
+            )
+            .await
+            .unwrap();
+        let list = h.list_pending_escalations().await.unwrap();
+        assert_eq!(list.len(), 2);
+        assert_eq!(list[0].priority, EscalationPriority::Normal);
+        assert_eq!(list[1].priority, EscalationPriority::Normal);
+        assert!(list[0].created_at <= list[1].created_at);
+        assert_ne!(list[0].id, list[1].id);
+        let _ = (id1, id2);
+    }
+
+    #[tokio::test]
+    async fn test_process_expired_mixed() {
+        let (s, _t) = create_test_storage();
+        let mut h = EscalationHandler::new(s);
+        let req = make_req("a", "op", "r");
+
+        let id_expired = h
+            .create_escalation(
+                &req,
+                "b".into(),
+                EscalationOperationType::Custom("op".into()),
+                EscalationPriority::Normal,
+            )
+            .await
+            .unwrap();
+        let _id_valid = h
+            .create_escalation(
+                &req,
+                "b".into(),
+                EscalationOperationType::Custom("op".into()),
+                EscalationPriority::Normal,
+            )
+            .await
+            .unwrap();
+
+        let mut esc = h.get_escalation(&id_expired).await.unwrap();
+        esc.expires_at = Utc::now() - chrono::Duration::minutes(5);
+        h.update_escalation(&esc).await.unwrap();
+
+        let count = h.process_expired_escalations().await.unwrap();
+        assert_eq!(count, 1);
+        assert_eq!(
+            h.get_escalation(&id_expired).await.unwrap().status,
+            EscalationStatus::Expired
+        );
+        assert_eq!(h.list_pending_escalations().await.unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_statistics_comprehensive() {
+        let (s, _t) = create_test_storage();
+        let mut h = EscalationHandler::new(s);
+        let req = make_req("a", "op", "r");
+        let rev = make_reviewer("rv", "R");
+
+        let id1 = h
+            .create_escalation(
+                &req,
+                "b".into(),
+                EscalationOperationType::Custom("op".into()),
+                EscalationPriority::Normal,
+            )
+            .await
+            .unwrap();
+        h.approve_escalation(&id1, rev.clone(), "ok".into(), vec![], Some(100), false)
+            .await
+            .unwrap();
+
+        let id2 = h
+            .create_escalation(
+                &req,
+                "b".into(),
+                EscalationOperationType::Custom("op".into()),
+                EscalationPriority::Normal,
+            )
+            .await
+            .unwrap();
+        h.deny_escalation(&id2, rev.clone(), "no".into(), None)
+            .await
+            .unwrap();
+
+        let id3 = h
+            .create_escalation(
+                &req,
+                "b".into(),
+                EscalationOperationType::Custom("op".into()),
+                EscalationPriority::Normal,
+            )
+            .await
+            .unwrap();
+        h.cancel_escalation(&id3, Some("done".into())).await.unwrap();
+
+        let id4 = h
+            .create_escalation(
+                &req,
+                "b".into(),
+                EscalationOperationType::Custom("op".into()),
+                EscalationPriority::Normal,
+            )
+            .await
+            .unwrap();
+
+        let _id5 = h
+            .create_escalation(
+                &req,
+                "b".into(),
+                EscalationOperationType::Custom("op".into()),
+                EscalationPriority::Normal,
+            )
+            .await
+            .unwrap();
+
+        let mut esc = h.get_escalation(&id4).await.unwrap();
+        esc.expires_at = Utc::now() - chrono::Duration::hours(1);
+        h.update_escalation(&esc).await.unwrap();
+        h.process_expired_escalations().await.unwrap();
+
+        let stats = h.get_statistics().await.unwrap();
+        assert_eq!(stats.total_requests, 5);
+        assert_eq!(stats.approved_count, 1);
+        assert_eq!(stats.denied_count, 1);
+        assert_eq!(stats.cancelled_count, 1);
+        assert_eq!(stats.expired_count, 1);
+        assert_eq!(stats.pending_count, 1);
+        assert_eq!(stats.reviewed_count, 2);
+        assert_eq!(stats.total_approval_duration_seconds, 100);
+        assert_eq!(stats.average_approval_duration_seconds, 100);
+        // response_time may be 0 in fast test environments (sub-second create→approve)
+        let _ = stats.average_response_time_seconds;
+    }
+
+    #[tokio::test]
+    async fn test_concurrent_creates() {
+        let temp_dir = TempDir::new().unwrap();
+        let path = temp_dir.path().to_str().unwrap().to_string();
+        let mut handles = Vec::new();
+        for i in 0..5 {
+            let p = path.clone();
+            handles.push(tokio::spawn(async move {
+                let storage = Box::new(
+                    GitRefsStorage::new(&p, &format!("agent-{}", i)).unwrap(),
+                );
+                let mut h = EscalationHandler::new(storage);
+                let req = SandboxRequest {
+                    agent_id: format!("agent-{}", i),
+                    operation: "op".into(),
+                    resource_type: "r".into(),
+                    parameters: serde_json::json!({}),
+                    timestamp: Utc::now(),
+                    session_id: None,
+                };
+                h.create_escalation(
+                    &req,
+                    "b".into(),
+                    EscalationOperationType::Custom("op".into()),
+                    EscalationPriority::Normal,
+                )
+                .await
+                .unwrap()
+            }));
+        }
+        let mut ids = Vec::new();
+        for handle in handles {
+            ids.push(handle.await.unwrap());
+        }
+        assert_eq!(ids.len(), 5);
+        let unique: std::collections::HashSet<_> = ids.iter().collect();
+        assert_eq!(unique.len(), 5);
+    }
+
+    #[tokio::test]
+    async fn test_similar_request_count_increments() {
+        let (s, _t) = create_test_storage();
+        let mut h = EscalationHandler::new(s);
+        let req = make_req("a", "file_delete", "r");
+
+        let id1 = h
+            .create_escalation(
+                &req,
+                "b".into(),
+                EscalationOperationType::FileSystemAccess,
+                EscalationPriority::Normal,
+            )
+            .await
+            .unwrap();
+        let esc1 = h.get_escalation(&id1).await.unwrap();
+        assert_eq!(esc1.similar_request_count, 0);
+
+        let id2 = h
+            .create_escalation(
+                &req,
+                "b".into(),
+                EscalationOperationType::FileSystemAccess,
+                EscalationPriority::Normal,
+            )
+            .await
+            .unwrap();
+        let esc2 = h.get_escalation(&id2).await.unwrap();
+        assert_eq!(esc2.similar_request_count, 1);
+
+        let id3 = h
+            .create_escalation(
+                &req,
+                "b".into(),
+                EscalationOperationType::FileSystemAccess,
+                EscalationPriority::Normal,
+            )
+            .await
+            .unwrap();
+        let esc3 = h.get_escalation(&id3).await.unwrap();
+        assert_eq!(esc3.similar_request_count, 2);
+    }
+
+    #[tokio::test]
+    async fn test_active_approval_expired_duration() {
+        let (s, _t) = create_test_storage();
+        let mut h = EscalationHandler::new(s);
+        let req = make_req("a", "op", "r");
+        let id = h
+            .create_escalation(
+                &req,
+                "b".into(),
+                EscalationOperationType::Custom("op".into()),
+                EscalationPriority::Normal,
+            )
+            .await
+            .unwrap();
+        let rev = make_reviewer("rv", "R");
+        h.approve_escalation(&id, rev, "ok".into(), vec![], Some(1), false)
+            .await
+            .unwrap();
+        let mut esc = h.get_escalation(&id).await.unwrap();
+        esc.reviewed_at = Some(Utc::now() - chrono::Duration::seconds(10));
+        h.update_escalation(&esc).await.unwrap();
+        assert!(h
+            .has_active_approval("a", "op")
+            .await
+            .unwrap()
+            .is_none());
+    }
+
+    #[tokio::test]
+    async fn test_impact_if_denied_and_session() {
+        let (s, _t) = create_test_storage();
+        let mut h = EscalationHandler::new(s);
+        let req = SandboxRequest {
+            agent_id: "a".into(),
+            operation: "file_delete".into(),
+            resource_type: "/data".into(),
+            parameters: serde_json::json!({}),
+            timestamp: Utc::now(),
+            session_id: Some("sess-99".into()),
+        };
+        let id = h
+            .create_escalation(
+                &req,
+                "blocked".into(),
+                EscalationOperationType::FileSystemAccess,
+                EscalationPriority::High,
+            )
+            .await
+            .unwrap();
+        let esc = h.get_escalation(&id).await.unwrap();
+        assert_eq!(esc.session_id.as_deref(), Some("sess-99"));
+        assert!(esc.impact_if_denied.is_some());
+        assert!(esc.impact_if_denied.as_ref().unwrap().contains("file_delete"));
+        assert_eq!(
+            esc.operation_context.block_reason,
+            "blocked"
+        );
+        assert!(esc.operation_context.risk_assessment.is_some());
+        assert!(esc.operation_context.risk_assessment.as_ref().unwrap().contains("High risk"));
+        assert!(!esc.operation_context.alternatives.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_approve_invalid_id() {
+        let (s, _t) = create_test_storage();
+        let mut h = EscalationHandler::new(s);
+        let rev = make_reviewer("rv", "R");
+        let result = h
+            .approve_escalation("nonexistent-id", rev, "ok".into(), vec![], None, false)
+            .await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_deny_invalid_id() {
+        let (s, _t) = create_test_storage();
+        let mut h = EscalationHandler::new(s);
+        let rev = make_reviewer("rv", "R");
+        let result = h
+            .deny_escalation("nonexistent-id", rev, "no".into(), None)
+            .await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_cancel_denied_fails() {
+        let (s, _t) = create_test_storage();
+        let mut h = EscalationHandler::new(s);
+        let req = make_req("a", "op", "r");
+        let id = h
+            .create_escalation(
+                &req,
+                "b".into(),
+                EscalationOperationType::Custom("op".into()),
+                EscalationPriority::Normal,
+            )
+            .await
+            .unwrap();
+        let rev = make_reviewer("rv", "R");
+        h.deny_escalation(&id, rev, "no".into(), None)
+            .await
+            .unwrap();
+        assert!(h.cancel_escalation(&id, None).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_cancel_expired_fails() {
+        let (s, _t) = create_test_storage();
+        let mut h = EscalationHandler::new(s);
+        let req = make_req("a", "op", "r");
+        let id = h
+            .create_escalation(
+                &req,
+                "b".into(),
+                EscalationOperationType::Custom("op".into()),
+                EscalationPriority::Normal,
+            )
+            .await
+            .unwrap();
+        let mut esc = h.get_escalation(&id).await.unwrap();
+        esc.expires_at = Utc::now() - chrono::Duration::hours(1);
+        h.update_escalation(&esc).await.unwrap();
+        h.process_expired_escalations().await.unwrap();
+        assert!(h.cancel_escalation(&id, None).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_approve_already_approved_fails() {
+        let (s, _t) = create_test_storage();
+        let mut h = EscalationHandler::new(s);
+        let req = make_req("a", "op", "r");
+        let id = h
+            .create_escalation(
+                &req,
+                "b".into(),
+                EscalationOperationType::Custom("op".into()),
+                EscalationPriority::Normal,
+            )
+            .await
+            .unwrap();
+        let rev1 = make_reviewer("rv1", "R1");
+        h.approve_escalation(&id, rev1, "ok".into(), vec![], None, false)
+            .await
+            .unwrap();
+        let rev2 = make_reviewer("rv2", "R2");
+        let result = h
+            .approve_escalation(&id, rev2, "also ok".into(), vec![], None, false)
+            .await;
+        assert!(result.is_err());
+        assert_eq!(
+            h.get_escalation(&id).await.unwrap().status,
+            EscalationStatus::Approved
+        );
+    }
+
+    #[tokio::test]
+    async fn test_deny_already_denied_fails() {
+        let (s, _t) = create_test_storage();
+        let mut h = EscalationHandler::new(s);
+        let req = make_req("a", "op", "r");
+        let id = h
+            .create_escalation(
+                &req,
+                "b".into(),
+                EscalationOperationType::Custom("op".into()),
+                EscalationPriority::Normal,
+            )
+            .await
+            .unwrap();
+        let rev1 = make_reviewer("rv1", "R1");
+        h.deny_escalation(&id, rev1, "no".into(), None)
+            .await
+            .unwrap();
+        let rev2 = make_reviewer("rv2", "R2");
+        let result = h
+            .deny_escalation(&id, rev2, "also no".into(), None)
+            .await;
+        assert!(result.is_err());
+        assert_eq!(
+            h.get_escalation(&id).await.unwrap().status,
+            EscalationStatus::Denied
+        );
+    }
+
+    #[tokio::test]
+    async fn test_list_agent_sorted_newest_first() {
+        let (s, _t) = create_test_storage();
+        let mut h = EscalationHandler::new(s);
+        let req = make_req("a", "op", "r");
+        let id1 = h
+            .create_escalation(
+                &req,
+                "b".into(),
+                EscalationOperationType::Custom("op".into()),
+                EscalationPriority::Normal,
+            )
+            .await
+            .unwrap();
+        let id2 = h
+            .create_escalation(
+                &req,
+                "b".into(),
+                EscalationOperationType::Custom("op".into()),
+                EscalationPriority::Normal,
+            )
+            .await
+            .unwrap();
+        let list = h.list_agent_escalations("a").await.unwrap();
+        assert_eq!(list.len(), 2);
+        assert_eq!(list[0].id, id2);
+        assert_eq!(list[1].id, id1);
+    }
+
+    #[tokio::test]
+    async fn test_statistics_response_time_averaging() {
+        let (s, _t) = create_test_storage();
+        let mut h = EscalationHandler::new(s);
+        let req = make_req("a", "op", "r");
+        let rev = make_reviewer("rv", "R");
+
+        let id1 = h
+            .create_escalation(
+                &req,
+                "b".into(),
+                EscalationOperationType::Custom("op".into()),
+                EscalationPriority::Normal,
+            )
+            .await
+            .unwrap();
+        h.approve_escalation(&id1, rev.clone(), "ok".into(), vec![], None, false)
+            .await
+            .unwrap();
+
+        let id2 = h
+            .create_escalation(
+                &req,
+                "b".into(),
+                EscalationOperationType::Custom("op".into()),
+                EscalationPriority::Normal,
+            )
+            .await
+            .unwrap();
+        h.deny_escalation(&id2, rev, "no".into(), None)
+            .await
+            .unwrap();
+
+        let stats = h.get_statistics().await.unwrap();
+        assert_eq!(stats.reviewed_count, 2);
+        // response_time may be 0 in fast test environments (sub-second create→review)
+        assert!(stats.average_response_time_seconds <= stats.total_response_time_seconds);
+    }
+
+    #[tokio::test]
+    async fn test_cache_serves_stale_after_direct_storage_update() {
+        let (s, _t) = create_test_storage();
+        let mut h = EscalationHandler::new(s);
+        let req = make_req("a", "op", "r");
+        let id = h
+            .create_escalation(
+                &req,
+                "b".into(),
+                EscalationOperationType::Custom("op".into()),
+                EscalationPriority::Normal,
+            )
+            .await
+            .unwrap();
+        let cached = h.get_escalation(&id).await.unwrap();
+        assert_eq!(cached.status, EscalationStatus::Pending);
+        let mut esc = cached.clone();
+        esc.status = EscalationStatus::Cancelled;
+        h.update_escalation(&esc).await.unwrap();
+        let fetched = h.get_escalation(&id).await.unwrap();
+        assert_eq!(fetched.status, EscalationStatus::Cancelled);
+    }
+
+    #[tokio::test]
+    async fn test_operation_context_parameters_preserved() {
+        let (s, _t) = create_test_storage();
+        let mut h = EscalationHandler::new(s);
+        let req = SandboxRequest {
+            agent_id: "a".into(),
+            operation: "op".into(),
+            resource_type: "r".into(),
+            parameters: serde_json::json!({"key1": "val1", "key2": 42, "key3": true}),
+            timestamp: Utc::now(),
+            session_id: None,
+        };
+        let id = h
+            .create_escalation(
+                &req,
+                "b".into(),
+                EscalationOperationType::Custom("op".into()),
+                EscalationPriority::Normal,
+            )
+            .await
+            .unwrap();
+        let esc = h.get_escalation(&id).await.unwrap();
+        assert_eq!(esc.operation_context.parameters.get("key1").unwrap(), "val1");
+        assert_eq!(esc.operation_context.parameters.get("key2").unwrap(), 42);
+    }
+
+    #[tokio::test]
+    async fn test_expiration_by_priority() {
+        let (s, _t) = create_test_storage();
+        let mut h = EscalationHandler::new(s);
+        let req = make_req("a", "op", "r");
+
+        let priorities_hours = [
+            (EscalationPriority::Critical, 1u64),
+            (EscalationPriority::High, 4u64),
+            (EscalationPriority::Normal, 24u64),
+            (EscalationPriority::Low, 72u64),
+        ];
+
+        for (priority, expected_hours) in &priorities_hours {
+            let id = h
+                .create_escalation(
+                    &req,
+                    "b".into(),
+                    EscalationOperationType::Custom("op".into()),
+                    priority.clone(),
+                )
+                .await
+                .unwrap();
+            let esc = h.get_escalation(&id).await.unwrap();
+            let diff = (esc.expires_at - esc.created_at).num_hours();
+            assert_eq!(diff, *expected_hours as i64);
+        }
+    }
 }

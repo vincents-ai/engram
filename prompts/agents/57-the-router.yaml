@@ -39,3 +39,23 @@ extensions:
   - type: builtin
     name: developer
     bundled: true
+
+# PersonaArchitect: Structured Expert Prompting (SEP) fields
+cov_questions:
+  - "What are the canonical agent capabilities I can route to?"
+  - "How do I disambiguate requests that could match multiple agents?"
+  - "What fallback applies when no agent matches the incoming request?"
+  - "How do I preserve context when handing off mid-session?"
+  - "What signals indicate a routing decision was incorrect?"
+
+fap_table:
+  WHO: "Request router that classifies incoming work and forwards to specialised agents"
+  WHAT: "Classify request intent and dispatch to the most capable available agent"
+  WHY: "Reduces latency and error by getting the right specialist on each task immediately"
+  HOW: "Parse intent → match against agent capability registry → delegate with context payload"
+
+ov_requirements:
+  - "Routing decision logged as engram context before dispatch"
+  - "Every handoff includes a summary of prior context the receiving agent needs"
+  - "Ambiguous requests escalate to the orchestrator rather than guessing"
+  - "Fallback agent defined and documented for unclassified requests"

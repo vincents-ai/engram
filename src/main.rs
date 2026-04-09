@@ -118,9 +118,26 @@ async fn run() -> Result<(), EngramError> {
             let mut storage = GitRefsStorage::new(".", "default")?;
             engram::cli::sync::handle_sync_command(&mut storage, &command)?;
         }
-        cli::Commands::Next { id, format, agent } => {
+        cli::Commands::Next {
+            id,
+            format,
+            agent,
+            parent,
+            scope_agent,
+            session,
+            tag,
+        } => {
             let mut storage = GitRefsStorage::new(".", "default")?;
-            engram::cli::next::handle_next_command(&mut storage, id, format, agent)?;
+            engram::cli::next::handle_next_command(
+                &mut storage,
+                id,
+                format,
+                agent,
+                parent,
+                scope_agent,
+                session,
+                tag,
+            )?;
         }
         cli::Commands::Info => {
             let storage = GitRefsStorage::new(".", "default")?;
@@ -159,8 +176,7 @@ async fn run() -> Result<(), EngramError> {
                 cli::list_prompts(category.as_deref(), &format, None, verbose)?;
             }
             cli::PromptsCommands::Show { name } => {
-                let storage = GitRefsStorage::new(".", "default")?;
-                cli::show_prompt(&name, None, &storage)?;
+                cli::show_prompt(&name, None)?;
             }
             cli::PromptsCommands::Validate { category, fix } => {
                 cli::validate_prompts(category.as_deref(), fix, None)?;
@@ -180,6 +196,10 @@ async fn run() -> Result<(), EngramError> {
         cli::Commands::Analytics { command } => {
             let mut storage = GitRefsStorage::new(".", "default")?;
             cli::handle_analytics_command(&mut storage, command)?;
+        }
+        cli::Commands::Health { command } => {
+            let mut storage = GitRefsStorage::new(".", "default")?;
+            cli::health::handle_health_command(&mut storage, command)?;
         }
         cli::Commands::Perkeep { command } => {
             use engram::cli::perkeep::{
@@ -249,18 +269,13 @@ fn handle_setup_command(command: cli::SetupCommands) -> Result<(), EngramError> 
                 None,
             )?;
         }
-        cli::SetupCommands::Skills {
-            force,
-            dir,
-            tool,
-            source,
-        } => {
+        cli::SetupCommands::Skills { force, dir, tool } => {
             cli::handle_skills_command(
                 &mut std::io::stdout(),
                 force,
                 dir.as_deref(),
                 tool.as_deref(),
-                source.as_deref(),
+                None,
             )?;
         }
         cli::SetupCommands::Prompts { path } => {
@@ -345,11 +360,28 @@ fn handle_task_command<
         cli::TaskCommands::List {
             agent,
             status,
+            workflow_instance_id,
+            workflow_state,
             limit,
             all,
             offset,
+            stale,
+            stale_threshold,
+            output,
         } => {
-            cli::list_tasks(storage, agent.as_deref(), status.as_deref(), limit, all, offset)?;
+            cli::list_tasks(
+                storage,
+                agent.as_deref(),
+                status.as_deref(),
+                workflow_instance_id.as_deref(),
+                workflow_state.as_deref(),
+                limit,
+                all,
+                offset,
+                stale,
+                stale_threshold,
+                &output,
+            )?;
         }
         cli::TaskCommands::Show { id } => {
             cli::show_task(storage, &id)?;
@@ -364,6 +396,20 @@ fn handle_task_command<
         }
         cli::TaskCommands::Archive { id, reason } => {
             cli::archive_task(storage, &id, reason.as_deref())?;
+        }
+        cli::TaskCommands::ArchiveBulk {
+            older_than,
+            status,
+            dry_run,
+            output,
+        } => {
+            cli::archive_tasks_bulk(
+                storage,
+                older_than,
+                status.as_deref(),
+                dry_run,
+                &output,
+            )?;
         }
         cli::TaskCommands::Resolve { id, message } => {
             cli::resolve_task(storage, &id, message.as_deref())?;
@@ -554,6 +600,7 @@ fn handle_lesson_command<S: engram::storage::Storage>(
 ) -> Result<(), EngramError> {
     match command {
         cli::LessonCommands::Create {
+            title,
             mistake,
             correction,
             prevention_rule,
@@ -562,10 +609,10 @@ fn handle_lesson_command<S: engram::storage::Storage>(
             severity,
             agent,
             tags,
-            output,
         } => {
             cli::create_lesson(
                 storage,
+                title,
                 mistake,
                 correction,
                 prevention_rule,
@@ -574,7 +621,6 @@ fn handle_lesson_command<S: engram::storage::Storage>(
                 severity,
                 agent,
                 tags,
-                output,
             )?;
         }
         cli::LessonCommands::List {
@@ -585,12 +631,11 @@ fn handle_lesson_command<S: engram::storage::Storage>(
             limit,
             all,
             offset,
-            output,
         } => {
-            cli::list_lessons(storage, agent, category, domain, severity, limit, all, offset, output)?;
+            cli::list_lessons(storage, agent, category, domain, severity, limit, all, offset)?;
         }
-        cli::LessonCommands::Show { id, output } => {
-            cli::show_lesson(storage, &id, output)?;
+        cli::LessonCommands::Show { id } => {
+            cli::show_lesson(storage, &id)?;
         }
         cli::LessonCommands::Update {
             id,
@@ -598,9 +643,8 @@ fn handle_lesson_command<S: engram::storage::Storage>(
             correction,
             prevention_rule,
             add_tag,
-            output,
         } => {
-            cli::update_lesson(storage, &id, mistake, correction, prevention_rule, add_tag, output)?;
+            cli::update_lesson(storage, &id, mistake, correction, prevention_rule, add_tag)?;
         }
         cli::LessonCommands::Delete { id } => {
             cli::delete_lesson(storage, &id)?;
@@ -616,25 +660,69 @@ fn handle_persona_command<S: engram::storage::Storage>(
 ) -> Result<(), EngramError> {
     match command {
         cli::PersonaCommands::Create {
-            slug, title, instructions, description, domain,
-            base_persona, cov_questions, fap_entries, ov_requirements,
-            agent, tags, output,
+            slug,
+            title,
+            description,
+            instructions,
+            domain,
+            base_persona,
+            agent,
+            tags,
+            cov_questions,
+            fap_entries,
+            ov_requirements,
         } => {
-            cli::create_persona(storage, slug, title, instructions, description, domain,
-                base_persona, cov_questions, fap_entries, ov_requirements, agent, tags, output)?;
+            cli::create_persona(
+                storage,
+                slug,
+                title,
+                description,
+                instructions,
+                domain,
+                base_persona,
+                agent,
+                tags,
+                cov_questions,
+                fap_entries,
+                ov_requirements,
+            )?;
         }
-        cli::PersonaCommands::List { domain, agent, tag, limit, all, offset, output } => {
-            cli::list_personas(storage, domain, agent, tag, limit, all, offset, output)?;
+        cli::PersonaCommands::List {
+            agent,
+            domain,
+            tag,
+            limit,
+            all,
+            offset,
+        } => {
+            cli::list_personas(storage, agent, domain, tag, limit, all, offset)?;
         }
-        cli::PersonaCommands::Show { id, output } => {
-            cli::show_persona(storage, &id, output)?;
+        cli::PersonaCommands::Show { id } => {
+            cli::show_persona(storage, &id)?;
         }
         cli::PersonaCommands::Update {
-            id, instructions, title, description, add_cov_question,
-            fap, add_ov_requirement, add_tag, remove_tag, output,
+            id,
+            title,
+            description,
+            instructions,
+            domain,
+            add_tag,
+            add_cov,
+            add_ov,
+            add_fap,
         } => {
-            cli::update_persona(storage, &id, instructions, title, description,
-                add_cov_question, fap, add_ov_requirement, add_tag, remove_tag, output)?;
+            cli::update_persona(
+                storage,
+                &id,
+                title,
+                description,
+                instructions,
+                domain,
+                add_tag,
+                add_cov,
+                add_ov,
+                add_fap,
+            )?;
         }
         cli::PersonaCommands::Delete { id } => {
             cli::delete_persona(storage, &id)?;
@@ -717,8 +805,27 @@ fn handle_session_command<S: engram::storage::Storage>(
         } => {
             end_session(storage, id, generate_summary)?;
         }
-        engram::cli::SessionCommands::List { agent, limit, all, offset } => {
-            list_sessions(&mut std::io::stdout(), storage, agent, limit, all, offset)?;
+        engram::cli::SessionCommands::List { agent, since, limit, all, offset } => {
+            list_sessions(&mut std::io::stdout(), storage, agent, since, limit, all, offset)?;
+        }
+        engram::cli::SessionCommands::Zombies {
+            max_age_hours,
+            check_git,
+        } => {
+            detect_zombie_sessions(
+                &mut std::io::stdout(),
+                storage,
+                max_age_hours,
+                check_git,
+            )?;
+        }
+        engram::cli::SessionCommands::Summaries {
+            agent,
+            since,
+            limit,
+            all,
+        } => {
+            summarize_sessions(&mut std::io::stdout(), storage, agent, since, limit, all)?;
         }
     }
 

@@ -39,3 +39,24 @@ extensions:
   - type: builtin
     name: developer
     bundled: true
+
+# PersonaArchitect: Structured Expert Prompting (SEP) fields
+cov_questions:
+  - "What customer problem does each item in the backlog solve?"
+  - "What is the effort/impact ratio for the top candidate items?"
+  - "What dependencies block or unblock specific backlog items?"
+  - "How are stakeholder priorities reconciled when they conflict?"
+  - "What leading indicators tell us a shipped item is delivering value?"
+
+fap_table:
+  WHO: "Product manager/backlog owner responsible for prioritisation and decisiveness"
+  WHAT: "Maintain a prioritised, dependency-resolved backlog with clear acceptance criteria"
+  WHY: "An unprioritised backlog creates confusion; decisive prioritisation enables the team to focus"
+  HOW: "Score items by impact/effort → resolve dependencies → define acceptance criteria → review weekly"
+
+ov_requirements:
+  - "Top 10 backlog items have written acceptance criteria before sprint planning"
+  - "All blocked items have an explicit blocker identified and an owner assigned"
+  - "Prioritisation rationale stored as engram reasoning for each significant reorder"
+  - "Backlog reviewed and updated at least weekly with new information"
+  - "Done criteria validated against customer feedback within one sprint of shipping"

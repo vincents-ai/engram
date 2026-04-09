@@ -1,7 +1,8 @@
 //! Task command implementations
 
-use crate::entities::{Entity, Task, TaskPriority};
+use crate::entities::{Entity, StaleTaskReport, Task, TaskPriority};
 use crate::error::EngramError;
+use crate::feedback::StructuredFeedback;
 use crate::storage::{RelationshipStorage, Storage};
 use clap::Subcommand;
 use serde::Deserialize;
@@ -87,6 +88,14 @@ pub enum TaskCommands {
         #[arg(long, short)]
         status: Option<String>,
 
+        /// Filter by workflow instance ID
+        #[arg(long, name = "workflow")]
+        workflow_instance_id: Option<String>,
+
+        /// Filter by workflow state
+        #[arg(long, name = "workflow-state")]
+        workflow_state: Option<String>,
+
         /// Limit number of results
         #[arg(long, short)]
         limit: Option<usize>,
@@ -98,6 +107,18 @@ pub enum TaskCommands {
         /// Offset for pagination
         #[arg(long, short)]
         offset: Option<usize>,
+
+        /// Show stale in-progress tasks (no recent git activity)
+        #[arg(long, conflicts_with_all = ["status"])]
+        stale: bool,
+
+        /// Staleness threshold in hours (default: 24)
+        #[arg(long, default_value = "24", requires = "stale")]
+        stale_threshold: i64,
+
+        /// Output format (text, json)
+        #[arg(long, default_value = "text")]
+        output: String,
     },
     /// Show task details
     Show {
@@ -127,7 +148,7 @@ pub enum TaskCommands {
         #[arg(long)]
         reason: Option<String>,
     },
-    /// Archive a task (soft delete)
+    /// Archive a single task (soft delete)
     Archive {
         /// Task ID
         #[arg(help = "Task ID to archive")]
@@ -136,6 +157,24 @@ pub enum TaskCommands {
         /// Reason for archiving
         #[arg(long)]
         reason: Option<String>,
+    },
+    /// Bulk archive tasks matching filters
+    ArchiveBulk {
+        /// Archive tasks older than N days
+        #[arg(long)]
+        older_than: Option<u64>,
+
+        /// Archive tasks with specific status (done, cancelled, todo, in_progress, blocked)
+        #[arg(long)]
+        status: Option<String>,
+
+        /// Preview what would be archived without making changes
+        #[arg(long)]
+        dry_run: bool,
+
+        /// Output format (text, json)
+        #[arg(long, default_value = "text")]
+        output: String,
     },
     /// Resolve a blocked task
     Resolve {
@@ -541,26 +580,56 @@ pub fn list_tasks<S: Storage>(
     storage: &S,
     agent: Option<&str>,
     status: Option<&str>,
+    workflow_instance_id: Option<&str>,
+    workflow_state: Option<&str>,
     limit: Option<usize>,
     all: bool,
     offset: Option<usize>,
+    stale: bool,
+    stale_threshold: i64,
+    output_format: &str,
 ) -> Result<(), EngramError> {
+    if stale {
+        return list_stale_tasks(storage, agent, stale_threshold, output_format);
+    }
+
     let effective_limit = if all { None } else { limit };
-    let filter = crate::storage::QueryFilter {
+    let mut filter = crate::storage::QueryFilter {
         entity_type: Some("task".to_string()),
         agent: Some(agent.unwrap_or("default").to_string()),
         limit: effective_limit,
         offset,
         ..Default::default()
     };
+
+    if let Some(wf_id) = workflow_instance_id {
+        filter.field_filters.insert(
+            "workflow_id".to_string(),
+            serde_json::Value::String(wf_id.to_string()),
+        );
+    }
+
     let result = storage.query(&filter)?;
 
-    // Filter by status if specified
     let mut tasks: Vec<_> = result.entities;
     if let Some(status_filter) = status {
         tasks.retain(|generic_task| {
             if let Ok(task_obj) = Task::from_generic(generic_task.clone()) {
                 format!("{:?}", task_obj.status).to_lowercase() == status_filter.to_lowercase()
+            } else {
+                false
+            }
+        });
+    }
+
+    if let Some(wf_state) = workflow_state {
+        tasks.retain(|generic_task| {
+            if let Ok(task_obj) = Task::from_generic(generic_task.clone()) {
+                task_obj
+                    .workflow_state
+                    .as_deref()
+                    .map(|s| s == wf_state)
+                    .unwrap_or(false)
             } else {
                 false
             }
@@ -610,6 +679,59 @@ pub fn list_tasks<S: Storage>(
 
     if result.has_more {
         println!("(More results available — use --all, --offset N, or --limit N)");
+    }
+
+    Ok(())
+}
+
+fn list_stale_tasks<S: Storage>(
+    storage: &S,
+    _agent: Option<&str>,
+    stale_threshold: i64,
+    output_format: &str,
+) -> Result<(), EngramError> {
+    let report = StaleTaskReport::detect(storage, stale_threshold)?;
+
+    match output_format {
+        "json" => {
+            println!("{}", report.to_pretty_json());
+        }
+        _ => {
+            println!("{}", report.summary());
+            println!();
+
+            if report.stale_tasks.is_empty() {
+                println!("  No stale tasks found.");
+            } else {
+                let mut table = create_table();
+                table.set_titles(row![
+                    "ID",
+                    "Age (h)",
+                    "Last Commit",
+                    "Title",
+                    "Agent",
+                    "Reason"
+                ]);
+
+                for entry in &report.stale_tasks {
+                    let last_commit_str = entry
+                        .last_git_commit
+                        .map(|t| t.format("%Y-%m-%d %H:%M").to_string())
+                        .unwrap_or_else(|| "never".to_string());
+
+                    table.add_row(row![
+                        &entry.task_id[..8],
+                        format!("{:.1}", entry.age_hours),
+                        last_commit_str,
+                        truncate(&entry.title, 35),
+                        truncate(&entry.agent, 10),
+                        truncate(&entry.staleness_reason, 40),
+                    ]);
+                }
+
+                table.printstd();
+            }
+        }
     }
 
     Ok(())
@@ -809,6 +931,156 @@ pub fn archive_task<S: Storage>(
     } else {
         Err(EngramError::Validation("Invalid task type".to_string()))
     }
+}
+
+/// Bulk archive tasks matching filters
+pub fn archive_tasks_bulk<S: Storage>(
+    storage: &mut S,
+    older_than: Option<u64>,
+    status_filter: Option<&str>,
+    dry_run: bool,
+    output_format: &str,
+) -> Result<(), EngramError> {
+    if older_than.is_none() && status_filter.is_none() {
+        return Err(EngramError::Validation(
+            "At least one filter is required: --older-than <days> or --status <status>".to_string(),
+        ));
+    }
+
+    let cutoff = older_than.map(|days| chrono::Utc::now() - chrono::Duration::days(days as i64));
+
+    let all_tasks = storage.get_all("task")?;
+    let now = chrono::Utc::now();
+    let mut archived_count: usize = 0;
+    let mut skipped_count: usize = 0;
+
+    let mut matched: Vec<(String, String, String)> = Vec::new();
+
+    for generic in &all_tasks {
+        let Ok(task) = Task::from_generic(generic.clone()) else {
+            continue;
+        };
+
+        if task.metadata.contains_key("archived_at") {
+            continue;
+        }
+
+        let status_matches = match status_filter {
+            Some(filter) => format!("{:?}", task.status).to_lowercase() == filter.to_lowercase(),
+            None => true,
+        };
+
+        let age_matches = match cutoff {
+            Some(cutoff_time) => task.start_time < cutoff_time,
+            None => true,
+        };
+
+        if status_matches && age_matches {
+            matched.push((
+                task.id.clone(),
+                task.title.clone(),
+                format!("{:?}", task.status),
+            ));
+        }
+    }
+
+    if matched.is_empty() {
+        if output_format == "json" {
+            println!(
+                "{}",
+                serde_json::json!({"archived": 0, "skipped": 0, "tasks": []})
+            );
+        } else {
+            println!("No tasks matched the archive filters.");
+        }
+        return Ok(());
+    }
+
+    if output_format == "json" || output_format == "text" {
+        if output_format == "text" {
+            println!(
+                "{} {} task(s) matching filters:",
+                if dry_run { "DRY RUN:" } else { "Archiving" },
+                matched.len()
+            );
+            let mut table = create_table();
+            table.set_titles(row!["ID", "Status", "Title"]);
+            for (id, title, status) in &matched {
+                table.add_row(row![&id[..8], status, truncate(title, 50)]);
+            }
+            table.printstd();
+        }
+    }
+
+    if dry_run {
+        if output_format == "json" {
+            let tasks_json: Vec<serde_json::Value> = matched
+                .iter()
+                .map(|(id, title, status)| {
+                    serde_json::json!({"id": id, "title": title, "status": status})
+                })
+                .collect();
+            println!(
+                "{}",
+                serde_json::json!({"dry_run": true, "would_archive": matched.len(), "tasks": tasks_json})
+            );
+        } else {
+            println!(
+                "\nDRY RUN: No changes made. {} task(s) would be archived.",
+                matched.len()
+            );
+        }
+        return Ok(());
+    }
+
+    for (id, _title, _status) in &matched {
+        if let Ok(existing) = storage.get(id, "task") {
+            if let Some(generic) = existing {
+                if let Ok(mut task) = Task::from_generic(generic) {
+                    if task.metadata.contains_key("archived_at") {
+                        skipped_count += 1;
+                        continue;
+                    }
+                    task.metadata.insert(
+                        "archived_at".to_string(),
+                        serde_json::Value::String(now.to_rfc3339()),
+                    );
+                    let updated_generic = task.to_generic();
+                    if storage.store(&updated_generic).is_ok() {
+                        archived_count += 1;
+                    } else {
+                        skipped_count += 1;
+                    }
+                } else {
+                    skipped_count += 1;
+                }
+            } else {
+                skipped_count += 1;
+            }
+        } else {
+            skipped_count += 1;
+        }
+    }
+
+    if output_format == "json" {
+        println!(
+            "{}",
+            serde_json::json!({
+                "archived": archived_count,
+                "skipped": skipped_count,
+                "total_matched": matched.len()
+            })
+        );
+    } else {
+        println!(
+            "\nArchive complete: {} archived, {} skipped (out of {} matched)",
+            archived_count,
+            skipped_count,
+            matched.len()
+        );
+    }
+
+    Ok(())
 }
 
 /// Resolve a blocked task
@@ -1239,7 +1511,19 @@ mod tests {
         .unwrap();
 
         // Filter by agent
-        let result = list_tasks(&storage, Some("agent1"), None, None, false, None);
+        let result = list_tasks(
+            &storage,
+            Some("agent1"),
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
+            24,
+            "text",
+        );
         assert!(result.is_ok());
         // Note: list_tasks prints to stdout, so we can't easily verify output content here
         // but we verify the function runs without error
@@ -1249,7 +1533,19 @@ mod tests {
     fn test_list_tasks_not_found() {
         let storage = create_test_storage();
         // Should succeed but print "No tasks found"
-        let result = list_tasks(&storage, Some("non-existent"), None, None, false, None);
+        let result = list_tasks(
+            &storage,
+            Some("non-existent"),
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
+            24,
+            "text",
+        );
         assert!(result.is_ok());
     }
 
@@ -1370,9 +1666,444 @@ mod tests {
     #[test]
     fn test_create_task_json_invalid() {
         let _storage = create_test_storage();
-        // We can't easily test stdin/file reading in unit tests without mocking
-        // but we can test the json deserialization logic by simulating the function calls that would happen
-        // This is harder to test directly via the public API which reads from FS/Stdin
-        // So we'll trust the integration tests for that part
+    }
+
+    #[test]
+    fn test_archive_bulk_no_filters() {
+        let mut storage = create_test_storage();
+        let result = archive_tasks_bulk(&mut storage, None, None, false, "text");
+        assert!(matches!(result, Err(EngramError::Validation(_))));
+    }
+
+    #[test]
+    fn test_archive_bulk_by_status() {
+        let mut storage = create_test_storage();
+
+        create_task(
+            &mut storage,
+            Some("Done Task".to_string()),
+            None,
+            "medium",
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+            "text".to_string(),
+        )
+        .unwrap();
+        create_task(
+            &mut storage,
+            Some("Todo Task".to_string()),
+            None,
+            "medium",
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+            "text".to_string(),
+        )
+        .unwrap();
+
+        let tasks = storage.query_by_agent("default", Some("task")).unwrap();
+        let done_id = tasks
+            .iter()
+            .find(|t| {
+                Task::from_generic((*t).clone())
+                    .map(|task| task.title == "Done Task")
+                    .unwrap_or(false)
+            })
+            .unwrap()
+            .id
+            .clone();
+
+        update_task(&mut storage, &done_id, "done", Some("Finished"), None).unwrap();
+
+        archive_tasks_bulk(&mut storage, None, Some("done"), false, "text").unwrap();
+
+        let archived = Task::from_generic(storage.get(&done_id, "task").unwrap().unwrap()).unwrap();
+        assert!(archived.metadata.contains_key("archived_at"));
+
+        let todo_task = tasks
+            .iter()
+            .find(|t| {
+                Task::from_generic((*t).clone())
+                    .map(|task| task.title == "Todo Task")
+                    .unwrap_or(false)
+            })
+            .unwrap();
+        let not_archived =
+            Task::from_generic(storage.get(&todo_task.id, "task").unwrap().unwrap()).unwrap();
+        assert!(!not_archived.metadata.contains_key("archived_at"));
+    }
+
+    #[test]
+    fn test_archive_bulk_dry_run() {
+        let mut storage = create_test_storage();
+
+        create_task(
+            &mut storage,
+            Some("Old Done Task".to_string()),
+            None,
+            "medium",
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+            "text".to_string(),
+        )
+        .unwrap();
+
+        let tasks = storage.query_by_agent("default", Some("task")).unwrap();
+        let task_id = tasks[0].id.clone();
+
+        update_task(&mut storage, &task_id, "done", Some("Finished"), None).unwrap();
+
+        archive_tasks_bulk(&mut storage, None, Some("done"), true, "text").unwrap();
+
+        let task = Task::from_generic(storage.get(&task_id, "task").unwrap().unwrap()).unwrap();
+        assert!(!task.metadata.contains_key("archived_at"));
+    }
+
+    #[test]
+    fn test_archive_bulk_older_than() {
+        let mut storage = create_test_storage();
+
+        create_task(
+            &mut storage,
+            Some("Old Task".to_string()),
+            None,
+            "medium",
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+            "text".to_string(),
+        )
+        .unwrap();
+
+        let tasks = storage.query_by_agent("default", Some("task")).unwrap();
+        let task_id = tasks[0].id.clone();
+
+        archive_tasks_bulk(&mut storage, Some(0), None, false, "text").unwrap();
+
+        let task = Task::from_generic(storage.get(&task_id, "task").unwrap().unwrap()).unwrap();
+        assert!(task.metadata.contains_key("archived_at"));
+    }
+
+    #[test]
+    fn test_archive_bulk_skips_already_archived() {
+        let mut storage = create_test_storage();
+
+        create_task(
+            &mut storage,
+            Some("Already Archived".to_string()),
+            None,
+            "medium",
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+            "text".to_string(),
+        )
+        .unwrap();
+
+        let tasks = storage.query_by_agent("default", Some("task")).unwrap();
+        let task_id = tasks[0].id.clone();
+
+        update_task(&mut storage, &task_id, "done", Some("Done"), None).unwrap();
+        archive_tasks_bulk(&mut storage, Some(0), Some("done"), false, "text").unwrap();
+
+        let archived = Task::from_generic(storage.get(&task_id, "task").unwrap().unwrap()).unwrap();
+        let first_archived_at = archived.metadata.get("archived_at").unwrap().clone();
+
+        archive_tasks_bulk(&mut storage, Some(0), Some("done"), false, "text").unwrap();
+
+        let still_archived =
+            Task::from_generic(storage.get(&task_id, "task").unwrap().unwrap()).unwrap();
+        let second_archived_at = still_archived.metadata.get("archived_at").unwrap().clone();
+        assert_eq!(first_archived_at, second_archived_at);
+    }
+
+    #[test]
+    fn test_archive_bulk_no_matches() {
+        let mut storage = create_test_storage();
+
+        create_task(
+            &mut storage,
+            Some("Todo Task".to_string()),
+            None,
+            "medium",
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+            "text".to_string(),
+        )
+        .unwrap();
+
+        let result = archive_tasks_bulk(&mut storage, None, Some("done"), false, "text");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_archive_bulk_combined_filters() {
+        let mut storage = create_test_storage();
+
+        create_task(
+            &mut storage,
+            Some("Done Old".to_string()),
+            None,
+            "medium",
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+            "text".to_string(),
+        )
+        .unwrap();
+        create_task(
+            &mut storage,
+            Some("Done Recent".to_string()),
+            None,
+            "medium",
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+            "text".to_string(),
+        )
+        .unwrap();
+        create_task(
+            &mut storage,
+            Some("Todo Old".to_string()),
+            None,
+            "medium",
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+            "text".to_string(),
+        )
+        .unwrap();
+
+        let tasks = storage.query_by_agent("default", Some("task")).unwrap();
+
+        for t in &tasks {
+            let task = Task::from_generic(t.clone()).unwrap();
+            if task.title == "Done Old" || task.title == "Done Recent" {
+                update_task(&mut storage, &t.id, "done", Some("Done"), None).unwrap();
+            }
+        }
+
+        archive_tasks_bulk(&mut storage, Some(0), Some("done"), false, "text").unwrap();
+
+        for t in &tasks {
+            let task = Task::from_generic(storage.get(&t.id, "task").unwrap().unwrap()).unwrap();
+            if task.title == "Done Old" || task.title == "Done Recent" {
+                assert!(task.metadata.contains_key("archived_at"));
+            } else {
+                assert!(!task.metadata.contains_key("archived_at"));
+            }
+        }
+    }
+
+    #[test]
+    fn test_archive_bulk_json_output() {
+        let mut storage = create_test_storage();
+
+        create_task(
+            &mut storage,
+            Some("JSON Test".to_string()),
+            None,
+            "medium",
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+            "text".to_string(),
+        )
+        .unwrap();
+
+        let result = archive_tasks_bulk(&mut storage, Some(0), None, true, "json");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_list_tasks_filter_by_workflow_instance() {
+        let mut storage = create_test_storage();
+
+        let mut task1 = Task::new(
+            "WF Task".to_string(),
+            "Bound to workflow".to_string(),
+            "default".to_string(),
+            TaskPriority::Medium,
+            Some("wf-inst-123".to_string()),
+        );
+        task1.workflow_state = Some("review".to_string());
+        storage.store(&task1.to_generic()).unwrap();
+
+        let task2 = Task::new(
+            "No WF Task".to_string(),
+            "Unbound".to_string(),
+            "default".to_string(),
+            TaskPriority::Low,
+            None,
+        );
+        storage.store(&task2.to_generic()).unwrap();
+
+        let result = list_tasks(
+            &storage,
+            Some("default"),
+            None,
+            Some("wf-inst-123"),
+            None,
+            None,
+            false,
+            None,
+            false,
+            24,
+            "text",
+        );
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_list_tasks_filter_by_workflow_state() {
+        let mut storage = create_test_storage();
+
+        let mut task1 = Task::new(
+            "Review Task".to_string(),
+            "In review".to_string(),
+            "default".to_string(),
+            TaskPriority::High,
+            Some("wf-inst-1".to_string()),
+        );
+        task1.workflow_state = Some("review".to_string());
+        storage.store(&task1.to_generic()).unwrap();
+
+        let mut task2 = Task::new(
+            "Impl Task".to_string(),
+            "In implementation".to_string(),
+            "default".to_string(),
+            TaskPriority::Medium,
+            Some("wf-inst-1".to_string()),
+        );
+        task2.workflow_state = Some("implementation".to_string());
+        storage.store(&task2.to_generic()).unwrap();
+
+        let result = list_tasks(
+            &storage,
+            Some("default"),
+            None,
+            None,
+            Some("review"),
+            None,
+            false,
+            None,
+            false,
+            24,
+            "text",
+        );
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_list_tasks_filter_by_workflow_and_state() {
+        let mut storage = create_test_storage();
+
+        let mut task1 = Task::new(
+            "WF1 Review".to_string(),
+            "In review on wf1".to_string(),
+            "default".to_string(),
+            TaskPriority::High,
+            Some("wf-inst-1".to_string()),
+        );
+        task1.workflow_state = Some("review".to_string());
+        storage.store(&task1.to_generic()).unwrap();
+
+        let mut task2 = Task::new(
+            "WF1 Impl".to_string(),
+            "In implementation on wf1".to_string(),
+            "default".to_string(),
+            TaskPriority::Medium,
+            Some("wf-inst-1".to_string()),
+        );
+        task2.workflow_state = Some("implementation".to_string());
+        storage.store(&task2.to_generic()).unwrap();
+
+        let mut task3 = Task::new(
+            "WF2 Review".to_string(),
+            "In review on wf2".to_string(),
+            "default".to_string(),
+            TaskPriority::Low,
+            Some("wf-inst-2".to_string()),
+        );
+        task3.workflow_state = Some("review".to_string());
+        storage.store(&task3.to_generic()).unwrap();
+
+        let result = list_tasks(
+            &storage,
+            Some("default"),
+            None,
+            Some("wf-inst-1"),
+            Some("review"),
+            None,
+            false,
+            None,
+            false,
+            24,
+            "text",
+        );
+        assert!(result.is_ok());
     }
 }
