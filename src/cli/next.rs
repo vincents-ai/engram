@@ -230,7 +230,7 @@ pub fn handle_next_command<S: Storage>(
         })
         .and_then(|cfg| cfg.persona)
         .and_then(|persona_name| {
-            let result = crate::personas::find_persona(&persona_name, storage);
+            let result = crate::personas::find_persona(&persona_name);
             if result.is_none() {
                 eprintln!(
                     "⚠️  Persona '{}' not found in storage or embedded set",

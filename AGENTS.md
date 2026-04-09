@@ -1,56 +1,47 @@
 # Agent Instructions
 
-## Memory — Engram
+## North Star
 
-All persistent memory lives in engram, not in conversation context.
+`engram ask query "full-fidelity handoff"` — ADR-018
 
-Always use the engram-use-engram-memory skill before starting work.
+Any agent or human should be able to pick up exactly where another left off, with full fidelity, without the handoff party being present. Every decision, intent, and code change is traceable to engram.
 
-Always use the engram-session-start skill before starting work and engram-session-end when finishing.
+## Starting a Session
 
-## Required Skills
+1. Load the `engram-session-start` skill
+2. Load the `engram-orchestrator` skill (if coordinating) or `engram-subagent-register` (if assigned a task UUID)
+3. Run `engram ask query "<your task or goal>"` before touching anything
 
-Load these skills at the start of every session:
-- engram-use-engram-memory: Full command reference for context, reasoning, ADR, and relationships
-- engram-session-start: Run at the start of every session — syncs from remote, opens session, loads context
-- engram-session-end: Run at the end of every session — closes tasks, generates summary, syncs to remote
-- engram-orchestrator (if coordinating subagents)
-- engram-subagent-register (if you are a subagent receiving a task UUID)
+## Ending a Session
 
-## Session Management
-
-Always use the engram-session-start skill before starting work and engram-session-end when finishing.
-
-- **Start**: `engram-session-start` — pulls from remote, opens a named session, loads prior context, surfaces next action
-- **End**: `engram-session-end` — closes open tasks, generates handoff summary, pushes to remote, validates state
-
-Never start work without running the session-start protocol. Never finish work without running the session-end protocol. An unclosed session loses its summary and breaks `engram next` context for the next agent.
+Load the `engram-session-end` skill. Never finish without it — unclosed sessions break `engram next` for the next agent.
 
 ## Commit Convention
 
-Every commit message must follow this format:
+```
+<type>: <title> [<ENGRAM_TASK_UUID>]
+```
 
-  <type>: <title> [<ENGRAM_TASK_UUID>]
+The pre-commit hook rejects commits without a valid engram task UUID. Never use `--no-verify`.
 
-Examples:
-  feat: add rate limiting middleware [abc-001]
-  fix: normalise UTC timestamps in token validation [abc-002]
+## Key Queries
 
-The pre-commit hook rejects commits that do not reference a valid engram task UUID.
-Never use --no-verify to bypass the hook.
+```bash
+engram ask query "<text>"                  # search before acting — always
+engram next                                # next priority action for this session
+engram task show <UUID>                    # full task detail + relationships
+engram relationship connected --entity-id <UUID> --max-depth 2
+```
 
 ## Workflows
 
-Available workflows (run `engram workflow list` to see all):
-- <workflow-name>: <short description>
+```bash
+engram workflow list                       # SDLC, Feature Development, Regression Testing
+```
 
-## Engram Quick Reference
+## Sync
 
-  engram ask query "<text>"          # search before acting
-  engram task create --title "..."   # anchor new work
-  engram task update <UUID> --status in_progress
-  engram next                        # get next priority action
-  engram validate check              # verify setup before finishing
-  engram sync list-remotes           # check if remote is configured
-  engram sync pull --remote origin   # pull before starting work
-  engram sync push --remote origin   # push after ending session
+```bash
+engram sync pull --remote origin           # pull before starting
+engram sync push --remote origin           # push after ending session
+```

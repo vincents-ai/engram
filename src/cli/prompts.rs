@@ -323,11 +323,7 @@ fn validate_prompt_evidence_requirements(content: &str, prompt_name: &str) -> Ve
 }
 
 /// Show a specific prompt
-pub fn show_prompt(
-    name: &str,
-    root: Option<PathBuf>,
-    storage: &dyn crate::storage::Storage,
-) -> Result<(), std::io::Error> {
+pub fn show_prompt(name: &str, root: Option<PathBuf>) -> Result<(), std::io::Error> {
     let prompts_path = root.unwrap_or_else(get_prompts_path);
 
     // Try to find the prompt file
@@ -405,7 +401,7 @@ pub fn show_prompt(
         println!("Searched in: {:?}", prompts_path);
 
         // Fall back to storage + embedded personas
-        if let Some((_slug, def)) = crate::personas::find_persona(name, storage) {
+        if let Some((_slug, def)) = crate::personas::find_persona(name) {
             println!("\n[embedded] {}", def.title);
             if let Some(v) = &def.version {
                 println!("Version: {}", v);
@@ -549,9 +545,8 @@ mod tests {
     #[test]
     fn test_show_prompt_not_found() {
         let temp_dir = TempDir::new().unwrap();
-        let storage = crate::storage::MemoryStorage::new("test");
         // Should not panic or error, just prints "Prompt not found"
-        let result = show_prompt("nonexistent", Some(temp_dir.path().to_path_buf()), &storage);
+        let result = show_prompt("nonexistent", Some(temp_dir.path().to_path_buf()));
         assert!(result.is_ok());
     }
 

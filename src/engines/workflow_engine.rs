@@ -3094,6 +3094,267 @@ mod tests {
         assert_eq!(bound_task.workflow_state.as_deref(), Some("in_progress"));
     }
 
+    fn create_sdlc_workflow(engine: &mut WorkflowAutomationEngine<MemoryStorage>) -> String {
+        let planning = crate::entities::WorkflowState {
+            id: "sdlc-planning".into(),
+            name: "Planning".into(),
+            state_type: crate::entities::StateType::Start,
+            description: "Requirements gathering and design".into(),
+            is_final: false,
+            prompts: None,
+            guards: vec![],
+            post_functions: vec![],
+            commit_policy: None,
+        };
+        let in_progress = crate::entities::WorkflowState {
+            id: "sdlc-in-progress".into(),
+            name: "In Progress".into(),
+            state_type: crate::entities::StateType::InProgress,
+            description: "Active development".into(),
+            is_final: false,
+            prompts: None,
+            guards: vec![],
+            post_functions: vec![],
+            commit_policy: None,
+        };
+        let in_review = crate::entities::WorkflowState {
+            id: "sdlc-in-review".into(),
+            name: "In Review".into(),
+            state_type: crate::entities::StateType::InProgress,
+            description: "Code review phase".into(),
+            is_final: false,
+            prompts: None,
+            guards: vec![],
+            post_functions: vec![],
+            commit_policy: None,
+        };
+        let testing = crate::entities::WorkflowState {
+            id: "sdlc-testing".into(),
+            name: "Testing".into(),
+            state_type: crate::entities::StateType::InProgress,
+            description: "QA and automated testing".into(),
+            is_final: false,
+            prompts: None,
+            guards: vec![],
+            post_functions: vec![],
+            commit_policy: None,
+        };
+        let done = crate::entities::WorkflowState {
+            id: "sdlc-done".into(),
+            name: "Done".into(),
+            state_type: crate::entities::StateType::Done,
+            description: "Shipped and closed".into(),
+            is_final: true,
+            prompts: None,
+            guards: vec![],
+            post_functions: vec![],
+            commit_policy: None,
+        };
+
+        let wid: String = "sdlc-workflow".into();
+        let mut wf = crate::entities::Workflow::new(
+            "SDLC".into(),
+            "Software Development Lifecycle".into(),
+            "ta".into(),
+        );
+        wf.id = wid.clone();
+        wf.states = vec![
+            planning.clone(),
+            in_progress.clone(),
+            in_review.clone(),
+            testing.clone(),
+            done.clone(),
+        ];
+        wf.transitions = vec![
+            crate::entities::WorkflowTransition {
+                id: "sdlc-t1".into(),
+                name: "begin_development".into(),
+                from_state: planning.id.clone(),
+                to_state: in_progress.id.clone(),
+                transition_type: crate::entities::TransitionType::Manual,
+                description: "Begin coding".into(),
+                conditions: vec![],
+                actions: vec![],
+                trigger: None,
+            },
+            crate::entities::WorkflowTransition {
+                id: "sdlc-t2".into(),
+                name: "submit_for_review".into(),
+                from_state: in_progress.id.clone(),
+                to_state: in_review.id.clone(),
+                transition_type: crate::entities::TransitionType::Manual,
+                description: "Submit PR".into(),
+                conditions: vec![],
+                actions: vec![],
+                trigger: None,
+            },
+            crate::entities::WorkflowTransition {
+                id: "sdlc-t3".into(),
+                name: "request_changes".into(),
+                from_state: in_review.id.clone(),
+                to_state: in_progress.id.clone(),
+                transition_type: crate::entities::TransitionType::Manual,
+                description: "Send back for fixes".into(),
+                conditions: vec![],
+                actions: vec![],
+                trigger: None,
+            },
+            crate::entities::WorkflowTransition {
+                id: "sdlc-t4".into(),
+                name: "approve".into(),
+                from_state: in_review.id.clone(),
+                to_state: testing.id.clone(),
+                transition_type: crate::entities::TransitionType::Manual,
+                description: "Approve and move to testing".into(),
+                conditions: vec![],
+                actions: vec![],
+                trigger: None,
+            },
+            crate::entities::WorkflowTransition {
+                id: "sdlc-t5".into(),
+                name: "test_passed".into(),
+                from_state: testing.id.clone(),
+                to_state: done.id.clone(),
+                transition_type: crate::entities::TransitionType::Manual,
+                description: "All tests green".into(),
+                conditions: vec![],
+                actions: vec![],
+                trigger: None,
+            },
+        ];
+        wf.initial_state = planning.id.clone();
+        wf.final_states = vec![done.id.clone()];
+        wf.activate();
+        engine.storage.store(&wf.to_generic()).unwrap();
+        wid
+    }
+
+    #[test]
+    fn test_sdlc_workflow_lifecycle() {
+        let mut engine = create_test_engine();
+        let wid = create_sdlc_workflow(&mut engine);
+
+        let workflow = engine.get_workflow(&wid).unwrap();
+        assert_eq!(workflow.states.len(), 5);
+        assert_eq!(workflow.transitions.len(), 5);
+        assert_eq!(workflow.initial_state, "sdlc-planning");
+        assert_eq!(workflow.final_states, vec!["sdlc-done".to_string()]);
+
+        let sr = engine
+            .start_workflow(wid, None, None, "ta".into(), HashMap::new())
+            .unwrap();
+        assert_eq!(sr.current_state, "Planning");
+        assert!(sr.success);
+
+        let r1 = engine
+            .execute_transition(&sr.instance_id, "begin_development".into(), "ta".into())
+            .unwrap();
+        assert!(r1.success);
+        assert_eq!(r1.current_state, "In Progress");
+
+        let r2 = engine
+            .execute_transition(&sr.instance_id, "submit_for_review".into(), "ta".into())
+            .unwrap();
+        assert!(r2.success);
+        assert_eq!(r2.current_state, "In Review");
+
+        let r3 = engine
+            .execute_transition(&sr.instance_id, "request_changes".into(), "ta".into())
+            .unwrap();
+        assert!(r3.success);
+        assert_eq!(r3.current_state, "In Progress");
+
+        let r4 = engine
+            .execute_transition(&sr.instance_id, "submit_for_review".into(), "ta".into())
+            .unwrap();
+        assert!(r4.success);
+        assert_eq!(r4.current_state, "In Review");
+
+        let r5 = engine
+            .execute_transition(&sr.instance_id, "approve".into(), "ta".into())
+            .unwrap();
+        assert!(r5.success);
+        assert_eq!(r5.current_state, "Testing");
+
+        let r6 = engine
+            .execute_transition(&sr.instance_id, "test_passed".into(), "ta".into())
+            .unwrap();
+        assert!(r6.success);
+        assert_eq!(r6.current_state, "Done");
+
+        let instance = engine.get_instance_status(&sr.instance_id).unwrap();
+        assert_eq!(instance.status, WorkflowStatus::Completed);
+
+        let history = &instance.execution_history;
+        let transitioned: Vec<_> = history
+            .iter()
+            .filter(|e| matches!(e.event_type, WorkflowEventType::Transitioned))
+            .collect();
+        assert_eq!(transitioned.len(), 6);
+    }
+
+    #[test]
+    fn test_sdlc_workflow_rejects_invalid_transitions() {
+        let mut engine = create_test_engine();
+        let wid = create_sdlc_workflow(&mut engine);
+
+        let sr = engine
+            .start_workflow(wid, None, None, "ta".into(), HashMap::new())
+            .unwrap();
+        assert_eq!(sr.current_state, "Planning");
+
+        let r = engine.execute_transition(&sr.instance_id, "approve".into(), "ta".into());
+        assert!(r.is_err());
+
+        let r = engine.execute_transition(&sr.instance_id, "test_passed".into(), "ta".into());
+        assert!(r.is_err());
+
+        engine
+            .execute_transition(&sr.instance_id, "begin_development".into(), "ta".into())
+            .unwrap();
+        assert_eq!(
+            engine
+                .get_instance_status(&sr.instance_id)
+                .unwrap()
+                .current_state,
+            "In Progress"
+        );
+
+        let r = engine.execute_transition(&sr.instance_id, "test_passed".into(), "ta".into());
+        assert!(r.is_err());
+
+        let r = engine.execute_transition(&sr.instance_id, "begin_development".into(), "ta".into());
+        assert!(r.is_err());
+
+        engine
+            .execute_transition(&sr.instance_id, "submit_for_review".into(), "ta".into())
+            .unwrap();
+
+        let r = engine.execute_transition(&sr.instance_id, "submit_for_review".into(), "ta".into());
+        assert!(r.is_err());
+
+        engine
+            .execute_transition(&sr.instance_id, "approve".into(), "ta".into())
+            .unwrap();
+
+        let r = engine.execute_transition(&sr.instance_id, "request_changes".into(), "ta".into());
+        assert!(r.is_err());
+
+        let r = engine.execute_transition(&sr.instance_id, "submit_for_review".into(), "ta".into());
+        assert!(r.is_err());
+
+        engine
+            .execute_transition(&sr.instance_id, "test_passed".into(), "ta".into())
+            .unwrap();
+        assert_eq!(
+            engine.get_instance_status(&sr.instance_id).unwrap().status,
+            WorkflowStatus::Completed
+        );
+
+        let r = engine.execute_transition(&sr.instance_id, "approve".into(), "ta".into());
+        assert!(r.is_err());
+    }
+
     #[test]
     fn test_execute_transition_skips_unbound_tasks() {
         let mut engine = create_test_engine();

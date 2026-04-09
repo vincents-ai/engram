@@ -24,6 +24,75 @@ use crossterm::terminal::{
 use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
 use std::io;
+use std::sync::mpsc;
+
+#[derive(Debug)]
+pub(crate) struct SyncResult {
+    pub message: String,
+}
+
+pub(crate) enum SyncOperation {
+    Pull { remote_name: String },
+    Push { remote_name: String },
+    Both { remote_name: String },
+}
+
+fn execute_sync_op(op: SyncOperation) -> SyncResult {
+    let message = match op {
+        SyncOperation::Pull { remote_name } => match build_auth_for_remote(&remote_name) {
+            Ok(auth) => crate::cli::sync::pull_from_remote(remote_name.clone(), auth, false)
+                .map(|outcomes| {
+                    let conflicts = outcomes
+                        .iter()
+                        .filter(|o| {
+                            matches!(o, crate::cli::sync::PullEntityOutcome::Conflict { .. })
+                        })
+                        .count();
+                    format!("pull: {} fetched, {} conflicts", outcomes.len(), conflicts)
+                })
+                .unwrap_or_else(|e| format!("pull error: {}", e)),
+            Err(e) => format!("auth error: {}", e),
+        },
+        SyncOperation::Push { remote_name } => match build_auth_for_remote(&remote_name) {
+            Ok(auth) => crate::cli::sync::push_to_remote(remote_name.clone(), auth, false)
+                .map(|count| format!("push: {} refs pushed", count))
+                .unwrap_or_else(|e| format!("push error: {}", e)),
+            Err(e) => format!("auth error: {}", e),
+        },
+        SyncOperation::Both { remote_name } => match build_auth_for_remote(&remote_name) {
+            Ok(auth) => crate::cli::sync::sync_both(remote_name.clone(), auth, false)
+                .map(|r| {
+                    format!(
+                        "sync: {} fetched, {} pushed, {} conflicts",
+                        r.pull_outcomes.len(),
+                        r.push_count,
+                        r.conflicts
+                    )
+                })
+                .unwrap_or_else(|e| format!("sync error: {}", e)),
+            Err(e) => format!("auth error: {}", e),
+        },
+    };
+    SyncResult { message }
+}
+
+fn build_auth_for_remote(remote_name: &str) -> Result<RemoteAuth, String> {
+    use std::collections::HashMap;
+    use std::fs;
+    let content = fs::read_to_string(".engram/remotes.json")
+        .map_err(|e| format!("cannot read remotes.json: {}", e))?;
+    let remotes: HashMap<String, crate::cli::sync::RemoteConfig> =
+        serde_json::from_str(&content).map_err(|e| format!("cannot parse remotes.json: {}", e))?;
+    let cfg = remotes
+        .get(remote_name)
+        .ok_or_else(|| format!("remote '{}' not found", remote_name))?;
+    Ok(RemoteAuth {
+        auth_type: cfg.auth_type.clone().unwrap_or_else(|| "none".to_string()),
+        username: cfg.username.clone(),
+        password: None,
+        key_path: cfg.ssh_key_path.clone(),
+    })
+}
 
 /// Drop guard that restores the terminal to its original state.
 struct TerminalGuard;
@@ -39,20 +108,15 @@ pub struct LocusTuiApp<S: Storage + RelationshipStorage> {
     integration: LocusIntegration<S>,
     backend: Box<dyn LocusTuiBackend>,
     app_state: AppState,
+    sync_tx: mpsc::Sender<Option<SyncResult>>,
+    sync_rx: mpsc::Receiver<Option<SyncResult>>,
 }
 
 impl<S: Storage + RelationshipStorage + Send + 'static> LocusTuiApp<S> {
     pub fn new(storage: S) -> Self {
-        // `new_with_refresh_interval` is preferred for production; this
-        // constructor is retained for call sites that don't need a custom
-        // backend. It builds a GitRefsStorage-backed backend pointing at CWD,
-        // matching what every CLI command uses.
         let backend: Box<dyn LocusTuiBackend> = match GitEngramBackend::new() {
             Ok(b) => Box::new(b),
             Err(e) => {
-                // Surface the error as a warning — empty data is always wrong
-                // in production. Fallback to memory keeps the TUI usable in
-                // CI / test environments where there is no git repo.
                 eprintln!("locus: warning: could not open git storage: {e}");
                 let mem = crate::storage::memory_only_storage::MemoryStorage::new("locus-tui");
                 let fallback = crate::locus_tui::backend::EngramBackend::from_storage(mem);
@@ -60,30 +124,35 @@ impl<S: Storage + RelationshipStorage + Send + 'static> LocusTuiApp<S> {
             }
         };
 
-        // Read refresh interval from workspace config; default to 30s if unavailable.
         let refresh_interval_secs =
             crate::config::workspace_config::WorkspaceConfig::default().refresh_interval_secs;
 
         let mut app_state = AppState::new();
         app_state.refresh_interval_secs = refresh_interval_secs;
 
+        let (sync_tx, sync_rx) = mpsc::channel();
+
         Self {
             integration: LocusIntegration::new(storage),
             backend,
             app_state,
+            sync_tx,
+            sync_rx,
         }
     }
 
-    /// Create a TUI app using a specific backend (useful for tests).
     pub fn new_with_backend(storage: S, backend: Box<dyn LocusTuiBackend>) -> Self {
+        let (sync_tx, sync_rx) = mpsc::channel();
+
         Self {
             integration: LocusIntegration::new(storage),
             backend,
             app_state: AppState::new(),
+            sync_tx,
+            sync_rx,
         }
     }
 
-    /// Create a TUI app with a specific refresh interval (seconds; 0 = disabled).
     pub fn new_with_refresh_interval(
         storage: S,
         backend: Box<dyn LocusTuiBackend>,
@@ -91,10 +160,15 @@ impl<S: Storage + RelationshipStorage + Send + 'static> LocusTuiApp<S> {
     ) -> Self {
         let mut app_state = AppState::new();
         app_state.refresh_interval_secs = refresh_interval_secs;
+
+        let (sync_tx, sync_rx) = mpsc::channel();
+
         Self {
             integration: LocusIntegration::new(storage),
             backend,
             app_state,
+            sync_tx,
+            sync_rx,
         }
     }
 
@@ -216,81 +290,72 @@ impl<S: Storage + RelationshipStorage + Send + 'static> LocusTuiApp<S> {
                 }
             }
             Action::SyncPull => {
-                self.app_state.sync_view.op_in_flight = true;
-                self.app_state
-                    .set_status("Pulling from remote…".to_string());
+                if self.app_state.sync_view.op_in_flight {
+                    return;
+                }
                 let remote = self.selected_remote_name();
-                let result = if let Some(ref name) = remote {
-                    match self.build_remote_auth(name) {
-                        Ok(auth) => crate::cli::sync::pull_from_remote(name.clone(), auth, false)
-                            .map(|outcomes| {
-                                let conflicts = outcomes
-                                    .iter()
-                                    .filter(|o| {
-                                        matches!(
-                                            o,
-                                            crate::cli::sync::PullEntityOutcome::Conflict { .. }
-                                        )
-                                    })
-                                    .count();
-                                format!("pull: {} fetched, {} conflicts", outcomes.len(), conflicts)
-                            })
-                            .unwrap_or_else(|e| format!("pull error: {}", e)),
-                        Err(e) => format!("auth error: {}", e),
+                match remote {
+                    Some(name) => {
+                        self.app_state.sync_view.op_in_flight = true;
+                        self.app_state
+                            .set_status("Pulling from remote…".to_string());
+                        let tx = self.sync_tx.clone();
+                        std::thread::spawn(move || {
+                            let result = execute_sync_op(SyncOperation::Pull { remote_name: name });
+                            let _ = tx.send(Some(result));
+                        });
                     }
-                } else {
-                    "No remote selected".to_string()
-                };
-                self.app_state.sync_view.op_in_flight = false;
-                self.app_state.sync_view.last_op_result = Some(result.clone());
-                self.app_state.set_status(result);
-                self.refresh_sync_status();
+                    None => {
+                        self.app_state.sync_view.last_op_result =
+                            Some("No remote selected".to_string());
+                        self.app_state.set_status("No remote selected".to_string());
+                    }
+                }
             }
             Action::SyncPush => {
-                self.app_state.sync_view.op_in_flight = true;
-                self.app_state.set_status("Pushing to remote…".to_string());
+                if self.app_state.sync_view.op_in_flight {
+                    return;
+                }
                 let remote = self.selected_remote_name();
-                let result = if let Some(ref name) = remote {
-                    match self.build_remote_auth(name) {
-                        Ok(auth) => crate::cli::sync::push_to_remote(name.clone(), auth, false)
-                            .map(|count| format!("push: {} refs pushed", count))
-                            .unwrap_or_else(|e| format!("push error: {}", e)),
-                        Err(e) => format!("auth error: {}", e),
+                match remote {
+                    Some(name) => {
+                        self.app_state.sync_view.op_in_flight = true;
+                        self.app_state.set_status("Pushing to remote…".to_string());
+                        let tx = self.sync_tx.clone();
+                        std::thread::spawn(move || {
+                            let result = execute_sync_op(SyncOperation::Push { remote_name: name });
+                            let _ = tx.send(Some(result));
+                        });
                     }
-                } else {
-                    "No remote selected".to_string()
-                };
-                self.app_state.sync_view.op_in_flight = false;
-                self.app_state.sync_view.last_op_result = Some(result.clone());
-                self.app_state.set_status(result);
-                self.refresh_sync_status();
+                    None => {
+                        self.app_state.sync_view.last_op_result =
+                            Some("No remote selected".to_string());
+                        self.app_state.set_status("No remote selected".to_string());
+                    }
+                }
             }
             Action::SyncBoth => {
-                self.app_state.sync_view.op_in_flight = true;
-                self.app_state
-                    .set_status("Syncing (pull+push)…".to_string());
+                if self.app_state.sync_view.op_in_flight {
+                    return;
+                }
                 let remote = self.selected_remote_name();
-                let result = if let Some(ref name) = remote {
-                    match self.build_remote_auth(name) {
-                        Ok(auth) => crate::cli::sync::sync_both(name.clone(), auth, false)
-                            .map(|r| {
-                                format!(
-                                    "sync: {} fetched, {} pushed, {} conflicts",
-                                    r.pull_outcomes.len(),
-                                    r.push_count,
-                                    r.conflicts
-                                )
-                            })
-                            .unwrap_or_else(|e| format!("sync error: {}", e)),
-                        Err(e) => format!("auth error: {}", e),
+                match remote {
+                    Some(name) => {
+                        self.app_state.sync_view.op_in_flight = true;
+                        self.app_state
+                            .set_status("Syncing (pull+push)…".to_string());
+                        let tx = self.sync_tx.clone();
+                        std::thread::spawn(move || {
+                            let result = execute_sync_op(SyncOperation::Both { remote_name: name });
+                            let _ = tx.send(Some(result));
+                        });
                     }
-                } else {
-                    "No remote selected".to_string()
-                };
-                self.app_state.sync_view.op_in_flight = false;
-                self.app_state.sync_view.last_op_result = Some(result.clone());
-                self.app_state.set_status(result);
-                self.refresh_sync_status();
+                    None => {
+                        self.app_state.sync_view.last_op_result =
+                            Some("No remote selected".to_string());
+                        self.app_state.set_status("No remote selected".to_string());
+                    }
+                }
             }
             Action::RefreshSyncStatus => {
                 self.app_state
@@ -307,25 +372,13 @@ impl<S: Storage + RelationshipStorage + Send + 'static> LocusTuiApp<S> {
         }
     }
 
-    /// Build a `RemoteAuth` from the stored `RemoteConfig` for the given remote name.
-    /// Reads `.engram/remotes.json` — same source the CLI uses.
-    fn build_remote_auth(&self, remote_name: &str) -> Result<RemoteAuth, String> {
-        use std::collections::HashMap;
-        use std::fs;
-        let content = fs::read_to_string(".engram/remotes.json")
-            .map_err(|e| format!("cannot read remotes.json: {}", e))?;
-        let remotes: HashMap<String, crate::cli::sync::RemoteConfig> =
-            serde_json::from_str(&content)
-                .map_err(|e| format!("cannot parse remotes.json: {}", e))?;
-        let cfg = remotes
-            .get(remote_name)
-            .ok_or_else(|| format!("remote '{}' not found", remote_name))?;
-        Ok(RemoteAuth {
-            auth_type: cfg.auth_type.clone().unwrap_or_else(|| "none".to_string()),
-            username: cfg.username.clone(),
-            password: None, // not stored; SSH key is preferred
-            key_path: cfg.ssh_key_path.clone(),
-        })
+    fn poll_sync_results(&mut self) {
+        while let Ok(Some(result)) = self.sync_rx.try_recv() {
+            self.app_state.sync_view.op_in_flight = false;
+            self.app_state.sync_view.last_op_result = Some(result.message.clone());
+            self.app_state.set_status(result.message);
+            self.refresh_sync_status();
+        }
     }
 
     /// Load sync remotes and status into app state.
@@ -469,7 +522,6 @@ impl<S: Storage + RelationshipStorage + Send + 'static> LocusTuiApp<S> {
     }
 
     pub fn run(&mut self) -> io::Result<()> {
-        // Set up terminal raw mode and alternate screen
         enable_raw_mode()?;
         let mut stdout = io::stdout();
         execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
@@ -478,12 +530,9 @@ impl<S: Storage + RelationshipStorage + Send + 'static> LocusTuiApp<S> {
         let crossterm_backend = CrosstermBackend::new(io::stdout());
         let mut terminal = Terminal::new(crossterm_backend)?;
 
-        // Load data before the first render
         self.load_all_data();
 
         loop {
-            // Check tick-based auto-refresh before drawing.
-            // `should_auto_refresh` resets the timer internally when it fires.
             if self.app_state.should_auto_refresh() {
                 self.load_all_data();
                 let interval = self.app_state.refresh_interval_secs;
@@ -491,8 +540,8 @@ impl<S: Storage + RelationshipStorage + Send + 'static> LocusTuiApp<S> {
                     .set_status(format!("Auto-refreshed (every {}s)", interval));
             }
 
-            // Split the borrows explicitly so the borrow checker is satisfied
-            // inside the closure: integration and app_state are separate fields.
+            self.poll_sync_results();
+
             let integration = &self.integration;
             let app_state = &mut self.app_state;
             terminal.draw(|f| ui::draw(integration, app_state, f))?;
