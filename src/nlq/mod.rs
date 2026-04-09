@@ -3,6 +3,7 @@
 //! Provides conversational access to Engram's memory system through pattern matching
 //! and entity extraction. Maps natural language queries to structured Engram operations.
 
+pub mod deep_walk;
 pub mod entity_extractor;
 pub mod intent_classifier;
 pub mod query_mapper;
@@ -13,6 +14,7 @@ use crate::error::EngramError;
 use crate::storage::Storage;
 use serde::{Deserialize, Serialize};
 
+pub use deep_walk::{ConnectedEntity, DeepWalker, DeepWalkResult};
 pub use entity_extractor::EntityExtractor;
 pub use intent_classifier::IntentClassifier;
 pub use query_mapper::QueryMapper;
@@ -93,6 +95,18 @@ impl NLQEngine {
         context: Option<String>,
         storage: &dyn Storage,
     ) -> Result<QueryResult, EngramError> {
+        self.process_query_with_deep(query, context, storage, false, None).await
+    }
+
+    /// Process a natural language query with optional deep relationship walking
+    pub async fn process_query_with_deep(
+        &self,
+        query: &str,
+        context: Option<String>,
+        storage: &dyn Storage,
+        deep: bool,
+        max_depth: Option<usize>,
+    ) -> Result<QueryResult, EngramError> {
         let start_time = std::time::Instant::now();
 
         // Step 1: Classify intent
@@ -107,7 +121,7 @@ impl NLQEngine {
             intent: intent.clone(),
             entities,
             context,
-            confidence: 0.8, // TODO: Calculate actual confidence
+            confidence: 0.8,
         };
 
         // Step 4: Map to storage query and execute
@@ -116,7 +130,14 @@ impl NLQEngine {
             .execute_query(&processed_query, storage)
             .await?;
 
-        // Step 5: Format response
+        // Step 5: Deep walk if requested
+        let data = if deep {
+            self.perform_deep_walk(&data, storage, max_depth)?
+        } else {
+            data
+        };
+
+        // Step 6: Format response
         let formatted_response = self.response_formatter.format(&processed_query, &data)?;
 
         let execution_time = start_time.elapsed().as_millis() as u64;
@@ -127,6 +148,49 @@ impl NLQEngine {
             formatted_response,
             execution_time_ms: execution_time,
         })
+    }
+
+    fn perform_deep_walk(
+        &self,
+        data: &serde_json::Value,
+        storage: &dyn Storage,
+        max_depth: Option<usize>,
+    ) -> Result<serde_json::Value, EngramError> {
+        if let Some(git_refs_storage) = storage.as_any().downcast_ref::<crate::storage::GitRefsStorage>() {
+            let entity_ids = DeepWalker::resolve_entity_ids(data);
+            if entity_ids.is_empty() {
+                return Ok(data.clone());
+            }
+
+            let walk_result = DeepWalker::walk_from_entities(git_refs_storage, &entity_ids, max_depth)?;
+
+            let mut enriched = data.clone();
+            let connected_json: Vec<serde_json::Value> = walk_result
+                .connected_entities
+                .iter()
+                .map(|ce| {
+                    serde_json::json!({
+                        "entity_id": ce.entity_id,
+                        "entity_type": ce.entity_type,
+                        "depth": ce.depth,
+                        "relationship_type": ce.relationship_type,
+                        "direction": ce.direction,
+                    })
+                })
+                .collect();
+
+            enriched["deep_walk"] = serde_json::json!({
+                "enabled": true,
+                "seed_count": walk_result.seed_entities.len(),
+                "max_depth": walk_result.max_depth,
+                "total_connected": walk_result.total_connected,
+                "connected_entities": connected_json,
+            });
+
+            Ok(enriched)
+        } else {
+            Ok(data.clone())
+        }
     }
 
     /// Get supported query patterns for help/documentation

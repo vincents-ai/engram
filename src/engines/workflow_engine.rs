@@ -5,13 +5,14 @@
 
 use crate::engines::action_executor::{ActionExecutor, ActionResult};
 use crate::engines::rule_engine::{RuleExecutionContext, RuleExecutionEngine, RuleValue};
-use crate::entities::{Entity, TriggerCondition, Workflow, WorkflowInstance};
+use crate::entities::{Entity, Task, TriggerCondition, Workflow, WorkflowInstance};
 use crate::error::EngramError;
-use crate::storage::Storage;
+use crate::storage::{QueryFilter, Storage};
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
+use std::time::Duration as StdDuration;
 use uuid::Uuid;
 
 /// Workflow state definition
@@ -673,6 +674,8 @@ impl<S: Storage> WorkflowAutomationEngine<S> {
         all_events.push(transition_event);
         all_events.append(&mut post_fn_events);
 
+        self.update_bound_tasks_workflow_state(instance_id, &target_state_name);
+
         Ok(WorkflowExecutionResult {
             success: true,
             instance_id: instance_id.to_string(),
@@ -714,6 +717,56 @@ impl<S: Storage> WorkflowAutomationEngine<S> {
                 .filter_map(|e| WorkflowInstance::from_generic(e).ok())
                 .collect(),
             Err(_) => Vec::new(),
+        }
+    }
+
+    fn update_bound_tasks_workflow_state(&mut self, instance_id: &str, new_state: &str) {
+        let filter = QueryFilter {
+            entity_type: Some("task".to_string()),
+            field_filters: {
+                let mut m = std::collections::HashMap::new();
+                m.insert(
+                    "workflow_id".to_string(),
+                    serde_json::Value::String(instance_id.to_string()),
+                );
+                m
+            },
+            limit: None,
+            offset: None,
+            ..Default::default()
+        };
+
+        let result = match self.storage.query(&filter) {
+            Ok(r) => r,
+            Err(e) => {
+                tracing::warn!(
+                    instance_id = instance_id,
+                    error = %e,
+                    "Failed to query tasks bound to workflow instance"
+                );
+                return;
+            }
+        };
+
+        let mut updated_count = 0usize;
+        for entity in result.entities {
+            if let Ok(mut task) = Task::from_generic(entity) {
+                if task.workflow_state.as_deref() != Some(new_state) {
+                    task.update_workflow_state(new_state.to_string());
+                    if self.storage.store(&task.to_generic()).is_ok() {
+                        updated_count += 1;
+                    }
+                }
+            }
+        }
+
+        if updated_count > 0 {
+            tracing::info!(
+                instance_id = instance_id,
+                new_state = new_state,
+                updated_count = updated_count,
+                "Updated workflow_state on bound tasks"
+            );
         }
     }
 
@@ -950,7 +1003,137 @@ impl<S: Storage> WorkflowAutomationEngine<S> {
                     true
                 }
             }
+            "command_guard" => self.evaluate_command_guard(&condition.logic),
             _ => true,
+        }
+    }
+
+    fn evaluate_command_guard(&self, logic: &serde_json::Value) -> bool {
+        let command = match logic.get("command").and_then(|v| v.as_str()) {
+            Some(cmd) => cmd,
+            None => {
+                tracing::warn!("command_guard: missing 'command' field, allowing transition");
+                return true;
+            }
+        };
+
+        let expected_exit_code = logic
+            .get("expected_exit_code")
+            .and_then(|v| v.as_i64())
+            .unwrap_or(0) as i32;
+
+        let timeout_secs = logic
+            .get("timeout_seconds")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(300);
+
+        let args: Vec<String> = logic
+            .get("args")
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(String::from))
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        let working_directory = logic
+            .get("working_directory")
+            .and_then(|v| v.as_str())
+            .map(String::from);
+
+        let mut environment: HashMap<String, String> = logic
+            .get("environment")
+            .and_then(|v| v.as_object())
+            .map(|obj| {
+                obj.iter()
+                    .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string())))
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        if let Some(env_vars) = logic.get("inject_env_vars").and_then(|v| v.as_array()) {
+            for var_name in env_vars.iter().filter_map(|v| v.as_str()) {
+                if let Ok(val) = std::env::var(var_name) {
+                    environment.insert(var_name.to_string(), val);
+                }
+            }
+        }
+
+        let mut cmd = std::process::Command::new(command);
+        cmd.args(&args);
+        cmd.stdout(std::process::Stdio::piped());
+        cmd.stderr(std::process::Stdio::piped());
+
+        if let Some(ref wd) = working_directory {
+            cmd.current_dir(wd);
+        }
+
+        for (key, value) in &environment {
+            cmd.env(key, value);
+        }
+
+        let child = match cmd.spawn() {
+            Ok(c) => c,
+            Err(e) => {
+                tracing::warn!(
+                    command = command,
+                    error = %e,
+                    "command_guard: failed to spawn, blocking transition"
+                );
+                return false;
+            }
+        };
+
+        let output = match self.wait_for_guard_output(child, StdDuration::from_secs(timeout_secs)) {
+            Ok(output) => output,
+            Err(e) => {
+                tracing::warn!(
+                    command = command,
+                    timeout_secs = timeout_secs,
+                    error = %e,
+                    "command_guard: execution error, blocking transition"
+                );
+                return false;
+            }
+        };
+
+        let exit_code = output.status.code().unwrap_or(-1);
+        let passed = exit_code == expected_exit_code;
+
+        if !passed {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            tracing::info!(
+                command = command,
+                exit_code = exit_code,
+                expected = expected_exit_code,
+                stderr = %stderr,
+                "command_guard: exit code mismatch, blocking transition"
+            );
+        }
+
+        passed
+    }
+
+    fn wait_for_guard_output(
+        &self,
+        child: std::process::Child,
+        timeout: StdDuration,
+    ) -> Result<std::process::Output, String> {
+        use std::sync::mpsc;
+        use std::thread;
+
+        let (tx, rx) = mpsc::channel();
+
+        thread::spawn(move || {
+            let result = child.wait_with_output();
+            let _ = tx.send(result);
+        });
+
+        match rx.recv_timeout(timeout) {
+            Ok(Ok(output)) => Ok(output),
+            Ok(Err(e)) => Err(format!("Failed to get command output: {}", e)),
+            Err(_) => Err(format!("Command timed out after {:?}", timeout)),
         }
     }
 
@@ -2509,5 +2692,445 @@ mod tests {
                 .current_state,
             "done"
         );
+    }
+
+    fn create_command_guard_workflow(
+        engine: &mut WorkflowAutomationEngine<MemoryStorage>,
+        conditions: Vec<crate::entities::TransitionCondition>,
+    ) -> String {
+        let s = crate::entities::WorkflowState {
+            id: "cg-s".into(),
+            name: "testing".into(),
+            state_type: crate::entities::StateType::Start,
+            description: "S".into(),
+            is_final: false,
+            prompts: None,
+            guards: vec![],
+            post_functions: vec![],
+            commit_policy: None,
+        };
+        let d = crate::entities::WorkflowState {
+            id: "cg-d".into(),
+            name: "passed".into(),
+            state_type: crate::entities::StateType::Done,
+            description: "D".into(),
+            is_final: true,
+            prompts: None,
+            guards: vec![],
+            post_functions: vec![],
+            commit_policy: None,
+        };
+        let wid: String = "cmd-guard-wf".into();
+        let mut wf = crate::entities::Workflow::new("CGW".into(), "Cmd guard".into(), "ta".into());
+        wf.id = wid.clone();
+        wf.states = vec![s.clone(), d.clone()];
+        wf.transitions = vec![crate::entities::WorkflowTransition {
+            id: "t-cg".into(),
+            name: "go".into(),
+            from_state: s.id.clone(),
+            to_state: d.id.clone(),
+            transition_type: crate::entities::TransitionType::Manual,
+            description: "Go".into(),
+            conditions,
+            actions: vec![],
+            trigger: None,
+        }];
+        wf.initial_state = s.id.clone();
+        wf.final_states = vec![d.id.clone()];
+        wf.activate();
+        engine.storage.store(&wf.to_generic()).unwrap();
+        wid
+    }
+
+    #[test]
+    fn test_command_guard_allows_on_success() {
+        let mut engine = create_test_engine();
+        let conditions = vec![crate::entities::TransitionCondition {
+            id: "cg1".into(),
+            condition_type: "command_guard".into(),
+            logic: serde_json::json!({"command": "true"}),
+        }];
+        let wid = create_command_guard_workflow(&mut engine, conditions);
+        let sr = engine
+            .start_workflow(wid, None, None, "ta".into(), HashMap::new())
+            .unwrap();
+        let result = engine
+            .execute_transition(&sr.instance_id, "go".into(), "ta".into())
+            .unwrap();
+        assert!(result.success);
+        assert_eq!(result.current_state, "passed");
+    }
+
+    #[test]
+    fn test_command_guard_blocks_on_failure() {
+        let mut engine = create_test_engine();
+        let conditions = vec![crate::entities::TransitionCondition {
+            id: "cg2".into(),
+            condition_type: "command_guard".into(),
+            logic: serde_json::json!({"command": "false"}),
+        }];
+        let wid = create_command_guard_workflow(&mut engine, conditions);
+        let sr = engine
+            .start_workflow(wid, None, None, "ta".into(), HashMap::new())
+            .unwrap();
+        let result = engine
+            .execute_transition(&sr.instance_id, "go".into(), "ta".into())
+            .unwrap();
+        assert!(!result.success);
+        assert_eq!(result.current_state, "testing");
+    }
+
+    #[test]
+    fn test_command_guard_with_args() {
+        let mut engine = create_test_engine();
+        let conditions = vec![crate::entities::TransitionCondition {
+            id: "cg3".into(),
+            condition_type: "command_guard".into(),
+            logic: serde_json::json!({"command": "test", "args": ["1", "-eq", "1"]}),
+        }];
+        let wid = create_command_guard_workflow(&mut engine, conditions);
+        let sr = engine
+            .start_workflow(wid, None, None, "ta".into(), HashMap::new())
+            .unwrap();
+        let result = engine
+            .execute_transition(&sr.instance_id, "go".into(), "ta".into())
+            .unwrap();
+        assert!(result.success);
+    }
+
+    #[test]
+    fn test_command_guard_custom_expected_exit_code() {
+        let mut engine = create_test_engine();
+        let conditions = vec![crate::entities::TransitionCondition {
+            id: "cg4".into(),
+            condition_type: "command_guard".into(),
+            logic: serde_json::json!({
+                "command": "test",
+                "args": ["1", "-eq", "2"],
+                "expected_exit_code": 1
+            }),
+        }];
+        let wid = create_command_guard_workflow(&mut engine, conditions);
+        let sr = engine
+            .start_workflow(wid, None, None, "ta".into(), HashMap::new())
+            .unwrap();
+        let result = engine
+            .execute_transition(&sr.instance_id, "go".into(), "ta".into())
+            .unwrap();
+        assert!(result.success);
+    }
+
+    #[test]
+    fn test_command_guard_with_environment_variables() {
+        let mut engine = create_test_engine();
+        let conditions = vec![crate::entities::TransitionCondition {
+            id: "cg5".into(),
+            condition_type: "command_guard".into(),
+            logic: serde_json::json!({
+                "command": "sh",
+                "args": ["-c", "test \"$ENGRAM_GUARD_VAR\" -eq 42"],
+                "environment": {"ENGRAM_GUARD_VAR": "42"}
+            }),
+        }];
+        let wid = create_command_guard_workflow(&mut engine, conditions);
+        let sr = engine
+            .start_workflow(wid, None, None, "ta".into(), HashMap::new())
+            .unwrap();
+        let result = engine
+            .execute_transition(&sr.instance_id, "go".into(), "ta".into())
+            .unwrap();
+        assert!(result.success);
+    }
+
+    #[test]
+    fn test_command_guard_with_inject_env_vars() {
+        let mut engine = create_test_engine();
+        std::env::set_var("ENGRAM_INJECT_TEST_VAR", "hello");
+        let conditions = vec![crate::entities::TransitionCondition {
+            id: "cg6".into(),
+            condition_type: "command_guard".into(),
+            logic: serde_json::json!({
+                "command": "sh",
+                "args": ["-c", "test \"$ENGRAM_INJECT_TEST_VAR\" = hello"],
+                "inject_env_vars": ["ENGRAM_INJECT_TEST_VAR"]
+            }),
+        }];
+        let wid = create_command_guard_workflow(&mut engine, conditions);
+        let sr = engine
+            .start_workflow(wid, None, None, "ta".into(), HashMap::new())
+            .unwrap();
+        let result = engine
+            .execute_transition(&sr.instance_id, "go".into(), "ta".into())
+            .unwrap();
+        std::env::remove_var("ENGRAM_INJECT_TEST_VAR");
+        assert!(result.success);
+    }
+
+    #[test]
+    fn test_command_guard_missing_command_allows() {
+        let mut engine = create_test_engine();
+        let conditions = vec![crate::entities::TransitionCondition {
+            id: "cg7".into(),
+            condition_type: "command_guard".into(),
+            logic: serde_json::json!({"timeout_seconds": 10}),
+        }];
+        let wid = create_command_guard_workflow(&mut engine, conditions);
+        let sr = engine
+            .start_workflow(wid, None, None, "ta".into(), HashMap::new())
+            .unwrap();
+        let result = engine
+            .execute_transition(&sr.instance_id, "go".into(), "ta".into())
+            .unwrap();
+        assert!(result.success);
+    }
+
+    #[test]
+    fn test_command_guard_nonexistent_command_blocks() {
+        let mut engine = create_test_engine();
+        let conditions = vec![crate::entities::TransitionCondition {
+            id: "cg8".into(),
+            condition_type: "command_guard".into(),
+            logic: serde_json::json!({"command": "nonexistent_cmd_xyz_123"}),
+        }];
+        let wid = create_command_guard_workflow(&mut engine, conditions);
+        let sr = engine
+            .start_workflow(wid, None, None, "ta".into(), HashMap::new())
+            .unwrap();
+        let result = engine
+            .execute_transition(&sr.instance_id, "go".into(), "ta".into())
+            .unwrap();
+        assert!(!result.success);
+        assert_eq!(result.current_state, "testing");
+    }
+
+    #[test]
+    fn test_command_guard_records_condition_event() {
+        let mut engine = create_test_engine();
+        let conditions = vec![crate::entities::TransitionCondition {
+            id: "cg9".into(),
+            condition_type: "command_guard".into(),
+            logic: serde_json::json!({"command": "false"}),
+        }];
+        let wid = create_command_guard_workflow(&mut engine, conditions);
+        let sr = engine
+            .start_workflow(wid, None, None, "ta".into(), HashMap::new())
+            .unwrap();
+        let result = engine
+            .execute_transition(&sr.instance_id, "go".into(), "ta".into())
+            .unwrap();
+        let cond_events: Vec<_> = result
+            .events
+            .iter()
+            .filter(|e| matches!(e.event_type, WorkflowEventType::ConditionEvaluated))
+            .collect();
+        assert_eq!(cond_events.len(), 1);
+        assert_eq!(cond_events[0].metadata.get("passed").unwrap(), "false");
+    }
+
+    #[test]
+    fn test_command_guard_combined_with_field_condition() {
+        let mut engine = create_test_engine();
+        let s = crate::entities::WorkflowState {
+            id: "cc-s".into(),
+            name: "start".into(),
+            state_type: crate::entities::StateType::Start,
+            description: "S".into(),
+            is_final: false,
+            prompts: None,
+            guards: vec![],
+            post_functions: vec![],
+            commit_policy: None,
+        };
+        let d = crate::entities::WorkflowState {
+            id: "cc-d".into(),
+            name: "done".into(),
+            state_type: crate::entities::StateType::Done,
+            description: "D".into(),
+            is_final: true,
+            prompts: None,
+            guards: vec![],
+            post_functions: vec![],
+            commit_policy: None,
+        };
+        let wid: String = "combined-guard-wf".into();
+        let mut wf = crate::entities::Workflow::new("CCW".into(), "Combined".into(), "ta".into());
+        wf.id = wid.clone();
+        wf.states = vec![s.clone(), d.clone()];
+        wf.transitions = vec![crate::entities::WorkflowTransition {
+            id: "t-cc".into(),
+            name: "go".into(),
+            from_state: s.id.clone(),
+            to_state: d.id.clone(),
+            transition_type: crate::entities::TransitionType::Manual,
+            description: "Go".into(),
+            conditions: vec![
+                crate::entities::TransitionCondition {
+                    id: "fc1".into(),
+                    condition_type: "field".into(),
+                    logic: serde_json::json!({"field": "ready", "equals": true}),
+                },
+                crate::entities::TransitionCondition {
+                    id: "cc1".into(),
+                    condition_type: "command_guard".into(),
+                    logic: serde_json::json!({"command": "true"}),
+                },
+            ],
+            actions: vec![],
+            trigger: None,
+        }];
+        wf.initial_state = s.id.clone();
+        wf.final_states = vec![d.id.clone()];
+        wf.activate();
+        engine.storage.store(&wf.to_generic()).unwrap();
+
+        let sr = engine
+            .start_workflow(wid, None, None, "ta".into(), HashMap::new())
+            .unwrap();
+
+        engine
+            .update_instance_variables(
+                &sr.instance_id,
+                HashMap::from([("ready".into(), RuleValue::Boolean(true))]),
+            )
+            .unwrap();
+
+        let result = engine
+            .execute_transition(&sr.instance_id, "go".into(), "ta".into())
+            .unwrap();
+        assert!(result.success);
+
+        engine
+            .update_instance_variables(
+                &sr.instance_id,
+                HashMap::from([("ready".into(), RuleValue::Boolean(false))]),
+            )
+            .unwrap();
+
+        let wid2: String = "combined-guard-wf2".into();
+        let mut wf2 =
+            crate::entities::Workflow::new("CCW2".into(), "Combined2".into(), "ta".into());
+        wf2.id = wid2.clone();
+        wf2.states = vec![s.clone(), d.clone()];
+        wf2.transitions = vec![crate::entities::WorkflowTransition {
+            id: "t-cc2".into(),
+            name: "go".into(),
+            from_state: s.id.clone(),
+            to_state: d.id.clone(),
+            transition_type: crate::entities::TransitionType::Manual,
+            description: "Go".into(),
+            conditions: vec![
+                crate::entities::TransitionCondition {
+                    id: "fc2".into(),
+                    condition_type: "field".into(),
+                    logic: serde_json::json!({"field": "ready", "equals": true}),
+                },
+                crate::entities::TransitionCondition {
+                    id: "cc2".into(),
+                    condition_type: "command_guard".into(),
+                    logic: serde_json::json!({"command": "false"}),
+                },
+            ],
+            actions: vec![],
+            trigger: None,
+        }];
+        wf2.initial_state = s.id.clone();
+        wf2.final_states = vec![d.id.clone()];
+        wf2.activate();
+        engine.storage.store(&wf2.to_generic()).unwrap();
+
+        let sr2 = engine
+            .start_workflow(wid2, None, None, "ta".into(), HashMap::new())
+            .unwrap();
+        engine
+            .update_instance_variables(
+                &sr2.instance_id,
+                HashMap::from([("ready".into(), RuleValue::Boolean(true))]),
+            )
+            .unwrap();
+
+        let result2 = engine
+            .execute_transition(&sr2.instance_id, "go".into(), "ta".into())
+            .unwrap();
+        assert!(!result2.success);
+    }
+
+    #[test]
+    fn test_execute_transition_updates_bound_tasks_workflow_state() {
+        let mut engine = create_test_engine();
+        let workflow_id = create_test_workflow_in_storage(&mut engine);
+
+        let start_result = engine
+            .start_workflow(
+                workflow_id,
+                None,
+                None,
+                "test-agent".to_string(),
+                HashMap::new(),
+            )
+            .unwrap();
+        let instance_id = start_result.instance_id.clone();
+
+        let mut task = Task::new(
+            "Bound Task".to_string(),
+            "Bound to workflow instance".to_string(),
+            "test-agent".to_string(),
+            crate::entities::TaskPriority::Medium,
+            Some(instance_id.clone()),
+        );
+        task.workflow_state = Some("initial".to_string());
+        engine.storage.store(&task.to_generic()).unwrap();
+
+        engine
+            .execute_transition(&instance_id, "start".to_string(), "test-agent".to_string())
+            .unwrap();
+
+        let all_tasks = engine.storage.get_all("task").unwrap();
+        let bound_task = all_tasks
+            .into_iter()
+            .filter_map(|e| Task::from_generic(e).ok())
+            .find(|t| t.workflow_id.as_deref() == Some(&instance_id))
+            .expect("Bound task should exist");
+
+        assert_eq!(bound_task.workflow_state.as_deref(), Some("in_progress"));
+    }
+
+    #[test]
+    fn test_execute_transition_skips_unbound_tasks() {
+        let mut engine = create_test_engine();
+        let workflow_id = create_test_workflow_in_storage(&mut engine);
+
+        let start_result = engine
+            .start_workflow(
+                workflow_id,
+                None,
+                None,
+                "test-agent".to_string(),
+                HashMap::new(),
+            )
+            .unwrap();
+        let instance_id = start_result.instance_id.clone();
+
+        let unbound_task = Task::new(
+            "Unbound Task".to_string(),
+            "No workflow binding".to_string(),
+            "test-agent".to_string(),
+            crate::entities::TaskPriority::Low,
+            None,
+        );
+        engine.storage.store(&unbound_task.to_generic()).unwrap();
+
+        engine
+            .execute_transition(&instance_id, "start".to_string(), "test-agent".to_string())
+            .unwrap();
+
+        let all_tasks = engine.storage.get_all("task").unwrap();
+        let unbound = all_tasks
+            .into_iter()
+            .filter_map(|e| Task::from_generic(e).ok())
+            .find(|t| t.title == "Unbound Task")
+            .expect("Unbound task should exist");
+
+        assert!(unbound.workflow_id.is_none());
+        assert!(unbound.workflow_state.is_none());
     }
 }

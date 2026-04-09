@@ -34,6 +34,22 @@ pub enum AskCommands {
         )]
         knowledge_type: Option<String>,
 
+        /// Enable deep relationship graph walking from matched entities
+        #[arg(
+            long,
+            short = 'd',
+            help = "Enable deep relationship graph walking from matched entities"
+        )]
+        deep: bool,
+
+        /// Maximum traversal depth for deep walk (default: 2)
+        #[arg(
+            long,
+            short = 'D',
+            help = "Maximum traversal depth for deep walk (default: 2)"
+        )]
+        max_depth: Option<usize>,
+
         /// Verbose output with detailed explanation
         #[arg(long, short = 'v', help = "Verbose output with detailed explanation")]
         verbose: bool,
@@ -50,6 +66,8 @@ pub async fn handle_ask_command(command: AskCommands) -> Result<(), EngramError>
         query,
         context,
         knowledge_type,
+        deep,
+        max_depth,
         verbose,
         json,
     } = command;
@@ -64,7 +82,10 @@ pub async fn handle_ask_command(command: AskCommands) -> Result<(), EngramError>
         (None, None) => None,
     };
 
-    match nlq_engine.process_query(&query, query_context, &storage).await {
+    match nlq_engine
+        .process_query_with_deep(&query, query_context, &storage, deep, max_depth)
+        .await
+    {
         Ok(result) => {
             if json {
                 let json_output = serde_json::json!({

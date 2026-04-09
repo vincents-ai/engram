@@ -360,6 +360,8 @@ fn handle_task_command<
         cli::TaskCommands::List {
             agent,
             status,
+            workflow_instance_id,
+            workflow_state,
             limit,
             all,
             offset,
@@ -371,6 +373,8 @@ fn handle_task_command<
                 storage,
                 agent.as_deref(),
                 status.as_deref(),
+                workflow_instance_id.as_deref(),
+                workflow_state.as_deref(),
                 limit,
                 all,
                 offset,
@@ -392,6 +396,20 @@ fn handle_task_command<
         }
         cli::TaskCommands::Archive { id, reason } => {
             cli::archive_task(storage, &id, reason.as_deref())?;
+        }
+        cli::TaskCommands::ArchiveBulk {
+            older_than,
+            status,
+            dry_run,
+            output,
+        } => {
+            cli::archive_tasks_bulk(
+                storage,
+                older_than,
+                status.as_deref(),
+                dry_run,
+                &output,
+            )?;
         }
         cli::TaskCommands::Resolve { id, message } => {
             cli::resolve_task(storage, &id, message.as_deref())?;
