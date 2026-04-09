@@ -1,7 +1,8 @@
 //! Task command implementations
 
-use crate::entities::{Entity, Task, TaskPriority};
+use crate::entities::{Entity, StaleTaskReport, Task, TaskPriority};
 use crate::error::EngramError;
+use crate::feedback::StructuredFeedback;
 use crate::storage::{RelationshipStorage, Storage};
 use clap::Subcommand;
 use serde::Deserialize;
@@ -98,6 +99,18 @@ pub enum TaskCommands {
         /// Offset for pagination
         #[arg(long, short)]
         offset: Option<usize>,
+
+        /// Show stale in-progress tasks (no recent git activity)
+        #[arg(long, conflicts_with_all = ["status"])]
+        stale: bool,
+
+        /// Staleness threshold in hours (default: 24)
+        #[arg(long, default_value = "24", requires = "stale")]
+        stale_threshold: i64,
+
+        /// Output format (text, json)
+        #[arg(long, default_value = "text")]
+        output: String,
     },
     /// Show task details
     Show {
@@ -544,7 +557,14 @@ pub fn list_tasks<S: Storage>(
     limit: Option<usize>,
     all: bool,
     offset: Option<usize>,
+    stale: bool,
+    stale_threshold: i64,
+    output_format: &str,
 ) -> Result<(), EngramError> {
+    if stale {
+        return list_stale_tasks(storage, agent, stale_threshold, output_format);
+    }
+
     let effective_limit = if all { None } else { limit };
     let filter = crate::storage::QueryFilter {
         entity_type: Some("task".to_string()),
@@ -610,6 +630,59 @@ pub fn list_tasks<S: Storage>(
 
     if result.has_more {
         println!("(More results available — use --all, --offset N, or --limit N)");
+    }
+
+    Ok(())
+}
+
+fn list_stale_tasks<S: Storage>(
+    storage: &S,
+    _agent: Option<&str>,
+    stale_threshold: i64,
+    output_format: &str,
+) -> Result<(), EngramError> {
+    let report = StaleTaskReport::detect(storage, stale_threshold)?;
+
+    match output_format {
+        "json" => {
+            println!("{}", report.to_pretty_json());
+        }
+        _ => {
+            println!("{}", report.summary());
+            println!();
+
+            if report.stale_tasks.is_empty() {
+                println!("  No stale tasks found.");
+            } else {
+                let mut table = create_table();
+                table.set_titles(row![
+                    "ID",
+                    "Age (h)",
+                    "Last Commit",
+                    "Title",
+                    "Agent",
+                    "Reason"
+                ]);
+
+                for entry in &report.stale_tasks {
+                    let last_commit_str = entry
+                        .last_git_commit
+                        .map(|t| t.format("%Y-%m-%d %H:%M").to_string())
+                        .unwrap_or_else(|| "never".to_string());
+
+                    table.add_row(row![
+                        &entry.task_id[..8],
+                        format!("{:.1}", entry.age_hours),
+                        last_commit_str,
+                        truncate(&entry.title, 35),
+                        truncate(&entry.agent, 10),
+                        truncate(&entry.staleness_reason, 40),
+                    ]);
+                }
+
+                table.printstd();
+            }
+        }
     }
 
     Ok(())
@@ -1239,7 +1312,17 @@ mod tests {
         .unwrap();
 
         // Filter by agent
-        let result = list_tasks(&storage, Some("agent1"), None, None, false, None);
+        let result = list_tasks(
+            &storage,
+            Some("agent1"),
+            None,
+            None,
+            false,
+            None,
+            false,
+            24,
+            "text",
+        );
         assert!(result.is_ok());
         // Note: list_tasks prints to stdout, so we can't easily verify output content here
         // but we verify the function runs without error
@@ -1249,7 +1332,17 @@ mod tests {
     fn test_list_tasks_not_found() {
         let storage = create_test_storage();
         // Should succeed but print "No tasks found"
-        let result = list_tasks(&storage, Some("non-existent"), None, None, false, None);
+        let result = list_tasks(
+            &storage,
+            Some("non-existent"),
+            None,
+            None,
+            false,
+            None,
+            false,
+            24,
+            "text",
+        );
         assert!(result.is_ok());
     }
 

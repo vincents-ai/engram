@@ -215,6 +215,22 @@ pub enum Commands {
         /// Agent name to load persona from (.engram/agents/<agent>.yaml)
         #[arg(long)]
         agent: Option<String>,
+
+        /// Scope to subtasks of a given parent task
+        #[arg(long)]
+        parent: Option<String>,
+
+        /// Scope to tasks created by or assigned to an agent
+        #[arg(long)]
+        scope_agent: Option<String>,
+
+        /// Scope to tasks created within a session
+        #[arg(long)]
+        session: Option<String>,
+
+        /// Scope to tasks with a specific tag
+        #[arg(long)]
+        tag: Option<String>,
     },
     /// Display workspace and storage information
     Info,

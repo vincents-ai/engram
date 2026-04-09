@@ -110,9 +110,26 @@ async fn run() -> Result<(), EngramError> {
             let mut storage = GitRefsStorage::new(".", "default")?;
             engram::cli::sync::handle_sync_command(&mut storage, &command)?;
         }
-        cli::Commands::Next { id, format, agent } => {
+        cli::Commands::Next {
+            id,
+            format,
+            agent,
+            parent,
+            scope_agent,
+            session,
+            tag,
+        } => {
             let mut storage = GitRefsStorage::new(".", "default")?;
-            engram::cli::next::handle_next_command(&mut storage, id, format, agent)?;
+            engram::cli::next::handle_next_command(
+                &mut storage,
+                id,
+                format,
+                agent,
+                parent,
+                scope_agent,
+                session,
+                tag,
+            )?;
         }
         cli::Commands::Info => {
             let storage = GitRefsStorage::new(".", "default")?;
@@ -334,8 +351,21 @@ fn handle_task_command<
             limit,
             all,
             offset,
+            stale,
+            stale_threshold,
+            output,
         } => {
-            cli::list_tasks(storage, agent.as_deref(), status.as_deref(), limit, all, offset)?;
+            cli::list_tasks(
+                storage,
+                agent.as_deref(),
+                status.as_deref(),
+                limit,
+                all,
+                offset,
+                stale,
+                stale_threshold,
+                &output,
+            )?;
         }
         cli::TaskCommands::Show { id } => {
             cli::show_task(storage, &id)?;
@@ -607,8 +637,27 @@ fn handle_session_command<S: engram::storage::Storage>(
         } => {
             end_session(storage, id, generate_summary)?;
         }
-        engram::cli::SessionCommands::List { agent, limit, all, offset } => {
-            list_sessions(&mut std::io::stdout(), storage, agent, limit, all, offset)?;
+        engram::cli::SessionCommands::List { agent, since, limit, all, offset } => {
+            list_sessions(&mut std::io::stdout(), storage, agent, since, limit, all, offset)?;
+        }
+        engram::cli::SessionCommands::Zombies {
+            max_age_hours,
+            check_git,
+        } => {
+            detect_zombie_sessions(
+                &mut std::io::stdout(),
+                storage,
+                max_age_hours,
+                check_git,
+            )?;
+        }
+        engram::cli::SessionCommands::Summaries {
+            agent,
+            since,
+            limit,
+            all,
+        } => {
+            summarize_sessions(&mut std::io::stdout(), storage, agent, since, limit, all)?;
         }
     }
 

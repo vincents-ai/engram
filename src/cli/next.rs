@@ -13,7 +13,18 @@ pub fn interpolate(template: &str, context: &HashMap<String, String>) -> String 
     result
 }
 
-pub fn find_next_task<S: Storage>(storage: &S, agent: &str) -> Result<Option<Task>, EngramError> {
+pub struct NextScope {
+    pub parent: Option<String>,
+    pub agent: Option<String>,
+    pub session: Option<String>,
+    pub tag: Option<String>,
+}
+
+pub fn find_next_task<S: Storage>(
+    storage: &S,
+    agent: &str,
+    scope: &NextScope,
+) -> Result<Option<Task>, EngramError> {
     let tasks = storage.query_by_agent(agent, Some("task"))?;
 
     let mut task_entities: Vec<Task> = Vec::new();
@@ -21,6 +32,28 @@ pub fn find_next_task<S: Storage>(storage: &S, agent: &str) -> Result<Option<Tas
     for entity in tasks {
         if let Ok(task) = Task::from_generic(entity) {
             if task.status != TaskStatus::Done && task.status != TaskStatus::Cancelled {
+                if let Some(ref parent_id) = scope.parent {
+                    if task.parent.as_deref() != Some(parent_id.as_str()) {
+                        continue;
+                    }
+                }
+                if let Some(ref scope_agent) = scope.agent {
+                    if task.agent != *scope_agent {
+                        continue;
+                    }
+                }
+                if let Some(ref session_id) = scope.session {
+                    if task.metadata.get("session_id").and_then(|v| v.as_str())
+                        != Some(session_id.as_str())
+                    {
+                        continue;
+                    }
+                }
+                if let Some(ref tag) = scope.tag {
+                    if !task.tags.iter().any(|t| t == tag) {
+                        continue;
+                    }
+                }
                 task_entities.push(task);
             }
         }
@@ -64,7 +97,18 @@ pub fn handle_next_command<S: Storage>(
     id: Option<String>,
     format: String,
     agent: Option<String>,
+    parent: Option<String>,
+    scope_agent: Option<String>,
+    session: Option<String>,
+    tag: Option<String>,
 ) -> Result<(), EngramError> {
+    let scope = NextScope {
+        parent,
+        agent: scope_agent,
+        session,
+        tag,
+    };
+
     // 1. Identify Task
     let task = if let Some(task_id) = id {
         if let Some(entity) = storage.get(&task_id, "task")? {
@@ -73,8 +117,7 @@ pub fn handle_next_command<S: Storage>(
             return Err(EngramError::NotFound(format!("Task {} not found", task_id)));
         }
     } else {
-        // Default agent to "default" for CLI usage, typically would come from config/auth
-        if let Some(t) = find_next_task(storage, "default")? {
+        if let Some(t) = find_next_task(storage, "default", &scope)? {
             t
         } else {
             println!("No pending tasks found.");
@@ -428,7 +471,13 @@ mod tests {
             tasks: vec![t1, t2.clone(), t3, t4],
         };
 
-        let next = find_next_task(&storage, "test-agent").unwrap();
+        let scope = NextScope {
+            parent: None,
+            agent: None,
+            session: None,
+            tag: None,
+        };
+        let next = find_next_task(&storage, "test-agent", &scope).unwrap();
         assert!(next.is_some());
         assert_eq!(next.unwrap().id, "2");
     }
@@ -442,7 +491,13 @@ mod tests {
             tasks: vec![t1, t2.clone()],
         };
 
-        let next = find_next_task(&storage, "test-agent").unwrap();
+        let scope = NextScope {
+            parent: None,
+            agent: None,
+            session: None,
+            tag: None,
+        };
+        let next = find_next_task(&storage, "test-agent", &scope).unwrap();
         assert!(next.is_some());
         assert_eq!(next.unwrap().id, "2");
     }
@@ -450,7 +505,13 @@ mod tests {
     #[test]
     fn test_find_next_task_empty() {
         let storage = MockStorage { tasks: vec![] };
-        let next = find_next_task(&storage, "test-agent").unwrap();
+        let scope = NextScope {
+            parent: None,
+            agent: None,
+            session: None,
+            tag: None,
+        };
+        let next = find_next_task(&storage, "test-agent", &scope).unwrap();
         assert!(next.is_none());
     }
 
@@ -462,20 +523,151 @@ mod tests {
             Some("missing".to_string()),
             "text".to_string(),
             None,
+            None,
+            None,
+            None,
+            None,
         );
         assert!(matches!(result, Err(EngramError::NotFound(_))));
     }
 
     #[test]
     fn test_handle_next_command_no_pending() {
-        // We need a MockStorage that behaves properly for handle_next_command which uses
-        // storage.query_by_agent inside find_next_task.
-        // The MockStorage implementation in this file already implements query_by_agent
-        // by returning all tasks.
         let mut storage = MockStorage { tasks: vec![] };
 
-        // This should print "No pending tasks found" and return Ok(())
-        let result = handle_next_command(&mut storage, None, "text".to_string(), None);
+        let result = handle_next_command(
+            &mut storage,
+            None,
+            "text".to_string(),
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_find_next_task_scope_parent() {
+        let mut t1 = create_test_task("1", TaskStatus::Todo, TaskPriority::High);
+        t1.parent = Some("parent-1".to_string());
+        let mut t2 = create_test_task("2", TaskStatus::InProgress, TaskPriority::Medium);
+        t2.parent = Some("parent-2".to_string());
+        let t3 = create_test_task("3", TaskStatus::Todo, TaskPriority::Critical);
+
+        let storage = MockStorage {
+            tasks: vec![t1, t2.clone(), t3],
+        };
+
+        let scope = NextScope {
+            parent: Some("parent-1".to_string()),
+            agent: None,
+            session: None,
+            tag: None,
+        };
+        let next = find_next_task(&storage, "test-agent", &scope).unwrap();
+        assert!(next.is_some());
+        assert_eq!(next.unwrap().id, "1");
+    }
+
+    #[test]
+    fn test_find_next_task_scope_agent() {
+        let mut t1 = create_test_task("1", TaskStatus::Todo, TaskPriority::High);
+        t1.agent = "alice".to_string();
+        let mut t2 = create_test_task("2", TaskStatus::InProgress, TaskPriority::Low);
+        t2.agent = "bob".to_string();
+
+        let storage = MockStorage {
+            tasks: vec![t1, t2.clone()],
+        };
+
+        let scope = NextScope {
+            parent: None,
+            agent: Some("bob".to_string()),
+            session: None,
+            tag: None,
+        };
+        let next = find_next_task(&storage, "test-agent", &scope).unwrap();
+        assert!(next.is_some());
+        assert_eq!(next.unwrap().id, "2");
+    }
+
+    #[test]
+    fn test_find_next_task_scope_tag() {
+        let mut t1 = create_test_task("1", TaskStatus::Todo, TaskPriority::High);
+        t1.tags = vec!["frontend".to_string()];
+        let mut t2 = create_test_task("2", TaskStatus::InProgress, TaskPriority::Low);
+        t2.tags = vec!["backend".to_string()];
+
+        let storage = MockStorage {
+            tasks: vec![t1, t2.clone()],
+        };
+
+        let scope = NextScope {
+            parent: None,
+            agent: None,
+            session: None,
+            tag: Some("backend".to_string()),
+        };
+        let next = find_next_task(&storage, "test-agent", &scope).unwrap();
+        assert!(next.is_some());
+        assert_eq!(next.unwrap().id, "2");
+    }
+
+    #[test]
+    fn test_find_next_task_scope_session() {
+        let mut t1 = create_test_task("1", TaskStatus::Todo, TaskPriority::High);
+        t1.metadata.insert(
+            "session_id".to_string(),
+            serde_json::Value::String("sess-1".to_string()),
+        );
+        let mut t2 = create_test_task("2", TaskStatus::InProgress, TaskPriority::Low);
+        t2.metadata.insert(
+            "session_id".to_string(),
+            serde_json::Value::String("sess-2".to_string()),
+        );
+
+        let storage = MockStorage {
+            tasks: vec![t1, t2.clone()],
+        };
+
+        let scope = NextScope {
+            parent: None,
+            agent: None,
+            session: Some("sess-2".to_string()),
+            tag: None,
+        };
+        let next = find_next_task(&storage, "test-agent", &scope).unwrap();
+        assert!(next.is_some());
+        assert_eq!(next.unwrap().id, "2");
+    }
+
+    #[test]
+    fn test_find_next_task_scope_combined() {
+        let mut t1 = create_test_task("1", TaskStatus::Todo, TaskPriority::High);
+        t1.parent = Some("p1".to_string());
+        t1.tags = vec!["bug".to_string()];
+        let mut t2 = create_test_task("2", TaskStatus::Todo, TaskPriority::Critical);
+        t2.parent = Some("p1".to_string());
+        t2.tags = vec!["feature".to_string()];
+        let mut t3 = create_test_task("3", TaskStatus::Todo, TaskPriority::Critical);
+        t3.parent = Some("p1".to_string());
+        t3.tags = vec!["bug".to_string()];
+
+        let storage = MockStorage {
+            tasks: vec![t1, t2, t3],
+        };
+
+        let scope = NextScope {
+            parent: Some("p1".to_string()),
+            agent: None,
+            session: None,
+            tag: Some("bug".to_string()),
+        };
+        let next = find_next_task(&storage, "test-agent", &scope).unwrap();
+        assert!(next.is_some());
+        let id = next.unwrap().id;
+        assert!(id == "1" || id == "3");
     }
 }

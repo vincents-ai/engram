@@ -3,7 +3,7 @@ use crate::entities::session::{DoraMetrics, SpaceMetrics};
 use crate::entities::{Entity, Session, SessionStatus};
 use crate::error::EngramError;
 use crate::storage::Storage;
-use chrono::Utc;
+use chrono::{Duration, Utc};
 use clap::Subcommand;
 
 /// Session commands
@@ -45,6 +45,11 @@ pub enum SessionCommands {
         #[arg(long, short)]
         agent: Option<String>,
 
+        /// Only show sessions started after this date/time
+        /// Formats: 2024-01-01, 2024-01-01T12:00:00, 24h, 7d, 30d
+        #[arg(long)]
+        since: Option<String>,
+
         /// Limit results
         #[arg(long, short)]
         limit: Option<usize>,
@@ -56,6 +61,34 @@ pub enum SessionCommands {
         /// Offset for pagination
         #[arg(long, short)]
         offset: Option<usize>,
+    },
+    /// Detect zombie sessions (started but never ended beyond a threshold)
+    Zombies {
+        /// Max age in hours before a session is considered a zombie (default: 24)
+        #[arg(long, default_value = "24")]
+        max_age_hours: i64,
+
+        /// Check if git commits were made since session started (detects abandoned sessions)
+        #[arg(long)]
+        check_git: bool,
+    },
+    /// Summarize recent sessions with goals, outcomes, duration, and task count
+    Summaries {
+        /// Filter by agent name
+        #[arg(long, short)]
+        agent: Option<String>,
+
+        /// Only show sessions started on or after this date (YYYY-MM-DD)
+        #[arg(long)]
+        since: Option<String>,
+
+        /// Limit results
+        #[arg(long, short)]
+        limit: Option<usize>,
+
+        /// Show all results (no limit)
+        #[arg(long, conflicts_with = "limit")]
+        all: bool,
     },
 }
 
@@ -321,17 +354,58 @@ fn calculate_basic_dora_metrics<S: Storage>(storage: &mut S, session: &Session) 
 }
 
 use crate::cli::utils::{create_table, truncate};
+use chrono::{DateTime, NaiveDate, NaiveDateTime};
 use prettytable::row;
+
+fn parse_since(input: &str) -> Result<DateTime<Utc>, EngramError> {
+    let input = input.trim();
+
+    if let Some(rest) = input.strip_suffix('h') {
+        let hours: i64 = rest.parse().map_err(|_| {
+            EngramError::Validation(format!(
+                "Invalid hours format: '{}'. Expected e.g. 24h",
+                input
+            ))
+        })?;
+        return Ok(Utc::now() - Duration::hours(hours));
+    }
+
+    if let Some(rest) = input.strip_suffix('d') {
+        let days: i64 = rest.parse().map_err(|_| {
+            EngramError::Validation(format!(
+                "Invalid days format: '{}'. Expected e.g. 7d",
+                input
+            ))
+        })?;
+        return Ok(Utc::now() - Duration::days(days));
+    }
+
+    if let Ok(dt) = NaiveDateTime::parse_from_str(input, "%Y-%m-%dT%H:%M:%S") {
+        return Ok(dt.and_utc());
+    }
+
+    if let Ok(date) = NaiveDate::parse_from_str(input, "%Y-%m-%d") {
+        return Ok(date.and_hms_opt(0, 0, 0).unwrap().and_utc());
+    }
+
+    Err(EngramError::Validation(format!(
+        "Invalid --since format: '{}'. Supported: 2024-01-01, 2024-01-01T12:00:00, 24h, 7d, 30d",
+        input
+    )))
+}
 
 /// List sessions
 pub fn list_sessions<S: Storage>(
     writer: &mut dyn std::io::Write,
     storage: &S,
     agent_filter: Option<String>,
+    since_filter: Option<String>,
     limit: Option<usize>,
     all: bool,
     offset: Option<usize>,
 ) -> Result<(), EngramError> {
+    let since_time = since_filter.as_deref().map(parse_since).transpose()?;
+
     let entity_ids = storage.list_ids(Session::entity_type())?;
 
     let mut sessions: Vec<Session> = Vec::new();
@@ -343,6 +417,11 @@ pub fn list_sessions<S: Storage>(
                 }
             }
             if let Ok(session) = Session::from_generic(generic) {
+                if let Some(ref since) = since_time {
+                    if session.start_time < *since {
+                        continue;
+                    }
+                }
                 sessions.push(session);
             }
         }
@@ -424,6 +503,302 @@ pub fn list_sessions<S: Storage>(
     Ok(())
 }
 
+/// Result of zombie session detection for a single session
+struct ZombieInfo {
+    session: Session,
+    elapsed_hours: i64,
+    has_recent_commits: Option<bool>,
+}
+
+/// Detect and display zombie sessions
+pub fn detect_zombie_sessions<S: Storage>(
+    writer: &mut dyn std::io::Write,
+    storage: &S,
+    max_age_hours: i64,
+    check_git: bool,
+) -> Result<(), EngramError> {
+    let entity_ids = storage.list_ids(Session::entity_type())?;
+
+    let mut zombies: Vec<ZombieInfo> = Vec::new();
+    for id in entity_ids {
+        if let Some(generic) = storage.get(&id, Session::entity_type())? {
+            if let Ok(session) = Session::from_generic(generic) {
+                if !session.is_zombie(max_age_hours) {
+                    continue;
+                }
+
+                let elapsed = Utc::now()
+                    .signed_duration_since(session.start_time)
+                    .num_hours();
+
+                let has_recent_commits = if check_git {
+                    Some(commits_since(&session.start_time))
+                } else {
+                    None
+                };
+
+                zombies.push(ZombieInfo {
+                    session,
+                    elapsed_hours: elapsed,
+                    has_recent_commits,
+                });
+            }
+        }
+    }
+
+    zombies.sort_by(|a, b| b.elapsed_hours.cmp(&a.elapsed_hours));
+
+    if zombies.is_empty() {
+        writeln!(
+            writer,
+            "No zombie sessions found (threshold: {}h)",
+            max_age_hours
+        )?;
+        return Ok(());
+    }
+
+    writeln!(
+        writer,
+        "Found {} zombie session{} (threshold: {}h)",
+        zombies.len(),
+        if zombies.len() == 1 { "" } else { "s" },
+        max_age_hours
+    )?;
+    writeln!(writer)?;
+
+    let mut table = create_table();
+    if check_git {
+        table.set_titles(row![
+            "ID",
+            "St",
+            "Agent",
+            "Started",
+            "Age",
+            "Tasks",
+            "Commits Since?"
+        ]);
+    } else {
+        table.set_titles(row!["ID", "St", "Agent", "Started", "Age", "Tasks"]);
+    }
+
+    for z in &zombies {
+        let status_symbol = match z.session.status {
+            SessionStatus::Active => "\u{1f7e2}",
+            SessionStatus::Paused => "\u{23f8}\u{fe0f}",
+            SessionStatus::Reflecting => "\u{1f504}",
+            SessionStatus::Completed | SessionStatus::Cancelled => unreachable!(),
+        };
+
+        let age_str = format!("{}h", z.elapsed_hours);
+
+        let tasks_str = z.session.task_ids.len().to_string();
+
+        if check_git {
+            let git_str = match z.has_recent_commits {
+                Some(true) => "YES",
+                Some(false) => "no",
+                None => "-",
+            };
+            table.add_row(row![
+                &z.session.id[..8],
+                status_symbol,
+                truncate(&z.session.agent, 15),
+                z.session.start_time.format("%Y-%m-%d %H:%M"),
+                age_str,
+                tasks_str,
+                git_str,
+            ]);
+        } else {
+            table.add_row(row![
+                &z.session.id[..8],
+                status_symbol,
+                truncate(&z.session.agent, 15),
+                z.session.start_time.format("%Y-%m-%d %H:%M"),
+                age_str,
+                tasks_str,
+            ]);
+        }
+    }
+
+    table.print(writer)?;
+    writeln!(writer)?;
+
+    if check_git {
+        let abandoned: Vec<_> = zombies
+            .iter()
+            .filter(|z| z.has_recent_commits == Some(true))
+            .collect();
+        if !abandoned.is_empty() {
+            writeln!(
+                writer,
+                "\u{26a0}\u{fe0f}  {} session{} show commits after start — likely abandoned",
+                abandoned.len(),
+                if abandoned.len() == 1 { "" } else { "s" }
+            )?;
+        }
+    }
+
+    writeln!(
+        writer,
+        "\nTip: close zombie sessions with: engram session end --id <UUID>"
+    )?;
+
+    Ok(())
+}
+
+/// Check if any git commits were made since the given timestamp.
+/// Returns true if at least one commit exists after `since`.
+fn commits_since(since: &DateTime<Utc>) -> bool {
+    let since_epoch = since.timestamp();
+    let output = std::process::Command::new("git")
+        .args([
+            "log",
+            "--format=%ct",
+            "-1",
+            &format!("--after={}", since_epoch),
+        ])
+        .output();
+
+    match output {
+        Ok(out) if out.status.success() => {
+            let stdout = String::from_utf8_lossy(&out.stdout);
+            !stdout.trim().is_empty()
+        }
+        _ => false,
+    }
+}
+
+fn format_duration(seconds: u64) -> String {
+    if seconds < 60 {
+        return format!("{}s", seconds);
+    }
+    let hours = seconds / 3600;
+    let minutes = (seconds % 3600) / 60;
+    if hours > 0 {
+        format!("{}h {}m", hours, minutes)
+    } else {
+        format!("{}m", minutes)
+    }
+}
+
+pub fn summarize_sessions<S: Storage>(
+    writer: &mut dyn std::io::Write,
+    storage: &S,
+    agent_filter: Option<String>,
+    since_filter: Option<String>,
+    limit: Option<usize>,
+    all: bool,
+) -> Result<(), EngramError> {
+    let since_time = since_filter.as_deref().map(parse_since).transpose()?;
+
+    let entity_ids = storage.list_ids(Session::entity_type())?;
+
+    let mut sessions: Vec<Session> = Vec::new();
+    for id in entity_ids {
+        if let Some(generic) = storage.get(&id, Session::entity_type())? {
+            if let Some(ref agent) = agent_filter {
+                if generic.agent != *agent {
+                    continue;
+                }
+            }
+            if let Ok(session) = Session::from_generic(generic) {
+                if let Some(ref since) = since_time {
+                    if session.start_time < *since {
+                        continue;
+                    }
+                }
+                sessions.push(session);
+            }
+        }
+    }
+
+    sessions.sort_by(|a, b| b.start_time.cmp(&a.start_time));
+
+    let total_count = sessions.len();
+
+    if !all {
+        if let Some(lim) = limit {
+            sessions.truncate(lim);
+        }
+    }
+
+    if sessions.is_empty() {
+        writeln!(writer, "No sessions found")?;
+        return Ok(());
+    }
+
+    writeln!(
+        writer,
+        "Session Summaries ({} of {})",
+        sessions.len(),
+        total_count
+    )?;
+    writeln!(writer)?;
+
+    let mut table = create_table();
+    table.set_titles(row![
+        "ID", "St", "Agent", "Started", "Duration", "Tasks", "Goals", "Outcomes"
+    ]);
+
+    for session in &sessions {
+        let status_symbol = match session.status {
+            SessionStatus::Active => "\u{1f7e2}",
+            SessionStatus::Paused => "\u{23f8}\u{fe0f}",
+            SessionStatus::Completed => "\u{2705}",
+            SessionStatus::Cancelled => "\u{274c}",
+            SessionStatus::Reflecting => "\u{1f504}",
+        };
+
+        let duration_str = if let Some(dur) = session.duration_seconds {
+            format_duration(dur)
+        } else if let Some(end) = session.end_time {
+            let elapsed = end
+                .signed_duration_since(session.start_time)
+                .num_seconds()
+                .max(0) as u64;
+            format_duration(elapsed)
+        } else {
+            let elapsed = Utc::now()
+                .signed_duration_since(session.start_time)
+                .num_seconds()
+                .max(0) as u64;
+            format!("{} (active)", format_duration(elapsed))
+        };
+
+        let goals_str = if session.goals.is_empty() {
+            "-".to_string()
+        } else {
+            truncate(&session.goals.join("; "), 30)
+        };
+
+        let outcomes_str = if session.outcomes.is_empty() {
+            "-".to_string()
+        } else {
+            truncate(&session.outcomes.join("; "), 30)
+        };
+
+        table.add_row(row![
+            &session.id[..8],
+            status_symbol,
+            truncate(&session.agent, 12),
+            session.start_time.format("%Y-%m-%d %H:%M"),
+            duration_str,
+            session.task_ids.len().to_string(),
+            goals_str,
+            outcomes_str,
+        ]);
+    }
+
+    table.print(writer)?;
+    writeln!(writer)?;
+
+    if total_count > sessions.len() {
+        writeln!(writer, "(More results available — use --all or --limit N)")?;
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -477,7 +852,7 @@ mod tests {
         start_session(&mut storage, "agent2".to_string(), false).unwrap();
 
         let mut buffer = Vec::new();
-        list_sessions(&mut buffer, &storage, None, None, false, None).unwrap();
+        list_sessions(&mut buffer, &storage, None, None, None, false, None).unwrap();
         let output = String::from_utf8(buffer).unwrap();
 
         assert!(output.contains("Found 2 sessions"));
@@ -489,6 +864,7 @@ mod tests {
             &mut buffer_filtered,
             &storage,
             Some("agent1".to_string()),
+            None,
             None,
             false,
             None,

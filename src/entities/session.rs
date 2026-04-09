@@ -297,6 +297,22 @@ impl Session {
             self.reflection_ids.push(reflection_id);
         }
     }
+
+    /// Check if this session is a zombie — started but never ended for an abnormally long time.
+    ///
+    /// A zombie session is one whose status is `Active`, `Paused`, or `Reflecting`
+    /// and whose elapsed time since `start_time` exceeds `max_age_hours`.
+    pub fn is_zombie(&self, max_age_hours: i64) -> bool {
+        match self.status {
+            SessionStatus::Active | SessionStatus::Paused | SessionStatus::Reflecting => {}
+            SessionStatus::Completed | SessionStatus::Cancelled => return false,
+        }
+
+        let elapsed = Utc::now()
+            .signed_duration_since(self.start_time)
+            .num_hours();
+        elapsed > max_age_hours
+    }
 }
 
 impl Entity for Session {
