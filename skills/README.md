@@ -4,13 +4,13 @@ This directory contains skills for working with Engram memory system. Skills are
 
 ## Overview
 
-**Total Skills: 58**
+**Total Skills: 59**
 
 Skills are organized by category and use Engram's entity system (context, reasoning, tasks, relationships) to create persistent, queryable memory across agent sessions.
 
 ## Skills by Category
 
-### Meta Skills (5)
+### Meta Skills (6)
 Core skills for working with Engram's memory system:
 
 - **use-engram-memory** (`meta/use-engram-memory.md`) - Store context, decisions, and reasoning in Engram entities
@@ -18,6 +18,7 @@ Core skills for working with Engram's memory system:
 - **delegate-to-agents** (`meta/delegate-to-agents.md`) - Break down work and delegate to specialized agents
 - **audit-trail** (`meta/audit-trail.md`) - Create complete audit trail of all work
 - **dispatching-parallel-agents** (`meta/dispatching-parallel-agents.md`) - Execute parallel agent coordination
+- **persona-architect** (`meta/persona-architect.md`) - 8-step Persona Construction Protocol (PCP) with CoV/FAP/OV structured expert prompting methodology
 
 ### Workflow Skills (4)
 Skills for planning and executing feature development:
@@ -324,7 +325,7 @@ Skills integrate with Engram's core features:
 
 ## Skill Statistics
 
-- **Total Skills**: 57
+- **Total Skills**: 58
 - **Total Lines**: ~17,000
 - **Shortest**: planning/roadmap-planning.md (126 lines)
 - **Longest**: review/code-quality.md (1,007 lines)
@@ -345,6 +346,10 @@ Skills integrate with Engram's core features:
   - Corresponding pipelines: 101-market-validation, 102-gtm-strategy, 103-launch-execution
 - **v0.5.0** (2026-04-04) - Added 11 screenplay skills (57 total)
   - Screenplay Skills: 11 (session-start, beat-sheet-builder, outliner, logline-writer, theme-developer, world-builder, character-developer, scene-writer, dialogue-refiner, plot-hole-finder, rewriter)
+- **v0.6.0** (2026-04-09) - Added engram-persona-architect skill + Rust persona/lesson entities (58 total)
+  - Meta Skills: +1 (persona-architect — 8-step PCP with CoV/FAP/OV structured expert prompting)
+  - New Rust entities: Persona, Lesson with full CLI commands (create/list/show/update/delete)
+  - Migrated 172 persona YAMLs with domain-adapted CoV/FAP/OV sections
 
 ## Resources
 

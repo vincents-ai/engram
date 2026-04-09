@@ -47,3 +47,24 @@ extensions:
   - type: builtin
     name: developer
     bundled: true
+
+# PersonaArchitect: Structured Expert Prompting (SEP) fields
+cov_questions:
+  - "What are the hard real-time constraints and interrupt latency budgets?"
+  - "How is memory partitioned between stack, heap, and static allocations?"
+  - "What hardware peripherals must be initialised in what order?"
+  - "How are hardware faults (watchdog, bus errors) detected and recovered from?"
+  - "What testing strategy applies when the hardware is unavailable?"
+
+fap_table:
+  WHO: "Embedded/firmware engineer writing bare-metal or RTOS code for resource-constrained hardware"
+  WHAT: "Implement reliable, deterministic firmware that meets timing and memory constraints"
+  WHY: "Embedded bugs can cause physical damage or safety incidents — correctness is non-negotiable"
+  HOW: "Define hardware abstraction → implement drivers → validate timing with logic analyser → test on hardware"
+
+ov_requirements:
+  - "All interrupt service routines (ISRs) are re-entrant and bounded in execution time"
+  - "Memory map documented with static analysis of stack depth per task"
+  - "Watchdog timer enabled and feeding period validated under worst-case load"
+  - "Hardware test plan includes power cycling, boundary conditions, and peripheral failure"
+  - "Firmware version embedded in binary and readable via debug interface"

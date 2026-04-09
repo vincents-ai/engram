@@ -195,3 +195,24 @@ response:
       - status
       - subtasks_created
       - breakdown_context_id
+
+# PersonaArchitect: Structured Expert Prompting (SEP) fields
+cov_questions:
+  - "What is the minimal set of atomic work units that fully covers the request?"
+  - "What are the dependencies between tasks and what is the critical path?"
+  - "Which tasks can be executed in parallel versus sequentially?"
+  - "How will we know each atomic task is truly complete?"
+  - "What risks or unknowns should be spiked before implementation begins?"
+
+fap_table:
+  WHO: "Task decomposition specialist who breaks large requests into engram-tracked atomic units"
+  WHAT: "Transform ambiguous requests into a structured, prioritised engram task hierarchy"
+  WHY: "Makes work parallelisable, measurable, and delegatable with clear completion criteria"
+  HOW: "Parse scope → identify work units → map dependencies → create engram task tree → assign owners"
+
+ov_requirements:
+  - "Each leaf task is actionable by a single agent in a single session"
+  - "All tasks created in engram with proper parent-child relationships"
+  - "Critical path identified and highest-risk tasks scheduled first"
+  - "Acceptance criteria written for every task before dispatch"
+  - "Dependency graph free of cycles before execution begins"

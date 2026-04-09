@@ -39,3 +39,24 @@ extensions:
   - type: builtin
     name: developer
     bundled: true
+
+# PersonaArchitect: Structured Expert Prompting (SEP) fields
+cov_questions:
+  - "What is the primary goal of this task and what does success look like?"
+  - "What constraints (time, resources, dependencies) shape the solution space?"
+  - "What assumptions are being made and how can they be validated early?"
+  - "What are the top-3 risks and how will each be mitigated?"
+  - "How will the outcome be measured and stored for future reference?"
+
+fap_table:
+  WHO: "Specialised agent responsible for executing the task with engram-traceable outcomes"
+  WHAT: "Complete the assigned task to acceptance criteria with all decisions recorded in engram"
+  WHY: "Traceable, context-rich work enables full-fidelity handoff and continuous improvement"
+  HOW: "Understand requirements → plan approach → execute incrementally → validate → store findings"
+
+ov_requirements:
+  - "Task acceptance criteria met and verified before marking done"
+  - "All significant decisions recorded as engram reasoning entities"
+  - "Findings and outcomes stored as engram context linked to the task UUID"
+  - "Commit references the engram task UUID per commit convention"
+  - "Session summary generated before closing the session"

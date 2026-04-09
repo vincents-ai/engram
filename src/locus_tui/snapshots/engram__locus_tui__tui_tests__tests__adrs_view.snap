@@ -7,8 +7,8 @@ Engram Locus  [ADRs]  Tasks: 3  Workflows: 0  Tab:next  q:quit  t:theme
                                                                                                                         
 ┌ADRs (2)──────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
 │#     Title                                                             Status       Agent                Created     │
-│1     Use Rust for backend services                                     accepted     agent-alpha          2026-04-07  │
-│2     PostgreSQL as primary datastore                                   proposed     agent-beta           2026-04-07  │
+│1     Use Rust for backend services                                     accepted     agent-alpha          [DATE]  │
+│2     PostgreSQL as primary datastore                                   proposed     agent-beta           [DATE]  │
 │                                                                                                                      │
 │                                                                                                                      │
 │                                                                                                                      │

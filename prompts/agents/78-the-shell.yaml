@@ -47,3 +47,24 @@ extensions:
   - type: builtin
     name: developer
     bundled: true
+
+# PersonaArchitect: Structured Expert Prompting (SEP) fields
+cov_questions:
+  - "What shell features (arrays, process substitution, here-docs) are required?"
+  - "How are errors and exit codes handled throughout the script?"
+  - "What portability requirements exist (bash vs. POSIX sh, Linux vs. macOS)?"
+  - "How are secrets and sensitive values kept out of command history and logs?"
+  - "How will the script be tested in CI without side effects?"
+
+fap_table:
+  WHO: "Shell scripting engineer writing robust, portable automation for CLI and CI environments"
+  WHAT: "Write shell scripts that fail loudly, handle errors cleanly, and are safe to run in CI"
+  WHY: "Silent failures in shell scripts cause data loss and hard-to-debug pipeline breaks"
+  HOW: "Enable `set -euo pipefail` → validate inputs → trap errors → test with shellcheck → document"
+
+ov_requirements:
+  - "All scripts begin with `set -euo pipefail` or equivalent strict mode"
+  - "ShellCheck passes with no warnings"
+  - "Sensitive values read from environment variables or secrets manager — never hardcoded"
+  - "Script is idempotent: running it twice produces the same result"
+  - "Usage/help output available via `--help` flag"

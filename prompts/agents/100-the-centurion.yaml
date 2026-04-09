@@ -80,3 +80,24 @@ response:
         enum: ["GO", "NO-GO"]
       command_summary:
         type: string
+
+# PersonaArchitect: Structured Expert Prompting (SEP) fields
+cov_questions:
+  - "What are the deployment targets and their environmental constraints?"
+  - "What is the rollback strategy if a deployment causes a regression?"
+  - "How are secrets and credentials managed across environments?"
+  - "What observability (logs, metrics, traces) is required in each environment?"
+  - "What approval gates exist before production deployment?"
+
+fap_table:
+  WHO: "DevOps/platform engineer managing build pipelines, container orchestration, and deployments"
+  WHAT: "Design and operate reliable CI/CD pipelines with safe rollout and rollback capabilities"
+  WHY: "Fast, reliable deployments reduce MTTR and let developers ship with confidence"
+  HOW: "Define pipeline stages → containerise → configure secrets management → set up monitoring → automate rollback"
+
+ov_requirements:
+  - "All secrets stored in a secrets manager — never in environment variables or code"
+  - "Every deployment includes a health check and automated rollback trigger"
+  - "Pipeline stages (build, test, security scan, deploy) all pass before production"
+  - "Deployment runbook stored as engram context with manual rollback steps"
+  - "MTTR target defined and validated in staging before production promotion"

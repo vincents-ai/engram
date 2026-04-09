@@ -9,7 +9,7 @@ Engram Locus  [Theories]  Tasks: 3  Workflows: 0  Tab:next  q:quit  t:theme
 │Storage Layer (iter: 4)                       ││Domain:    Storage Layer                                              │
 │API Layer (iter: 1)                           ││Agent:     agent-alpha                                                │
 │                                              ││Iteration: 4                                                          │
-│                                              ││Updated:   2026-04-07                                                 │
+│                                              ││Updated:   [DATE]                                                 │
 │                                              ││                                                                      │
 │                                              ││Conceptual Model:                                                     │
 │                                              ││Entity: Typed data blob stored in git objects                         │

@@ -843,6 +843,8 @@ mod tests {
                 (r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", "[UUID]"),
                 // Redact remaining 8-hex-char short IDs (task row prefixes)
                 (r"[0-9a-f]{8}", "[ID]"),
+                // Redact dates (YYYY-MM-DD) so snapshots are stable across days
+                (r"\d{4}-\d{2}-\d{2}", "[DATE]"),
             ],
         }, {
             insta::assert_snapshot!(name, content);

@@ -225,6 +225,143 @@ impl Entity for TaskDurationReport {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::entities::task::{Task, TaskPriority, TaskStatus};
+    use crate::storage::{GitCommit, QueryFilter, QueryResult, Storage, StorageStats};
+    use serde_json::Value;
+    use std::collections::HashMap as StdHashMap;
+
+    struct MockStorage {
+        tasks: Vec<Task>,
+    }
+
+    impl Storage for MockStorage {
+        fn get(
+            &self,
+            _: &str,
+            _: &str,
+        ) -> Result<Option<crate::entities::GenericEntity>, crate::EngramError> {
+            Ok(None)
+        }
+        fn store(&mut self, _: &crate::entities::GenericEntity) -> Result<(), crate::EngramError> {
+            Ok(())
+        }
+        fn delete(&mut self, _: &str, _: &str) -> Result<(), crate::EngramError> {
+            Ok(())
+        }
+        fn query(&self, _: &QueryFilter) -> Result<QueryResult, crate::EngramError> {
+            Ok(QueryResult {
+                entities: vec![],
+                total_count: 0,
+                has_more: false,
+            })
+        }
+        fn query_by_agent(
+            &self,
+            _: &str,
+            _: Option<&str>,
+        ) -> Result<Vec<crate::entities::GenericEntity>, crate::EngramError> {
+            Ok(vec![])
+        }
+        fn query_by_time_range(
+            &self,
+            _: chrono::DateTime<chrono::Utc>,
+            _: chrono::DateTime<chrono::Utc>,
+        ) -> Result<Vec<crate::entities::GenericEntity>, crate::EngramError> {
+            Ok(vec![])
+        }
+        fn query_by_type(
+            &self,
+            _: &str,
+            _: Option<&StdHashMap<String, Value>>,
+            _: Option<usize>,
+            _: Option<usize>,
+        ) -> Result<QueryResult, crate::EngramError> {
+            Ok(QueryResult {
+                entities: vec![],
+                total_count: 0,
+                has_more: false,
+            })
+        }
+        fn text_search(
+            &self,
+            _: &str,
+            _: Option<&[String]>,
+            _: Option<usize>,
+        ) -> Result<Vec<crate::entities::GenericEntity>, crate::EngramError> {
+            Ok(vec![])
+        }
+        fn count(&self, _: &QueryFilter) -> Result<usize, crate::EngramError> {
+            Ok(0)
+        }
+        fn list_ids(&self, _: &str) -> Result<Vec<String>, crate::EngramError> {
+            Ok(vec![])
+        }
+        fn get_all(
+            &self,
+            _: &str,
+        ) -> Result<Vec<crate::entities::GenericEntity>, crate::EngramError> {
+            Ok(self.tasks.iter().map(|t| t.to_generic()).collect())
+        }
+        fn sync(&mut self) -> Result<(), crate::EngramError> {
+            Ok(())
+        }
+        fn current_branch(&self) -> Result<String, crate::EngramError> {
+            Ok("main".to_string())
+        }
+        fn create_branch(&mut self, _: &str) -> Result<(), crate::EngramError> {
+            Ok(())
+        }
+        fn switch_branch(&mut self, _: &str) -> Result<(), crate::EngramError> {
+            Ok(())
+        }
+        fn merge_branches(&mut self, _: &str, _: &str) -> Result<(), crate::EngramError> {
+            Ok(())
+        }
+        fn history(&self, _: Option<usize>) -> Result<Vec<GitCommit>, crate::EngramError> {
+            Ok(vec![])
+        }
+        fn bulk_store(
+            &mut self,
+            _: &[crate::entities::GenericEntity],
+        ) -> Result<(), crate::EngramError> {
+            Ok(())
+        }
+        fn get_stats(&self) -> Result<StorageStats, crate::EngramError> {
+            Ok(StorageStats::default())
+        }
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+    }
+
+    fn make_task(
+        id: &str,
+        status: TaskStatus,
+        start: DateTime<Utc>,
+        end: Option<DateTime<Utc>>,
+    ) -> Task {
+        Task {
+            id: id.to_string(),
+            title: format!("Task {}", id),
+            description: "desc".to_string(),
+            status,
+            priority: TaskPriority::Medium,
+            agent: "test-agent".to_string(),
+            start_time: start,
+            end_time: end,
+            parent: None,
+            children: vec![],
+            context_ids: vec![],
+            knowledge: vec![],
+            files: vec![],
+            outcome: None,
+            workflow_id: None,
+            workflow_state: None,
+            block_reason: None,
+            tags: vec![],
+            metadata: HashMap::new(),
+        }
+    }
 
     #[test]
     fn test_task_duration_report_new() {
@@ -261,5 +398,208 @@ mod tests {
         let restored: TaskDurationEntry = serde_json::from_str(&json).unwrap();
         assert_eq!(restored.task_id, "test-id");
         assert!((restored.duration_hours - 2.5).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_compute_empty_task_list() {
+        let storage = MockStorage { tasks: vec![] };
+        let report =
+            TaskDurationReport::compute(&storage, std::path::Path::new("/repo"), "agent").unwrap();
+        assert_eq!(report.total_tasks_analyzed, 0);
+        assert_eq!(report.completed_tasks, 0);
+        assert!(report.task_durations.is_empty());
+        assert_eq!(report.median_duration_hours, 0.0);
+        assert_eq!(report.mean_duration_hours, 0.0);
+        assert_eq!(report.min_duration_hours, 0.0);
+        assert_eq!(report.max_duration_hours, 0.0);
+    }
+
+    #[test]
+    fn test_compute_single_completed_task() {
+        let start = Utc::now() - chrono::Duration::hours(3);
+        let end = Some(Utc::now());
+        let storage = MockStorage {
+            tasks: vec![make_task("t1", TaskStatus::Done, start, end)],
+        };
+        let report =
+            TaskDurationReport::compute(&storage, std::path::Path::new("/repo"), "agent").unwrap();
+        assert_eq!(report.total_tasks_analyzed, 1);
+        assert_eq!(report.completed_tasks, 1);
+        assert!((report.mean_duration_hours - 3.0).abs() < 0.01);
+        assert!((report.median_duration_hours - 3.0).abs() < 0.01);
+        assert!((report.min_duration_hours - 3.0).abs() < 0.01);
+        assert!((report.max_duration_hours - 3.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_compute_multiple_tasks_varying_durations() {
+        let base = Utc::now();
+        let t1 = make_task(
+            "t1",
+            TaskStatus::Done,
+            base - chrono::Duration::hours(1),
+            Some(base),
+        );
+        let t2 = make_task(
+            "t2",
+            TaskStatus::Done,
+            base - chrono::Duration::hours(3),
+            Some(base),
+        );
+        let t3 = make_task(
+            "t3",
+            TaskStatus::Done,
+            base - chrono::Duration::hours(7),
+            Some(base),
+        );
+        let storage = MockStorage {
+            tasks: vec![t1, t2, t3],
+        };
+        let report =
+            TaskDurationReport::compute(&storage, std::path::Path::new("/repo"), "agent").unwrap();
+        assert_eq!(report.total_tasks_analyzed, 3);
+        assert_eq!(report.completed_tasks, 3);
+        assert!((report.mean_duration_hours - (1.0 + 3.0 + 7.0) / 3.0).abs() < 0.01);
+        assert!((report.median_duration_hours - 3.0).abs() < 0.01);
+        assert!((report.min_duration_hours - 1.0).abs() < 0.01);
+        assert!((report.max_duration_hours - 7.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_compute_median_even_count() {
+        let base = Utc::now();
+        let t1 = make_task(
+            "t1",
+            TaskStatus::Done,
+            base - chrono::Duration::hours(2),
+            Some(base),
+        );
+        let t2 = make_task(
+            "t2",
+            TaskStatus::Done,
+            base - chrono::Duration::hours(4),
+            Some(base),
+        );
+        let t3 = make_task(
+            "t3",
+            TaskStatus::Done,
+            base - chrono::Duration::hours(6),
+            Some(base),
+        );
+        let t4 = make_task(
+            "t4",
+            TaskStatus::Done,
+            base - chrono::Duration::hours(8),
+            Some(base),
+        );
+        let storage = MockStorage {
+            tasks: vec![t1, t2, t3, t4],
+        };
+        let report =
+            TaskDurationReport::compute(&storage, std::path::Path::new("/repo"), "agent").unwrap();
+        let expected_median = (4.0 + 6.0) / 2.0;
+        assert!((report.median_duration_hours - expected_median).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_compute_incomplete_tasks_not_counted_in_stats() {
+        let base = Utc::now();
+        let done = make_task(
+            "d1",
+            TaskStatus::Done,
+            base - chrono::Duration::hours(5),
+            Some(base),
+        );
+        let in_progress = make_task(
+            "ip1",
+            TaskStatus::InProgress,
+            base - chrono::Duration::hours(10),
+            None,
+        );
+        let storage = MockStorage {
+            tasks: vec![done, in_progress],
+        };
+        let report =
+            TaskDurationReport::compute(&storage, std::path::Path::new("/repo"), "agent").unwrap();
+        assert_eq!(report.total_tasks_analyzed, 2);
+        assert_eq!(report.completed_tasks, 1);
+        assert_eq!(report.task_durations.len(), 2);
+        assert!((report.mean_duration_hours - 5.0).abs() < 0.01);
+        assert!((report.max_duration_hours - 5.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_compute_tasks_sorted_by_duration_descending() {
+        let base = Utc::now();
+        let t1 = make_task(
+            "t1",
+            TaskStatus::Done,
+            base - chrono::Duration::hours(1),
+            Some(base),
+        );
+        let t2 = make_task(
+            "t2",
+            TaskStatus::Done,
+            base - chrono::Duration::hours(5),
+            Some(base),
+        );
+        let t3 = make_task(
+            "t3",
+            TaskStatus::Done,
+            base - chrono::Duration::hours(3),
+            Some(base),
+        );
+        let storage = MockStorage {
+            tasks: vec![t1, t2, t3],
+        };
+        let report =
+            TaskDurationReport::compute(&storage, std::path::Path::new("/repo"), "agent").unwrap();
+        assert!(report.task_durations[0].duration_hours >= report.task_durations[1].duration_hours);
+        assert!(report.task_durations[1].duration_hours >= report.task_durations[2].duration_hours);
+    }
+
+    #[test]
+    fn test_compute_incomplete_task_uses_now_for_duration() {
+        let start = Utc::now() - chrono::Duration::hours(6);
+        let storage = MockStorage {
+            tasks: vec![make_task("t1", TaskStatus::InProgress, start, None)],
+        };
+        let report =
+            TaskDurationReport::compute(&storage, std::path::Path::new("/repo"), "agent").unwrap();
+        assert_eq!(report.total_tasks_analyzed, 1);
+        assert_eq!(report.completed_tasks, 0);
+        assert_eq!(report.task_durations.len(), 1);
+        assert!((report.task_durations[0].duration_hours - 6.0).abs() < 0.01);
+        assert_eq!(report.mean_duration_hours, 0.0);
+    }
+
+    #[test]
+    fn test_compute_zero_duration_completed_task() {
+        let now = Utc::now();
+        let storage = MockStorage {
+            tasks: vec![make_task("t1", TaskStatus::Done, now, Some(now))],
+        };
+        let report =
+            TaskDurationReport::compute(&storage, std::path::Path::new("/repo"), "agent").unwrap();
+        assert_eq!(report.completed_tasks, 1);
+        assert!((report.min_duration_hours).abs() < 0.001);
+        assert!((report.max_duration_hours).abs() < 0.001);
+        assert!((report.mean_duration_hours).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_compute_single_task_entry_has_correct_fields() {
+        let start = Utc::now() - chrono::Duration::hours(2);
+        let end = Some(Utc::now());
+        let storage = MockStorage {
+            tasks: vec![make_task("abc", TaskStatus::Done, start, end)],
+        };
+        let report =
+            TaskDurationReport::compute(&storage, std::path::Path::new("/repo"), "agent").unwrap();
+        let entry = &report.task_durations[0];
+        assert_eq!(entry.task_id, "abc");
+        assert_eq!(entry.title, "Task abc");
+        assert_eq!(entry.status, "done");
+        assert_eq!(entry.agent, "test-agent");
     }
 }

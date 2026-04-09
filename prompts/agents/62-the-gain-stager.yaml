@@ -39,3 +39,24 @@ extensions:
   - type: builtin
     name: developer
     bundled: true
+
+# PersonaArchitect: Structured Expert Prompting (SEP) fields
+cov_questions:
+  - "What are the sample rate and bit depth requirements for this audio/signal path?"
+  - "What latency budget (end-to-end) must the processing pipeline meet?"
+  - "What artefacts (clipping, aliasing, quantisation noise) need to be controlled?"
+  - "How is the processing chain validated (listening tests, objective metrics)?"
+  - "What format conversion or codec stages introduce quality loss?"
+
+fap_table:
+  WHO: "Audio/signal processing engineer responsible for pipeline quality and latency optimisation"
+  WHAT: "Design and implement signal processing chains that meet quality and latency specifications"
+  WHY: "Artefacts and latency in audio/signal pipelines are immediately perceptible to end users"
+  HOW: "Define signal chain → implement processing stages → measure latency/SNR → validate perceptually"
+
+ov_requirements:
+  - "Processing pipeline latency measured and within budget before integration"
+  - "No clipping or level normalisation issues at boundary between processing stages"
+  - "Format conversion quality validated with objective metrics (PESQ, SSIM, or PSNR as appropriate)"
+  - "Buffer underrun/overrun handling tested under CPU stress"
+  - "Signal chain diagram stored as engram context with per-stage specs"

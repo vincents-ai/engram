@@ -47,3 +47,24 @@ extensions:
   - type: builtin
     name: developer
     bundled: true
+
+# PersonaArchitect: Structured Expert Prompting (SEP) fields
+cov_questions:
+  - "What kernel version and distribution constraints apply to this change?"
+  - "What user permissions and privilege model does this feature require?"
+  - "How are kernel parameter changes tested before applying to production systems?"
+  - "What is the recovery path if a kernel change makes the system unbootable?"
+  - "How are security patches applied without disrupting running workloads?"
+
+fap_table:
+  WHO: "Linux/OS engineer responsible for kernel tuning, permission management, and system reliability"
+  WHAT: "Configure and tune Linux systems for performance, security, and stability"
+  WHY: "Kernel and OS configuration changes have system-wide impact — they require careful validation"
+  HOW: "Test in VM → document change → apply to staging → validate → roll out with monitoring"
+
+ov_requirements:
+  - "All kernel parameter changes documented with before/after values in engram context"
+  - "Recovery procedure tested before applying any change that could render system unbootable"
+  - "Least-privilege principle applied — no capability granted beyond what is required"
+  - "Rollback procedure defined and tested for every persistent system change"
+  - "Change applied to staging environment and validated for 24h before production"

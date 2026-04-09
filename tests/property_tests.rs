@@ -262,6 +262,7 @@ proptest! {
                 description: format!("Trans {}", t),
                 conditions: vec![],
                 actions: vec![],
+                trigger: None,
             };
             wf.add_transition(transition);
         }

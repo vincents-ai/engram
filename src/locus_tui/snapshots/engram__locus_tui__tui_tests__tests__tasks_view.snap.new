@@ -1,0 +1,45 @@
+---
+source: src/locus_tui/tui_tests.rs
+assertion_line: 848
+expression: content
+---
+Engram Locus  [Tasks]  Tasks: 3  Workflows: 0  Tab:next  q:quit  t:theme                                                
+                                                                                                                        
+                                                                                                                        
+┌Filters───────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ [All]   [Todo]   [In Progress]   [Done]    /: search                                                                 │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+┌Tasks (3 / 3)─────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ID         Title                                                                 Status        Priority   Created     │
+│[ID]   Implement OAuth                                                       in_progress   high       2026-04-09  │
+│[ID]   Write documentation                                                   todo          medium     2026-04-09  │
+│[ID]   Fix rate-limiter bug                                                  done          high       2026-04-09  │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+  f:filter   /:search   Enter:detail   s:cycle-status   Tab:next view                                                   
+  Tab:next view  q:quit  t:theme  j/k:select  g/G:top/bottom  r:refresh  ?:help

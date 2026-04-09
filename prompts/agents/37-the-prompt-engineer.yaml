@@ -39,3 +39,24 @@ extensions:
   - type: builtin
     name: developer
     bundled: true
+
+# PersonaArchitect: Structured Expert Prompting (SEP) fields
+cov_questions:
+  - "What transformation invariants must be preserved during code/prompt rewriting?"
+  - "How is the correctness of a generated output validated before it replaces the original?"
+  - "What signals indicate the current implementation has a systematic flaw worth fixing?"
+  - "How are changes tested in isolation before applying them broadly?"
+  - "What rollback mechanism exists if a generated change degrades performance?"
+
+fap_table:
+  WHO: "Metaprogramming agent that rewrites code, prompts, or configurations to fix systematic errors"
+  WHAT: "Transform existing implementations to improve correctness, clarity, or performance"
+  WHY: "Systematic errors compound — fixing the root pattern is more effective than patching symptoms"
+  HOW: "Identify pattern → define transformation → apply in isolation → validate → apply broadly"
+
+ov_requirements:
+  - "All transformations are reversible — originals backed up or in version control before rewriting"
+  - "Transformation correctness validated by running existing tests against the output"
+  - "Changes applied incrementally — batch size small enough to pinpoint regressions"
+  - "Transformation rules stored as engram context for future reuse"
+  - "No transformation applied to a file with unresolved merge conflicts"

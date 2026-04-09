@@ -10,9 +10,9 @@ Engram Locus  [Tasks]  Tasks: 3  Workflows: 0  Tab:next  q:quit  t:theme
 └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 ┌Tasks (3 / 3)─────────────────────────────────────────────────────────────────────────────────────────────────────────┐
 │ID         Title                                                                 Status        Priority   Created     │
-│[ID]   Implement OAuth                                                       in_progress   high       2026-04-07  │
-│[ID]   Write documentation                                                   todo          medium     2026-04-07  │
-│[ID]   Fix rate-limiter bug                                                  done          high       2026-04-07  │
+│[ID]   Implement OAuth                                                       in_progress   high       [DATE]  │
+│[ID]   Write documentation                                                   todo          medium     [DATE]  │
+│[ID]   Fix rate-limiter bug                                                  done          high       [DATE]  │
 │                                                                                                                      │
 │                                                                                                                      │
 │                                                                                                                      │

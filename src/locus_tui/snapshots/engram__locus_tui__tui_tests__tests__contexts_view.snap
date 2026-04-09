@@ -7,8 +7,8 @@ Engram Locus  [Contexts]  Tasks: 3  Workflows: 0  Tab:next  q:quit  t:theme
                                                                                                                         
 ┌Contexts (2)──────────────────────────────────────────────────────────────────────────────────────────────────────────┐
 │Title                                                                     Relevance  Source               Created     │
-│OAuth spec RFC 6749                                                       high       https://rfc-editor.o 2026-04-07  │
-│Rate limiter design notes                                                 medium     internal             2026-04-07  │
+│OAuth spec RFC 6749                                                       high       https://rfc-editor.o [DATE]  │
+│Rate limiter design notes                                                 medium     internal             [DATE]  │
 │                                                                                                                      │
 │                                                                                                                      │
 │                                                                                                                      │
