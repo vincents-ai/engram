@@ -227,19 +227,19 @@ performance:
 </ul>
 <h3 id="cli-commands"><a class="header" href="#cli-commands">CLI Commands</a></h3>
 <pre><code class="language-bash"># Validate a commit message
-engram validation commit --message "feat: implement authentication [TASK-123]"
+engram validate commit --message "feat: implement authentication [TASK-123]"
 
 # Validate with dry run (doesn't require git repo)
-engram validation commit --message "test commit" --dry-run
+engram validate commit --message "test commit" --dry-run
 
 # Install pre-commit hook
-engram validation hook install
+engram validate hook install
 
 # Check hook status
-engram validation hook status
+engram validate hook status
 
 # Uninstall hook
-engram validation hook uninstall
+engram validate hook uninstall
 </code></pre>
 <h3 id="configuration-priority"><a class="header" href="#configuration-priority">Configuration Priority</a></h3>
 <ol>
@@ -251,20 +251,9 @@ engram validation hook uninstall
 <h3 id="performance-tuning"><a class="header" href="#performance-tuning">Performance Tuning</a></h3>
 <p>For optimal performance:</p>
 <ol>
-<li>
-<p><strong>Cache Warming</strong>: Pre-load common task IDs</p>
-<pre><code class="language-bash">engram validation warm-cache TASK-123 TASK-456
-</code></pre>
-</li>
-<li>
-<p><strong>Parallel Validation</strong>: Enable multi-threaded validation</p>
+<li><strong>Cache Configuration</strong>: Tune cache settings in validation.yaml
 <pre><code class="language-yaml">performance:
   enable_parallel_validation: true
-</code></pre>
-</li>
-<li>
-<p><strong>Memory Management</strong>: Configure appropriate cache sizes</p>
-<pre><code class="language-yaml">performance:
   max_cache_entries: 5000  # For large repositories
   cache_ttl_seconds: 600   # 10 minutes
 </code></pre>
@@ -297,13 +286,13 @@ engram validation hook uninstall
 <h4 id="github-actions"><a class="header" href="#github-actions">GitHub Actions</a></h4>
 <pre><code class="language-yaml">- name: Validate Commit
   run: |
-    engram validation commit --message "${{ github.event.head_commit.message }}"
+     engram validate commit --message "${{ github.event.head_commit.message }}"
 </code></pre>
 <h4 id="gitlab-ci"><a class="header" href="#gitlab-ci">GitLab CI</a></h4>
 <pre><code class="language-yaml">validate-commit:
   stage: validate
   script:
-    - engram validation commit --message "$CI_COMMIT_MESSAGE"
+    - engram validate commit --message "$CI_COMMIT_MESSAGE"
 </code></pre>
 <h3 id="troubleshooting"><a class="header" href="#troubleshooting">Troubleshooting</a></h3>
 <h4 id="common-issues"><a class="header" href="#common-issues">Common Issues</a></h4>
@@ -314,7 +303,7 @@ engram validation hook uninstall
 which engram
 
 # Install hook manually
-engram validation hook install
+engram validate hook install
 </code></pre>
 </li>
 <li>
@@ -343,16 +332,14 @@ exemptions:
 <p>When upgrading validation configuration:</p>
 <ol>
 <li>
-<p><strong>Backup</strong>: Export current configuration</p>
-<pre><code class="language-bash">engram validation config export &gt; validation-backup.yaml
-</code></pre>
+<p><strong>Backup</strong>: Copy your <code>.engram/validation.yaml</code> file</p>
 </li>
 <li>
 <p><strong>Update</strong>: Modify configuration file</p>
 </li>
 <li>
 <p><strong>Validate</strong>: Test new configuration</p>
-<pre><code class="language-bash">engram validation check
+<pre><code class="language-bash">engram validate check
 </code></pre>
 </li>
 <li>

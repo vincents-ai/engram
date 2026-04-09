@@ -23,6 +23,12 @@
 - [Example Workflows](features/example-workflows.md)
 - [Workflows](features/workflows.md)
 - [Sessions](features/sessions.md)
+- [Sync](features/sync.md)
+- [Health](features/health.md)
+- [Doc](features/doc.md)
+- [Analytics](features/analytics.md)
+- [Personas & Lessons](features/personas-lessons.md)
+- [Locus TUI](features/locus-tui.md)
 
 ## Agent Integration
 
@@ -34,11 +40,15 @@
 - [CLI Reference](reference/cli.md)
 - [Entity Schema](reference/entities.md)
 - [API Reference](reference/api.md)
+- [Validation](reference/validation.md)
 
 ## Development
 
 - [Setup & Configuration](development/setup.md)
-- [Validation](validation.md)
 - [Contributing](development/contributing.md)
+
+## Validation
+
+- [Validation](validation.md)
 
 ## Appendices

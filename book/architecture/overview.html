@@ -193,20 +193,50 @@
 │  (src/entities/*.rs)                   │
 │  - Task, Context, Reasoning, Knowledge  │
 │  - Theory, StateReflection              │
-│  - Session, Workflow, Relationship      │
+│  - Session, Workflow, WorkflowInstance  │
+│  - ADR, Compliance, Standard, Rule      │
+│  - Lesson, Persona, DocFragment         │
+│  - EscalationRequest, ExecutionResult   │
+│  - AgentSandbox, ProgressiveGateConfig  │
+│  - BottleneckReport, DoraMetricsReport  │
+│  - TaskDurationReport, StaleTaskReport  │
 └────────────────┬────────────────────────┘
                  │
 ┌────────────────▼────────────────────────┐
 │           Storage Layer                │
 │  (src/storage/*.rs)                    │
-│  - GitStorage                          │
-│  - MemoryStorage                       │
+│  - GitRefsStorage (primary)            │
+│  - MemoryOnlyStorage (testing)         │
 └─────────────────────────────────────────┘
 </code></pre>
+<h2 id="modules"><a class="header" href="#modules">Modules</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Module</th><th>Description</th></tr></thead><tbody>
+<tr><td>ask</td><td>Semantic search and query engine</td></tr>
+<tr><td>cli</td><td>Command-line interface</td></tr>
+<tr><td>config</td><td>Configuration management</td></tr>
+<tr><td>engines</td><td>Workflow engine, rule engine, NLQ engine</td></tr>
+<tr><td>entities</td><td>All 23 entity types</td></tr>
+<tr><td>error</td><td>Error types</td></tr>
+<tr><td>feedback</td><td>Structured feedback interface</td></tr>
+<tr><td>locus_cli</td><td>Locus agent CLI</td></tr>
+<tr><td>locus_handlers</td><td>Locus event handlers</td></tr>
+<tr><td>locus_integration</td><td>Locus integration layer</td></tr>
+<tr><td>locus_tui</td><td>Terminal UI (feature-gated)</td></tr>
+<tr><td>migration</td><td>Data migrations</td></tr>
+<tr><td>nlq</td><td>Natural language query processing</td></tr>
+<tr><td>perkeep</td><td>Perkeep backup integration</td></tr>
+<tr><td>personas</td><td>Persona management</td></tr>
+<tr><td>sandbox</td><td>Sandbox enforcement (feature-gated)</td></tr>
+<tr><td>storage</td><td>Storage backends</td></tr>
+<tr><td>validation</td><td>Input validation</td></tr>
+<tr><td>vector</td><td>Vector search</td></tr>
+<tr><td>version</td><td>Version info</td></tr>
+</tbody></table>
+</div>
 <h2 id="storage-backends"><a class="header" href="#storage-backends">Storage Backends</a></h2>
 <div class="table-wrapper"><table><thead><tr><th>Backend</th><th>Description</th></tr></thead><tbody>
-<tr><td>GitStorage</td><td>Persists to <code>.git/refs/engram/</code></td></tr>
-<tr><td>MemoryStorage</td><td>In-memory for testing</td></tr>
+<tr><td>GitRefsStorage</td><td>Primary — persists to <code>.git/refs/engram/</code></td></tr>
+<tr><td>MemoryOnlyStorage</td><td>In-memory for testing</td></tr>
 </tbody></table>
 </div>
 <h2 id="entity-flow"><a class="header" href="#entity-flow">Entity Flow</a></h2>

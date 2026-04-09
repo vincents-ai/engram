@@ -737,6 +737,14 @@ fn handle_persona_command<S: engram::storage::Storage>(
         cli::PersonaCommands::Delete { id } => {
             cli::delete_persona(storage, &id)?;
         }
+        cli::PersonaCommands::Submit {
+            id,
+            submit_type,
+            repo,
+            message,
+        } => {
+            cli::submit_persona(storage, &id, submit_type, repo, message)?;
+        }
     }
     Ok(())
 }

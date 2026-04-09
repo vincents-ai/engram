@@ -31,7 +31,7 @@ pub enum KnowledgeCommands {
     ///  engram knowledge create -t "Redis mock setup for tests" -k procedure -s "tests/fixtures/"
     ///  engram knowledge create -t "TDD cycle: red-green-refactor" -k technique -c "Write failing test, make it pass, refactor"
     #[command(
-        after_help = "KNOWLEDGE TYPES:\n  fact       - A concrete, discovered truth about the system\n  pattern    - A recurring pattern observed in the codebase\n  rule       - An enforceable rule that must always be followed\n  concept    - A domain concept that agents need to understand\n  procedure  - A repeatable sequence of steps for a known operation\n  heuristic  - A rule of thumb that is usually right but not always\n  skill      - A capability or competency (e.g., \"Rust async programming\")\n  technique  - A specific method or approach (e.g., \"property-based testing\")"
+        after_help = "KNOWLEDGE TYPES:\n  fact        - A concrete, discovered truth about the system\n  pattern     - A recurring pattern observed in the codebase\n  rule        - An enforceable rule that must always be followed\n  concept     - A domain concept that agents need to understand\n  procedure   - A repeatable sequence of steps for a known operation\n  heuristic   - A rule of thumb that is usually right but not always\n  skill       - A capability or competency (e.g., \"Rust async programming\")\n  technique   - A specific method or approach (e.g., \"property-based testing\")\n  prompt      - A reusable prompt template for agent interactions\n  autocomplete - Autocomplete suggestion data for CLI/shell completion"
     )]
     Create {
         /// Knowledge title
@@ -42,8 +42,8 @@ pub enum KnowledgeCommands {
         #[arg(long, short, conflicts_with_all = ["content_stdin", "content_file"])]
         content: Option<String>,
 
-        /// Knowledge type (fact, pattern, rule, concept, procedure, heuristic, skill, technique)
-        #[arg(long, short = 'k', default_value = "fact", value_parser = ["fact", "pattern", "rule", "concept", "procedure", "heuristic", "skill", "technique"])]
+        /// Knowledge type (fact, pattern, rule, concept, procedure, heuristic, skill, technique, prompt, autocomplete)
+        #[arg(long, short = 'k', default_value = "fact", value_parser = ["fact", "pattern", "rule", "concept", "procedure", "heuristic", "skill", "technique", "prompt", "autocomplete"])]
         knowledge_type: String,
 
         /// Confidence level (0.0 to 1.0)
@@ -102,8 +102,8 @@ pub enum KnowledgeCommands {
         #[arg(long, short)]
         agent: Option<String>,
 
-        /// Type filter (fact, pattern, rule, concept, procedure, heuristic, skill, technique)
-        #[arg(long, short, value_parser = ["fact", "pattern", "rule", "concept", "procedure", "heuristic", "skill", "technique"])]
+        /// Type filter (fact, pattern, rule, concept, procedure, heuristic, skill, technique, prompt, autocomplete)
+        #[arg(long, short, value_parser = ["fact", "pattern", "rule", "concept", "procedure", "heuristic", "skill", "technique", "prompt", "autocomplete"])]
         kind: Option<String>,
 
         /// Limit results
@@ -179,8 +179,10 @@ fn parse_knowledge_type(type_str: &str) -> Result<KnowledgeType, EngramError> {
         "heuristic" => Ok(KnowledgeType::Heuristic),
         "skill" => Ok(KnowledgeType::Skill),
         "technique" => Ok(KnowledgeType::Technique),
+        "prompt" => Ok(KnowledgeType::Prompt),
+        "autocomplete" => Ok(KnowledgeType::Autocomplete),
         _ => Err(EngramError::Validation(
-            format!("Invalid knowledge type '{}'. Must be one of: fact, pattern, rule, concept, procedure, heuristic, skill, technique", type_str)
+            format!("Invalid knowledge type '{}'. Must be one of: fact, pattern, rule, concept, procedure, heuristic, skill, technique, prompt, autocomplete", type_str)
         )),
     }
 }

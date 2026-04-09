@@ -220,6 +220,9 @@ mod tests {
         fn list_progressive_configs(&self) -> Result<Vec<ProgressiveGateConfig>, EngramError> {
             Ok(vec![])
         }
+        fn list_personas(&self) -> Result<Vec<crate::entities::Persona>, EngramError> {
+            Ok(vec![])
+        }
         fn list_dora_metrics_reports(&self) -> Result<Vec<DoraMetricsReport>, EngramError> {
             let mut report =
                 DoraMetricsReport::new("/tmp/project".to_string(), "agent".to_string());

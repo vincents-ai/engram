@@ -19,6 +19,8 @@ pub enum KnowledgeType {
     Heuristic,
     Skill,
     Technique,
+    Prompt,
+    Autocomplete,
 }
 
 /// Knowledge entity representing stored information

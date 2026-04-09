@@ -906,4 +906,191 @@ mod tests {
         let result = end_session(&mut storage, "non-existent".to_string(), false);
         assert!(matches!(result, Err(EngramError::NotFound(_))));
     }
+
+    fn create_old_session(storage: &mut MemoryStorage, agent: &str, hours_ago: i64) -> String {
+        let mut session = Session::new(format!("Session for {}", agent), agent.to_string(), vec![]);
+        session.start_time = Utc::now() - Duration::hours(hours_ago);
+        let id = session.id.clone();
+        let generic = session.to_generic();
+        storage.store(&generic).unwrap();
+        id
+    }
+
+    #[test]
+    fn test_zombie_detects_old_sessions() {
+        let mut storage = create_test_storage();
+        create_old_session(&mut storage, "agent1", 48);
+        create_old_session(&mut storage, "agent2", 72);
+
+        let mut buffer = Vec::new();
+        detect_zombie_sessions(&mut buffer, &storage, 24, false).unwrap();
+        let output = String::from_utf8(buffer).unwrap();
+
+        assert!(output.contains("Found 2 zombie sessions"));
+        assert!(output.contains("agent1"));
+        assert!(output.contains("agent2"));
+    }
+
+    #[test]
+    fn test_zombie_skips_recent_sessions() {
+        let mut storage = create_test_storage();
+        create_old_session(&mut storage, "agent1", 2);
+        create_old_session(&mut storage, "agent2", 10);
+
+        let mut buffer = Vec::new();
+        detect_zombie_sessions(&mut buffer, &storage, 24, false).unwrap();
+        let output = String::from_utf8(buffer).unwrap();
+
+        assert!(output.contains("No zombie sessions found"));
+    }
+
+    #[test]
+    fn test_zombie_skips_completed_sessions() {
+        let mut storage = create_test_storage();
+        let mut session = Session::new("Old completed".to_string(), "agent1".to_string(), vec![]);
+        session.start_time = Utc::now() - Duration::hours(72);
+        session.complete(vec!["done".to_string()]);
+        let generic = session.to_generic();
+        storage.store(&generic).unwrap();
+
+        let mut buffer = Vec::new();
+        detect_zombie_sessions(&mut buffer, &storage, 24, false).unwrap();
+        let output = String::from_utf8(buffer).unwrap();
+
+        assert!(output.contains("No zombie sessions found"));
+    }
+
+    #[test]
+    fn test_zombie_sorts_by_age() {
+        let mut storage = create_test_storage();
+        create_old_session(&mut storage, "young-zombie", 30);
+        create_old_session(&mut storage, "old-zombie", 100);
+
+        let mut buffer = Vec::new();
+        detect_zombie_sessions(&mut buffer, &storage, 24, false).unwrap();
+        let output = String::from_utf8(buffer).unwrap();
+
+        let old_pos = output.find("old-zombie").unwrap();
+        let young_pos = output.find("young-zombie").unwrap();
+        assert!(old_pos < young_pos, "older zombie should appear first");
+    }
+
+    #[test]
+    fn test_zombie_empty_storage() {
+        let storage = create_test_storage();
+
+        let mut buffer = Vec::new();
+        detect_zombie_sessions(&mut buffer, &storage, 24, false).unwrap();
+        let output = String::from_utf8(buffer).unwrap();
+
+        assert!(output.contains("No zombie sessions found"));
+    }
+
+    #[test]
+    fn test_zombie_check_git_flag() {
+        let mut storage = create_test_storage();
+        create_old_session(&mut storage, "agent1", 48);
+
+        let mut buffer = Vec::new();
+        detect_zombie_sessions(&mut buffer, &storage, 24, true).unwrap();
+        let output = String::from_utf8(buffer).unwrap();
+
+        assert!(output.contains("Commits Since?"));
+        assert!(output.contains("Found 1 zombie session"));
+    }
+
+    #[test]
+    fn test_zombie_without_check_git() {
+        let mut storage = create_test_storage();
+        create_old_session(&mut storage, "agent1", 48);
+
+        let mut buffer = Vec::new();
+        detect_zombie_sessions(&mut buffer, &storage, 24, false).unwrap();
+        let output = String::from_utf8(buffer).unwrap();
+
+        assert!(!output.contains("Commits Since?"));
+        assert!(output.contains("Found 1 zombie session"));
+    }
+
+    #[test]
+    fn test_summarize_multiple_sessions() {
+        let mut storage = create_test_storage();
+        start_session(&mut storage, "agent1".to_string(), false).unwrap();
+        start_session(&mut storage, "agent2".to_string(), false).unwrap();
+
+        let mut buffer = Vec::new();
+        summarize_sessions(&mut buffer, &storage, None, None, None, false).unwrap();
+        let output = String::from_utf8(buffer).unwrap();
+
+        assert!(output.contains("Session Summaries"));
+        assert!(output.contains("agent1"));
+        assert!(output.contains("agent2"));
+    }
+
+    #[test]
+    fn test_summarize_agent_filter() {
+        let mut storage = create_test_storage();
+        start_session(&mut storage, "agent1".to_string(), false).unwrap();
+        start_session(&mut storage, "agent2".to_string(), false).unwrap();
+
+        let mut buffer = Vec::new();
+        summarize_sessions(
+            &mut buffer,
+            &storage,
+            Some("agent1".to_string()),
+            None,
+            None,
+            false,
+        )
+        .unwrap();
+        let output = String::from_utf8(buffer).unwrap();
+
+        assert!(output.contains("agent1"));
+        assert!(!output.contains("agent2"));
+    }
+
+    #[test]
+    fn test_summarize_empty() {
+        let storage = create_test_storage();
+
+        let mut buffer = Vec::new();
+        summarize_sessions(&mut buffer, &storage, None, None, None, false).unwrap();
+        let output = String::from_utf8(buffer).unwrap();
+
+        assert!(output.contains("No sessions found"));
+    }
+
+    #[test]
+    fn test_summarize_with_goals_and_outcomes() {
+        let mut storage = create_test_storage();
+        let mut session = Session::new(
+            "Goal session".to_string(),
+            "agent1".to_string(),
+            vec!["Fix bug".to_string(), "Add tests".to_string()],
+        );
+        session.complete(vec!["Bug fixed".to_string(), "Tests added".to_string()]);
+        let generic = session.to_generic();
+        storage.store(&generic).unwrap();
+
+        let mut buffer = Vec::new();
+        summarize_sessions(&mut buffer, &storage, None, None, None, false).unwrap();
+        let output = String::from_utf8(buffer).unwrap();
+
+        assert!(output.contains("Fix bug") || output.contains("Fix bug; Add tests"));
+        assert!(output.contains("Bug fixed") || output.contains("Bug fixed; Tests added"));
+    }
+
+    #[test]
+    fn test_summarize_limit() {
+        let mut storage = create_test_storage();
+        start_session(&mut storage, "agent1".to_string(), false).unwrap();
+        start_session(&mut storage, "agent2".to_string(), false).unwrap();
+        start_session(&mut storage, "agent3".to_string(), false).unwrap();
+
+        let mut buffer = Vec::new();
+        summarize_sessions(&mut buffer, &storage, None, None, Some(2), false).unwrap();
+        let output = String::from_utf8(buffer).unwrap();
+
+        assert!(output.contains("2 of 3"));
+    }
 }

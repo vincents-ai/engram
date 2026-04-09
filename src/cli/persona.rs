@@ -4,6 +4,7 @@ use crate::entities::{Entity, Persona};
 use crate::error::EngramError;
 use crate::storage::Storage;
 use clap::Subcommand;
+use std::io::Write;
 
 /// Persona commands
 #[derive(Debug, Subcommand)]
@@ -129,6 +130,24 @@ pub enum PersonaCommands {
         /// Persona UUID
         #[arg(long, short)]
         id: String,
+    },
+    /// Submit a persona to the engram-personas repository as a GitHub issue
+    Submit {
+        /// Persona slug or UUID prefix
+        id: String,
+
+        /// Submission type: "new" or "improvement"
+        #[arg(long, default_value = "new", value_parser = ["new", "improvement"])]
+        submit_type: String,
+
+        /// Target repository (owner/repo). Defaults to engram_personas_remote in workspace config,
+        /// then falls back to vincents-ai/engram-personas.
+        #[arg(long)]
+        repo: Option<String>,
+
+        /// Additional message to include in the issue body
+        #[arg(long)]
+        message: Option<String>,
     },
 }
 
@@ -444,6 +463,148 @@ pub fn update_persona<S: Storage>(
 pub fn delete_persona<S: Storage>(storage: &mut S, id: &str) -> Result<(), EngramError> {
     storage.delete(id, Persona::entity_type())?;
     println!("Persona deleted successfully: {}", id);
+    Ok(())
+}
+
+fn format_issue_body(persona: &Persona, message: Option<&str>, submit_type: &str) -> String {
+    let mut body = String::new();
+
+    body.push_str(&format!("### Persona Slug\n\n{}\n\n", persona.slug));
+    body.push_str(&format!("### Title\n\n{}\n\n", persona.title));
+
+    if !persona.description.is_empty() {
+        body.push_str(&format!("### Description\n\n{}\n\n", persona.description));
+    }
+
+    body.push_str(&format!("### Instructions\n\n{}\n\n", persona.instructions));
+
+    if !persona.domain.is_empty() {
+        body.push_str(&format!("### Domain\n\n{}\n\n", persona.domain));
+    }
+
+    if !persona.cov_questions.is_empty() {
+        body.push_str("### CoV Questions\n\n");
+        for (i, q) in persona.cov_questions.iter().enumerate() {
+            body.push_str(&format!("{}. {}\n", i + 1, q));
+        }
+        body.push('\n');
+    }
+
+    if !persona.fap_table.is_empty() {
+        body.push_str("### FAP Table\n\n");
+        let mut keys: Vec<&String> = persona.fap_table.keys().collect();
+        keys.sort();
+        for k in keys {
+            body.push_str(&format!("**{}**: {}\n", k, persona.fap_table[k]));
+        }
+        body.push('\n');
+    }
+
+    if !persona.ov_requirements.is_empty() {
+        body.push_str("### OV Requirements\n\n");
+        for req in &persona.ov_requirements {
+            body.push_str(&format!("- {}\n", req));
+        }
+        body.push('\n');
+    }
+
+    if !persona.tags.is_empty() {
+        body.push_str(&format!("### Tags\n\n{}\n\n", persona.tags.join(", ")));
+    }
+
+    if let Some(ref base) = persona.base_persona {
+        body.push_str(&format!("### Base Persona\n\n{}\n\n", base));
+    }
+
+    body.push_str(&format!("### Version\n\n{}\n\n", persona.version));
+
+    body.push_str(&format!("### Submission Type\n\n{}\n", submit_type));
+
+    if let Some(msg) = message {
+        if !msg.is_empty() {
+            body.push_str(&format!("\n### Additional Message\n\n{}\n", msg));
+        }
+    }
+
+    body
+}
+
+fn resolve_repo(repo_arg: Option<String>) -> Result<String, EngramError> {
+    if let Some(r) = repo_arg {
+        return Ok(r);
+    }
+
+    if let Ok(config) = crate::config::Config::load_with_defaults() {
+        if let Some(ref remote) = config.workspace.engram_personas_remote {
+            if !remote.is_empty() {
+                return Ok(remote.clone());
+            }
+        }
+    }
+
+    Ok("vincents-ai/engram-personas".to_string())
+}
+
+pub fn submit_persona<S: Storage>(
+    storage: &S,
+    id: &str,
+    submit_type: String,
+    repo: Option<String>,
+    message: Option<String>,
+) -> Result<(), EngramError> {
+    let which_result = std::process::Command::new("which")
+        .arg("gh")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !which_result {
+        return Err(EngramError::InvalidOperation(
+            "gh CLI is required for persona submission. Install it from https://cli.github.com/"
+                .to_string(),
+        ));
+    }
+
+    let persona = resolve_persona(storage, id)?;
+    let repo = resolve_repo(repo)?;
+    let body = format_issue_body(&persona, message.as_deref(), &submit_type);
+
+    let title = format!("[Persona]: {}", persona.slug);
+
+    let mut tmp_path = std::env::temp_dir();
+    tmp_path.push(format!("engram-persona-submit-{}", persona.id));
+    {
+        let mut tmp_file = std::fs::File::create(&tmp_path)?;
+        tmp_file.write_all(body.as_bytes())?;
+    }
+
+    let output = std::process::Command::new("gh")
+        .arg("issue")
+        .arg("create")
+        .arg("--repo")
+        .arg(&repo)
+        .arg("--title")
+        .arg(&title)
+        .arg("--body-file")
+        .arg(&tmp_path)
+        .arg("--label")
+        .arg(&submit_type)
+        .output()?;
+
+    let _ = std::fs::remove_file(&tmp_path);
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(EngramError::InvalidOperation(format!(
+            "gh issue create failed: {}",
+            stderr
+        )));
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let url = stdout.trim();
+
+    println!("Issue created: {}", url);
     Ok(())
 }
 

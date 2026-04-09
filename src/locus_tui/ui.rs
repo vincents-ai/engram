@@ -1,6 +1,6 @@
 use crate::entities::ContextRelevance;
 use crate::locus_integration::LocusIntegration;
-use crate::locus_tui::app::{ActiveView, AnalyticsViewState, AppState, TaskDetail};
+use crate::locus_tui::app::{ActiveView, AnalyticsViewState, AppState, PersonaDetail, TaskDetail};
 #[allow(unused_imports)]
 use crate::locus_tui::theme::Theme;
 use crate::storage::{RelationshipStorage, Storage};
@@ -56,6 +56,7 @@ pub fn draw<S: Storage + RelationshipStorage>(
         ActiveView::ProgressiveConfigs => "Progressive Configs",
         ActiveView::Analytics => "Analytics",
         ActiveView::Sync => "Sync",
+        ActiveView::Personas => "Personas",
     };
     let title_text = format!(
         "Engram Locus  [{view_name}]  Tasks: {task_count}  Workflows: {workflow_count}  Tab:next  q:quit  t:theme"
@@ -162,6 +163,10 @@ pub fn draw<S: Storage + RelationshipStorage>(
             let border_style = Style::default().fg(app_state.theme.as_theme().border());
             draw_sync_view(f, chunks[1], app_state, border_style);
         }
+        ActiveView::Personas => {
+            let border_style = Style::default().fg(app_state.theme.as_theme().border());
+            draw_personas_view(f, chunks[1], app_state, border_style);
+        }
     }
 
     // Status bar (1 row at bottom)
@@ -177,6 +182,11 @@ pub fn draw<S: Storage + RelationshipStorage>(
     // Draw task detail overlay on top of everything (if active)
     if let Some(ref detail) = app_state.task_detail.clone() {
         draw_task_detail(f, detail, f.area());
+    }
+
+    // Draw persona detail overlay on top of everything (if active)
+    if let Some(ref detail) = app_state.persona_detail.clone() {
+        draw_persona_detail(f, detail, f.area());
     }
 
     // Draw help overlay on top of everything (if active)
@@ -1259,6 +1269,8 @@ fn draw_knowledge_view(
                 KnowledgeType::Heuristic => "heuristic",
                 KnowledgeType::Skill => "skill",
                 KnowledgeType::Technique => "technique",
+                KnowledgeType::Prompt => "prompt",
+                KnowledgeType::Autocomplete => "autocomplete",
             };
             let label = format!("[{}] {}", ktype, k.title);
             let style = if i == selected {
@@ -2377,4 +2389,117 @@ fn draw_sync_view(
     f.render_widget(op_para, panes[2]);
 
     let _ = SyncViewState::default; // keep the import used
+}
+
+fn draw_personas_view(
+    f: &mut ratatui::Frame<'_>,
+    area: Rect,
+    app: &mut AppState,
+    border_style: Style,
+) {
+    let theme = app.theme.as_theme();
+
+    // Layout: table (flex) | help (1)
+    let vert = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Min(5), Constraint::Length(1)])
+        .split(area);
+
+    let selected = app.personas_selected;
+
+    let header_cells =
+        ["Slug", "Title", "Domain", "Version"].map(|h| Cell::from(h).style(theme.header_row()));
+    let header = Row::new(header_cells).height(1);
+
+    let rows: Vec<Row> = app
+        .all_personas
+        .iter()
+        .enumerate()
+        .map(|(i, p)| {
+            let style = if i == selected {
+                theme.selected_row()
+            } else {
+                theme.normal_row()
+            };
+            Row::new([
+                Cell::from(p.slug.clone()),
+                Cell::from(p.title.clone()),
+                Cell::from(p.domain.clone()),
+                Cell::from(p.version.clone()),
+            ])
+            .style(style)
+        })
+        .collect();
+
+    let table_title = format!("Personas ({})", app.all_personas.len());
+    let table = Table::new(
+        rows,
+        [
+            Constraint::Length(20),
+            Constraint::Min(25),
+            Constraint::Length(15),
+            Constraint::Length(8),
+        ],
+    )
+    .header(header)
+    .block(
+        Block::default()
+            .title(table_title)
+            .borders(Borders::ALL)
+            .border_style(border_style),
+    )
+    .row_highlight_style(theme.selected_row());
+
+    let mut ts = TableState::default();
+    ts.select(Some(selected));
+    f.render_stateful_widget(table, vert[0], &mut ts);
+
+    let help = Paragraph::new("  j/k: navigate   Enter:detail   p:dashboard   Tab: next view")
+        .style(Style::default().fg(Color::DarkGray));
+    f.render_widget(help, vert[1]);
+}
+
+/// Render the persona detail modal overlay centered on the screen.
+fn draw_persona_detail(f: &mut ratatui::Frame<'_>, detail: &PersonaDetail, area: Rect) {
+    let modal_area = centered_rect(70, 80, area);
+
+    f.render_widget(Clear, modal_area);
+
+    let tags_str = if detail.tags.is_empty() {
+        "(none)".to_string()
+    } else {
+        detail.tags.join(", ")
+    };
+    let base = detail.base_persona.as_deref().unwrap_or("(none)");
+
+    let text = format!(
+        "Slug:           {}\nTitle:          {}\nDescription:    {}\nDomain:         {}\nVersion:        {}\nBase Persona:   {}\nAgent:          {}\nTags:           {}\nCreated:        {}\nUpdated:        {}\nCoV Questions:  {}\nFAP Entries:    {}\nOV Requirements: {}\n\nInstructions:\n{}",
+        detail.slug,
+        detail.title,
+        if detail.description.is_empty() { "(none)".to_string() } else { detail.description.clone() },
+        if detail.domain.is_empty() { "(none)".to_string() } else { detail.domain.clone() },
+        detail.version,
+        base,
+        detail.agent,
+        tags_str,
+        detail.created_at,
+        detail.updated_at,
+        detail.cov_questions_count,
+        detail.fap_table_count,
+        detail.ov_requirements_count,
+        detail.instructions,
+    );
+
+    let modal = Paragraph::new(text)
+        .wrap(Wrap { trim: true })
+        .style(Style::default().fg(Color::White).bg(Color::Black))
+        .alignment(Alignment::Left)
+        .block(
+            Block::default()
+                .title("Persona Detail  (Esc to close)")
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Cyan)),
+        );
+
+    f.render_widget(modal, modal_area);
 }

@@ -1,6 +1,6 @@
 use crate::entities::{
     AgentSandbox, Compliance, Context, DoraMetricsReport, EntityRelationship, EscalationRequest,
-    ExecutionResult, Knowledge, ProgressiveGateConfig, Reasoning, Rule, Session, Standard,
+    ExecutionResult, Knowledge, Persona, ProgressiveGateConfig, Reasoning, Rule, Session, Standard,
     StateReflection, Task, TaskStatus, Theory, Workflow, WorkflowInstance, ADR,
 };
 use std::collections::HashMap;
@@ -98,6 +98,25 @@ pub struct AnalyticsViewState {
     pub dora: DoraMetricsDisplay,
     pub quality_gate: QualityGateSummary,
     pub has_data: bool,
+}
+
+/// Detail view for a single persona (shown as modal overlay).
+#[derive(Debug, Clone)]
+pub struct PersonaDetail {
+    pub slug: String,
+    pub title: String,
+    pub description: String,
+    pub instructions: String,
+    pub domain: String,
+    pub cov_questions_count: usize,
+    pub fap_table_count: usize,
+    pub ov_requirements_count: usize,
+    pub base_persona: Option<String>,
+    pub version: String,
+    pub agent: String,
+    pub tags: Vec<String>,
+    pub created_at: String,
+    pub updated_at: String,
 }
 
 impl AnalyticsViewState {
@@ -201,6 +220,7 @@ pub enum ActiveView {
     ProgressiveConfigs,
     Analytics,
     Sync,
+    Personas,
 }
 
 /// State for the Sync view.
@@ -254,6 +274,7 @@ impl ActiveView {
             Analytics,
             Search,
             Sync,
+            Personas,
         ]
     }
 
@@ -355,6 +376,12 @@ pub struct AppState {
     pub sync_view: SyncViewState,
     /// State for the Analytics view.
     pub analytics_view: AnalyticsViewState,
+    /// All Persona entities loaded from backend.
+    pub all_personas: Vec<Persona>,
+    /// Selected index within the Personas view list.
+    pub personas_selected: usize,
+    /// Persona detail overlay (None = not shown).
+    pub persona_detail: Option<PersonaDetail>,
 }
 
 impl AppState {
@@ -418,6 +445,9 @@ impl AppState {
             progressive_configs_selected: 0,
             sync_view: SyncViewState::default(),
             analytics_view: AnalyticsViewState::default(),
+            all_personas: Vec::new(),
+            personas_selected: 0,
+            persona_detail: None,
         }
     }
 
@@ -571,6 +601,33 @@ impl AppState {
     /// Close the task detail overlay.
     pub fn close_task_detail(&mut self) {
         self.task_detail = None;
+    }
+
+    /// Build a PersonaDetail from the currently selected Persona.
+    pub fn open_persona_detail(&mut self) {
+        if let Some(p) = self.all_personas.get(self.personas_selected) {
+            self.persona_detail = Some(PersonaDetail {
+                slug: p.slug.clone(),
+                title: p.title.clone(),
+                description: p.description.clone(),
+                instructions: p.instructions.clone(),
+                domain: p.domain.clone(),
+                cov_questions_count: p.cov_questions.len(),
+                fap_table_count: p.fap_table.len(),
+                ov_requirements_count: p.ov_requirements.len(),
+                base_persona: p.base_persona.clone(),
+                version: p.version.clone(),
+                agent: p.agent.clone(),
+                tags: p.tags.clone(),
+                created_at: p.created_at.format("%Y-%m-%d %H:%M").to_string(),
+                updated_at: p.updated_at.format("%Y-%m-%d %H:%M").to_string(),
+            });
+        }
+    }
+
+    /// Close the persona detail overlay.
+    pub fn close_persona_detail(&mut self) {
+        self.persona_detail = None;
     }
 
     /// Cycle the status of the currently selected ADR: Proposed → Accepted → Deprecated → Superseded → Proposed.
@@ -1010,6 +1067,8 @@ mod tests {
         state.next_view();
         assert_eq!(state.active_view, ActiveView::Sync);
         state.next_view();
+        assert_eq!(state.active_view, ActiveView::Personas);
+        state.next_view();
         assert_eq!(state.active_view, ActiveView::Dashboard);
     }
 
@@ -1017,6 +1076,8 @@ mod tests {
     fn test_prev_view_cycles_backward() {
         let mut state = AppState::new();
         assert_eq!(state.active_view, ActiveView::Dashboard);
+        state.prev_view();
+        assert_eq!(state.active_view, ActiveView::Personas);
         state.prev_view();
         assert_eq!(state.active_view, ActiveView::Sync);
         state.prev_view();

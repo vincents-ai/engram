@@ -183,25 +183,35 @@
 <p>Sessions track work periods and can bind to theories for context-aware execution.</p>
 <h2 id="cli-usage"><a class="header" href="#cli-usage">CLI Usage</a></h2>
 <pre><code class="language-bash"># Start session
-engram session start --agent "the-architect"
+engram session start --name "the-architect"
 
-# Bind theory to session
-engram session bind-theory &lt;SESSION_ID&gt; --theory &lt;THEORY_ID&gt;
+# Show session status (with optional metrics)
+engram session status --id &lt;SESSION_ID&gt;
+engram session status --id &lt;SESSION_ID&gt; --metrics
 
-# Trigger reflection (when dissonance detected)
-engram session trigger-reflection &lt;SESSION_ID&gt;
+# End session (with optional summary generation)
+engram session end --id &lt;SESSION_ID&gt;
+engram session end --id &lt;SESSION_ID&gt; --generate-summary
 
-# Resolve reflection
-engram session resolve-reflection &lt;SESSION_ID&gt;
+# List sessions
+engram session list
+engram session list --agent "the-architect" --since 7d --limit 20
 
-# End session
-engram session end &lt;SESSION_ID&gt;
+# Detect zombie sessions (started but never ended)
+engram session zombies
+engram session zombies --max-age-hours 48 --check-git
+
+# Summarize recent sessions
+engram session summaries
+engram session summaries --agent "the-architect" --since 2024-01-01
 </code></pre>
 <h2 id="session-states"><a class="header" href="#session-states">Session States</a></h2>
 <div class="table-wrapper"><table><thead><tr><th>Status</th><th>Description</th></tr></thead><tbody>
 <tr><td><strong>Active</strong></td><td>Normal operation</td></tr>
+<tr><td><strong>Paused</strong></td><td>Temporarily suspended</td></tr>
 <tr><td><strong>Reflecting</strong></td><td>Theory must be updated before proceeding</td></tr>
-<tr><td><strong>Completed</strong></td><td>Session ended</td></tr>
+<tr><td><strong>Completed</strong></td><td>Session ended normally</td></tr>
+<tr><td><strong>Cancelled</strong></td><td>Session ended without completion</td></tr>
 </tbody></table>
 </div>
 <h2 id="theory-binding"><a class="header" href="#theory-binding">Theory Binding</a></h2>

@@ -56,19 +56,19 @@ You can override configuration with environment variables:
 
 ```bash
 # Validate a commit message
-engram validation commit --message "feat: implement authentication [TASK-123]"
+engram validate commit --message "feat: implement authentication [TASK-123]"
 
 # Validate with dry run (doesn't require git repo)
-engram validation commit --message "test commit" --dry-run
+engram validate commit --message "test commit" --dry-run
 
 # Install pre-commit hook
-engram validation hook install
+engram validate hook install
 
 # Check hook status
-engram validation hook status
+engram validate hook status
 
 # Uninstall hook
-engram validation hook uninstall
+engram validate hook uninstall
 ```
 
 ### Configuration Priority
@@ -82,20 +82,10 @@ engram validation hook uninstall
 
 For optimal performance:
 
-1. **Cache Warming**: Pre-load common task IDs
-   ```bash
-   engram validation warm-cache TASK-123 TASK-456
-   ```
-
-2. **Parallel Validation**: Enable multi-threaded validation
+1. **Cache Configuration**: Tune cache settings in validation.yaml
    ```yaml
    performance:
      enable_parallel_validation: true
-   ```
-
-3. **Memory Management**: Configure appropriate cache sizes
-   ```yaml
-   performance:
      max_cache_entries: 5000  # For large repositories
      cache_ttl_seconds: 600   # 10 minutes
    ```
@@ -139,7 +129,7 @@ exemptions:
 ```yaml
 - name: Validate Commit
   run: |
-    engram validation commit --message "${{ github.event.head_commit.message }}"
+     engram validate commit --message "${{ github.event.head_commit.message }}"
 ```
 
 #### GitLab CI
@@ -148,7 +138,7 @@ exemptions:
 validate-commit:
   stage: validate
   script:
-    - engram validation commit --message "$CI_COMMIT_MESSAGE"
+    - engram validate commit --message "$CI_COMMIT_MESSAGE"
 ```
 
 ### Troubleshooting
@@ -161,7 +151,7 @@ validate-commit:
    which engram
    
    # Install hook manually
-   engram validation hook install
+   engram validate hook install
    ```
 
 2. **Validation timeout**
@@ -189,15 +179,11 @@ validate-commit:
 
 When upgrading validation configuration:
 
-1. **Backup**: Export current configuration
-   ```bash
-   engram validation config export > validation-backup.yaml
-   ```
-
+1. **Backup**: Copy your `.engram/validation.yaml` file
 2. **Update**: Modify configuration file
 3. **Validate**: Test new configuration
    ```bash
-   engram validation check
+   engram validate check
    ```
 
 4. **Deploy**: Roll out to team with documentation
