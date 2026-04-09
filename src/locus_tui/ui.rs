@@ -1257,6 +1257,8 @@ fn draw_knowledge_view(
                 KnowledgeType::Concept => "concept",
                 KnowledgeType::Procedure => "procedure",
                 KnowledgeType::Heuristic => "heuristic",
+                KnowledgeType::Skill => "skill",
+                KnowledgeType::Technique => "technique",
             };
             let label = format!("[{}] {}", ktype, k.title);
             let style = if i == selected {

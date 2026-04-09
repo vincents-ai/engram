@@ -2,6 +2,7 @@ use crate::entities::task::{Task, TaskPriority, TaskStatus};
 use crate::entities::Entity;
 use crate::storage::Storage;
 use crate::EngramError;
+use chrono::Utc;
 use std::collections::HashMap;
 
 pub fn interpolate(template: &str, context: &HashMap<String, String>) -> String {
@@ -90,7 +91,28 @@ pub fn find_next_task<S: Storage>(
 }
 
 use crate::entities::context::Context;
+use crate::entities::session::{Session, SessionStatus};
 use crate::entities::workflow::Workflow;
+
+fn find_active_session<S: Storage>(storage: &S) -> Result<Option<Session>, EngramError> {
+    let session_ids = storage.list_ids(Session::entity_type())?;
+    let mut active_sessions: Vec<Session> = Vec::new();
+
+    for id in session_ids {
+        if let Some(entity) = storage.get(&id, Session::entity_type())? {
+            if let Ok(session) = Session::from_generic(entity) {
+                match session.status {
+                    SessionStatus::Active | SessionStatus::Paused | SessionStatus::Reflecting => {}
+                    SessionStatus::Completed | SessionStatus::Cancelled => continue,
+                }
+                active_sessions.push(session);
+            }
+        }
+    }
+
+    active_sessions.sort_by(|a, b| b.start_time.cmp(&a.start_time));
+    Ok(active_sessions.into_iter().next())
+}
 
 pub fn handle_next_command<S: Storage>(
     storage: &mut S,
@@ -291,20 +313,89 @@ engram relationship connected --entity-id {}
         task.id
     );
 
-    // 6. Output
+    // 6. Detect active session
+    let active_session = find_active_session(storage)?;
+
+    // 7. Output
     if format == "json" {
-        let output = serde_json::json!({
+        let mut output = serde_json::json!({
             "task_id": task.id,
             "system_prompt": final_system,
             "user_prompt": final_user,
             "task_management": task_management_instructions
         });
+        if let Some(ref sess) = active_session {
+            let elapsed = Utc::now()
+                .signed_duration_since(sess.start_time)
+                .num_seconds()
+                .max(0) as u64;
+            let mut session_json = serde_json::json!({
+                "session_id": sess.id,
+                "session_title": sess.title,
+                "agent": sess.agent,
+                "status": format!("{:?}", sess.status),
+                "started": sess.start_time.to_rfc3339(),
+                "elapsed_seconds": elapsed,
+                "goals": sess.goals,
+                "task_count": sess.task_ids.len(),
+                "context_count": sess.context_ids.len()
+            });
+            if !sess.outcomes.is_empty() {
+                session_json["outcomes"] = serde_json::json!(sess.outcomes);
+            }
+            output["session"] = session_json;
+        }
         println!("{}", serde_json::to_string_pretty(&output).unwrap());
     } else {
-        println!(
+        let mut output_parts = Vec::new();
+
+        if let Some(ref sess) = active_session {
+            let elapsed = Utc::now()
+                .signed_duration_since(sess.start_time)
+                .num_seconds()
+                .max(0) as u64;
+            let hours = elapsed / 3600;
+            let minutes = (elapsed % 3600) / 60;
+
+            let mut session_header = format!(
+                "## Active Session\n\n**{}** ({})\nAgent: {} | Status: {:?} | Elapsed: {}h {}m\n",
+                sess.title,
+                &sess.id[..8],
+                sess.agent,
+                sess.status,
+                hours,
+                minutes
+            );
+
+            if !sess.goals.is_empty() {
+                session_header.push_str("\n**Goals:**\n");
+                for goal in &sess.goals {
+                    session_header.push_str(&format!("  - {}\n", goal));
+                }
+            }
+
+            session_header.push_str(&format!(
+                "\nTasks in session: {} | Context items: {}",
+                sess.task_ids.len(),
+                sess.context_ids.len()
+            ));
+
+            if !sess.outcomes.is_empty() {
+                session_header.push_str("\n\n**Outcomes so far:**\n");
+                for outcome in &sess.outcomes {
+                    session_header.push_str(&format!("  - {}\n", outcome));
+                }
+            }
+
+            output_parts.push(session_header);
+        }
+
+        output_parts.push(format!(
             "## System Prompt\n\n{}\n\n## User Prompt\n\n{}\n\n{}",
             final_system, final_user, task_management_instructions
-        );
+        ));
+
+        println!("{}", output_parts.join("\n\n---\n\n"));
     }
 
     Ok(())

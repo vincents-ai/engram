@@ -17,6 +17,8 @@ pub enum KnowledgeType {
     Concept,
     Procedure,
     Heuristic,
+    Skill,
+    Technique,
 }
 
 /// Knowledge entity representing stored information

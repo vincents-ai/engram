@@ -1,7 +1,10 @@
+use std::collections::{HashMap, HashSet};
+
 use crate::cli::utils::{create_table, truncate};
+use crate::entities::GenericEntity;
 use crate::error::EngramError;
 use crate::feedback::{FeedbackStatus, StructuredFeedback};
-use crate::storage::Storage;
+use crate::storage::{RelationshipStorage, Storage};
 use clap::Subcommand;
 use prettytable::row;
 use serde::{Deserialize, Serialize};
@@ -38,6 +41,10 @@ pub enum HealthCommands {
     TestSignal,
     /// Compute overall health score (0-100)
     Score,
+    /// Detect orphaned entities with no relationships
+    Orphans,
+    /// Check git refs store consistency
+    Consistency,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -112,6 +119,60 @@ pub struct SignalScore {
     pub label: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct OrphanedEntity {
+    pub id: String,
+    pub entity_type: String,
+    pub agent: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OrphanReport {
+    pub total_entities: usize,
+    pub total_relationships: usize,
+    pub orphaned_count: usize,
+    pub orphans_by_type: HashMap<String, usize>,
+    pub orphaned_entities: Vec<OrphanedEntity>,
+    pub excluded_types: Vec<String>,
+}
+
+impl StructuredFeedback for OrphanReport {
+    fn to_json(&self) -> serde_json::Value {
+        serde_json::to_value(self).unwrap_or(serde_json::Value::Null)
+    }
+
+    fn summary(&self) -> String {
+        if self.orphaned_count == 0 {
+            format!(
+                "Orphan check: clean — {}/{} entities connected",
+                self.total_entities - self.excluded_types.len().min(self.total_entities),
+                self.total_entities
+            )
+        } else {
+            let type_summary: Vec<String> = self
+                .orphans_by_type
+                .iter()
+                .map(|(t, c)| format!("{} {}", c, t))
+                .collect();
+            format!(
+                "Orphan check: {}/{} entities orphaned — {}",
+                self.orphaned_count,
+                self.total_entities,
+                type_summary.join(", ")
+            )
+        }
+    }
+
+    fn status_code(&self) -> FeedbackStatus {
+        if self.orphaned_count == 0 {
+            FeedbackStatus::Success
+        } else {
+            FeedbackStatus::Warning
+        }
+    }
+}
+
 impl StructuredFeedback for HealthAuditReport {
     fn to_json(&self) -> serde_json::Value {
         serde_json::to_value(self).unwrap_or(serde_json::Value::Null)
@@ -173,7 +234,7 @@ impl StructuredFeedback for HealthScore {
     }
 }
 
-pub fn handle_health_command<S: Storage>(
+pub fn handle_health_command<S: Storage + RelationshipStorage>(
     storage: &mut S,
     command: HealthCommands,
 ) -> Result<(), EngramError> {
@@ -192,6 +253,8 @@ pub fn handle_health_command<S: Storage>(
             print_health_score(&score);
             Ok(())
         }
+        HealthCommands::Orphans => run_orphan_detection(storage),
+        HealthCommands::Consistency => run_consistency_check(storage),
     }
 }
 
@@ -684,7 +747,10 @@ fn compute_health_score_from_signals(
     }
 }
 
-fn run_audit<S: Storage>(storage: &mut S, store: bool) -> Result<(), EngramError> {
+fn run_audit<S: Storage + RelationshipStorage>(
+    storage: &mut S,
+    store: bool,
+) -> Result<(), EngramError> {
     let report = collect_audit_data()?;
 
     println!("Project Health Audit");
@@ -1115,6 +1181,227 @@ fn run_test_signal() -> Result<(), EngramError> {
     } else {
         println!("  Rating: Critical — testing appears to be an afterthought.");
     }
+
+    Ok(())
+}
+
+const EXCLUDED_ENTITY_TYPES: &[&str] = &[
+    "session",
+    "compliance",
+    "escalation_request",
+    "agent_sandbox",
+    "progressive_config",
+    "execution_result",
+    "bottleneck_report",
+    "dora_metrics_report",
+    "task_duration_report",
+    "stale_task_report",
+    "doc_fragment",
+];
+
+const SCANNED_ENTITY_TYPES: &[&str] = &[
+    "task",
+    "context",
+    "reasoning",
+    "knowledge",
+    "adr",
+    "workflow",
+    "workflow_instance",
+    "rule",
+    "standard",
+    "lesson",
+    "persona",
+    "state_reflection",
+    "theory",
+];
+
+pub struct OrphanDetector;
+
+impl OrphanDetector {
+    pub fn detect<S: Storage + RelationshipStorage>(
+        storage: &S,
+    ) -> Result<OrphanReport, EngramError> {
+        let mut all_entities: Vec<GenericEntity> = Vec::new();
+        for entity_type in SCANNED_ENTITY_TYPES {
+            match storage.get_all(entity_type) {
+                Ok(entities) => all_entities.extend(entities),
+                Err(_) => continue,
+            }
+        }
+
+        let filter = crate::entities::RelationshipFilter::new();
+        let all_relationships = storage.query_relationships(&filter)?;
+        let total_relationships = all_relationships.len();
+
+        let mut connected_ids: HashSet<String> = HashSet::new();
+        for rel in &all_relationships {
+            connected_ids.insert(rel.source_id.clone());
+            connected_ids.insert(rel.target_id.clone());
+        }
+
+        let excluded_set: HashSet<&str> = EXCLUDED_ENTITY_TYPES.iter().copied().collect();
+
+        let mut orphaned_entities: Vec<OrphanedEntity> = Vec::new();
+        let mut orphans_by_type: HashMap<String, usize> = HashMap::new();
+
+        for entity in &all_entities {
+            if connected_ids.contains(&entity.id) {
+                continue;
+            }
+            orphans_by_type
+                .entry(entity.entity_type.clone())
+                .and_modify(|c| *c += 1)
+                .or_insert(1);
+            orphaned_entities.push(OrphanedEntity {
+                id: entity.id.clone(),
+                entity_type: entity.entity_type.clone(),
+                agent: entity.agent.clone(),
+                created_at: entity.timestamp,
+            });
+        }
+
+        orphaned_entities.sort_by(|a, b| {
+            a.entity_type
+                .cmp(&b.entity_type)
+                .then_with(|| a.id.cmp(&b.id))
+        });
+
+        Ok(OrphanReport {
+            total_entities: all_entities.len(),
+            total_relationships,
+            orphaned_count: orphaned_entities.len(),
+            orphans_by_type,
+            orphaned_entities,
+            excluded_types: excluded_set.into_iter().map(String::from).collect(),
+        })
+    }
+}
+
+fn run_orphan_detection<S: Storage + RelationshipStorage>(storage: &S) -> Result<(), EngramError> {
+    let report = OrphanDetector::detect(storage)?;
+
+    println!("Orphaned Entity Detection");
+    println!("========================");
+    println!();
+
+    println!("  Total entities scanned: {}", report.total_entities);
+    println!("  Total relationships:    {}", report.total_relationships);
+    println!(
+        "  Excluded types:         {}",
+        report.excluded_types.join(", ")
+    );
+    println!();
+
+    if report.orphaned_count == 0 {
+        println!("  No orphaned entities found. Knowledge graph is fully connected.");
+    } else {
+        println!("  Orphaned entities:      {}", report.orphaned_count);
+        println!();
+
+        let mut sorted_types: Vec<_> = report.orphans_by_type.iter().collect();
+        sorted_types.sort_by(|a, b| b.1.cmp(a.1));
+
+        let mut table = create_table();
+        table.set_titles(row!["Entity Type", "Orphan Count"]);
+        for (entity_type, count) in sorted_types {
+            table.add_row(row![entity_type, count]);
+        }
+        table.printstd();
+        println!();
+
+        println!("Orphaned Entity IDs");
+        println!("-------------------");
+        let mut current_type = String::new();
+        for orphan in &report.orphaned_entities {
+            if orphan.entity_type != current_type {
+                current_type = orphan.entity_type.clone();
+                println!();
+                println!("  [{}]", current_type);
+            }
+            println!("    {} (agent: {})", orphan.id, orphan.agent);
+        }
+    }
+
+    Ok(())
+}
+
+fn run_consistency_check<S: Storage + RelationshipStorage>(storage: &S) -> Result<(), EngramError> {
+    use crate::storage::git_refs_storage::GitRefsStorage;
+
+    let git_storage = storage
+        .as_any()
+        .downcast_ref::<GitRefsStorage>()
+        .ok_or_else(|| {
+            EngramError::InvalidOperation(
+                "Consistency check requires GitRefsStorage backend".to_string(),
+            )
+        })?;
+
+    let report = git_storage.consistency_check()?;
+
+    println!("Git Refs Store Consistency Check");
+    println!("================================");
+    println!();
+    println!("  Total refs scanned: {}", report.total_refs);
+    println!("  Total blobs checked: {}", report.total_blobs_checked);
+    println!("  Orphaned blobs: {}", report.orphaned_blobs);
+    println!();
+
+    let mut table = create_table();
+    table.set_titles(row!["Check", "Status", "Detail"]);
+
+    for check in &report.checks {
+        let status_str = match check.status {
+            crate::storage::git_refs_storage::ConsistencyCheckStatus::Pass => "PASS",
+            crate::storage::git_refs_storage::ConsistencyCheckStatus::Fail => "FAIL",
+            crate::storage::git_refs_storage::ConsistencyCheckStatus::Warning => "WARN",
+        };
+        table.add_row(row![check.name, status_str, truncate(&check.detail, 80)]);
+    }
+    table.printstd();
+    println!();
+
+    if !report.dangling_refs.is_empty() {
+        println!("Dangling refs:");
+        for r in &report.dangling_refs {
+            println!("  {}", r);
+        }
+        println!();
+    }
+
+    if !report.invalid_json_refs.is_empty() {
+        println!("Invalid JSON refs:");
+        for r in &report.invalid_json_refs {
+            println!("  {}", r);
+        }
+        println!();
+    }
+
+    if !report.missing_required_fields.is_empty() {
+        println!("Missing required fields:");
+        for r in &report.missing_required_fields {
+            println!("  {}", r);
+        }
+        println!();
+    }
+
+    if !report.id_path_mismatches.is_empty() {
+        println!("ID/path mismatches:");
+        for r in &report.id_path_mismatches {
+            println!("  {}", r);
+        }
+        println!();
+    }
+
+    if !report.future_timestamps.is_empty() {
+        println!("Future timestamps:");
+        for r in &report.future_timestamps {
+            println!("  {}", r);
+        }
+        println!();
+    }
+
+    println!("  {}", report.summary());
 
     Ok(())
 }
@@ -1742,5 +2029,201 @@ mod tests {
             .count();
         assert_eq!(total, 5);
         assert_eq!(test_count, 2);
+    }
+
+    use crate::entities::{
+        Context, ContextRelevance, Entity, EntityRelationType, EntityRelationship, Task,
+        TaskPriority, TaskStatus,
+    };
+    use crate::storage::MemoryStorage;
+
+    fn make_task(id: &str, agent: &str) -> GenericEntity {
+        Task {
+            id: id.to_string(),
+            title: "Test".to_string(),
+            description: String::new(),
+            status: TaskStatus::Todo,
+            priority: TaskPriority::Medium,
+            agent: agent.to_string(),
+            start_time: chrono::Utc::now(),
+            end_time: None,
+            parent: None,
+            children: Vec::new(),
+            tags: Vec::new(),
+            context_ids: Vec::new(),
+            knowledge: Vec::new(),
+            files: Vec::new(),
+            outcome: None,
+            block_reason: None,
+            workflow_id: None,
+            workflow_state: None,
+            metadata: std::collections::HashMap::new(),
+        }
+        .to_generic()
+    }
+
+    fn make_context(id: &str, agent: &str) -> GenericEntity {
+        Context {
+            id: id.to_string(),
+            title: "Test Context".to_string(),
+            content: "content".to_string(),
+            source: "test".to_string(),
+            source_id: None,
+            relevance: ContextRelevance::Medium,
+            agent: agent.to_string(),
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+            tags: Vec::new(),
+            related_entities: Vec::new(),
+            metadata: std::collections::HashMap::new(),
+        }
+        .to_generic()
+    }
+
+    fn make_rel(id: &str, src: &str, tgt: &str) -> EntityRelationship {
+        EntityRelationship::new(
+            id.to_string(),
+            "test-agent".to_string(),
+            src.to_string(),
+            "task".to_string(),
+            tgt.to_string(),
+            "context".to_string(),
+            EntityRelationType::References,
+        )
+    }
+
+    #[test]
+    fn orphan_detector_no_orphans() {
+        let mut storage = MemoryStorage::new("test-agent");
+        storage.store(&make_task("t1", "a")).unwrap();
+        storage.store(&make_context("c1", "a")).unwrap();
+        storage
+            .store_relationship(&make_rel("r1", "t1", "c1"))
+            .unwrap();
+
+        let report = OrphanDetector::detect(&storage).unwrap();
+        assert_eq!(report.total_entities, 2);
+        assert_eq!(report.total_relationships, 1);
+        assert_eq!(report.orphaned_count, 0);
+        assert_eq!(report.status_code(), FeedbackStatus::Success);
+        assert!(report.summary().contains("clean"));
+    }
+
+    #[test]
+    fn orphan_detector_finds_orphans() {
+        let mut storage = MemoryStorage::new("test-agent");
+        storage.store(&make_task("t1", "a")).unwrap();
+        storage.store(&make_task("t2", "a")).unwrap();
+        storage.store(&make_context("c1", "a")).unwrap();
+        storage
+            .store_relationship(&make_rel("r1", "t1", "c1"))
+            .unwrap();
+
+        let report = OrphanDetector::detect(&storage).unwrap();
+        assert_eq!(report.total_entities, 3);
+        assert_eq!(report.orphaned_count, 1);
+        assert_eq!(report.orphans_by_type.get("task"), Some(&1));
+        assert_eq!(report.orphaned_entities[0].id, "t2");
+        assert_eq!(report.status_code(), FeedbackStatus::Warning);
+        assert!(report.summary().contains("1"));
+    }
+
+    #[test]
+    fn orphan_detector_empty_storage() {
+        let storage = MemoryStorage::new("test-agent");
+        let report = OrphanDetector::detect(&storage).unwrap();
+        assert_eq!(report.total_entities, 0);
+        assert_eq!(report.total_relationships, 0);
+        assert_eq!(report.orphaned_count, 0);
+        assert_eq!(report.status_code(), FeedbackStatus::Success);
+    }
+
+    #[test]
+    fn orphan_detector_excluded_types_ignored() {
+        let mut storage = MemoryStorage::new("test-agent");
+        let session = GenericEntity {
+            id: "sess-1".to_string(),
+            entity_type: "session".to_string(),
+            agent: "a".to_string(),
+            timestamp: chrono::Utc::now(),
+            data: serde_json::json!({"title": "test"}),
+        };
+        storage.store(&session).unwrap();
+        storage.store(&make_task("t1", "a")).unwrap();
+
+        let report = OrphanDetector::detect(&storage).unwrap();
+        assert_eq!(report.total_entities, 1);
+        assert_eq!(report.orphaned_count, 1);
+        assert!(report.excluded_types.contains(&"session".to_string()));
+    }
+
+    #[test]
+    fn orphan_detector_bidirectional_relationship() {
+        let mut storage = MemoryStorage::new("test-agent");
+        storage.store(&make_task("t1", "a")).unwrap();
+        storage.store(&make_context("c1", "a")).unwrap();
+
+        let mut rel = make_rel("r1", "t1", "c1");
+        rel.direction = crate::entities::RelationshipDirection::Bidirectional;
+        storage.store_relationship(&rel).unwrap();
+
+        let report = OrphanDetector::detect(&storage).unwrap();
+        assert_eq!(report.orphaned_count, 0);
+    }
+
+    #[test]
+    fn orphan_report_structured_feedback() {
+        let report = OrphanReport {
+            total_entities: 10,
+            total_relationships: 8,
+            orphaned_count: 3,
+            orphans_by_type: HashMap::from([("task".to_string(), 2), ("knowledge".to_string(), 1)]),
+            orphaned_entities: vec![
+                OrphanedEntity {
+                    id: "t-orphan-1".to_string(),
+                    entity_type: "task".to_string(),
+                    agent: "a".to_string(),
+                    created_at: chrono::Utc::now(),
+                },
+                OrphanedEntity {
+                    id: "t-orphan-2".to_string(),
+                    entity_type: "task".to_string(),
+                    agent: "b".to_string(),
+                    created_at: chrono::Utc::now(),
+                },
+                OrphanedEntity {
+                    id: "k-orphan-1".to_string(),
+                    entity_type: "knowledge".to_string(),
+                    agent: "a".to_string(),
+                    created_at: chrono::Utc::now(),
+                },
+            ],
+            excluded_types: vec!["session".to_string()],
+        };
+
+        assert_eq!(report.status_code(), FeedbackStatus::Warning);
+        let summary = report.summary();
+        assert!(summary.contains("3"));
+        assert!(summary.contains("task"));
+        assert!(summary.contains("knowledge"));
+
+        let json = report.to_json();
+        assert_eq!(json["orphaned_count"], 3);
+        assert_eq!(json["total_entities"], 10);
+    }
+
+    #[test]
+    fn orphan_report_clean_feedback() {
+        let report = OrphanReport {
+            total_entities: 5,
+            total_relationships: 4,
+            orphaned_count: 0,
+            orphans_by_type: HashMap::new(),
+            orphaned_entities: vec![],
+            excluded_types: vec!["session".to_string()],
+        };
+
+        assert_eq!(report.status_code(), FeedbackStatus::Success);
+        assert!(report.summary().contains("clean"));
     }
 }

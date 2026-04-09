@@ -26,6 +26,14 @@ pub enum AskCommands {
         )]
         context: Option<String>,
 
+        /// Filter knowledge results by type (fact, pattern, rule, concept, procedure, heuristic, skill, technique)
+        #[arg(
+            long,
+            short = 'k',
+            help = "Filter knowledge results by type (fact, pattern, rule, concept, procedure, heuristic, skill, technique)"
+        )]
+        knowledge_type: Option<String>,
+
         /// Verbose output with detailed explanation
         #[arg(long, short = 'v', help = "Verbose output with detailed explanation")]
         verbose: bool,
@@ -41,6 +49,7 @@ pub async fn handle_ask_command(command: AskCommands) -> Result<(), EngramError>
     let AskCommands::Query {
         query,
         context,
+        knowledge_type,
         verbose,
         json,
     } = command;
@@ -48,7 +57,14 @@ pub async fn handle_ask_command(command: AskCommands) -> Result<(), EngramError>
     let nlq_engine = NLQEngine::new();
     let storage = GitRefsStorage::new(".", "default")?;
 
-    match nlq_engine.process_query(&query, context, &storage).await {
+    let query_context = match (&context, &knowledge_type) {
+        (Some(ctx), Some(kt)) => Some(format!("{} [knowledge-type:{}]", ctx, kt)),
+        (Some(ctx), None) => Some(ctx.clone()),
+        (None, Some(kt)) => Some(format!("knowledge-type:{}", kt)),
+        (None, None) => None,
+    };
+
+    match nlq_engine.process_query(&query, query_context, &storage).await {
         Ok(result) => {
             if json {
                 let json_output = serde_json::json!({

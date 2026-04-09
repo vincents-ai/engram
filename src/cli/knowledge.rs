@@ -24,6 +24,15 @@ pub struct KnowledgeInput {
 #[derive(Debug, Subcommand)]
 pub enum KnowledgeCommands {
     /// Create a new knowledge item
+    ///
+    ///EXAMPLES:
+    ///  engram knowledge create -t "API rate limit: 100 req/s" -k fact -c "The external API enforces 100 req/s per key"
+    ///  engram knowledge create -t "Always use tower-governor for rate limiting" -k rule --confidence 0.95
+    ///  engram knowledge create -t "Redis mock setup for tests" -k procedure -s "tests/fixtures/"
+    ///  engram knowledge create -t "TDD cycle: red-green-refactor" -k technique -c "Write failing test, make it pass, refactor"
+    #[command(
+        after_help = "KNOWLEDGE TYPES:\n  fact       - A concrete, discovered truth about the system\n  pattern    - A recurring pattern observed in the codebase\n  rule       - An enforceable rule that must always be followed\n  concept    - A domain concept that agents need to understand\n  procedure  - A repeatable sequence of steps for a known operation\n  heuristic  - A rule of thumb that is usually right but not always\n  skill      - A capability or competency (e.g., \"Rust async programming\")\n  technique  - A specific method or approach (e.g., \"property-based testing\")"
+    )]
     Create {
         /// Knowledge title
         #[arg(long, short, conflicts_with_all = ["title_stdin", "title_file"])]
@@ -33,8 +42,8 @@ pub enum KnowledgeCommands {
         #[arg(long, short, conflicts_with_all = ["content_stdin", "content_file"])]
         content: Option<String>,
 
-        /// Knowledge type (fact, pattern, rule, concept, procedure, heuristic)
-        #[arg(long, short = 'k', default_value = "fact")]
+        /// Knowledge type (fact, pattern, rule, concept, procedure, heuristic, skill, technique)
+        #[arg(long, short = 'k', default_value = "fact", value_parser = ["fact", "pattern", "rule", "concept", "procedure", "heuristic", "skill", "technique"])]
         knowledge_type: String,
 
         /// Confidence level (0.0 to 1.0)
@@ -78,13 +87,23 @@ pub enum KnowledgeCommands {
         json_file: Option<String>,
     },
     /// List knowledge items
+    ///
+    ///EXAMPLES:
+    ///  engram knowledge list
+    ///  engram knowledge list --kind rule
+    ///  engram knowledge list --kind skill --agent researcher
+    ///  engram knowledge list --kind heuristic --limit 10
+    ///  engram knowledge list --all --kind technique
+    #[command(
+        after_help = "FILTER BY TYPE: Use --kind to filter by knowledge category.\nCombine with --agent for targeted queries."
+    )]
     List {
         /// Agent filter
         #[arg(long, short)]
         agent: Option<String>,
 
-        /// Type filter (fact, pattern, rule, concept, procedure, heuristic)
-        #[arg(long, short)]
+        /// Type filter (fact, pattern, rule, concept, procedure, heuristic, skill, technique)
+        #[arg(long, short, value_parser = ["fact", "pattern", "rule", "concept", "procedure", "heuristic", "skill", "technique"])]
         kind: Option<String>,
 
         /// Limit results
@@ -100,12 +119,21 @@ pub enum KnowledgeCommands {
         offset: Option<usize>,
     },
     /// Show knowledge details
+    ///
+    ///EXAMPLES:
+    ///  engram knowledge show --id <UUID>
+    ///  engram knowledge show --id $(engram knowledge list --kind rule --limit 1 --json | jq -r '.[0].id')
     Show {
         /// Knowledge item ID
         #[arg(long, short)]
         id: String,
     },
     /// Update knowledge item
+    ///
+    ///EXAMPLES:
+    ///  engram knowledge update --id <UUID> -f content -v "Updated description"
+    ///  engram knowledge update --id <UUID> -f confidence -v 0.95
+    ///  engram knowledge update --id <UUID> -f type -v technique
     Update {
         /// Knowledge item ID
         #[arg(long, short)]
@@ -149,8 +177,10 @@ fn parse_knowledge_type(type_str: &str) -> Result<KnowledgeType, EngramError> {
         "concept" => Ok(KnowledgeType::Concept),
         "procedure" => Ok(KnowledgeType::Procedure),
         "heuristic" => Ok(KnowledgeType::Heuristic),
+        "skill" => Ok(KnowledgeType::Skill),
+        "technique" => Ok(KnowledgeType::Technique),
         _ => Err(EngramError::Validation(
-            format!("Invalid knowledge type '{}'. Must be one of: fact, pattern, rule, concept, procedure, heuristic", type_str)
+            format!("Invalid knowledge type '{}'. Must be one of: fact, pattern, rule, concept, procedure, heuristic, skill, technique", type_str)
         )),
     }
 }

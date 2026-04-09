@@ -18,9 +18,10 @@ use crate::entities::{EntityRegistry, EntityRelationship, GenericEntity, Relatio
 use crate::error::{EngramError, StorageError};
 use chrono::Utc;
 use git2::Repository;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha512};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
@@ -1106,9 +1107,391 @@ impl RelationshipStorage for GitRefsStorage {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum ConsistencyCheckStatus {
+    Pass,
+    Fail,
+    Warning,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConsistencyCheckResult {
+    pub name: String,
+    pub status: ConsistencyCheckStatus,
+    pub detail: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConsistencyCheckReport {
+    pub checks: Vec<ConsistencyCheckResult>,
+    pub total_refs: usize,
+    pub total_blobs_checked: usize,
+    pub dangling_refs: Vec<String>,
+    pub invalid_json_refs: Vec<String>,
+    pub missing_required_fields: Vec<String>,
+    pub id_path_mismatches: Vec<String>,
+    pub future_timestamps: Vec<String>,
+    pub orphaned_blobs: usize,
+}
+
+impl crate::feedback::StructuredFeedback for ConsistencyCheckReport {
+    fn to_json(&self) -> serde_json::Value {
+        serde_json::to_value(self).unwrap_or(serde_json::Value::Null)
+    }
+
+    fn summary(&self) -> String {
+        let passed = self
+            .checks
+            .iter()
+            .filter(|c| c.status == ConsistencyCheckStatus::Pass)
+            .count();
+        let failed = self
+            .checks
+            .iter()
+            .filter(|c| c.status == ConsistencyCheckStatus::Fail)
+            .count();
+        let warnings = self
+            .checks
+            .iter()
+            .filter(|c| c.status == ConsistencyCheckStatus::Warning)
+            .count();
+
+        format!(
+            "Consistency: {}/{} passed, {} failed, {} warnings — {} refs checked, {} orphaned blobs",
+            passed,
+            self.checks.len(),
+            failed,
+            warnings,
+            self.total_refs,
+            self.orphaned_blobs
+        )
+    }
+
+    fn status_code(&self) -> crate::feedback::FeedbackStatus {
+        let has_fail = self
+            .checks
+            .iter()
+            .any(|c| c.status == ConsistencyCheckStatus::Fail);
+        if has_fail {
+            crate::feedback::FeedbackStatus::Failed
+        } else if self
+            .checks
+            .iter()
+            .any(|c| c.status == ConsistencyCheckStatus::Warning)
+        {
+            crate::feedback::FeedbackStatus::Warning
+        } else {
+            crate::feedback::FeedbackStatus::Success
+        }
+    }
+}
+
+impl ConsistencyCheckReport {
+    fn check_passed(name: &str, detail: &str) -> ConsistencyCheckResult {
+        ConsistencyCheckResult {
+            name: name.to_string(),
+            status: ConsistencyCheckStatus::Pass,
+            detail: detail.to_string(),
+        }
+    }
+
+    fn check_failed(name: &str, detail: &str) -> ConsistencyCheckResult {
+        ConsistencyCheckResult {
+            name: name.to_string(),
+            status: ConsistencyCheckStatus::Fail,
+            detail: detail.to_string(),
+        }
+    }
+
+    fn check_warning(name: &str, detail: &str) -> ConsistencyCheckResult {
+        ConsistencyCheckResult {
+            name: name.to_string(),
+            status: ConsistencyCheckStatus::Warning,
+            detail: detail.to_string(),
+        }
+    }
+}
+
+impl GitRefsStorage {
+    pub fn consistency_check(&self) -> Result<ConsistencyCheckReport, EngramError> {
+        let repo = self.repository.lock().map_err(|_| {
+            EngramError::Storage(StorageError::InvalidState(
+                "Repository lock failed".to_string(),
+            ))
+        })?;
+
+        let engram_prefix = "refs/engram/";
+        let now = Utc::now();
+        let mut report = ConsistencyCheckReport {
+            checks: Vec::new(),
+            total_refs: 0,
+            total_blobs_checked: 0,
+            dangling_refs: Vec::new(),
+            invalid_json_refs: Vec::new(),
+            missing_required_fields: Vec::new(),
+            id_path_mismatches: Vec::new(),
+            future_timestamps: Vec::new(),
+            orphaned_blobs: 0,
+        };
+
+        let mut referenced_oids: HashSet<String> = HashSet::new();
+
+        let refs_iter = repo
+            .references()
+            .map_err(|e| EngramError::Git(format!("Failed to list references: {}", e)))?;
+
+        for ref_result in refs_iter {
+            let reference = ref_result
+                .map_err(|e| EngramError::Git(format!("Failed to read reference: {}", e)))?;
+
+            let ref_name = match reference.name() {
+                Some(n) => n,
+                None => continue,
+            };
+
+            if !ref_name.starts_with(engram_prefix) {
+                continue;
+            }
+
+            report.total_refs += 1;
+
+            let oid = match reference.target() {
+                Some(oid) => oid,
+                None => {
+                    report.dangling_refs.push(ref_name.to_string());
+                    continue;
+                }
+            };
+
+            referenced_oids.insert(oid.to_string());
+
+            match repo.find_blob(oid) {
+                Ok(blob) => {
+                    report.total_blobs_checked += 1;
+                    let content = match std::str::from_utf8(blob.content()) {
+                        Ok(c) => c,
+                        Err(_) => {
+                            report.invalid_json_refs.push(ref_name.to_string());
+                            continue;
+                        }
+                    };
+
+                    let parsed: serde_json::Value = match serde_json::from_str(content) {
+                        Ok(v) => v,
+                        Err(_) => {
+                            report.invalid_json_refs.push(ref_name.to_string());
+                            continue;
+                        }
+                    };
+
+                    if ref_name == "refs/engram/config/workspace" {
+                        if parsed.get("project_id").is_none() {
+                            report.missing_required_fields.push(ref_name.to_string());
+                        }
+                        continue;
+                    }
+
+                    let is_sidecar = ref_name.contains("/v");
+                    if is_sidecar {
+                        if parsed.get("uuid").is_none() || parsed.get("version").is_none() {
+                            report.missing_required_fields.push(ref_name.to_string());
+                        }
+                        if let Some(ts_str) = parsed.get("created_at").and_then(|v| v.as_str()) {
+                            if let Ok(ts) = chrono::DateTime::parse_from_rfc3339(ts_str) {
+                                let ts_utc = ts.with_timezone(&chrono::Utc);
+                                if ts_utc > now {
+                                    report.future_timestamps.push(ref_name.to_string());
+                                }
+                            }
+                        }
+                        continue;
+                    }
+
+                    let entity_id = ref_name
+                        .strip_prefix(engram_prefix)
+                        .and_then(|s| s.split_once('/'))
+                        .map(|(_, id)| id);
+
+                    if let Some(expected_id) = entity_id {
+                        let stored_id = parsed.get("id").and_then(|v| v.as_str());
+                        if let Some(stored_id) = stored_id {
+                            if !stored_id.starts_with(expected_id)
+                                && !expected_id.starts_with(stored_id)
+                            {
+                                report.id_path_mismatches.push(ref_name.to_string());
+                            }
+                        } else {
+                            report.missing_required_fields.push(ref_name.to_string());
+                        }
+                    }
+
+                    let has_entity_type = parsed.get("entity_type").is_some();
+                    let has_agent = parsed.get("agent").is_some();
+                    let has_timestamp = parsed.get("timestamp").is_some();
+                    if !has_entity_type || !has_agent || !has_timestamp {
+                        report.missing_required_fields.push(ref_name.to_string());
+                    }
+
+                    if let Some(ts_str) = parsed.get("timestamp").and_then(|v| v.as_str()) {
+                        if let Ok(ts) = chrono::DateTime::parse_from_rfc3339(ts_str) {
+                            let ts_utc = ts.with_timezone(&chrono::Utc);
+                            let five_years_future = now
+                                + chrono::Duration::try_days(365 * 5)
+                                    .unwrap_or(chrono::Duration::days(1));
+                            if ts_utc > five_years_future {
+                                report.future_timestamps.push(ref_name.to_string());
+                            }
+                        }
+                    }
+                }
+                Err(_) => {
+                    report.dangling_refs.push(ref_name.to_string());
+                }
+            }
+        }
+
+        report.orphaned_blobs = count_orphaned_blobs(&repo, &referenced_oids)?;
+
+        let mut checks = Vec::new();
+
+        if report.dangling_refs.is_empty() {
+            checks.push(ConsistencyCheckReport::check_passed(
+                "Dangling refs",
+                "No dangling refs found",
+            ));
+        } else {
+            checks.push(ConsistencyCheckReport::check_failed(
+                "Dangling refs",
+                &format!("{} dangling ref(s) found", report.dangling_refs.len()),
+            ));
+        }
+
+        if report.invalid_json_refs.is_empty() {
+            checks.push(ConsistencyCheckReport::check_passed(
+                "Valid JSON",
+                "All refs contain valid JSON blobs",
+            ));
+        } else {
+            checks.push(ConsistencyCheckReport::check_failed(
+                "Valid JSON",
+                &format!(
+                    "{} ref(s) with invalid JSON: {:?}",
+                    report.invalid_json_refs.len(),
+                    &report.invalid_json_refs[..report.invalid_json_refs.len().min(5)]
+                ),
+            ));
+        }
+
+        if report.missing_required_fields.is_empty() {
+            checks.push(ConsistencyCheckReport::check_passed(
+                "Required fields",
+                "All entities have required fields",
+            ));
+        } else {
+            checks.push(ConsistencyCheckReport::check_failed(
+                "Required fields",
+                &format!(
+                    "{} ref(s) missing required fields: {:?}",
+                    report.missing_required_fields.len(),
+                    &report.missing_required_fields[..report.missing_required_fields.len().min(5)]
+                ),
+            ));
+        }
+
+        if report.id_path_mismatches.is_empty() {
+            checks.push(ConsistencyCheckReport::check_passed(
+                "ID/path consistency",
+                "Entity IDs match their ref paths",
+            ));
+        } else {
+            checks.push(ConsistencyCheckReport::check_failed(
+                "ID/path consistency",
+                &format!(
+                    "{} ref(s) with ID/path mismatch: {:?}",
+                    report.id_path_mismatches.len(),
+                    &report.id_path_mismatches[..report.id_path_mismatches.len().min(5)]
+                ),
+            ));
+        }
+
+        if report.future_timestamps.is_empty() {
+            checks.push(ConsistencyCheckReport::check_passed(
+                "Timestamp validity",
+                "No future timestamps detected",
+            ));
+        } else {
+            checks.push(ConsistencyCheckReport::check_warning(
+                "Timestamp validity",
+                &format!(
+                    "{} ref(s) with future timestamps",
+                    report.future_timestamps.len()
+                ),
+            ));
+        }
+
+        if report.orphaned_blobs == 0 {
+            checks.push(ConsistencyCheckReport::check_passed(
+                "Orphaned blobs",
+                "No orphaned blobs found",
+            ));
+        } else {
+            checks.push(ConsistencyCheckReport::check_warning(
+                "Orphaned blobs",
+                &format!("{} orphaned blob(s) found", report.orphaned_blobs),
+            ));
+        }
+
+        report.checks = checks;
+        Ok(report)
+    }
+}
+
+fn count_orphaned_blobs(
+    repo: &git2::Repository,
+    referenced_oids: &HashSet<String>,
+) -> Result<usize, EngramError> {
+    let odb = repo
+        .odb()
+        .map_err(|e| EngramError::Git(format!("Failed to open ODB: {}", e)))?;
+
+    let mut count = 0;
+    let mut error: Option<EngramError> = None;
+
+    odb.foreach(|oid| {
+        if error.is_some() {
+            return false;
+        }
+        match repo.find_object(*oid, None) {
+            Ok(obj) => {
+                if obj.kind() == Some(git2::ObjectType::Blob) {
+                    let oid_str = oid.to_string();
+                    if !referenced_oids.contains(&oid_str) {
+                        count += 1;
+                    }
+                }
+            }
+            Err(e) => {
+                error = Some(EngramError::Git(format!(
+                    "Failed to read object {}: {}",
+                    oid, e
+                )));
+                return false;
+            }
+        }
+        true
+    })
+    .map_err(|e| EngramError::Git(format!("Failed to iterate ODB: {}", e)))?;
+
+    if let Some(e) = error {
+        return Err(e);
+    }
+    Ok(count)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::feedback::StructuredFeedback;
     use chrono::Utc;
     use serde_json::json;
     use tempfile::tempdir;
@@ -1457,5 +1840,177 @@ mod tests {
             1,
             "version field must be 1 for first write"
         );
+    }
+
+    #[test]
+    fn test_consistency_check_clean_storage() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut storage = GitRefsStorage::new(dir.path().to_str().unwrap(), "test").unwrap();
+        storage.store(&make_test_entity("task")).unwrap();
+        storage.store(&make_test_entity("context")).unwrap();
+
+        let report = storage.consistency_check().unwrap();
+        assert_eq!(
+            report.status_code(),
+            crate::feedback::FeedbackStatus::Success
+        );
+        assert!(report.dangling_refs.is_empty());
+        assert!(report.invalid_json_refs.is_empty());
+        assert!(report.missing_required_fields.is_empty());
+        assert!(report.id_path_mismatches.is_empty());
+        assert!(report.future_timestamps.is_empty());
+        assert!(report
+            .checks
+            .iter()
+            .all(|c| c.status == ConsistencyCheckStatus::Pass));
+    }
+
+    #[test]
+    fn test_consistency_check_detects_invalid_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let storage = GitRefsStorage::new(dir.path().to_str().unwrap(), "test").unwrap();
+        let repo = git2::Repository::open(dir.path()).unwrap();
+
+        let bad_json = b"not valid json {{{";
+        let blob_oid = repo.blob(bad_json).unwrap();
+        repo.reference("refs/engram/task/bad-json-123", blob_oid, true, "test")
+            .unwrap();
+
+        let report = storage.consistency_check().unwrap();
+        assert!(report.invalid_json_refs.len() >= 1);
+        assert_eq!(
+            report.status_code(),
+            crate::feedback::FeedbackStatus::Failed
+        );
+    }
+
+    #[test]
+    fn test_consistency_check_detects_missing_fields() {
+        let dir = tempfile::tempdir().unwrap();
+        let storage = GitRefsStorage::new(dir.path().to_str().unwrap(), "test").unwrap();
+        let repo = git2::Repository::open(dir.path()).unwrap();
+
+        let partial_json = r#"{"id": "test-123", "entity_type": "task"}"#;
+        let blob_oid = repo.blob(partial_json.as_bytes()).unwrap();
+        repo.reference("refs/engram/task/test-123", blob_oid, true, "test")
+            .unwrap();
+
+        let report = storage.consistency_check().unwrap();
+        assert!(
+            !report.missing_required_fields.is_empty(),
+            "Should detect missing agent and timestamp fields"
+        );
+    }
+
+    #[test]
+    fn test_consistency_check_detects_id_path_mismatch() {
+        let dir = tempfile::tempdir().unwrap();
+        let storage = GitRefsStorage::new(dir.path().to_str().unwrap(), "test").unwrap();
+        let repo = git2::Repository::open(dir.path()).unwrap();
+
+        let mismatched_json = r#"{
+            "id": "different-id",
+            "entity_type": "task",
+            "agent": "test",
+            "timestamp": "2025-01-01T00:00:00Z",
+            "data": {}
+        }"#;
+        let blob_oid = repo.blob(mismatched_json.as_bytes()).unwrap();
+        repo.reference("refs/engram/task/path-id-abc", blob_oid, true, "test")
+            .unwrap();
+
+        let report = storage.consistency_check().unwrap();
+        assert!(
+            report
+                .id_path_mismatches
+                .contains(&"refs/engram/task/path-id-abc".to_string()),
+            "Should detect ID/path mismatch"
+        );
+    }
+
+    #[test]
+    fn test_consistency_check_detects_dangling_ref() {
+        let dir = tempfile::tempdir().unwrap();
+        let storage = GitRefsStorage::new(dir.path().to_str().unwrap(), "test").unwrap();
+        let repo = git2::Repository::open(dir.path()).unwrap();
+
+        let fake_oid = git2::Oid::from_str("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa").unwrap();
+        let result = repo.reference("refs/engram/task/dangling-123", fake_oid, true, "test");
+
+        if result.is_ok() {
+            let report = storage.consistency_check().unwrap();
+            assert!(
+                report
+                    .dangling_refs
+                    .contains(&"refs/engram/task/dangling-123".to_string()),
+                "Should detect dangling ref"
+            );
+        }
+    }
+
+    #[test]
+    fn test_consistency_report_serialization() {
+        let report = ConsistencyCheckReport {
+            checks: vec![ConsistencyCheckReport::check_passed("Test", "all good")],
+            total_refs: 5,
+            total_blobs_checked: 5,
+            dangling_refs: vec![],
+            invalid_json_refs: vec![],
+            missing_required_fields: vec![],
+            id_path_mismatches: vec![],
+            future_timestamps: vec![],
+            orphaned_blobs: 0,
+        };
+
+        let json = serde_json::to_string(&report).unwrap();
+        let restored: ConsistencyCheckReport = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored.total_refs, 5);
+        assert_eq!(restored.checks.len(), 1);
+        assert_eq!(restored.checks[0].status, ConsistencyCheckStatus::Pass);
+    }
+
+    #[test]
+    fn test_consistency_report_feedback() {
+        let mut report = ConsistencyCheckReport {
+            checks: vec![],
+            total_refs: 0,
+            total_blobs_checked: 0,
+            dangling_refs: vec![],
+            invalid_json_refs: vec![],
+            missing_required_fields: vec![],
+            id_path_mismatches: vec![],
+            future_timestamps: vec![],
+            orphaned_blobs: 0,
+        };
+
+        report.checks = vec![
+            ConsistencyCheckReport::check_passed("A", "ok"),
+            ConsistencyCheckReport::check_passed("B", "ok"),
+        ];
+        assert_eq!(
+            report.status_code(),
+            crate::feedback::FeedbackStatus::Success
+        );
+        assert!(report.summary().contains("2/2 passed"));
+
+        report.checks = vec![
+            ConsistencyCheckReport::check_passed("A", "ok"),
+            ConsistencyCheckReport::check_failed("B", "bad"),
+        ];
+        assert_eq!(
+            report.status_code(),
+            crate::feedback::FeedbackStatus::Failed
+        );
+        assert!(report.summary().contains("1 failed"));
+
+        report.checks = vec![
+            ConsistencyCheckReport::check_passed("A", "ok"),
+            ConsistencyCheckReport::check_warning("B", "hmm"),
+        ];
+        assert_eq!(
+            report.status_code(),
+            crate::feedback::FeedbackStatus::Warning
+        );
+        assert!(report.summary().contains("1 warnings"));
     }
 }

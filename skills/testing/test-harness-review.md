@@ -1,13 +1,13 @@
 ---
 name: engram-test-harness-review
-description: "Audit the test harness of any codebase. Asks whether behavioral, integration, property, scenario, and unit tests exist, evaluates their adequacy, and stores findings as engram context for traceability."
+description: "Use when auditing a project's testing framework; asks whether unit behavioral integration property scenario BDD flakiness feedback and validation tests exist; evaluates adequacy for each technique across 10 categories and stores findings as context for traceability purposes"
 ---
 
 # Test Harness Review
 
 ## Overview
 
-Systematically audit a project's testing coverage across five dimensions: unit, behavioral, integration, property, and scenario tests. Stores findings in engram so they can be queried, referenced in ADRs, and tracked over time.
+Systematically audit codebase test framework; classify into project type then evaluate all applicable techniques across 10 categories + store results as context for querying with ADRs tracking over time.
 
 ## When to Use
 
@@ -16,6 +16,7 @@ Systematically audit a project's testing coverage across five dimensions: unit, 
 - When onboarding to a codebase to understand its testing posture
 - After a bug is found in production, to understand which test type failed to catch it
 - As a recurring quality gate before a release
+- After enabling flakiness tracking, to establish a baseline
 
 ## The Pattern
 
@@ -35,7 +36,38 @@ engram task create --title "Test harness review: <project or module name>"
 engram task update <REVIEW_TASK_UUID> --status in_progress
 ```
 
-### 2. Inventory the Test Suite
+### 2. Project Classification
+
+Before any diagnostic questions, classify project type(s):
+
+| Type | Indicators |
+|-----|------------|
+| cli-tool | Binary with no HTTP server, no UI |
+| web-api | HTTP endpoints REST GraphQL gRPC |
+| web-frontend | React Vue HTML CSS browser-rendered UI |
+| mobile | iOS Android, React Native Flutter |
+| desktop | Electron native OS app |
+| infrastructure | Terraform, Pulumi, Nix, IaC definitions |
+| ai-ml | Model training, inference, embeddings |
+| embedded | Firmware, microcontrollers, hardware interfaces |
+| library | Crate/package/module consumed by other code |
+
+Store classification:
+
+```bash
+engram context create \
+  --title "Project classification: <project>" \
+  --content "Types: [cli-tool, ...]" \
+  --source "test-harness-review"
+# CLASSIFICATION_UUID = ...
+
+engram relationship create \
+  --source-id <REVIEW_TASK_UUID> --source-type task \
+  --target-id <CLASSIFICATION_UUID> --target-type context \
+  --relationship-type relates_to --agent "<your-name>"
+```
+
+### 3. Inventory Existing Tests
 
 Before forming any opinions, count what actually exists. Run in the project root:
 
@@ -53,6 +85,19 @@ grep -r "describe\|it(\|test(" --include="*.test.*" --include="*.spec.*" -l | gr
 # Python: count test_ functions and classes
 grep -r "def test_\|class Test" --include="*.py" -l | grep -v __pycache__ | sort
 
+# BDD: check for Gherkin feature files and step definitions
+find . -name "*.feature" | grep -v node_modules | sort
+grep -r "#\[given\|#\[when\|#\[then" --include="*.rs" -l | grep -v target | sort
+
+# Property-based: check for proptest/quickcheck/hypothesis
+grep -r "proptest!\|quickcheck!\|hypothesis" --include="*.rs" --include="*.py" --include="*.ts" -l | grep -v target | sort
+
+# Flakiness tracking: check for FlakinessTracker usage
+grep -r "FlakinessTracker\|flakiness_tracker" --include="*.rs" -l | grep -v target | sort
+
+# StructuredFeedback: check for trait implementations
+grep -r "StructuredFeedback\|impl.*StructuredFeedback" --include="*.rs" -l | grep -v target | sort
+
 # Count total tests (language-specific)
 cargo test -- --list 2>/dev/null | grep ": test" | wc -l   # Rust
 pytest --collect-only -q 2>/dev/null | tail -1             # Python
@@ -63,7 +108,7 @@ Store the inventory:
 ```bash
 engram context create \
   --title "Test inventory: <project>" \
-  --content "Total test files: <N>\nTest locations: <list paths>\nTest runner: <cargo test / pytest / jest / etc>\nRaw count: <N> tests" \
+  --content "Total test files: <N>\nTest locations: <list paths>\nTest runner: <cargo test / pytest / jest / etc>\nRaw count: <N> tests\nBDD feature files: <N>\nProperty test files: <N>\nFlakiness tracking: <yes/no>\nStructured feedback: <yes/no>" \
   --source "test-harness-review"
 # INVENTORY_UUID = ...
 
@@ -73,7 +118,7 @@ engram relationship create \
   --relationship-type relates_to --agent "<your-name>"
 ```
 
-### 3. Five Diagnostic Questions
+### 4. Ten Diagnostic Questions
 
 Work through each question. Record a verdict and evidence for each.
 
@@ -153,10 +198,12 @@ Gap: <which integration points are untested>
 - Use of frameworks: `proptest` / `quickcheck` (Rust), `hypothesis` (Python), `fast-check` (JS)
 - Properties expressed as "for all X, P(X) must be true"
 - Tests that shrink failing cases to minimal counterexamples
+- Tests that verify serialization roundtrips, validation invariants, state machine properties
 
 **Red flags:**
 - Every test uses hardcoded inputs only — no generative testing
 - Edge cases (empty string, zero, max int, unicode) only tested if someone thought of them manually
+- No `from_generic`/`to_generic` roundtrip property tests for entity types
 
 **Verdict template:**
 ```
@@ -189,7 +236,121 @@ Gap: <which scenarios are missing>
 
 ---
 
-### 4. Assess Overall Harness Adequacy
+#### Q6: Do we have BDD (Behavior-Driven Development) tests?
+
+**What to look for:**
+- Gherkin `.feature` files with Given/When/Then scenarios
+- Step definition bindings (e.g., `cucumber` crate in Rust, `cucumber-js`, `behave` in Python)
+- Feature files written in domain language readable by non-developers
+- A shared test world providing state between steps
+
+**Red flags:**
+- No `.feature` files exist
+- Step definitions exist but no feature files consume them
+- All scenarios only cover the happy path
+- No scenario for error handling, edge cases, or constraint violations
+
+**Verdict template:**
+```
+BDD tests: PRESENT / PARTIAL / ABSENT
+Evidence: <framework, feature files count, step definition files>
+Gap: <which workflows have no BDD coverage>
+```
+
+---
+
+#### Q7: Do we have flakiness tracking?
+
+**What to look for:**
+- A flakiness tracker that records pass/fail history per test gate
+- Configurable window size and failure rate threshold
+- Auto-blacklisting of flaky gates (e.g., 30% failure rate over 10 runs)
+- Ability to unblacklist gates after fixes are applied
+- History frozen once a gate is blacklisted (no mutation of flaky results)
+
+**Red flags:**
+- Intermittent test failures are manually investigated each time
+- Flaky tests are left in CI without quarantine
+- No mechanism to distinguish "always fails" from "sometimes fails"
+
+**Verdict template:**
+```
+Flakiness tracking: PRESENT / PARTIAL / ABSENT
+Evidence: <tracker module, config defaults, blacklist mechanism>
+Gap: <which gates lack flakiness monitoring>
+```
+
+---
+
+#### Q8: Do we have structured test feedback?
+
+**What to look for:**
+- A `StructuredFeedback` trait or equivalent for machine-readable test results
+- JSON output for all test/validation/gate results
+- ANSI-stripped output for programmatic consumers
+- Unified status codes (success/failed/warning/skipped) across result types
+- Implementations for `ActionResult`, `ValidationResult`, `GateResult`, `WorkflowExecutionResult`
+
+**Red flags:**
+- Test results are only human-readable (coloured terminal output)
+- No JSON output mode for CI integration
+- Different result types have inconsistent status representations
+
+**Verdict template:**
+```
+Structured feedback: PRESENT / PARTIAL / ABSENT
+Evidence: <trait/module, implemented result types>
+Gap: <which result types lack structured output>
+```
+
+---
+
+#### Q9: Do we have validation and commit-gate tests?
+
+**What to look for:**
+- Pre-commit hooks that validate commit messages reference task UUIDs
+- `engram validate check` or equivalent validating entity integrity
+- Gate-based validation (quality gates with pass/fail scores)
+- Relationship validation (orphan detection, cycle prevention)
+- Entity validation (required fields, format constraints)
+
+**Red flags:**
+- Commits can be made without task references
+- No validation that linked entities still exist
+- No cycle detection in relationship graphs
+
+**Verdict template:**
+```
+Validation/commit-gate tests: PRESENT / PARTIAL / ABSENT
+Evidence: <hook mechanism, gate types, validation rules>
+Gap: <which validations are missing>
+```
+
+---
+
+#### Q10: Do we have observability for test results?
+
+**What to look for:**
+- Test execution time tracking
+- Coverage reporting (line, branch, function)
+- Historical trend data for test pass rates
+- Integration with CI dashboards
+
+**Red flags:**
+- No coverage data collected
+- Test times not tracked — no way to detect slow tests
+- No visibility into which tests fail most frequently
+
+**Verdict template:**
+```
+Test observability: PRESENT / PARTIAL / ABSENT
+Evidence: <coverage tool, CI integration, metrics>
+Gap: <what is not measured>
+```
+
+---
+
+### 5. Assess Overall Harness Adequacy
 
 Answer: **Is the test harness good enough to develop safely?**
 
@@ -197,17 +358,17 @@ Use this rubric:
 
 | Level | Criteria |
 |-------|----------|
-| **Strong** | All 5 types present, tests run in CI, failures block merge, coverage ≥ 80% |
-| **Adequate** | Unit + integration present, at least 1 of the other 3, CI enforced |
-| **Weak** | Unit only, or integration only, no CI enforcement |
-| **Absent** | Fewer than 2 types present, or tests exist but do not run reliably |
+| **Strong** | 8+ of 10 types present, tests run in CI, failures block merge, flakiness tracked, coverage >= 80% |
+| **Adequate** | Unit + integration present, at least 3 of the other 8, CI enforced |
+| **Weak** | Unit only, or integration only, no CI enforcement, no flakiness tracking |
+| **Absent** | Fewer than 3 types present, or tests exist but do not run reliably |
 
 Store the verdict:
 
 ```bash
 engram context create \
   --title "Test harness verdict: <project> — <Strong|Adequate|Weak|Absent>" \
-  --content "Overall: <level>\n\nUnit: <verdict>\nBehavioral: <verdict>\nIntegration: <verdict>\nProperty: <verdict>\nScenario: <verdict>\n\nCI enforced: yes/no\nCoverage: <% or unknown>\n\nTop gaps:\n1. <gap>\n2. <gap>\n3. <gap>\n\nRecommendation: <what to add first>" \
+  --content "Overall: <level>\n\nUnit: <verdict>\nBehavioral: <verdict>\nIntegration: <verdict>\nProperty: <verdict>\nScenario: <verdict>\nBDD: <verdict>\nFlakiness tracking: <verdict>\nStructured feedback: <verdict>\nValidation/commit-gate: <verdict>\nTest observability: <verdict>\n\nCI enforced: yes/no\nCoverage: <% or unknown>\n\nTop gaps:\n1. <gap>\n2. <gap>\n3. <gap>\n\nRecommendation: <what to add first>" \
   --source "test-harness-review"
 # VERDICT_UUID = ...
 
@@ -217,7 +378,7 @@ engram relationship create \
   --relationship-type relates_to --agent "<your-name>"
 ```
 
-### 5. Record Recommendations as Reasoning
+### 6. Record Recommendations as Reasoning
 
 ```bash
 engram reasoning create \
@@ -232,7 +393,7 @@ engram relationship create \
   --relationship-type explains --agent "<your-name>"
 ```
 
-### 6. Close the Task
+### 7. Close the Task
 
 ```bash
 engram validate check
@@ -257,10 +418,14 @@ grep -r "#\[test\]" --include="*.rs" -l | grep -v target | wc -l
 # 23 files with tests
 cargo test -- --list 2>/dev/null | grep ": test" | wc -l
 # 187 tests
+find . -name "*.feature" | wc -l
+# 1 BDD feature file
+grep -r "proptest!" --include="*.rs" -l | grep -v target | wc -l
+# 1 property test file
 
 engram context create \
   --title "Test inventory: engram CLI" \
-  --content "187 unit/integration tests across 23 files. Runner: cargo test. No proptest or hypothesis found." \
+  --content "187 unit/integration tests across 23 files. Runner: cargo test. 1 BDD feature file (tests/bdd/). 1 property test file (tests/property_tests.rs) using proptest. FlakinessTracker in src/validation/flakiness_tracker.rs. StructuredFeedback trait in src/feedback/mod.rs." \
   --source "test-harness-review"
 # INVENTORY_UUID = ctx-001
 
@@ -269,17 +434,22 @@ engram relationship create \
   --target-id ctx-001 --target-type context \
   --relationship-type relates_to --agent "reviewer"
 
-[Five questions]
+[Ten questions]
 # Q1 Unit: PRESENT — 187 tests, mostly in #[cfg(test)] blocks per module
 # Q2 Behavioral: PARTIAL — CLI output tests check observable output, but only happy path
 # Q3 Integration: PARTIAL — some tests spin up real storage, but no HTTP or subprocess tests
-# Q4 Property: ABSENT — no proptest or quickcheck usage found
+# Q4 Property: PRESENT — proptest for entity roundtrips, validation invariants, workflow state machine, NLQ classify-never-panics
 # Q5 Scenario: ABSENT — no end-to-end workflow tests from CLI entry point
+# Q6 BDD: PRESENT — cucumber BDD with 60+ step definitions in tests/bdd/, 1 feature file, covers tasks/contexts/knowledge/reasoning/sessions/relationships/sync/workflows
+# Q7 Flakiness tracking: PRESENT — FlakinessTracker with configurable window (default 10), 30% failure threshold, auto-blacklist, history freeze on flaky gates
+# Q8 Structured feedback: PRESENT — StructuredFeedback trait with JSON, ANSI-stripped output, unified FeedbackStatus for ActionResult/ValidationResult/GateResult/WorkflowExecutionResult
+# Q9 Validation/commit-gate: PRESENT — engram validate check, pre-commit hook enforcing task UUID in commits, quality gates with scores
+# Q10 Test observability: PARTIAL — execution time tracked per gate, no coverage reporting
 
 [Verdict]
 engram context create \
-  --title "Test harness verdict: engram CLI — Adequate" \
-  --content "Overall: Adequate\n\nUnit: PRESENT\nBehavioral: PARTIAL\nIntegration: PARTIAL\nProperty: ABSENT\nScenario: ABSENT\n\nCI enforced: yes\nCoverage: ~65% estimated\n\nTop gaps:\n1. No property tests for entity ID parsing and validation\n2. No scenario tests exercising full CLI workflows\n3. Behavioral tests only cover happy path\n\nRecommendation: Add proptest for ID parsing first (highest ROI, catches edge cases in critical path)" \
+  --title "Test harness verdict: engram CLI — Strong" \
+  --content "Overall: Strong\n\nUnit: PRESENT\nBehavioral: PARTIAL\nIntegration: PARTIAL\nProperty: PRESENT\nScenario: ABSENT\nBDD: PRESENT\nFlakiness tracking: PRESENT\nStructured feedback: PRESENT\nValidation/commit-gate: PRESENT\nTest observability: PARTIAL\n\nCI enforced: yes\nCoverage: unknown\n\nTop gaps:\n1. No scenario tests exercising full CLI workflows\n2. Behavioral tests only cover happy path\n3. No coverage reporting\n\nRecommendation: Add CLI scenario tests for critical workflows first (highest ROI for regression prevention)" \
   --source "test-harness-review"
 # VERDICT_UUID = ctx-002
 
@@ -290,9 +460,9 @@ engram relationship create \
 
 [Reasoning]
 engram reasoning create \
-  --title "Priority: property tests for ID parsing" \
+  --title "Priority: CLI scenario tests" \
   --task-id task-abc \
-  --content "ID parsing is on the critical path of every command. A malformed UUID silently corrupts relationships. Property tests would catch this class of bug cheaply. Scenario tests are second priority — they would have caught the workflow context injection regression."
+  --content "Property tests and BDD now cover entity integrity and domain workflows. The remaining gap is full CLI integration — exercising commands from shell entry point through to git refs persistence. This would have caught the workflow context injection regression."
 # REASONING_UUID = rsn-003
 
 engram relationship create \
@@ -303,7 +473,7 @@ engram relationship create \
 [Close]
 engram validate check
 engram task update task-abc --status done \
-  --outcome "Test harness: Adequate. Top gap: no property or scenario tests."
+  --outcome "Test harness: Strong. Top gap: no CLI scenario tests."
 ```
 
 ## Related Skills
@@ -312,3 +482,5 @@ engram task update task-abc --status done \
 - `engram-systematic-debugging` — when a test failure needs root-cause investigation
 - `engram-audit-trail` — store the review as a timestamped audit record
 - `engram-requesting-code-review` — review a PR's tests before merging
+- `engram-edge-cases` — systematic edge case identification using property-based and fuzzing techniques
+- `engram-testing` — comprehensive testing strategy tracking with engram
