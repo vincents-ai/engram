@@ -403,13 +403,7 @@ fn handle_task_command<
             dry_run,
             output,
         } => {
-            cli::archive_tasks_bulk(
-                storage,
-                older_than,
-                status.as_deref(),
-                dry_run,
-                &output,
-            )?;
+            cli::archive_tasks_bulk(storage, older_than, status.as_deref(), dry_run, &output)?;
         }
         cli::TaskCommands::Resolve { id, message } => {
             cli::resolve_task(storage, &id, message.as_deref())?;
@@ -485,7 +479,14 @@ fn handle_context_command<S: engram::storage::Storage>(
             all,
             offset,
         } => {
-            cli::list_contexts(storage, agent.as_deref(), relevance.as_deref(), limit, all, offset)?;
+            cli::list_contexts(
+                storage,
+                agent.as_deref(),
+                relevance.as_deref(),
+                limit,
+                all,
+                offset,
+            )?;
         }
         cli::ContextCommands::Show { id } => {
             cli::show_context(storage, &id)?;
@@ -581,7 +582,14 @@ fn handle_reasoning_command<S: engram::storage::Storage>(
             all,
             offset,
         } => {
-            cli::list_reasoning(storage, agent.as_deref(), task_id.as_deref(), limit, all, offset)?;
+            cli::list_reasoning(
+                storage,
+                agent.as_deref(),
+                task_id.as_deref(),
+                limit,
+                all,
+                offset,
+            )?;
         }
         cli::ReasoningCommands::Show { id } => {
             cli::show_reasoning(storage, &id)?;
@@ -632,7 +640,9 @@ fn handle_lesson_command<S: engram::storage::Storage>(
             all,
             offset,
         } => {
-            cli::list_lessons(storage, agent, category, domain, severity, limit, all, offset)?;
+            cli::list_lessons(
+                storage, agent, category, domain, severity, limit, all, offset,
+            )?;
         }
         cli::LessonCommands::Show { id } => {
             cli::show_lesson(storage, &id)?;
@@ -769,7 +779,13 @@ fn handle_knowledge_command<S: engram::storage::Storage>(
                 json_file,
             )?;
         }
-        cli::KnowledgeCommands::List { agent, kind, limit, all, offset } => {
+        cli::KnowledgeCommands::List {
+            agent,
+            kind,
+            limit,
+            all,
+            offset,
+        } => {
             cli::list_knowledge(storage, agent, kind, limit, all, offset)?;
         }
         cli::KnowledgeCommands::Show { id } => {
@@ -805,19 +821,28 @@ fn handle_session_command<S: engram::storage::Storage>(
         } => {
             end_session(storage, id, generate_summary)?;
         }
-        engram::cli::SessionCommands::List { agent, since, limit, all, offset } => {
-            list_sessions(&mut std::io::stdout(), storage, agent, since, limit, all, offset)?;
+        engram::cli::SessionCommands::List {
+            agent,
+            since,
+            limit,
+            all,
+            offset,
+        } => {
+            list_sessions(
+                &mut std::io::stdout(),
+                storage,
+                agent,
+                since,
+                limit,
+                all,
+                offset,
+            )?;
         }
         engram::cli::SessionCommands::Zombies {
             max_age_hours,
             check_git,
         } => {
-            detect_zombie_sessions(
-                &mut std::io::stdout(),
-                storage,
-                max_age_hours,
-                check_git,
-            )?;
+            detect_zombie_sessions(&mut std::io::stdout(), storage, max_age_hours, check_git)?;
         }
         engram::cli::SessionCommands::Summaries {
             agent,
@@ -854,7 +879,14 @@ fn handle_compliance_command<S: engram::storage::Storage>(
             all,
             offset,
         } => {
-            cli::list_compliance(storage, agent.as_deref(), category.as_deref(), limit, all, offset)?;
+            cli::list_compliance(
+                storage,
+                agent.as_deref(),
+                category.as_deref(),
+                limit,
+                all,
+                offset,
+            )?;
         }
         cli::ComplianceCommands::Show { id } => {
             cli::show_compliance(storage, &id)?;
@@ -1802,7 +1834,15 @@ fn handle_reflection_command<S: engram::storage::Storage>(
             all,
             offset,
         } => {
-            list_reflections(storage, theory, trigger_type, unresolved, limit, all, offset)?;
+            list_reflections(
+                storage,
+                theory,
+                trigger_type,
+                unresolved,
+                limit,
+                all,
+                offset,
+            )?;
         }
         cli::StateReflectionCommands::Show { id } => {
             show_reflection(storage, &id)?;

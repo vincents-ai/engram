@@ -9,8 +9,8 @@ pub mod cli;
 pub mod config;
 pub mod engines;
 pub mod entities;
-pub mod feedback;
 pub mod error;
+pub mod feedback;
 pub mod locus_cli;
 pub mod locus_handlers;
 pub mod locus_integration;
@@ -33,9 +33,9 @@ use std::result::Result as StdResult;
 pub type Result<T> = StdResult<T, error::EngramError>;
 
 pub use config::Config;
+pub use entities::doc_fragment::DocFragment;
 /// Re-export commonly used types
 pub use entities::*;
-pub use entities::doc_fragment::DocFragment;
 pub use error::EngramError;
 pub use storage::{MemoryEntity, Storage};
 

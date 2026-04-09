@@ -5,7 +5,6 @@
 
 pub mod adr;
 pub mod analytics;
-pub mod health;
 pub mod auto_guide;
 pub mod compliance;
 pub mod context;
@@ -13,6 +12,7 @@ pub mod convert;
 pub mod doc;
 pub mod escalation;
 pub mod git;
+pub mod health;
 pub mod help;
 pub mod import;
 pub mod info;
@@ -41,12 +41,12 @@ pub mod workflow;
 
 pub use adr::*;
 pub use analytics::*;
-pub use health::HealthCommands;
 pub use compliance::*;
 pub use context::*;
 pub use convert::*;
 pub use doc::*;
 pub use escalation::*;
+pub use health::HealthCommands;
 pub use help::*;
 pub use import::*;
 pub use info::*;
