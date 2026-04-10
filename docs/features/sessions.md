@@ -6,19 +6,27 @@ Sessions track work periods and can bind to theories for context-aware execution
 
 ```bash
 # Start session
-engram session start --agent "the-architect"
+engram session start --name "the-architect"
 
-# Bind theory to session
-engram session bind-theory <SESSION_ID> --theory <THEORY_ID>
+# Show session status (with optional metrics)
+engram session status --id <SESSION_ID>
+engram session status --id <SESSION_ID> --metrics
 
-# Trigger reflection (when dissonance detected)
-engram session trigger-reflection <SESSION_ID>
+# End session (with optional summary generation)
+engram session end --id <SESSION_ID>
+engram session end --id <SESSION_ID> --generate-summary
 
-# Resolve reflection
-engram session resolve-reflection <SESSION_ID>
+# List sessions
+engram session list
+engram session list --agent "the-architect" --since 7d --limit 20
 
-# End session
-engram session end <SESSION_ID>
+# Detect zombie sessions (started but never ended)
+engram session zombies
+engram session zombies --max-age-hours 48 --check-git
+
+# Summarize recent sessions
+engram session summaries
+engram session summaries --agent "the-architect" --since 2024-01-01
 ```
 
 ## Session States
@@ -26,8 +34,10 @@ engram session end <SESSION_ID>
 | Status | Description |
 |--------|-------------|
 | **Active** | Normal operation |
+| **Paused** | Temporarily suspended |
 | **Reflecting** | Theory must be updated before proceeding |
-| **Completed** | Session ended |
+| **Completed** | Session ended normally |
+| **Cancelled** | Session ended without completion |
 
 ## Theory Binding
 

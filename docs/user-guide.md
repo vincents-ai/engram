@@ -76,7 +76,7 @@ Entities don't live in isolation. You link them together to create a knowledge g
 Tell Engram you're starting work. This helps track metrics and context switches.
 
 ```bash
-engram session start --agent human
+engram session start --name human
 ```
 
 ### Step 2: Plan Your Work
@@ -95,7 +95,7 @@ Found a relevant StackOverflow answer? Don't just bookmark it—save it.
 
 ```bash
 engram context create --title "JWT Expiration Solution" --source "https://stackoverflow.com/..."
-engram relationship create --source-id [TASK-ID] --target-id [CONTEXT-ID] --type references
+engram relationship create --source-id [TASK-ID] --target-id [CONTEXT-ID] --relationship-type references
 ```
 
 ### Step 4: Log Decisions
@@ -110,7 +110,7 @@ Need to remember why you did something last month?
 
 ```bash
 # Search for reasoning related to "timeout"
-engram reasoning list --search "timeout"
+engram reasoning list --task-id [TASK-ID]
 ```
 
 ## Working with AI Agents
@@ -181,6 +181,6 @@ The 0.7 threshold enforces Naur's insight: bugs often indicate flawed mental mod
 
 *   **Automatic Storage**: Engram saves data instantly to your git repo's database (`.git/objects`). You do **not** need to `git add` or commit Engram data manually; it's handled automatically via `git refs`.
 *   **Share with Team**: Since Engram uses standard git refs, you can push/pull them to share context with your team (requires configuring your git fetch/push refspecs).
-*   **Hook Usage**: With the hook installed, use `engram task list --status inprogress` to find your active task ID before committing.
+*   **Hook Usage**: With the hook installed, use `engram task list --status in_progress` to find your active task ID before committing.
 *   **Keep it Granular**: It's better to have 5 small tasks than 1 giant one. It makes reasoning easier to attach.
 *   **Be Specific with AI**: When creating tasks for AI agents, include explicit file paths, expected outcomes, and success criteria. This prevents the "tool calling loop" issue where agents over-investigate instead of acting. See [Known Issues](./known-issues/README.md) for details.

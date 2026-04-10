@@ -22,6 +22,11 @@ pub struct WorkspaceConfig {
     /// This is the canonical project_id for remote sync. None until first GitRefsStorage init.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub project_id: Option<String>,
+
+    /// Default remote repository for persona submissions (e.g. "owner/repo").
+    /// Used by `engram persona submit` when --repo is not provided.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub engram_personas_remote: Option<String>,
 }
 
 impl Default for WorkspaceConfig {
@@ -33,6 +38,7 @@ impl Default for WorkspaceConfig {
             sync_strategy: "merge_with_conflict_resolution".to_string(),
             refresh_interval_secs: Self::default_refresh_interval_secs(),
             project_id: None,
+            engram_personas_remote: None,
         }
     }
 }
@@ -140,6 +146,7 @@ mod tests {
             sync_strategy: "".to_string(),
             refresh_interval_secs: WorkspaceConfig::default_refresh_interval_secs(),
             project_id: None,
+            engram_personas_remote: None,
         };
 
         base.merge(other);
@@ -189,6 +196,7 @@ mod tests {
             sync_strategy: "sync".to_string(),
             refresh_interval_secs: 30,
             project_id: None,
+            engram_personas_remote: None,
         };
         assert!(config.validate().is_err());
     }
@@ -202,6 +210,7 @@ mod tests {
             sync_strategy: "sync".to_string(),
             refresh_interval_secs: 30,
             project_id: None,
+            engram_personas_remote: None,
         };
         assert!(config.validate().is_ok());
     }

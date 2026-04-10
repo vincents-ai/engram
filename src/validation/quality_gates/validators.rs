@@ -140,3 +140,188 @@ impl BuiltinValidators {
         .with_timeout(60)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_for_stage_requirements() {
+        let gates = BuiltinValidators::for_stage("requirements");
+        assert_eq!(gates.len(), 1);
+        assert_eq!(gates[0].name, "engram-validate-requirements-complete");
+    }
+
+    #[test]
+    fn test_for_stage_planning() {
+        let gates = BuiltinValidators::for_stage("planning");
+        assert_eq!(gates.len(), 1);
+        assert_eq!(gates[0].name, "engram-validate-design-documented");
+    }
+
+    #[test]
+    fn test_for_stage_research() {
+        let gates = BuiltinValidators::for_stage("research");
+        assert_eq!(gates.len(), 1);
+        assert_eq!(gates[0].name, "engram-validate-research-documented");
+    }
+
+    #[test]
+    fn test_for_stage_bdd() {
+        let gates = BuiltinValidators::for_stage("bdd");
+        assert_eq!(gates.len(), 1);
+        assert_eq!(gates[0].name, "cargo-test-red");
+        assert_eq!(gates[0].expected_result, ExpectedResult::Failure);
+        assert!(gates[0].failure_message.is_some());
+    }
+
+    #[test]
+    fn test_for_stage_development() {
+        let gates = BuiltinValidators::for_stage("development");
+        assert_eq!(gates.len(), 2);
+        assert_eq!(gates[0].name, "cargo-test");
+        assert!(gates[0].required);
+        assert_eq!(gates[1].name, "cargo-clippy");
+        assert!(!gates[1].required);
+    }
+
+    #[test]
+    fn test_for_stage_integration() {
+        let gates = BuiltinValidators::for_stage("integration");
+        assert_eq!(gates.len(), 3);
+        assert_eq!(gates[0].name, "nix-build");
+        assert_eq!(gates[1].name, "full-test-suite");
+        assert_eq!(gates[2].name, "git-status-clean");
+        assert!(!gates[2].required);
+    }
+
+    #[test]
+    fn test_for_stage_unknown_returns_empty() {
+        let gates = BuiltinValidators::for_stage("nonexistent");
+        assert!(gates.is_empty());
+    }
+
+    #[test]
+    fn test_cargo_test() {
+        let gate = BuiltinValidators::cargo_test();
+        assert_eq!(gate.name, "cargo-test");
+        assert_eq!(gate.command, "cargo test");
+        assert_eq!(gate.timeout_seconds, Some(600));
+        assert!(gate.required);
+    }
+
+    #[test]
+    fn test_cargo_clippy() {
+        let gate = BuiltinValidators::cargo_clippy();
+        assert_eq!(gate.name, "cargo-clippy");
+        assert!(gate.command.contains("clippy"));
+        assert_eq!(gate.timeout_seconds, Some(300));
+        assert!(gate.required);
+    }
+
+    #[test]
+    fn test_cargo_clippy_optional() {
+        let gate = BuiltinValidators::cargo_clippy_optional();
+        assert!(!gate.required);
+        assert_eq!(gate.name, "cargo-clippy");
+    }
+
+    #[test]
+    fn test_nix_build() {
+        let gate = BuiltinValidators::nix_build();
+        assert_eq!(gate.name, "nix-build");
+        assert_eq!(gate.command, "nix build");
+        assert_eq!(gate.timeout_seconds, Some(1200));
+    }
+
+    #[test]
+    fn test_nix_checks() {
+        let gate = BuiltinValidators::nix_checks();
+        assert_eq!(gate.name, "nix-checks");
+        assert_eq!(gate.command, "nix flake check");
+        assert_eq!(gate.timeout_seconds, Some(900));
+    }
+
+    #[test]
+    fn test_engram_validate() {
+        let gate = BuiltinValidators::engram_validate("requirements-complete");
+        assert_eq!(gate.name, "engram-validate-requirements-complete");
+        assert!(gate
+            .command
+            .contains("engram validate requirements-complete"));
+        assert_eq!(gate.timeout_seconds, Some(120));
+    }
+
+    #[test]
+    fn test_git_status_clean() {
+        let gate = BuiltinValidators::git_status_clean();
+        assert_eq!(gate.name, "git-status-clean");
+        assert!(gate.command.contains("git diff"));
+        assert_eq!(gate.timeout_seconds, Some(30));
+    }
+
+    #[test]
+    fn test_full_test_suite() {
+        let gate = BuiltinValidators::full_test_suite();
+        assert_eq!(gate.name, "full-test-suite");
+        assert!(gate.command.contains("--all-features"));
+        assert_eq!(gate.timeout_seconds, Some(1200));
+    }
+
+    #[test]
+    fn test_development_setup() {
+        let gates = BuiltinValidators::development_setup();
+        assert_eq!(gates.len(), 3);
+        assert_eq!(gates[0].name, "rust-version");
+        assert_eq!(gates[1].name, "cargo-version");
+        assert_eq!(gates[2].name, "nix-version");
+        assert!(gates[0].required);
+        assert!(gates[1].required);
+        assert!(!gates[2].required);
+    }
+
+    #[test]
+    fn test_with_env() {
+        let mut env = HashMap::new();
+        env.insert("KEY".to_string(), "value".to_string());
+        let gate =
+            BuiltinValidators::with_env("env-test".to_string(), "echo $KEY".to_string(), env);
+        assert_eq!(gate.name, "env-test");
+        assert_eq!(gate.command, "echo $KEY");
+        assert_eq!(gate.environment.get("KEY").unwrap(), "value");
+    }
+
+    #[test]
+    fn test_performance_benchmark() {
+        let gate = BuiltinValidators::performance_benchmark("my-bench");
+        assert_eq!(gate.name, "benchmark-my-bench");
+        assert!(gate.command.contains("cargo bench"));
+        assert!(!gate.required);
+        assert_eq!(gate.timeout_seconds, Some(600));
+    }
+
+    #[test]
+    fn test_security_audit() {
+        let gate = BuiltinValidators::security_audit();
+        assert_eq!(gate.name, "security-audit");
+        assert_eq!(gate.command, "cargo audit");
+        assert_eq!(gate.timeout_seconds, Some(180));
+    }
+
+    #[test]
+    fn test_docs_generation() {
+        let gate = BuiltinValidators::docs_generation();
+        assert_eq!(gate.name, "docs-generation");
+        assert!(gate.command.contains("cargo doc"));
+        assert!(!gate.required);
+        assert_eq!(gate.timeout_seconds, Some(300));
+    }
+
+    #[test]
+    fn test_format_check() {
+        let gate = BuiltinValidators::format_check();
+        assert_eq!(gate.name, "format-check");
+        assert!(gate.command.contains("cargo fmt"));
+        assert_eq!(gate.timeout_seconds, Some(60));
+    }
+}

@@ -325,7 +325,7 @@ Skills integrate with Engram's core features:
 
 ## Skill Statistics
 
-- **Total Skills**: 58
+- **Total Skills**: 59
 - **Total Lines**: ~17,000
 - **Shortest**: planning/roadmap-planning.md (126 lines)
 - **Longest**: review/code-quality.md (1,007 lines)
@@ -350,6 +350,9 @@ Skills integrate with Engram's core features:
   - Meta Skills: +1 (persona-architect — 8-step PCP with CoV/FAP/OV structured expert prompting)
   - New Rust entities: Persona, Lesson with full CLI commands (create/list/show/update/delete)
   - Migrated 172 persona YAMLs with domain-adapted CoV/FAP/OV sections
+- **v0.6.1** (2026-04-07) - Locus TUI sync view, session-start/end skills with sync integration
+- **v0.6.2** (2026-04-08) - UTF-8 safe string truncation fix
+- **v0.6.3** (2026-04-08) - Pagination (--all, --offset) on all list commands
 
 ## Resources
 

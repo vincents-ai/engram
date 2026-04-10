@@ -235,6 +235,11 @@ fn handle_key(app: &mut AppState, key: KeyEvent) -> (bool, Option<Action>) {
                     app.sync_view.remotes_selected =
                         (app.sync_view.remotes_selected + 1).min(len - 1);
                 }
+            } else if app.active_view == ActiveView::Personas {
+                let len = app.all_personas.len();
+                if len > 0 {
+                    app.personas_selected = (app.personas_selected + 1).min(len - 1);
+                }
             } else {
                 app.select_next();
             }
@@ -284,6 +289,8 @@ fn handle_key(app: &mut AppState, key: KeyEvent) -> (bool, Option<Action>) {
                 app.search_result_selected = app.search_result_selected.saturating_sub(1);
             } else if app.active_view == ActiveView::Sync {
                 app.sync_view.remotes_selected = app.sync_view.remotes_selected.saturating_sub(1);
+            } else if app.active_view == ActiveView::Personas {
+                app.personas_selected = app.personas_selected.saturating_sub(1);
             } else {
                 app.select_prev();
             }
@@ -330,6 +337,8 @@ fn handle_key(app: &mut AppState, key: KeyEvent) -> (bool, Option<Action>) {
                 app.progressive_configs_selected = 0;
             } else if app.active_view == ActiveView::Sync {
                 app.sync_view.remotes_selected = 0;
+            } else if app.active_view == ActiveView::Personas {
+                app.personas_selected = 0;
             } else {
                 app.selected_index = 0;
             }
@@ -435,6 +444,11 @@ fn handle_key(app: &mut AppState, key: KeyEvent) -> (bool, Option<Action>) {
                 if len > 0 {
                     app.sync_view.remotes_selected = len - 1;
                 }
+            } else if app.active_view == ActiveView::Personas {
+                let len = app.all_personas.len();
+                if len > 0 {
+                    app.personas_selected = len - 1;
+                }
             } else {
                 let len = app.recent_tasks.len();
                 app.select_bottom_of(len);
@@ -461,6 +475,7 @@ fn handle_key(app: &mut AppState, key: KeyEvent) -> (bool, Option<Action>) {
             } else if app.active_view == ActiveView::Adrs
                 || app.active_view == ActiveView::Contexts
                 || app.active_view == ActiveView::Theories
+                || app.active_view == ActiveView::Personas
             {
                 return (true, Some(Action::OpenEntityDetail));
             } else if app.active_view == ActiveView::Search {
@@ -471,6 +486,8 @@ fn handle_key(app: &mut AppState, key: KeyEvent) -> (bool, Option<Action>) {
             if app.show_help {
                 app.show_help = false;
             } else if app.task_detail.is_some() {
+                return (true, Some(Action::CloseDetail));
+            } else if app.persona_detail.is_some() {
                 return (true, Some(Action::CloseDetail));
             } else if app.active_view == ActiveView::Relationships
                 && app.relationship_focus == RelationshipFocus::Edges
@@ -513,7 +530,11 @@ fn handle_key(app: &mut AppState, key: KeyEvent) -> (bool, Option<Action>) {
         }
         KeyAction::NextView => app.next_view(),
         KeyAction::Char(c) => {
-            if app.active_view == ActiveView::Sync {
+            if app.active_view == ActiveView::Dashboard {
+                if c == 'p' {
+                    app.active_view = ActiveView::Personas;
+                }
+            } else if app.active_view == ActiveView::Sync {
                 match c {
                     'p' => return (true, Some(Action::SyncPull)),
                     'u' => return (true, Some(Action::SyncPush)),
@@ -696,6 +717,12 @@ fn handle_mouse(app: &mut AppState, mouse: crossterm::event::MouseEvent) -> (boo
                         let len = app.sync_view.remotes.len();
                         if item_idx < len {
                             app.sync_view.remotes_selected = item_idx;
+                        }
+                    }
+                    ActiveView::Personas => {
+                        let len = app.all_personas.len();
+                        if item_idx < len {
+                            app.personas_selected = item_idx;
                         }
                     }
                 }

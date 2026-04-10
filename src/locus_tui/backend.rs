@@ -6,7 +6,7 @@
 
 use crate::entities::{
     AgentSandbox, Compliance, Context, DoraMetricsReport, EntityRelationship, EscalationRequest,
-    ExecutionResult, Knowledge, ProgressiveGateConfig, Reasoning, Rule, Session, Standard,
+    ExecutionResult, Knowledge, Persona, ProgressiveGateConfig, Reasoning, Rule, Session, Standard,
     StateReflection, Task, Theory, Workflow, WorkflowInstance, ADR,
 };
 use crate::error::EngramError;
@@ -36,6 +36,7 @@ pub trait LocusTuiBackend: Send {
     fn list_sandboxes(&self) -> Result<Vec<AgentSandbox>, EngramError>;
     fn list_execution_results(&self) -> Result<Vec<ExecutionResult>, EngramError>;
     fn list_progressive_configs(&self) -> Result<Vec<ProgressiveGateConfig>, EngramError>;
+    fn list_personas(&self) -> Result<Vec<Persona>, EngramError>;
     fn list_dora_metrics_reports(&self) -> Result<Vec<DoraMetricsReport>, EngramError>;
     fn update_adr_status(
         &mut self,
@@ -227,6 +228,14 @@ impl<S: Storage + RelationshipStorage + Send> LocusTuiBackend for EngramBackend<
         Ok(entities
             .into_iter()
             .filter_map(|e| serde_json::from_value::<ProgressiveGateConfig>(e.data).ok())
+            .collect())
+    }
+
+    fn list_personas(&self) -> Result<Vec<Persona>, EngramError> {
+        let entities = self.storage.get_all("persona")?;
+        Ok(entities
+            .into_iter()
+            .filter_map(|e| serde_json::from_value::<Persona>(e.data).ok())
             .collect())
     }
 

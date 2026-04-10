@@ -173,18 +173,26 @@ engram next
 
 ## Features
 
-- **Tasks** — Hierarchical work items with priority, status, and parent/child linking
+- **Tasks** — Hierarchical work items with priority, status, archiving, and parent/child linking
 - **Context** — Background info, docs, code snippets, linked to tasks
 - **Reasoning** — Decision logs and thought processes, linked to tasks and context
 - **Relationships** — Typed graph edges connecting any two entities
+- **Knowledge** — Typed reusable patterns that transcend individual tasks
 - **ADRs** — Architecture Decision Records with numbered sequence
 - **Theory Building** — Capture mental models (Naur, 1985): concepts, mappings, invariants
 - **State Reflection** — Detect when theory conflicts with reality
-- **Workflows** — State machines with transitions and guards
-- **Sessions** — Work periods with theory binding
-- **Skills** — Embedded agent playbooks installed to your LLM tool
-- **Validation** — Quality gates and commit-message enforcement
-- **NLQ** — Natural language queries via `engram ask query`
+- **Workflows** — State machines with transitions, guards, side-effects, and commit policies
+- **Sessions** — Work periods with theory binding, summaries, zombie detection
+- **Skills** — Auto-discovered agent playbooks installed to your LLM tool
+- **Validation** — Consolidated quality gates and commit-message enforcement
+- **NLQ** — Natural language queries with deep graph walk via `engram ask query`
+- **Sync** — Multi-agent coordination via `refs/engram/*` with conflict resolution
+- **Health** — Workspace diagnostics, consistency checks, orphan detection
+- **Doc** — Entity documentation, CLI reference, and mdBook generation
+- **Analytics** — DORA metrics, task duration reports, workflow analytics
+- **Personas & Lessons** — Structured expert prompting with CoV/FAP/OV methodology
+- **Locus TUI** — Terminal UI for browsing entities, sync, contexts, ADRs, and theories
+- **Escalation** — Permission management with create/approve/deny workflow
 
 ---
 

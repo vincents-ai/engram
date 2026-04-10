@@ -212,6 +212,7 @@ impl<S: Storage + RelationshipStorage + Send + 'static> LocusTuiApp<S> {
             self.backend.list_execution_results().unwrap_or_default();
         self.app_state.all_progressive_configs =
             self.backend.list_progressive_configs().unwrap_or_default();
+        self.app_state.all_personas = self.backend.list_personas().unwrap_or_default();
 
         let dora_reports = self.backend.list_dora_metrics_reports().unwrap_or_default();
         self.app_state.analytics_view.populate_dora(&dora_reports);
@@ -251,7 +252,11 @@ impl<S: Storage + RelationshipStorage + Send + 'static> LocusTuiApp<S> {
                 self.app_state.open_task_detail();
             }
             Action::CloseDetail => {
-                self.app_state.close_task_detail();
+                if self.app_state.persona_detail.is_some() {
+                    self.app_state.close_persona_detail();
+                } else {
+                    self.app_state.close_task_detail();
+                }
             }
             Action::CycleTaskStatus => {
                 self.cycle_selected_task_status();
@@ -274,10 +279,12 @@ impl<S: Storage + RelationshipStorage + Send + 'static> LocusTuiApp<S> {
                 self.app_state.run_search();
             }
             Action::OpenEntityDetail => {
-                // Set a status message describing the selected entity.
-                // Full detail is rendered by ui.rs based on active view + selected index.
-                self.app_state
-                    .set_status("Press Esc to go back".to_string());
+                if self.app_state.active_view == crate::locus_tui::app::ActiveView::Personas {
+                    self.app_state.open_persona_detail();
+                } else {
+                    self.app_state
+                        .set_status("Press Esc to go back".to_string());
+                }
             }
             Action::OpenSearchResult => {
                 if let Some(result) = self
