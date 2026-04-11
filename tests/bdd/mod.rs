@@ -682,6 +682,9 @@ impl EngramWorld {
             tags: Vec::new(),
             related_entities: Vec::new(),
             metadata: std::collections::HashMap::new(),
+            last_accessed_at: None,
+            citation_count: 0,
+            decay_weight: 1.0,
         };
 
         let mut result = Ok(());
@@ -741,12 +744,15 @@ impl EngramWorld {
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),
             source: Some("test".to_string()),
+            bounded_context: None,
             related_knowledge: Vec::new(),
             tags: Vec::new(),
             contexts: Vec::new(),
             usage_count: 0,
             last_used: None,
             metadata: std::collections::HashMap::new(),
+            decay_weight: 1.0,
+            citation_count: 0,
         };
 
         let mut result = Ok(());
@@ -799,7 +805,7 @@ impl EngramWorld {
                 .clone()
                 .unwrap_or_else(|| "default".to_string()),
         );
-        reasoning.add_step(description.to_string(), conclusion.to_string(), 0.8);
+        reasoning.add_step_simple(description.to_string(), conclusion.to_string(), 0.8);
         reasoning.set_conclusion(conclusion.to_string(), 0.8);
 
         let reasoning_id = reasoning.id.clone();

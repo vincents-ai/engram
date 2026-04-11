@@ -30,12 +30,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         task.id.clone(),
         "demo-agent".to_string(),
     );
-    reasoning.add_step(
+    reasoning.add_step_simple(
         "Evaluate authentication options".to_string(),
         "JWT provides stateless authentication".to_string(),
         0.85,
     );
-    reasoning.add_step(
+    reasoning.add_step_simple(
         "Compare JWT vs OAuth2".to_string(),
         "JWT simpler for our use case".to_string(),
         0.9,

@@ -2076,6 +2076,9 @@ mod tests {
             tags: Vec::new(),
             related_entities: Vec::new(),
             metadata: std::collections::HashMap::new(),
+            last_accessed_at: None,
+            citation_count: 0,
+            decay_weight: 1.0,
         }
         .to_generic()
     }

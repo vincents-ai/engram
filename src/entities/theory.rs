@@ -551,7 +551,8 @@ mod tests {
         theory.add_invariant("User email must be unique".to_string());
         assert!(theory
             .invariants
-            .contains(&"User email must be unique".to_string()));
+            .iter()
+            .any(|i| i.description == "User email must be unique"));
     }
 
     #[test]

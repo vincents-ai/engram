@@ -149,7 +149,7 @@ mod tests {
                 "Entity".to_string(),
                 "Typed data blob stored in git objects".to_string(),
             );
-            t1.add_rationale(
+            t1.add_rationale_simple(
                 "Use git for storage".to_string(),
                 "Git provides free versioning and auditability".to_string(),
             );

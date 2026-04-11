@@ -1008,7 +1008,6 @@ mod tests {
             false,
             None,
             None,
-            None,
         );
         assert!(result.is_ok());
 
@@ -1041,7 +1040,6 @@ mod tests {
             false,
             None,
             None,
-            None,
         );
         assert!(matches!(result, Err(EngramError::Validation(_))));
 
@@ -1059,7 +1057,6 @@ mod tests {
             false,
             None,
             false,
-            None,
             None,
             None,
         );
@@ -1084,7 +1081,6 @@ mod tests {
             false,
             None,
             None,
-            None,
         )
         .unwrap();
 
@@ -1102,6 +1098,9 @@ mod tests {
             false,
             None,
             false,
+            None,
+            None,
+            None,
             None,
         );
         assert!(result.is_ok());
@@ -1129,7 +1128,6 @@ mod tests {
             false,
             None,
             false,
-            None,
             None,
             None,
         )
@@ -1174,7 +1172,6 @@ mod tests {
             false,
             None,
             None,
-            None,
         )
         .unwrap();
 
@@ -1202,6 +1199,9 @@ mod tests {
             None,
             false,
             None,
+            None,
+            None,
+            None,
         );
         assert!(matches!(result, Err(EngramError::NotFound(_))));
     }
@@ -1224,7 +1224,6 @@ mod tests {
             false,
             None,
             None,
-            None,
         )
         .unwrap();
 
@@ -1242,6 +1241,9 @@ mod tests {
             false,
             None,
             false,
+            None,
+            None,
+            None,
             None,
         );
         assert!(matches!(result, Err(EngramError::Validation(_))));
@@ -1265,7 +1267,6 @@ mod tests {
             false,
             None,
             None,
-            None,
         )
         .unwrap();
 
@@ -1283,6 +1284,9 @@ mod tests {
             false,
             None,
             false,
+            None,
+            None,
+            None,
             None,
         );
         assert!(matches!(result, Err(EngramError::Validation(_))));
@@ -1318,7 +1322,6 @@ mod tests {
             false,
             None,
             false,
-            None,
             None,
             None,
         )
@@ -1372,7 +1375,6 @@ mod tests {
             false,
             None,
             None,
-            None,
         )
         .unwrap();
 
@@ -1389,7 +1391,6 @@ mod tests {
             false,
             None,
             false,
-            None,
             None,
             None,
         )
@@ -1423,7 +1424,6 @@ mod tests {
             false,
             None,
             None,
-            None,
         )
         .unwrap();
 
@@ -1451,7 +1451,6 @@ mod tests {
             false,
             None,
             false,
-            None,
             None,
             None,
         );
