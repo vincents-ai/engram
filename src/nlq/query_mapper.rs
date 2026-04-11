@@ -447,12 +447,13 @@ impl QueryMapper {
                     || t.conceptual_model.iter().any(|(k, v)| {
                         k.to_lowercase().contains(&query) || v.to_lowercase().contains(&query)
                     })
-                    || t.design_rationale.iter().any(|(k, v)| {
-                        k.to_lowercase().contains(&query) || v.to_lowercase().contains(&query)
+                    || t.design_rationale.iter().any(|d| {
+                        d.decision.to_lowercase().contains(&query) 
+                            || d.rationale.to_lowercase().contains(&query)
                     })
                     || t.invariants
                         .iter()
-                        .any(|i| i.to_lowercase().contains(&query));
+                        .any(|i| i.description.to_lowercase().contains(&query));
                 if matches {
                     matching_theories.push(json!({
                         "id": t.id,

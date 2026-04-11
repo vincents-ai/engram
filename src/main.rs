@@ -548,6 +548,9 @@ fn handle_reasoning_command<S: engram::storage::Storage>(
             description_file,
             conclusion_stdin,
             conclusion_file,
+            ibis_type,
+            ibis_polarity,
+            parent_step,
         } => {
             cli::add_reasoning_step(
                 storage,
@@ -559,6 +562,9 @@ fn handle_reasoning_command<S: engram::storage::Storage>(
                 description_file,
                 conclusion_stdin,
                 conclusion_file,
+                ibis_type,
+                ibis_polarity,
+                parent_step,
             )?;
         }
         cli::ReasoningCommands::Conclude {
@@ -598,6 +604,38 @@ fn handle_reasoning_command<S: engram::storage::Storage>(
         }
         cli::ReasoningCommands::Delete { id } => {
             cli::delete_reasoning(storage, &id)?;
+        }
+        cli::ReasoningCommands::Log {
+            reasoning_id,
+            event_type,
+            content,
+        } => {
+            cli::log_reasoning_event(
+                storage,
+                &reasoning_id,
+                event_type,
+                content,
+            )?;
+        }
+        cli::ReasoningCommands::Search {
+            ibis_type,
+            polarity,
+            keyword,
+            agent,
+            task_id,
+            limit,
+            all,
+        } => {
+            cli::search_reasoning(
+                storage,
+                ibis_type,
+                polarity,
+                keyword,
+                agent.as_deref(),
+                task_id.as_deref(),
+                limit,
+                all,
+            )?;
         }
     }
     Ok(())
@@ -1885,6 +1923,7 @@ fn handle_reflection_command<S: engram::storage::Storage>(
             context,
             observed,
             trigger_type,
+            loop_type,
             agent,
             json,
             json_file,
@@ -1895,6 +1934,7 @@ fn handle_reflection_command<S: engram::storage::Storage>(
                 Some(context),
                 Some(observed),
                 trigger_type,
+                loop_type,
                 agent,
                 json,
                 json_file,

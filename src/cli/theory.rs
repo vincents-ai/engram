@@ -122,7 +122,7 @@ fn create_theory_from_input<S: Storage>(
     }
 
     for (decision, reason) in input.design_rationale {
-        theory.add_rationale(decision, reason);
+        theory.add_rationale_simple(decision, reason);
     }
 
     for invariant in input.invariants {
@@ -321,8 +321,8 @@ pub fn show_theory<S: Storage>(
 
     if !theory.design_rationale.is_empty() {
         println!("\nDesign Rationale:");
-        for (decision, reason) in &theory.design_rationale {
-            println!("  {}: {}", decision, reason);
+        for decision in &theory.design_rationale {
+            println!("  {}: {}", decision.decision, decision.rationale);
         }
     }
 
@@ -391,7 +391,7 @@ pub fn update_theory<S: Storage>(
                 "Rationale must be in format 'decision:reason'".to_string(),
             ));
         }
-        theory.add_rationale(parts[0].trim().to_string(), parts[1].trim().to_string());
+        theory.add_rationale_simple(parts[0].trim().to_string(), parts[1].trim().to_string());
     }
 
     if let Some(invariant_str) = invariant {

@@ -47,6 +47,10 @@ pub enum StateReflectionCommands {
         #[arg(long)]
         trigger_type: Option<String>,
 
+        /// Reflection loop type (single_loop or double_loop)
+        #[arg(long, value_enum)]
+        loop_type: Option<crate::entities::state_reflection::ReflectionLoopType>,
+
         /// Agent name
         #[arg(long, short)]
         agent: Option<String>,
@@ -180,6 +184,7 @@ pub fn create_reflection<S: Storage>(
     trigger_context_id: Option<String>,
     observed_state: Option<String>,
     trigger_type: Option<String>,
+    loop_type: Option<crate::entities::state_reflection::ReflectionLoopType>,
     agent: Option<String>,
     json: bool,
     json_file: Option<String>,
@@ -232,6 +237,10 @@ pub fn create_reflection<S: Storage>(
 
         if let Some(tt) = trigger_type {
             reflection.trigger_type = Some(parse_trigger_type(&tt)?);
+        }
+
+        if let Some(lt) = loop_type {
+            reflection.loop_type = Some(lt);
         }
 
         reflection
@@ -538,6 +547,7 @@ mod tests {
             Some("task-1".to_string()),
             Some("Test failed".to_string()),
             Some("test_failure".to_string()),
+            None, // loop_type
             Some("the-forensic".to_string()),
             false,
             None,
@@ -557,7 +567,8 @@ mod tests {
             Some("task-1".to_string()),
             Some("Error".to_string()),
             None,
-            None,
+            None, // loop_type
+            None, // agent
             false,
             None,
         )
@@ -583,7 +594,8 @@ mod tests {
             Some("task-1".to_string()),
             Some("Error".to_string()),
             None,
-            None,
+            None, // loop_type
+            None, // agent
             false,
             None,
         )
@@ -610,7 +622,8 @@ mod tests {
             Some("task-1".to_string()),
             Some("Error".to_string()),
             None,
-            None,
+            None, // loop_type
+            None, // agent
             false,
             None,
         )
@@ -636,6 +649,7 @@ mod tests {
             Some("task-1".to_string()),
             Some("Error".to_string()),
             None,
+            None, // loop_type
             None,
             false,
             None,

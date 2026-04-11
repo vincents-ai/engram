@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use uuid::Uuid;
 use validator::Validate;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, schemars::JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, schemars::JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum IBISNodeType {
     Question,
@@ -16,6 +16,44 @@ pub enum IBISNodeType {
     Con,
     Reference,
     Note,
+}
+
+impl clap::ValueEnum for IBISNodeType {
+    fn value_variants<'a>() -> &'a [Self] {
+        &[Self::Question, Self::Idea, Self::Pro, Self::Con, Self::Reference, Self::Note]
+    }
+
+    fn to_possible_value(&self) -> Option<clap::builder::PossibleValue> {
+        Some(match self {
+            Self::Question => clap::builder::PossibleValue::new("question"),
+            Self::Idea => clap::builder::PossibleValue::new("idea"),
+            Self::Pro => clap::builder::PossibleValue::new("pro"),
+            Self::Con => clap::builder::PossibleValue::new("con"),
+            Self::Reference => clap::builder::PossibleValue::new("reference"),
+            Self::Note => clap::builder::PossibleValue::new("note"),
+        })
+    }
+}
+
+/// IBIS polarity (Pro/Con position)
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, schemars::JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum IbisPolarity {
+    Pro,
+    Con,
+}
+
+impl clap::ValueEnum for IbisPolarity {
+    fn value_variants<'a>() -> &'a [Self] {
+        &[Self::Pro, Self::Con]
+    }
+
+    fn to_possible_value(&self) -> Option<clap::builder::PossibleValue> {
+        Some(match self {
+            Self::Pro => clap::builder::PossibleValue::new("pro"),
+            Self::Con => clap::builder::PossibleValue::new("con"),
+        })
+    }
 }
 
 /// Step in a reasoning chain
@@ -44,6 +82,18 @@ pub struct ReasoningStep {
     /// Step timestamp
     #[serde(rename = "timestamp")]
     pub timestamp: DateTime<Utc>,
+
+    /// IBIS node type (Question, Idea, Pro, Con, Reference, Note)
+    #[serde(rename = "ibis_type", skip_serializing_if = "Option::is_none", default)]
+    pub ibis_type: Option<IBISNodeType>,
+
+    /// IBIS polarity (Pro/Con position)
+    #[serde(rename = "ibis_polarity", skip_serializing_if = "Option::is_none", default)]
+    pub ibis_polarity: Option<IbisPolarity>,
+
+    /// Parent step ID for IBIS hierarchy
+    #[serde(rename = "parent_step_id", skip_serializing_if = "Option::is_none", default)]
+    pub parent_step_id: Option<String>,
 }
 
 /// Reasoning chain entity
@@ -150,8 +200,16 @@ impl Reasoning {
         }
     }
 
-    /// Add a reasoning step
-    pub fn add_step(&mut self, description: String, conclusion: String, confidence: f64) {
+    /// Add a reasoning step with IBIS metadata
+    pub fn add_step(
+        &mut self,
+        description: String,
+        conclusion: String,
+        confidence: f64,
+        ibis_type: Option<IBISNodeType>,
+        ibis_polarity: Option<IbisPolarity>,
+        parent_step_id: Option<String>,
+    ) {
         let step = ReasoningStep {
             id: Uuid::new_v4().to_string(),
             description,
@@ -159,9 +217,17 @@ impl Reasoning {
             evidence: Vec::new(),
             confidence: confidence.clamp(0.0, 1.0),
             timestamp: Utc::now(),
+            ibis_type,
+            ibis_polarity,
+            parent_step_id,
         };
         self.steps.push(step);
         self.recalculate_confidence();
+    }
+
+    /// Add a reasoning step (backwards compatible)
+    pub fn add_step_simple(&mut self, description: String, conclusion: String, confidence: f64) {
+        self.add_step(description, conclusion, confidence, None, None, None);
     }
 
     /// Add evidence to the last step
@@ -284,7 +350,7 @@ mod tests {
         assert_eq!(reasoning.confidence, 0.0);
 
         // Add step
-        reasoning.add_step("Step 1".to_string(), "Conclusion 1".to_string(), 0.8);
+        reasoning.add_step_simple("Step 1".to_string(), "Conclusion 1".to_string(), 0.8);
         assert_eq!(reasoning.steps.len(), 1);
         assert_eq!(reasoning.confidence, 0.8);
 
@@ -293,7 +359,7 @@ mod tests {
         assert_eq!(reasoning.steps[0].evidence.len(), 1);
 
         // Add second step
-        reasoning.add_step("Step 2".to_string(), "Conclusion 2".to_string(), 0.6);
+        reasoning.add_step_simple("Step 2".to_string(), "Conclusion 2".to_string(), 0.6);
         // Average confidence: (0.8 + 0.6) / 2 = 0.7
         assert_eq!(reasoning.confidence, 0.7);
 

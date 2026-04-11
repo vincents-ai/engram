@@ -62,6 +62,10 @@ pub struct Knowledge {
     #[serde(rename = "source", skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,
 
+    /// Bounded context scope for this knowledge (None = global scope)
+    #[serde(rename = "bounded_context", skip_serializing_if = "Option::is_none", default)]
+    pub bounded_context: Option<String>,
+
     /// Related knowledge IDs
     #[serde(
         rename = "related_knowledge",
@@ -121,6 +125,7 @@ impl Knowledge {
             created_at: now,
             updated_at: now,
             source: None,
+            bounded_context: None,
             related_knowledge: Vec::new(),
             tags: Vec::new(),
             contexts: Vec::new(),

@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use uuid::Uuid;
 use validator::Validate;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ReasoningEventType {
     Created,
@@ -14,6 +14,23 @@ pub enum ReasoningEventType {
     EvidenceAdded,
     CounterEvidence,
     AssumptionChallenged,
+}
+
+impl clap::ValueEnum for ReasoningEventType {
+    fn value_variants<'a>() -> &'a [Self] {
+        &[Self::Created, Self::StatusChanged, Self::ConclusionReached, Self::EvidenceAdded, Self::CounterEvidence, Self::AssumptionChallenged]
+    }
+
+    fn to_possible_value(&self) -> Option<clap::builder::PossibleValue> {
+        Some(match self {
+            Self::Created => clap::builder::PossibleValue::new("created"),
+            Self::StatusChanged => clap::builder::PossibleValue::new("status_changed"),
+            Self::ConclusionReached => clap::builder::PossibleValue::new("conclusion_reached"),
+            Self::EvidenceAdded => clap::builder::PossibleValue::new("evidence_added"),
+            Self::CounterEvidence => clap::builder::PossibleValue::new("counter_evidence"),
+            Self::AssumptionChallenged => clap::builder::PossibleValue::new("assumption_challenged"),
+        })
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Validate)]

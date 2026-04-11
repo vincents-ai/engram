@@ -72,6 +72,14 @@ pub struct StateReflection {
     )]
     pub trigger_type: Option<TriggerType>,
 
+    /// Reflection loop type (single-loop or double-loop learning)
+    #[serde(
+        rename = "loop_type",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
+    pub loop_type: Option<ReflectionLoopType>,
+
     /// Whether this reflection has been resolved (theory updated)
     #[serde(rename = "resolved", skip_serializing_if = "Option::is_none", default)]
     pub resolved: Option<bool>,
@@ -83,6 +91,14 @@ pub struct StateReflection {
         default
     )]
     pub resolved_theory_id: Option<String>,
+
+    /// ID of the broken invariant that triggered this reflection (if applicable)
+    #[serde(
+        rename = "broken_invariant_id",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
+    pub broken_invariant_id: Option<String>,
 
     /// Additional metadata
     #[serde(
@@ -115,6 +131,29 @@ pub enum TriggerType {
     SecurityConcern,
 }
 
+/// Reflection loop type for double-loop learning
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ReflectionLoopType {
+    /// Single-loop: adjust actions within existing theory
+    SingleLoop,
+    /// Double-loop: challenge and modify the underlying theory
+    DoubleLoop,
+}
+
+impl clap::ValueEnum for ReflectionLoopType {
+    fn value_variants<'a>() -> &'a [Self] {
+        &[Self::SingleLoop, Self::DoubleLoop]
+    }
+
+    fn to_possible_value(&self) -> Option<clap::builder::PossibleValue> {
+        Some(match self {
+            Self::SingleLoop => clap::builder::PossibleValue::new("single_loop"),
+            Self::DoubleLoop => clap::builder::PossibleValue::new("double_loop"),
+        })
+    }
+}
+
 impl StateReflection {
     /// Create a new state reflection
     pub fn new(
@@ -134,8 +173,10 @@ impl StateReflection {
             agent,
             timestamp: Utc::now(),
             trigger_type: None,
+            loop_type: None,
             resolved: None,
             resolved_theory_id: None,
+            broken_invariant_id: None,
             metadata: HashMap::new(),
         }
     }
@@ -184,6 +225,13 @@ impl StateReflection {
             s if s > 0.0 => Severity::Low,
             _ => Severity::None,
         }
+    }
+
+    /// Check if this is an unresolved double-loop reflection
+    /// Double-loop reflections indicate theory-level issues that may block progress
+    pub fn is_unresolved_double_loop(&self) -> bool {
+        self.loop_type == Some(ReflectionLoopType::DoubleLoop) 
+            && self.resolved != Some(true)
     }
 }
 

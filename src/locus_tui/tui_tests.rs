@@ -100,6 +100,9 @@ mod tests {
                 "Compare burst tolerance".to_string(),
                 "Token bucket allows short bursts".to_string(),
                 0.88,
+                None,
+                None,
+                None,
             );
 
             Ok(vec![r1, r2])

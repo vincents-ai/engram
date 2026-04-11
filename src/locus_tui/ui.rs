@@ -996,8 +996,8 @@ fn draw_theories_view(
 
             if !theory.design_rationale.is_empty() {
                 lines.push("Design Rationale:".to_string());
-                for (k, v) in &theory.design_rationale {
-                    lines.push(format!("  {}: {}", k, v));
+                for decision in &theory.design_rationale {
+                    lines.push(format!("  {}: {}", decision.decision, decision.rationale));
                 }
                 lines.push(String::new());
             }

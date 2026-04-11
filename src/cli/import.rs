@@ -337,7 +337,14 @@ fn import_file<S: Storage + RelationshipStorage>(
         );
 
         if !reasoning.content.is_empty() {
-            reasoning_entity.add_step(reasoning.content.clone(), reasoning.title.clone(), 0.5);
+            reasoning_entity.add_step(
+                reasoning.content.clone(),
+                reasoning.title.clone(),
+                0.5,
+                None,
+                None,
+                None,
+            );
         }
 
         let generic = reasoning_entity.to_generic();

@@ -11,6 +11,166 @@ use std::collections::HashMap;
 use uuid::Uuid;
 use validator::Validate;
 
+/// Cost level for reversing a design decision
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ReversalCost {
+    Low,
+    Medium,
+    High,
+}
+
+impl clap::ValueEnum for ReversalCost {
+    fn value_variants<'a>() -> &'a [Self] {
+        &[Self::Low, Self::Medium, Self::High]
+    }
+
+    fn to_possible_value(&self) -> Option<clap::builder::PossibleValue> {
+        Some(match self {
+            Self::Low => clap::builder::PossibleValue::new("low"),
+            Self::Medium => clap::builder::PossibleValue::new("medium"),
+            Self::High => clap::builder::PossibleValue::new("high"),
+        })
+    }
+}
+
+/// A structured design decision with rationale
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, schemars::JsonSchema)]
+pub struct DesignDecision {
+    /// The decision that was made
+    #[serde(rename = "decision")]
+    pub decision: String,
+
+    /// Why this decision was made
+    #[serde(rename = "rationale")]
+    pub rationale: String,
+
+    /// Alternative approaches that were considered and rejected
+    #[serde(rename = "alternatives_discarded", skip_serializing_if = "Vec::is_empty", default)]
+    pub alternatives_discarded: Vec<String>,
+
+    /// How difficult it would be to reverse this decision
+    #[serde(rename = "reversal_cost")]
+    pub reversal_cost: ReversalCost,
+
+    /// Who made or approved this decision
+    #[serde(rename = "stakeholder", skip_serializing_if = "Option::is_none", default)]
+    pub stakeholder: Option<String>,
+}
+
+impl DesignDecision {
+    /// Create a new design decision
+    pub fn new(decision: String, rationale: String, reversal_cost: ReversalCost) -> Self {
+        Self {
+            decision,
+            rationale,
+            alternatives_discarded: Vec::new(),
+            reversal_cost,
+            stakeholder: None,
+        }
+    }
+
+    /// Add an alternative that was discarded
+    pub fn add_alternative(&mut self, alternative: String) {
+        self.alternatives_discarded.push(alternative);
+    }
+}
+
+/// Type of invariant
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum InvariantType {
+    Assertion,
+    Constraint,
+    Precondition,
+    Postcondition,
+    Invariant,
+}
+
+impl clap::ValueEnum for InvariantType {
+    fn value_variants<'a>() -> &'a [Self] {
+        &[Self::Assertion, Self::Constraint, Self::Precondition, Self::Postcondition, Self::Invariant]
+    }
+
+    fn to_possible_value(&self) -> Option<clap::builder::PossibleValue> {
+        Some(match self {
+            Self::Assertion => clap::builder::PossibleValue::new("assertion"),
+            Self::Constraint => clap::builder::PossibleValue::new("constraint"),
+            Self::Precondition => clap::builder::PossibleValue::new("precondition"),
+            Self::Postcondition => clap::builder::PossibleValue::new("postcondition"),
+            Self::Invariant => clap::builder::PossibleValue::new("invariant"),
+        })
+    }
+}
+
+/// A structured invariant with type and optional Gherkin scenario linkage
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, schemars::JsonSchema)]
+pub struct Invariant {
+    /// Unique identifier for this invariant
+    #[serde(rename = "id")]
+    pub id: String,
+
+    /// Description of the invariant
+    #[serde(rename = "description")]
+    pub description: String,
+
+    /// Type of invariant
+    #[serde(rename = "invariant_type")]
+    pub invariant_type: InvariantType,
+
+    /// Optional Gherkin scenario that tests this invariant
+    #[serde(rename = "gherkin_scenario", skip_serializing_if = "Option::is_none", default)]
+    pub gherkin_scenario: Option<String>,
+}
+
+impl std::fmt::Display for Invariant {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.description)
+    }
+}
+
+impl Invariant {
+    /// Create a new invariant
+    pub fn new(description: String, invariant_type: InvariantType) -> Self {
+        Self {
+            id: Uuid::new_v4().to_string(),
+            description,
+            invariant_type,
+            gherkin_scenario: None,
+        }
+    }
+
+    /// Create from a simple string (backwards compatible)
+    pub fn from_string(s: String) -> Self {
+        Self::new(s, InvariantType::Assertion)
+    }
+}
+
+/// C4 model abstraction level
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum C4Level {
+    Context,
+    Container,
+    Component,
+    Code,
+}
+
+impl clap::ValueEnum for C4Level {
+    fn value_variants<'a>() -> &'a [Self] {
+        &[Self::Context, Self::Container, Self::Component, Self::Code]
+    }
+
+    fn to_possible_value(&self) -> Option<clap::builder::PossibleValue> {
+        Some(match self {
+            Self::Context => clap::builder::PossibleValue::new("context"),
+            Self::Container => clap::builder::PossibleValue::new("container"),
+            Self::Component => clap::builder::PossibleValue::new("component"),
+            Self::Code => clap::builder::PossibleValue::new("code"),
+        })
+    }
+}
+
 /// Represents an agent's internal theory of the system
 ///
 /// A theory goes beyond context; it explicitly maps the domain model to the
@@ -34,13 +194,25 @@ pub struct Theory {
     #[serde(rename = "system_mapping")]
     pub system_mapping: HashMap<String, String>,
 
-    /// The "Why": Justifications for why the system is mapped this way
-    #[serde(rename = "design_rationale")]
-    pub design_rationale: HashMap<String, String>,
+    /// The "Why": Structured design decisions with rationale
+    #[serde(rename = "design_rationale", skip_serializing_if = "Vec::is_empty", default)]
+    pub design_rationale: Vec<DesignDecision>,
 
     /// Known invariant truths about this system state
     #[serde(rename = "invariants", skip_serializing_if = "Vec::is_empty", default)]
-    pub invariants: Vec<String>,
+    pub invariants: Vec<Invariant>,
+
+    /// C4 model abstraction level (Context, Container, Component, Code)
+    #[serde(rename = "c4_level", skip_serializing_if = "Option::is_none", default)]
+    pub c4_level: Option<C4Level>,
+
+    /// Parent theory ID for hierarchical theories
+    #[serde(rename = "parent_theory_id", skip_serializing_if = "Option::is_none", default)]
+    pub parent_theory_id: Option<String>,
+
+    /// Bounded context scope for this theory (None = global scope)
+    #[serde(rename = "bounded_context", skip_serializing_if = "Option::is_none", default)]
+    pub bounded_context: Option<String>,
 
     /// Associated agent
     #[serde(rename = "agent")]
@@ -88,8 +260,11 @@ impl Theory {
             domain_name,
             conceptual_model: HashMap::new(),
             system_mapping: HashMap::new(),
-            design_rationale: HashMap::new(),
+            design_rationale: Vec::new(),
             invariants: Vec::new(),
+            c4_level: None,
+            parent_theory_id: None,
+            bounded_context: None,
             agent,
             created_at: now,
             last_updated: now,
@@ -119,15 +294,41 @@ impl Theory {
         self.touch();
     }
 
-    /// Add design rationale for a decision
-    pub fn add_rationale(&mut self, decision: String, reason: String) {
-        self.design_rationale.insert(decision, reason);
+    /// Add a design decision with full rationale
+    pub fn add_rationale(
+        &mut self,
+        decision: String,
+        rationale: String,
+        reversal_cost: ReversalCost,
+        alternatives: Vec<String>,
+        stakeholder: Option<String>,
+    ) {
+        let mut design_decision = DesignDecision::new(decision, rationale, reversal_cost);
+        design_decision.alternatives_discarded = alternatives;
+        design_decision.stakeholder = stakeholder;
+        self.design_rationale.push(design_decision);
+        self.touch();
+    }
+
+    /// Add a simple rationale (backwards compatible)
+    pub fn add_rationale_simple(&mut self, decision: String, reason: String) {
+        let design_decision = DesignDecision::new(decision, reason, ReversalCost::Medium);
+        self.design_rationale.push(design_decision);
         self.touch();
     }
 
     /// Add an invariant that must hold true
-    pub fn add_invariant(&mut self, invariant: String) {
-        if !self.invariants.contains(&invariant) {
+    pub fn add_invariant(&mut self, description: String) {
+        let invariant = Invariant::new(description, InvariantType::Assertion);
+        if !self.invariants.iter().any(|i| i.description == invariant.description) {
+            self.invariants.push(invariant);
+            self.touch();
+        }
+    }
+
+    /// Add a structured invariant
+    pub fn add_invariant_struct(&mut self, invariant: Invariant) {
+        if !self.invariants.iter().any(|i| i.id == invariant.id) {
             self.invariants.push(invariant);
             self.touch();
         }
@@ -275,11 +476,11 @@ mod tests {
         );
         assert_eq!(theory.iteration_count, 3);
 
-        theory.add_rationale(
+        theory.add_rationale_simple(
             "Use PostgreSQL".to_string(),
             "ACID compliance required for financial data".to_string(),
         );
-        assert!(theory.design_rationale.contains_key("Use PostgreSQL"));
+        assert!(theory.design_rationale.iter().any(|d| d.decision == "Use PostgreSQL"));
 
         theory.add_invariant("User email must be unique".to_string());
         assert!(theory

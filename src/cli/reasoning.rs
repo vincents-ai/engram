@@ -103,6 +103,18 @@ pub enum ReasoningCommands {
         /// Read conclusion from file
         #[arg(long, conflicts_with_all = ["conclusion", "conclusion_stdin"])]
         conclusion_file: Option<String>,
+
+        /// IBIS node type (question, idea, pro, con, reference, note)
+        #[arg(long, value_enum)]
+        ibis_type: Option<crate::entities::reasoning::IBISNodeType>,
+
+        /// IBIS polarity (pro, con)
+        #[arg(long, value_enum)]
+        ibis_polarity: Option<crate::entities::reasoning::IbisPolarity>,
+
+        /// Parent step ID for IBIS hierarchy
+        #[arg(long)]
+        parent_step: Option<String>,
     },
     /// Set final conclusion
     Conclude {
@@ -159,6 +171,50 @@ pub enum ReasoningCommands {
         /// Reasoning ID
         #[arg(help = "Reasoning ID to delete")]
         id: String,
+    },
+    /// Search reasoning chains by IBIS type, polarity, or keyword
+    Search {
+        /// Filter by IBIS node type
+        #[arg(long, value_enum)]
+        ibis_type: Option<crate::entities::reasoning::IBISNodeType>,
+
+        /// Filter by IBIS polarity (pro, con)
+        #[arg(long, value_enum)]
+        polarity: Option<crate::entities::reasoning::IbisPolarity>,
+
+        /// Keyword to search in title and steps
+        #[arg(long, short)]
+        keyword: Option<String>,
+
+        /// Filter by agent
+        #[arg(long, short)]
+        agent: Option<String>,
+
+        /// Filter by task ID
+        #[arg(long, short)]
+        task_id: Option<String>,
+
+        /// Limit number of results
+        #[arg(long, short)]
+        limit: Option<usize>,
+
+        /// Show all results (no limit)
+        #[arg(long, conflicts_with = "limit")]
+        all: bool,
+    },
+    /// Log an event to a reasoning chain
+    Log {
+        /// Reasoning ID to log event to
+        #[arg(long)]
+        reasoning_id: String,
+
+        /// Event type
+        #[arg(long, value_enum)]
+        event_type: crate::entities::reasoning_event::ReasoningEventType,
+
+        /// Event content
+        #[arg(long, short)]
+        content: String,
     },
 }
 
@@ -300,6 +356,9 @@ pub fn add_reasoning_step<S: Storage>(
     description_file: Option<String>,
     conclusion_stdin: bool,
     conclusion_file: Option<String>,
+    ibis_type: Option<crate::entities::reasoning::IBISNodeType>,
+    ibis_polarity: Option<crate::entities::reasoning::IbisPolarity>,
+    parent_step_id: Option<String>,
 ) -> Result<(), EngramError> {
     let final_description = if description_stdin {
         read_stdin()?
@@ -339,7 +398,14 @@ pub fn add_reasoning_step<S: Storage>(
             let mut reasoning = Reasoning::from_generic(generic_entity)
                 .map_err(|e| EngramError::Validation(e.to_string()))?;
 
-            reasoning.add_step(final_description, final_conclusion, confidence);
+            reasoning.add_step(
+                final_description,
+                final_conclusion,
+                confidence,
+                ibis_type,
+                ibis_polarity,
+                parent_step_id,
+            );
 
             let updated_entity = reasoning.to_generic();
             storage.store(&updated_entity)?;
@@ -480,6 +546,106 @@ pub fn list_reasoning<S: Storage>(
     Ok(())
 }
 
+/// Search reasoning by IBIS type, polarity, or keyword
+pub fn search_reasoning<S: Storage>(
+    storage: &S,
+    ibis_type: Option<crate::entities::reasoning::IBISNodeType>,
+    polarity: Option<crate::entities::reasoning::IbisPolarity>,
+    keyword: Option<String>,
+    agent: Option<&str>,
+    task_id: Option<&str>,
+    limit: Option<usize>,
+    all: bool,
+) -> Result<(), EngramError> {
+    // Get all reasoning entities (we need to filter in-memory for complex queries)
+    let limit_val = if all { None } else { Some(limit.unwrap_or(50)) };
+    let mut filter = crate::storage::QueryFilter {
+        entity_type: Some("reasoning".to_string()),
+        agent: agent.map(|s| s.to_string()),
+        limit: limit_val,
+        ..Default::default()
+    };
+
+    if let Some(tid) = task_id {
+        filter.field_filters.insert(
+            "task_id".to_string(),
+            serde_json::Value::String(tid.to_string()),
+        );
+    }
+
+    let result = storage.query(&filter)?;
+
+    // Filter in-memory by IBIS type, polarity, and keyword
+    let matching: Vec<_> = result
+        .entities
+        .into_iter()
+        .filter_map(|e| Reasoning::from_generic(e).ok())
+        .filter(|r| {
+            // Filter by IBIS type in steps
+            if let Some(ref it) = ibis_type {
+                if !r.steps.iter().any(|s| s.ibis_type.as_ref() == Some(it)) {
+                    return false;
+                }
+            }
+            // Filter by polarity in steps
+            if let Some(ref pol) = polarity {
+                if !r.steps.iter().any(|s| s.ibis_polarity.as_ref() == Some(pol)) {
+                    return false;
+                }
+            }
+            // Filter by keyword in title or steps
+            if let Some(ref kw) = keyword {
+                let kw_lower = kw.to_lowercase();
+                if !r.title.to_lowercase().contains(&kw_lower)
+                    && !r.steps.iter().any(|s| {
+                        s.description.to_lowercase().contains(&kw_lower)
+                            || s.conclusion.to_lowercase().contains(&kw_lower)
+                    })
+                {
+                    return false;
+                }
+            }
+            true
+        })
+        .collect();
+
+    if matching.is_empty() {
+        println!("No reasoning chains found matching the criteria");
+        return Ok(());
+    }
+
+    println!(
+        "Found {} reasoning chain(s) matching: ibis_type={:?}, polarity={:?}, keyword={:?}",
+        matching.len(),
+        ibis_type,
+        polarity,
+        keyword
+    );
+
+    let mut table = create_table();
+    table.set_titles(row!["ID", "Title", "Task ID", "Steps", "IBIS Types"]);
+
+    for reasoning in matching {
+        let ibis_types: Vec<String> = reasoning
+            .steps
+            .iter()
+            .filter_map(|s| s.ibis_type.as_ref().map(|t| format!("{:?}", t)))
+            .collect();
+
+        table.add_row(row![
+            &reasoning.id[..8],
+            truncate(&reasoning.title, 35),
+            truncate(&reasoning.task_id, 15),
+            reasoning.steps.len(),
+            truncate(&ibis_types.join(", "), 20)
+        ]);
+    }
+
+    table.printstd();
+
+    Ok(())
+}
+
 pub fn show_reasoning<S: Storage>(storage: &S, id: &str) -> Result<(), EngramError> {
     let entity = storage.get(id, "reasoning")?;
 
@@ -512,6 +678,15 @@ pub fn show_reasoning<S: Storage>(storage: &S, id: &str) -> Result<(), EngramErr
                         "  Created: {}",
                         step.timestamp.format("%Y-%m-%d %H:%M:%S UTC")
                     );
+                    if let Some(ref ibis_type) = step.ibis_type {
+                        println!("  IBIS Type: {:?}", ibis_type);
+                    }
+                    if let Some(ref polarity) = step.ibis_polarity {
+                        println!("  IBIS Polarity: {:?}", polarity);
+                    }
+                    if let Some(ref parent_id) = step.parent_step_id {
+                        println!("  Parent Step: {}", parent_id);
+                    }
                     if !step.evidence.is_empty() {
                         println!("  Evidence: {}", step.evidence.join(", "));
                     }
@@ -560,6 +735,43 @@ pub fn delete_reasoning<S: Storage>(storage: &mut S, id: &str) -> Result<(), Eng
             return Err(EngramError::NotFound(format!(
                 "Reasoning with ID '{}' not found",
                 id
+            )));
+        }
+    }
+
+    Ok(())
+}
+
+/// Log an event to a reasoning chain
+pub fn log_reasoning_event<S: Storage>(
+    storage: &mut S,
+    reasoning_id: &str,
+    event_type: crate::entities::reasoning_event::ReasoningEventType,
+    content: String,
+) -> Result<(), EngramError> {
+    // Verify the reasoning exists
+    let entity = storage.get(reasoning_id, "reasoning")?;
+    match entity {
+        Some(_) => {
+            // Create the event
+            let event = crate::entities::reasoning_event::ReasoningEvent::new(
+                reasoning_id.to_string(),
+                event_type,
+                content,
+            );
+            
+            event.validate_entity()?;
+            let generic = event.to_generic();
+            storage.store(&generic)?;
+
+            println!("Event logged to reasoning '{}'", reasoning_id);
+            println!("Event ID: {}", event.id);
+            println!("Event Type: {:?}", event.event_type);
+        }
+        None => {
+            return Err(EngramError::NotFound(format!(
+                "Reasoning with ID '{}' not found",
+                reasoning_id
             )));
         }
     }

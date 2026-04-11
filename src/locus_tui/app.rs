@@ -1434,6 +1434,9 @@ mod tests {
             "Step one description".to_string(),
             "step conclusion".to_string(),
             0.8,
+            None,
+            None,
+            None,
         );
         let node = reasoning_to_node(&r);
         assert_eq!(node.content_preview, "Step one description");
