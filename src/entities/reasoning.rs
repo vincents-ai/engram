@@ -20,7 +20,14 @@ pub enum IBISNodeType {
 
 impl clap::ValueEnum for IBISNodeType {
     fn value_variants<'a>() -> &'a [Self] {
-        &[Self::Question, Self::Idea, Self::Pro, Self::Con, Self::Reference, Self::Note]
+        &[
+            Self::Question,
+            Self::Idea,
+            Self::Pro,
+            Self::Con,
+            Self::Reference,
+            Self::Note,
+        ]
     }
 
     fn to_possible_value(&self) -> Option<clap::builder::PossibleValue> {
@@ -88,11 +95,19 @@ pub struct ReasoningStep {
     pub ibis_type: Option<IBISNodeType>,
 
     /// IBIS polarity (Pro/Con position)
-    #[serde(rename = "ibis_polarity", skip_serializing_if = "Option::is_none", default)]
+    #[serde(
+        rename = "ibis_polarity",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
     pub ibis_polarity: Option<IbisPolarity>,
 
     /// Parent step ID for IBIS hierarchy
-    #[serde(rename = "parent_step_id", skip_serializing_if = "Option::is_none", default)]
+    #[serde(
+        rename = "parent_step_id",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
     pub parent_step_id: Option<String>,
 }
 
@@ -158,19 +173,51 @@ pub struct Reasoning {
     #[serde(rename = "prov_used", skip_serializing_if = "Vec::is_empty", default)]
     pub prov_used: Vec<String>,
 
-    #[serde(rename = "prov_generated", skip_serializing_if = "Vec::is_empty", default)]
+    #[serde(
+        rename = "prov_generated",
+        skip_serializing_if = "Vec::is_empty",
+        default
+    )]
     pub prov_generated: Vec<String>,
 
     #[serde(rename = "prov_attributed_to", default)]
     pub prov_attributed_to: String,
 
-    #[serde(rename = "ibis_node_type", skip_serializing_if = "Option::is_none", default)]
+    /// W3C PROV activity ID (links to external provenance)
+    #[serde(
+        rename = "prov_activity_id",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
+    pub prov_activity_id: Option<String>,
+
+    /// W3C PROV wasInformedBy (activities that informed this reasoning)
+    #[serde(
+        rename = "prov_was_informed_by",
+        skip_serializing_if = "Vec::is_empty",
+        default
+    )]
+    pub prov_was_informed_by: Vec<String>,
+
+    #[serde(
+        rename = "ibis_node_type",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
     pub ibis_node_type: Option<IBISNodeType>,
 
-    #[serde(rename = "ibis_parent_id", skip_serializing_if = "Option::is_none", default)]
+    #[serde(
+        rename = "ibis_parent_id",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
     pub ibis_parent_id: Option<String>,
 
-    #[serde(rename = "ibis_position", skip_serializing_if = "Option::is_none", default)]
+    #[serde(
+        rename = "ibis_position",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
     pub ibis_position: Option<f64>,
 }
 
@@ -194,6 +241,8 @@ impl Reasoning {
             prov_used: Vec::new(),
             prov_generated: Vec::new(),
             prov_attributed_to: String::new(),
+            prov_activity_id: None,
+            prov_was_informed_by: Vec::new(),
             ibis_node_type: None,
             ibis_parent_id: None,
             ibis_position: None,

@@ -610,6 +610,9 @@ fn handle_reasoning_command<S: engram::storage::Storage + engram::storage::Relat
         cli::ReasoningCommands::History { id } => {
             cli::show_reasoning_history(storage, &id)?;
         }
+        cli::ReasoningCommands::Export { id, format } => {
+            cli::export_reasoning(storage, &id, &format)?;
+        }
         cli::ReasoningCommands::Log {
             reasoning_id,
             event_type,

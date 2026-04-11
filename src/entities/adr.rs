@@ -120,6 +120,26 @@ pub struct ADR {
         default
     )]
     pub metadata: HashMap<String, serde_json::Value>,
+
+    /// W3C PROV activity ID
+    #[serde(
+        rename = "prov_activity_id",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
+    pub prov_activity_id: Option<String>,
+
+    /// W3C PROV wasInformedBy
+    #[serde(
+        rename = "prov_was_informed_by",
+        skip_serializing_if = "Vec::is_empty",
+        default
+    )]
+    pub prov_was_informed_by: Vec<String>,
+
+    /// W3C PROV used
+    #[serde(rename = "prov_used", skip_serializing_if = "Vec::is_empty", default)]
+    pub prov_used: Vec<String>,
 }
 
 /// Alternative option considered
@@ -170,6 +190,9 @@ impl ADR {
             stakeholders: Vec::new(),
             tags: Vec::new(),
             metadata: HashMap::new(),
+            prov_activity_id: None,
+            prov_was_informed_by: Vec::new(),
+            prov_used: Vec::new(),
         }
     }
 

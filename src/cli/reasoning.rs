@@ -3,10 +3,17 @@
 use crate::entities::{Entity, Reasoning};
 use crate::error::EngramError;
 use crate::storage::Storage;
-use clap::Subcommand;
+use clap::{Subcommand, ValueEnum};
 use serde::Deserialize;
 use std::fs;
 use std::io::{self, Read};
+
+/// Export format for reasoning chains
+#[derive(Debug, Clone, ValueEnum)]
+pub enum ExportFormat {
+    /// W3C PROV-O JSON-LD format
+    ProvJsonld,
+}
 
 /// Reasoning input structure for JSON
 #[derive(Debug, Deserialize)]
@@ -181,6 +188,15 @@ pub enum ReasoningCommands {
         /// Reasoning ID to show history for
         #[arg(help = "Reasoning ID to traverse backward")]
         id: String,
+    },
+    /// Export reasoning chain to external format
+    Export {
+        /// Reasoning ID to export
+        #[arg(help = "Reasoning ID to export")]
+        id: String,
+        /// Export format
+        #[arg(long, value_enum, default_value = "prov-jsonld")]
+        format: ExportFormat,
     },
     /// Search reasoning chains by IBIS type, polarity, or keyword
     Search {
@@ -775,6 +791,75 @@ pub fn delete_reasoning<S: Storage>(storage: &mut S, id: &str) -> Result<(), Eng
         }
     }
 
+    Ok(())
+}
+
+/// Export a reasoning chain to external format
+pub fn export_reasoning<S: Storage>(
+    storage: &S,
+    id: &str,
+    format: &ExportFormat,
+) -> Result<(), EngramError> {
+    let entity = storage
+        .get(id, "reasoning")?
+        .ok_or_else(|| EngramError::NotFound(format!("Reasoning with ID '{}' not found", id)))?;
+    let reasoning =
+        Reasoning::from_generic(entity).map_err(|e| EngramError::Validation(e.to_string()))?;
+
+    match format {
+        ExportFormat::ProvJsonld => export_prov_jsonld(&reasoning),
+    }
+}
+
+/// Export reasoning as W3C PROV-O JSON-LD
+fn export_prov_jsonld(reasoning: &Reasoning) -> Result<(), EngramError> {
+    use serde_json::{json, Value};
+
+    let activity_id = reasoning
+        .prov_activity_id
+        .clone()
+        .unwrap_or_else(|| format!("engram:activity:{}", reasoning.id));
+
+    let mut used: Vec<Value> = reasoning
+        .prov_used
+        .iter()
+        .chain(reasoning.context_ids.iter())
+        .chain(reasoning.knowledge_ids.iter())
+        .map(|id| json!({"@id": format!("engram:entity:{}", id)}))
+        .collect();
+
+    // Add task as used entity
+    used.push(json!({"@id": format!("engram:task:{}", reasoning.task_id)}));
+
+    let was_informed_by: Vec<Value> = reasoning
+        .prov_was_informed_by
+        .iter()
+        .map(|id| json!({"@id": format!("engram:activity:{}", id)}))
+        .collect();
+
+    let was_associated_with = json!({"@id": format!("engram:agent:{}", reasoning.agent)});
+
+    let generated: Vec<Value> = reasoning
+        .prov_generated
+        .iter()
+        .chain(std::iter::once(&reasoning.id.clone()))
+        .map(|id| json!({"@id": format!("engram:entity:{}", id)}))
+        .collect();
+
+    let prov_doc = json!({
+        "@context": "https://www.w3.org/ns/prov.jsonld",
+        "@id": activity_id,
+        "@type": "Activity",
+        "startedAtTime": reasoning.created_at.to_rfc3339(),
+        "wasAssociatedWith": was_associated_with,
+        "used": used,
+        "wasInformedBy": was_informed_by,
+        "generated": generated
+    });
+
+    let output = serde_json::to_string_pretty(&prov_doc)
+        .map_err(|e| EngramError::Validation(format!("JSON serialization failed: {}", e)))?;
+    println!("{}", output);
     Ok(())
 }
 
