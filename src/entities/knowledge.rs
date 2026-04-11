@@ -63,7 +63,11 @@ pub struct Knowledge {
     pub source: Option<String>,
 
     /// Bounded context scope for this knowledge (None = global scope)
-    #[serde(rename = "bounded_context", skip_serializing_if = "Option::is_none", default)]
+    #[serde(
+        rename = "bounded_context",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
     pub bounded_context: Option<String>,
 
     /// Related knowledge IDs

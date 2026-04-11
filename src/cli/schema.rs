@@ -2,8 +2,8 @@
 
 use crate::entities::{
     adr::ADR, compliance::Compliance, context::Context, doc_fragment::DocFragment,
-    knowledge::Knowledge, reasoning::Reasoning, session::Session, state_reflection::StateReflection,
-    task::Task, theory::Theory, workflow::Workflow,
+    knowledge::Knowledge, reasoning::Reasoning, session::Session,
+    state_reflection::StateReflection, task::Task, theory::Theory, workflow::Workflow,
 };
 use crate::storage::Storage;
 use clap::Subcommand;
@@ -41,8 +41,16 @@ fn all_entity_schemas() -> Vec<EntitySchemaWrapper> {
     vec![
         entity_schema::<Task>("engram-task", "refs/engram/task/*", "Engram Task"),
         entity_schema::<Context>("engram-context", "refs/engram/context/*", "Engram Context"),
-        entity_schema::<Reasoning>("engram-reasoning", "refs/engram/reasoning/*", "Engram Reasoning"),
-        entity_schema::<Knowledge>("engram-knowledge", "refs/engram/knowledge/*", "Engram Knowledge"),
+        entity_schema::<Reasoning>(
+            "engram-reasoning",
+            "refs/engram/reasoning/*",
+            "Engram Reasoning",
+        ),
+        entity_schema::<Knowledge>(
+            "engram-knowledge",
+            "refs/engram/knowledge/*",
+            "Engram Knowledge",
+        ),
         entity_schema::<Session>("engram-session", "refs/engram/session/*", "Engram Session"),
         entity_schema::<ADR>("engram-adr", "refs/engram/adr/*", "Engram ADR"),
         entity_schema::<Theory>("engram-theory", "refs/engram/theory/*", "Engram Theory"),
@@ -51,9 +59,21 @@ fn all_entity_schemas() -> Vec<EntitySchemaWrapper> {
             "refs/engram/state_reflection/*",
             "Engram State Reflection",
         ),
-        entity_schema::<DocFragment>("engram-doc-fragment", "refs/engram/doc_fragment/*", "Engram DocFragment"),
-        entity_schema::<Compliance>("engram-compliance", "refs/engram/compliance/*", "Engram Compliance"),
-        entity_schema::<Workflow>("engram-workflow", "refs/engram/workflow/*", "Engram Workflow"),
+        entity_schema::<DocFragment>(
+            "engram-doc-fragment",
+            "refs/engram/doc_fragment/*",
+            "Engram DocFragment",
+        ),
+        entity_schema::<Compliance>(
+            "engram-compliance",
+            "refs/engram/compliance/*",
+            "Engram Compliance",
+        ),
+        entity_schema::<Workflow>(
+            "engram-workflow",
+            "refs/engram/workflow/*",
+            "Engram Workflow",
+        ),
     ]
 }
 
@@ -69,8 +89,7 @@ fn write_entity_schema_to_storage<S: Storage>(
         entity_type: entity_type.to_string(),
         agent: "engram".to_string(),
         timestamp: chrono::Utc::now(),
-        data: serde_json::to_value(wrapper)
-            .map_err(crate::EngramError::Serialization)?,
+        data: serde_json::to_value(wrapper).map_err(crate::EngramError::Serialization)?,
     };
 
     storage.store(&generic)?;
@@ -101,11 +120,16 @@ pub enum SchemaCommands {
     },
 }
 
-pub fn handle_schema_command<S: Storage>(command: SchemaCommands, storage: &mut S) -> crate::Result<()> {
+pub fn handle_schema_command<S: Storage>(
+    command: SchemaCommands,
+    storage: &mut S,
+) -> crate::Result<()> {
     match command {
         SchemaCommands::Generate { entity, output } => {
             let all = all_entity_schemas();
-            let found = all.iter().find(|s| s.id == entity || s.id == format!("engram-{}", entity));
+            let found = all
+                .iter()
+                .find(|s| s.id == entity || s.id == format!("engram-{}", entity));
 
             let schema = match found {
                 Some(s) => s,
@@ -119,12 +143,11 @@ pub fn handle_schema_command<S: Storage>(command: SchemaCommands, storage: &mut 
                 }
             };
 
-            let schema_json = serde_json::to_string_pretty(&schema)
-                .map_err(crate::EngramError::Serialization)?;
+            let schema_json =
+                serde_json::to_string_pretty(&schema).map_err(crate::EngramError::Serialization)?;
 
             if let Some(output_path) = output {
-                std::fs::write(&output_path, schema_json)
-                    .map_err(crate::EngramError::Io)?;
+                std::fs::write(&output_path, schema_json).map_err(crate::EngramError::Io)?;
                 println!("Schema written to: {}", output_path);
             } else {
                 println!("{}", schema_json);
@@ -145,17 +168,19 @@ pub fn handle_schema_command<S: Storage>(command: SchemaCommands, storage: &mut 
                 println!("Published schema: {}", id);
             }
 
-            println!("\n{} schemas published to refs/engram/schema/*", published.len());
+            println!(
+                "\n{} schemas published to refs/engram/schema/*",
+                published.len()
+            );
             Ok(())
         }
         SchemaCommands::Workflow { output } => {
             let schema = schema_for!(Workflow);
-            let schema_json = serde_json::to_string_pretty(&schema)
-                .map_err(crate::EngramError::Serialization)?;
+            let schema_json =
+                serde_json::to_string_pretty(&schema).map_err(crate::EngramError::Serialization)?;
 
             if let Some(output_path) = output {
-                std::fs::write(&output_path, schema_json)
-                    .map_err(crate::EngramError::Io)?;
+                std::fs::write(&output_path, schema_json).map_err(crate::EngramError::Io)?;
                 println!("Schema written to: {}", output_path);
             } else {
                 println!("{}", schema_json);
@@ -219,7 +244,11 @@ mod tests {
         let result = handle_schema_command(cmd, &mut crate::storage::MemoryStorage::new("test"));
         assert!(result.is_err());
         let err_msg = format!("{}", result.unwrap_err());
-        assert!(err_msg.contains("nonexistent"), "error should mention the bad entity: {}", err_msg);
+        assert!(
+            err_msg.contains("nonexistent"),
+            "error should mention the bad entity: {}",
+            err_msg
+        );
     }
 
     #[test]

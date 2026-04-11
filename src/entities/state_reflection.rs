@@ -73,11 +73,7 @@ pub struct StateReflection {
     pub trigger_type: Option<TriggerType>,
 
     /// Reflection loop type (single-loop or double-loop learning)
-    #[serde(
-        rename = "loop_type",
-        skip_serializing_if = "Option::is_none",
-        default
-    )]
+    #[serde(rename = "loop_type", skip_serializing_if = "Option::is_none", default)]
     pub loop_type: Option<ReflectionLoopType>,
 
     /// Whether this reflection has been resolved (theory updated)
@@ -230,8 +226,7 @@ impl StateReflection {
     /// Check if this is an unresolved double-loop reflection
     /// Double-loop reflections indicate theory-level issues that may block progress
     pub fn is_unresolved_double_loop(&self) -> bool {
-        self.loop_type == Some(ReflectionLoopType::DoubleLoop) 
-            && self.resolved != Some(true)
+        self.loop_type == Some(ReflectionLoopType::DoubleLoop) && self.resolved != Some(true)
     }
 }
 

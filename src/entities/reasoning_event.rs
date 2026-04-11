@@ -18,7 +18,14 @@ pub enum ReasoningEventType {
 
 impl clap::ValueEnum for ReasoningEventType {
     fn value_variants<'a>() -> &'a [Self] {
-        &[Self::Created, Self::StatusChanged, Self::ConclusionReached, Self::EvidenceAdded, Self::CounterEvidence, Self::AssumptionChallenged]
+        &[
+            Self::Created,
+            Self::StatusChanged,
+            Self::ConclusionReached,
+            Self::EvidenceAdded,
+            Self::CounterEvidence,
+            Self::AssumptionChallenged,
+        ]
     }
 
     fn to_possible_value(&self) -> Option<clap::builder::PossibleValue> {
@@ -28,7 +35,9 @@ impl clap::ValueEnum for ReasoningEventType {
             Self::ConclusionReached => clap::builder::PossibleValue::new("conclusion_reached"),
             Self::EvidenceAdded => clap::builder::PossibleValue::new("evidence_added"),
             Self::CounterEvidence => clap::builder::PossibleValue::new("counter_evidence"),
-            Self::AssumptionChallenged => clap::builder::PossibleValue::new("assumption_challenged"),
+            Self::AssumptionChallenged => {
+                clap::builder::PossibleValue::new("assumption_challenged")
+            }
         })
     }
 }

@@ -448,7 +448,7 @@ impl QueryMapper {
                         k.to_lowercase().contains(&query) || v.to_lowercase().contains(&query)
                     })
                     || t.design_rationale.iter().any(|d| {
-                        d.decision.to_lowercase().contains(&query) 
+                        d.decision.to_lowercase().contains(&query)
                             || d.rationale.to_lowercase().contains(&query)
                     })
                     || t.invariants
