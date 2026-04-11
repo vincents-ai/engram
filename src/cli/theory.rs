@@ -4,6 +4,7 @@ use crate::cli::utils::{create_table, truncate};
 use crate::entities::{Entity, Theory};
 use crate::error::EngramError;
 use crate::storage::Storage;
+use chrono::Utc;
 use clap::Subcommand;
 use prettytable::row;
 use serde::Deserialize;
@@ -96,6 +97,15 @@ pub enum TheoryCommands {
         /// Theory ID to traverse backward
         #[arg(help = "Theory ID to traverse backward")]
         id: String,
+    },
+    /// List theories with decay_weight below threshold (stale theories)
+    Decay {
+        /// Threshold in days since last access
+        #[arg(long, short, default_value = "30")]
+        threshold: u64,
+        /// Only show theories with decay_weight below this value
+        #[arg(long, default_value = "0.5")]
+        max_weight: f64,
     },
 }
 
@@ -439,6 +449,66 @@ pub fn update_theory<S: Storage>(
 pub fn delete_theory<S: Storage>(storage: &mut S, id: &str) -> Result<(), EngramError> {
     storage.delete(id, Theory::entity_type())?;
     println!("Theory deleted successfully: {}", id);
+    Ok(())
+}
+
+/// List theories with low decay weight or old last_accessed_at (stale theories)
+pub fn list_stale_theories<S: Storage>(
+    storage: &S,
+    threshold_days: u64,
+    max_weight: f64,
+) -> Result<(), EngramError> {
+    use chrono::Duration;
+
+    let ids = storage.list_ids(Theory::entity_type())?;
+    let now = Utc::now();
+    let threshold_time = now - Duration::days(threshold_days as i64);
+
+    let mut stale: Vec<Theory> = Vec::new();
+
+    for id in ids {
+        if let Some(entity) = storage.get(&id, Theory::entity_type())? {
+            if let Ok(theory) = Theory::from_generic(entity) {
+                let is_old = theory
+                    .last_accessed_at
+                    .map(|t| t < threshold_time)
+                    .unwrap_or(true); // Never accessed = stale
+                let is_decayed = theory.decay_weight < max_weight;
+
+                if is_old || is_decayed {
+                    stale.push(theory);
+                }
+            }
+        }
+    }
+
+    if stale.is_empty() {
+        println!(
+            "✅ No stale theories found (threshold: {} days, max_weight: {:.2})",
+            threshold_days, max_weight
+        );
+        return Ok(());
+    }
+
+    println!("📋 Stale Theories ({} found)", stale.len());
+    println!("═══════════════════════════════════════════");
+    for theory in &stale {
+        let age = theory
+            .last_accessed_at
+            .map(|t| {
+                let days = (now - t).num_days();
+                format!("{} days ago", days)
+            })
+            .unwrap_or_else(|| "never accessed".to_string());
+        println!(
+            "  {} (decay: {:.2}, last: {})",
+            theory.domain_name, theory.decay_weight, age
+        );
+        println!("    ID: {}", theory.id);
+        println!("    Citations: {}", theory.citation_count);
+        println!();
+    }
+
     Ok(())
 }
 

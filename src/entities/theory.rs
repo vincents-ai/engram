@@ -46,7 +46,11 @@ pub struct DesignDecision {
     pub rationale: String,
 
     /// Alternative approaches that were considered and rejected
-    #[serde(rename = "alternatives_discarded", skip_serializing_if = "Vec::is_empty", default)]
+    #[serde(
+        rename = "alternatives_discarded",
+        skip_serializing_if = "Vec::is_empty",
+        default
+    )]
     pub alternatives_discarded: Vec<String>,
 
     /// How difficult it would be to reverse this decision
@@ -54,7 +58,11 @@ pub struct DesignDecision {
     pub reversal_cost: ReversalCost,
 
     /// Who made or approved this decision
-    #[serde(rename = "stakeholder", skip_serializing_if = "Option::is_none", default)]
+    #[serde(
+        rename = "stakeholder",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
     pub stakeholder: Option<String>,
 }
 
@@ -89,7 +97,13 @@ pub enum InvariantType {
 
 impl clap::ValueEnum for InvariantType {
     fn value_variants<'a>() -> &'a [Self] {
-        &[Self::Assertion, Self::Constraint, Self::Precondition, Self::Postcondition, Self::Invariant]
+        &[
+            Self::Assertion,
+            Self::Constraint,
+            Self::Precondition,
+            Self::Postcondition,
+            Self::Invariant,
+        ]
     }
 
     fn to_possible_value(&self) -> Option<clap::builder::PossibleValue> {
@@ -119,7 +133,11 @@ pub struct Invariant {
     pub invariant_type: InvariantType,
 
     /// Optional Gherkin scenario that tests this invariant
-    #[serde(rename = "gherkin_scenario", skip_serializing_if = "Option::is_none", default)]
+    #[serde(
+        rename = "gherkin_scenario",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
     pub gherkin_scenario: Option<String>,
 }
 
@@ -195,7 +213,11 @@ pub struct Theory {
     pub system_mapping: HashMap<String, String>,
 
     /// The "Why": Structured design decisions with rationale
-    #[serde(rename = "design_rationale", skip_serializing_if = "Vec::is_empty", default)]
+    #[serde(
+        rename = "design_rationale",
+        skip_serializing_if = "Vec::is_empty",
+        default
+    )]
     pub design_rationale: Vec<DesignDecision>,
 
     /// Known invariant truths about this system state
@@ -207,11 +229,19 @@ pub struct Theory {
     pub c4_level: Option<C4Level>,
 
     /// Parent theory ID for hierarchical theories
-    #[serde(rename = "parent_theory_id", skip_serializing_if = "Option::is_none", default)]
+    #[serde(
+        rename = "parent_theory_id",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
     pub parent_theory_id: Option<String>,
 
     /// Bounded context scope for this theory (None = global scope)
-    #[serde(rename = "bounded_context", skip_serializing_if = "Option::is_none", default)]
+    #[serde(
+        rename = "bounded_context",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
     pub bounded_context: Option<String>,
 
     /// Associated agent
@@ -249,6 +279,22 @@ pub struct Theory {
         default
     )]
     pub metadata: HashMap<String, serde_json::Value>,
+
+    /// Last accessed timestamp (set when entity is read/used)
+    #[serde(
+        rename = "last_accessed_at",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
+    pub last_accessed_at: Option<DateTime<Utc>>,
+
+    /// Number of times referenced by relationships
+    #[serde(rename = "citation_count", default)]
+    pub citation_count: u32,
+
+    /// Decay weight for relevance scoring (1.0 = fresh, decays toward 0.0)
+    #[serde(rename = "decay_weight", default)]
+    pub decay_weight: f64,
 }
 
 impl Theory {
@@ -272,6 +318,9 @@ impl Theory {
             reflection_ids: Vec::new(),
             task_id: None,
             metadata: HashMap::new(),
+            last_accessed_at: None,
+            citation_count: 0,
+            decay_weight: 1.0,
         }
     }
 
@@ -320,7 +369,11 @@ impl Theory {
     /// Add an invariant that must hold true
     pub fn add_invariant(&mut self, description: String) {
         let invariant = Invariant::new(description, InvariantType::Assertion);
-        if !self.invariants.iter().any(|i| i.description == invariant.description) {
+        if !self
+            .invariants
+            .iter()
+            .any(|i| i.description == invariant.description)
+        {
             self.invariants.push(invariant);
             self.touch();
         }
@@ -353,6 +406,16 @@ impl Theory {
     fn touch(&mut self) {
         self.last_updated = Utc::now();
         self.iteration_count += 1;
+    }
+
+    /// Record access (updates last_accessed_at)
+    pub fn record_access(&mut self) {
+        self.last_accessed_at = Some(Utc::now());
+    }
+
+    /// Record citation (increments citation_count)
+    pub fn record_citation(&mut self) {
+        self.citation_count += 1;
     }
 
     /// Check if a concept exists in the theory
@@ -480,7 +543,10 @@ mod tests {
             "Use PostgreSQL".to_string(),
             "ACID compliance required for financial data".to_string(),
         );
-        assert!(theory.design_rationale.iter().any(|d| d.decision == "Use PostgreSQL"));
+        assert!(theory
+            .design_rationale
+            .iter()
+            .any(|d| d.decision == "Use PostgreSQL"));
 
         theory.add_invariant("User email must be unique".to_string());
         assert!(theory

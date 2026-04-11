@@ -75,6 +75,22 @@ pub struct Context {
         default
     )]
     pub metadata: HashMap<String, serde_json::Value>,
+
+    /// Last accessed timestamp (set when entity is read/used)
+    #[serde(
+        rename = "last_accessed_at",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
+    pub last_accessed_at: Option<DateTime<Utc>>,
+
+    /// Number of times referenced by relationships
+    #[serde(rename = "citation_count", default)]
+    pub citation_count: u32,
+
+    /// Decay weight for relevance scoring (1.0 = fresh, decays toward 0.0)
+    #[serde(rename = "decay_weight", default)]
+    pub decay_weight: f64,
 }
 
 impl Context {
@@ -100,6 +116,9 @@ impl Context {
             tags: Vec::new(),
             related_entities: Vec::new(),
             metadata: HashMap::new(),
+            last_accessed_at: None,
+            citation_count: 0,
+            decay_weight: 1.0,
         }
     }
 
@@ -114,6 +133,16 @@ impl Context {
         if !self.related_entities.contains(&entity_id) {
             self.related_entities.push(entity_id);
         }
+    }
+
+    /// Record access (updates last_accessed_at)
+    pub fn record_access(&mut self) {
+        self.last_accessed_at = Some(Utc::now());
+    }
+
+    /// Record citation (increments citation_count)
+    pub fn record_citation(&mut self) {
+        self.citation_count += 1;
     }
 
     /// Set source ID

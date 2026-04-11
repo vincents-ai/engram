@@ -1902,6 +1902,12 @@ fn handle_theory_command<S: engram::storage::Storage + engram::storage::Relation
         cli::TheoryCommands::History { id } => {
             cli::show_theory_history(storage, &id)?;
         }
+        cli::TheoryCommands::Decay {
+            threshold,
+            max_weight,
+        } => {
+            cli::list_stale_theories(storage, threshold, max_weight)?;
+        }
         cli::TheoryCommands::ApplyReflection {
             theory_id,
             reflection_id,
