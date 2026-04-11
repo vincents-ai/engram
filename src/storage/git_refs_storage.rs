@@ -251,6 +251,34 @@ fn write_version_sidecar(
     Ok(())
 }
 
+/// Detect and peel away spurious `"data"` key nesting introduced by a
+/// double-serialisation bug where the entire entity payload was wrapped
+/// in an extra `{"data": {...}}` envelope.
+///
+/// The function is idempotent: calling it on an already-flat map returns
+/// the map unchanged.  It peels at most one layer per call, which is
+/// sufficient because `store_entity_as_ref` applies it once before writing.
+///
+/// # Detection rule
+///
+/// A map is considered "nested" when:
+/// 1. It contains exactly one key — `"data"` — **and**
+/// 2. The value of that key is a JSON Object.
+///
+/// In that case the inner object's entries are returned directly.
+pub(crate) fn flatten_data_map(map: HashMap<String, Value>) -> HashMap<String, Value> {
+    if map.len() == 1 {
+        if let Some(Value::Object(inner)) = map.get("data") {
+            // One level of nesting detected — recurse to handle the
+            // triple-nested case (data.data.data.*).
+            let inner_map: HashMap<String, Value> =
+                inner.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
+            return flatten_data_map(inner_map);
+        }
+    }
+    map
+}
+
 impl GitRefsStorage {
     /// Create new Git refs storage instance
     pub fn new(workspace_path: &str, agent: &str) -> Result<Self, EngramError> {
@@ -314,7 +342,15 @@ impl GitRefsStorage {
         })?;
 
         let data_map = match &entity.data {
-            Value::Object(map) => map.iter().map(|(k, v)| (k.clone(), v.clone())).collect(),
+            Value::Object(map) => {
+                let flat: HashMap<String, Value> =
+                    map.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
+                // Guard: peel any triple- or double-nesting where the entire payload
+                // was accidentally wrapped under a single "data" key.  This can
+                // happen when `to_generic()` output is serialised a second time
+                // before being passed to `store()`.
+                flatten_data_map(flat)
+            }
             _ => {
                 let mut map = HashMap::new();
                 map.insert("raw_data".to_string(), entity.data.clone());
@@ -1444,6 +1480,164 @@ impl GitRefsStorage {
         report.checks = checks;
         Ok(report)
     }
+
+    /// Scan all entity refs for triple- or double-nested `data` blobs and
+    /// rewrite them in-place with the correct flat structure.
+    ///
+    /// Returns statistics describing how many refs were inspected and how many
+    /// were rewritten.  The operation is **idempotent**: refs that are already
+    /// flat are left unchanged; version sidecar refs are skipped entirely.
+    pub fn flatten_nested_refs(&self, dry_run: bool) -> Result<FlattenRefsStats, EngramError> {
+        let repo = self.repository.lock().map_err(|_| {
+            EngramError::Storage(StorageError::InvalidState(
+                "Repository lock failed".to_string(),
+            ))
+        })?;
+
+        let engram_prefix = "refs/engram/";
+        let mut stats = FlattenRefsStats::default();
+
+        // Collect all refs first to avoid holding a borrow while modifying.
+        let ref_names: Vec<String> = {
+            let all_refs = repo
+                .references()
+                .map_err(|e| EngramError::Git(format!("Failed to list references: {}", e)))?;
+            let mut names = Vec::new();
+            for r in all_refs {
+                let r = r.map_err(|e| EngramError::Git(format!("Failed to read ref: {}", e)))?;
+                if let Some(name) = r.name() {
+                    if name.starts_with(engram_prefix) {
+                        names.push(name.to_string());
+                    }
+                }
+            }
+            names
+        };
+
+        for ref_name in &ref_names {
+            // Skip workspace config and version sidecar refs.
+            if ref_name == "refs/engram/config/workspace" {
+                continue;
+            }
+            // Sidecar refs contain "/v" followed by digits — e.g. refs/engram/task/v1/<uuid>
+            let after_prefix = ref_name.strip_prefix(engram_prefix).unwrap_or("");
+            let segments: Vec<&str> = after_prefix.splitn(2, '/').collect();
+            if segments.len() == 2 {
+                let second_segment = segments[1]; // everything after the first '/'
+                if second_segment.starts_with('v')
+                    && second_segment
+                        .chars()
+                        .nth(1)
+                        .is_some_and(|c| c.is_ascii_digit())
+                {
+                    // version sidecar — skip
+                    continue;
+                }
+            }
+
+            stats.refs_scanned += 1;
+
+            // Read the blob.
+            let reference = match repo.find_reference(ref_name) {
+                Ok(r) => r,
+                Err(_) => continue,
+            };
+            let oid = match reference.target() {
+                Some(o) => o,
+                None => continue,
+            };
+            let blob = match repo.find_blob(oid) {
+                Ok(b) => b,
+                Err(_) => continue,
+            };
+            let content = match std::str::from_utf8(blob.content()) {
+                Ok(c) => c,
+                Err(_) => continue,
+            };
+            let parsed: serde_json::Value = match serde_json::from_str(content) {
+                Ok(v) => v,
+                Err(_) => continue,
+            };
+
+            // Examine the `data` field for nesting.
+            let data_field = match parsed.get("data") {
+                Some(d) => d,
+                None => continue,
+            };
+
+            // Check if `data` itself has a `data` key that is an Object — that is
+            // the hallmark of at least one extra wrapping layer.
+            let is_nested = match data_field {
+                Value::Object(m) => m.get("data").is_some_and(|v| v.is_object()),
+                _ => false,
+            };
+
+            if !is_nested {
+                // Also check the single-key `{"data": {...}}` pattern.
+                let is_single_key_wrap = match data_field {
+                    Value::Object(m) => m.len() == 1 && m.contains_key("data"),
+                    _ => false,
+                };
+                if !is_single_key_wrap {
+                    continue; // already flat
+                }
+            }
+
+            stats.nested_found += 1;
+
+            if dry_run {
+                stats.refs_rewritten += 0; // no actual write in dry_run
+                continue;
+            }
+
+            // Build the flattened blob.
+            let flat_data_map: HashMap<String, Value> = match data_field {
+                Value::Object(m) => {
+                    let inner: HashMap<String, Value> =
+                        m.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
+                    flatten_data_map(inner)
+                }
+                _ => continue,
+            };
+
+            let mut new_blob = parsed.clone();
+            new_blob["data"] = serde_json::Value::Object(
+                flat_data_map.into_iter().collect::<serde_json::Map<_, _>>(),
+            );
+
+            let new_content = match serde_json::to_string_pretty(&new_blob) {
+                Ok(c) => c,
+                Err(_) => continue,
+            };
+
+            let new_blob_oid = repo
+                .blob(new_content.as_bytes())
+                .map_err(|e| EngramError::Git(format!("Failed to create blob: {}", e)))?;
+
+            repo.reference(
+                ref_name,
+                new_blob_oid,
+                true, // force-overwrite the existing ref
+                &format!("flatten-refs: fix nested data in {}", ref_name),
+            )
+            .map_err(|e| EngramError::Git(format!("Failed to update ref {}: {}", ref_name, e)))?;
+
+            stats.refs_rewritten += 1;
+        }
+
+        Ok(stats)
+    }
+}
+
+/// Statistics from a `flatten_nested_refs` run.
+#[derive(Debug, Default, Clone)]
+pub struct FlattenRefsStats {
+    /// Total entity refs inspected (workspace config and version sidecars excluded).
+    pub refs_scanned: usize,
+    /// Refs found to contain nested data.
+    pub nested_found: usize,
+    /// Refs that were rewritten (always 0 in dry-run mode).
+    pub refs_rewritten: usize,
 }
 
 fn count_orphaned_blobs(
@@ -2012,5 +2206,295 @@ mod tests {
             crate::feedback::FeedbackStatus::Warning
         );
         assert!(report.summary().contains("1 warnings"));
+    }
+
+    // ── flatten_data_map unit tests ──────────────────────────────────────────
+
+    #[test]
+    fn test_flatten_data_map_already_flat() {
+        let mut map = HashMap::new();
+        map.insert("title".to_string(), json!("My Task"));
+        map.insert("status".to_string(), json!("todo"));
+
+        let result = flatten_data_map(map.clone());
+        assert_eq!(result.len(), 2);
+        assert_eq!(result["title"], json!("My Task"));
+        assert_eq!(result["status"], json!("todo"));
+    }
+
+    #[test]
+    fn test_flatten_data_map_double_nested() {
+        // Simulate the bug: data wrapped in an extra "data" key.
+        let inner = json!({"title": "Nested Task", "status": "done"});
+        let mut map = HashMap::new();
+        map.insert("data".to_string(), inner);
+
+        let result = flatten_data_map(map);
+        assert_eq!(result.len(), 2, "should be flattened to 2 keys");
+        assert_eq!(result["title"], json!("Nested Task"));
+        assert_eq!(result["status"], json!("done"));
+    }
+
+    #[test]
+    fn test_flatten_data_map_triple_nested() {
+        // Simulate the triple-nesting: data.data.data.*
+        let innermost = json!({"title": "Deep Task", "priority": "high"});
+        let middle = json!({"data": innermost});
+        let mut map = HashMap::new();
+        map.insert("data".to_string(), middle);
+
+        let result = flatten_data_map(map);
+        assert_eq!(
+            result.len(),
+            2,
+            "should be flattened through all nesting layers"
+        );
+        assert_eq!(result["title"], json!("Deep Task"));
+        assert_eq!(result["priority"], json!("high"));
+    }
+
+    #[test]
+    fn test_flatten_data_map_multi_key_not_flattened() {
+        // If data_map has multiple keys and one of them is "data", it is already
+        // at the right level — do NOT flatten (the "data" key is just a field).
+        let mut map = HashMap::new();
+        map.insert("title".to_string(), json!("My Task"));
+        map.insert("data".to_string(), json!({"nested": true}));
+
+        let result = flatten_data_map(map.clone());
+        // Should be unchanged because map.len() != 1
+        assert_eq!(result.len(), 2);
+        assert!(result.contains_key("title"));
+        assert!(result.contains_key("data"));
+    }
+
+    // ── store round-trip: no nesting introduced ───────────────────────────────
+
+    #[test]
+    fn test_store_and_retrieve_produces_flat_data() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut storage = GitRefsStorage::new(dir.path().to_str().unwrap(), "test").unwrap();
+
+        let entity = GenericEntity {
+            id: "flat-test-1".to_string(),
+            entity_type: "task".to_string(),
+            agent: "test".to_string(),
+            timestamp: Utc::now(),
+            data: json!({
+                "title": "Test Task",
+                "status": "todo",
+                "priority": "high"
+            }),
+        };
+
+        storage.store(&entity).unwrap();
+        let retrieved = storage.get("flat-test-1", "task").unwrap().unwrap();
+
+        // The retrieved data must be flat — no "data" key inside data.
+        if let Value::Object(map) = &retrieved.data {
+            assert!(
+                !map.contains_key("data"),
+                "retrieved data must not contain a nested 'data' key"
+            );
+            assert_eq!(map["title"], json!("Test Task"));
+            assert_eq!(map["status"], json!("todo"));
+        } else {
+            panic!("retrieved.data should be a JSON Object");
+        }
+    }
+
+    #[test]
+    fn test_store_double_wrapped_entity_is_flattened() {
+        // Simulate the bug at the storage layer: an entity whose `data` field
+        // is double-wrapped (i.e., data = {"data": {"title": "..."}}).
+        let dir = tempfile::tempdir().unwrap();
+        let mut storage = GitRefsStorage::new(dir.path().to_str().unwrap(), "test").unwrap();
+
+        let entity = GenericEntity {
+            id: "nested-test-1".to_string(),
+            entity_type: "task".to_string(),
+            agent: "test".to_string(),
+            timestamp: Utc::now(),
+            data: json!({
+                "data": {
+                    "title": "Wrapped Task",
+                    "status": "todo"
+                }
+            }),
+        };
+
+        storage.store(&entity).unwrap();
+        let retrieved = storage.get("nested-test-1", "task").unwrap().unwrap();
+
+        // The store must have detected and fixed the nesting.
+        if let Value::Object(map) = &retrieved.data {
+            assert!(
+                !map.contains_key("data"),
+                "store must flatten a double-wrapped data field"
+            );
+            assert_eq!(map["title"], json!("Wrapped Task"));
+            assert_eq!(map["status"], json!("todo"));
+        } else {
+            panic!("retrieved.data should be a JSON Object");
+        }
+    }
+
+    // ── flatten_nested_refs integration tests ─────────────────────────────────
+
+    /// Helper: write a raw blob JSON directly into a git ref.
+    fn write_raw_blob(repo: &git2::Repository, ref_name: &str, json: &str) {
+        let blob_oid = repo.blob(json.as_bytes()).unwrap();
+        repo.reference(ref_name, blob_oid, true, "test").unwrap();
+    }
+
+    #[test]
+    fn test_flatten_nested_refs_no_nested_refs() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut storage = GitRefsStorage::new(dir.path().to_str().unwrap(), "test").unwrap();
+        storage.store(&make_test_entity("task")).unwrap();
+
+        let stats = storage.flatten_nested_refs(false).unwrap();
+        assert_eq!(stats.nested_found, 0);
+        assert_eq!(stats.refs_rewritten, 0);
+        assert!(stats.refs_scanned >= 1);
+    }
+
+    #[test]
+    fn test_flatten_nested_refs_detects_and_fixes_double_nested() {
+        let dir = tempfile::tempdir().unwrap();
+        let storage = GitRefsStorage::new(dir.path().to_str().unwrap(), "test").unwrap();
+        let repo = git2::Repository::open(dir.path()).unwrap();
+
+        // Write a double-nested blob manually.
+        let nested_json = r#"{
+            "id": "nested-ref-1",
+            "entity_type": "task",
+            "agent": "test",
+            "timestamp": "2026-01-01T00:00:00Z",
+            "data": {
+                "data": {
+                    "title": "Should Be Flat",
+                    "status": "todo"
+                }
+            },
+            "content_hash": "",
+            "size_bytes": 0,
+            "tags": [],
+            "references": [],
+            "metadata": {}
+        }"#;
+        write_raw_blob(&repo, "refs/engram/task/nested-ref-1", nested_json);
+
+        let stats = storage.flatten_nested_refs(false).unwrap();
+        assert_eq!(stats.nested_found, 1, "should detect one nested ref");
+        assert_eq!(stats.refs_rewritten, 1, "should rewrite one ref");
+
+        // Verify the blob is now flat.
+        let r = repo
+            .find_reference("refs/engram/task/nested-ref-1")
+            .unwrap();
+        let oid = r.target().unwrap();
+        let blob = repo.find_blob(oid).unwrap();
+        let updated: serde_json::Value = serde_json::from_slice(blob.content()).unwrap();
+        let data = updated.get("data").unwrap();
+        assert!(
+            !data.get("data").is_some_and(|v| v.is_object()),
+            "data must no longer contain a nested 'data' object after flatten"
+        );
+        assert_eq!(data["title"], json!("Should Be Flat"));
+    }
+
+    #[test]
+    fn test_flatten_nested_refs_dry_run_does_not_write() {
+        let dir = tempfile::tempdir().unwrap();
+        let storage = GitRefsStorage::new(dir.path().to_str().unwrap(), "test").unwrap();
+        let repo = git2::Repository::open(dir.path()).unwrap();
+
+        let nested_json = r#"{
+            "id": "dry-run-1",
+            "entity_type": "task",
+            "agent": "test",
+            "timestamp": "2026-01-01T00:00:00Z",
+            "data": {
+                "data": {
+                    "title": "Dry Run Task"
+                }
+            },
+            "content_hash": "",
+            "size_bytes": 0,
+            "tags": [],
+            "references": [],
+            "metadata": {}
+        }"#;
+        write_raw_blob(&repo, "refs/engram/task/dry-run-1", nested_json);
+
+        let stats = storage.flatten_nested_refs(true /* dry_run */).unwrap();
+        assert_eq!(stats.nested_found, 1);
+        assert_eq!(stats.refs_rewritten, 0, "dry-run must not rewrite any refs");
+
+        // Verify the blob is still nested (unchanged).
+        let r = repo.find_reference("refs/engram/task/dry-run-1").unwrap();
+        let oid = r.target().unwrap();
+        let blob = repo.find_blob(oid).unwrap();
+        let still_nested: serde_json::Value = serde_json::from_slice(blob.content()).unwrap();
+        assert!(
+            still_nested["data"]["data"]["title"] == json!("Dry Run Task"),
+            "blob must remain unchanged after dry-run"
+        );
+    }
+
+    #[test]
+    fn test_flatten_nested_refs_idempotent() {
+        // Running flatten twice should produce the same result.
+        let dir = tempfile::tempdir().unwrap();
+        let storage = GitRefsStorage::new(dir.path().to_str().unwrap(), "test").unwrap();
+        let repo = git2::Repository::open(dir.path()).unwrap();
+
+        let nested_json = r#"{
+            "id": "idem-1",
+            "entity_type": "task",
+            "agent": "test",
+            "timestamp": "2026-01-01T00:00:00Z",
+            "data": {
+                "data": {
+                    "title": "Idempotent Task"
+                }
+            },
+            "content_hash": "",
+            "size_bytes": 0,
+            "tags": [],
+            "references": [],
+            "metadata": {}
+        }"#;
+        write_raw_blob(&repo, "refs/engram/task/idem-1", nested_json);
+
+        // First run.
+        let stats1 = storage.flatten_nested_refs(false).unwrap();
+        assert_eq!(stats1.refs_rewritten, 1);
+
+        // Second run — should find nothing to fix.
+        let stats2 = storage.flatten_nested_refs(false).unwrap();
+        assert_eq!(
+            stats2.nested_found, 0,
+            "second flatten pass must find no nested refs"
+        );
+        assert_eq!(stats2.refs_rewritten, 0);
+    }
+
+    #[test]
+    fn test_flatten_nested_refs_skips_version_sidecars() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut storage = GitRefsStorage::new(dir.path().to_str().unwrap(), "test").unwrap();
+        let entity = make_test_entity("task");
+        storage.store(&entity).unwrap(); // creates v1 sidecar
+
+        // The sidecar must not be counted in refs_scanned.
+        let stats = storage.flatten_nested_refs(false).unwrap();
+        // Scanned should only cover the primary ref, not v1/<uuid>.
+        // Primary ref: 1; sidecar: 0.
+        assert_eq!(
+            stats.refs_scanned, 1,
+            "version sidecar refs must be excluded from scanning"
+        );
     }
 }

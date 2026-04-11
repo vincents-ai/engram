@@ -252,6 +252,11 @@ pub enum Commands {
     Info,
     /// Migrate from dual-repository to Git refs storage
     Migration,
+    /// Storage migration and repair commands
+    Migrate {
+        #[command(subcommand)]
+        command: MigrateCommands,
+    },
     /// Perkeep backup and restore operations
     Perkeep {
         #[command(subcommand)]
@@ -346,3 +351,22 @@ pub enum SetupCommands {
     },
 }
 pub mod next;
+
+/// Subcommands for the `migrate` top-level command.
+#[derive(Subcommand)]
+pub enum MigrateCommands {
+    /// Fix the legacy triple-nesting serialisation bug in stored entity blobs.
+    ///
+    /// Scans all entity refs under `refs/engram/` for blobs where the actual
+    /// entity fields were accidentally wrapped in extra `"data"` envelopes
+    /// (e.g. `data.data.data.*` instead of `data.*`).  Detected refs are
+    /// rewritten in-place with the correct flat structure.
+    ///
+    /// The operation is idempotent: already-flat blobs are left unchanged.
+    /// Version sidecar refs (`refs/engram/*/v<N>/<uuid>`) are skipped.
+    TripleNesting {
+        /// Preview what would be changed without writing anything.
+        #[arg(long, short = 'n')]
+        dry_run: bool,
+    },
+}
