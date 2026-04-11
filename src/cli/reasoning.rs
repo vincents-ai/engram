@@ -69,6 +69,10 @@ pub enum ReasoningCommands {
         /// JSON file path (requires --json)
         #[arg(long, requires = "json")]
         json_file: Option<String>,
+
+        /// UUID of prior reasoning this supersedes
+        #[arg(long)]
+        supersedes: Option<String>,
     },
     /// Add a reasoning step
     AddStep {
@@ -172,6 +176,12 @@ pub enum ReasoningCommands {
         #[arg(help = "Reasoning ID to delete")]
         id: String,
     },
+    /// Show history of superseded reasoning chains
+    History {
+        /// Reasoning ID to show history for
+        #[arg(help = "Reasoning ID to traverse backward")]
+        id: String,
+    },
     /// Search reasoning chains by IBIS type, polarity, or keyword
     Search {
         /// Filter by IBIS node type
@@ -262,6 +272,7 @@ pub fn create_reasoning<S: Storage>(
     content_file: Option<String>,
     json: bool,
     json_file: Option<String>,
+    supersedes: Option<String>,
 ) -> Result<(), EngramError> {
     if json {
         let json_content = if let Some(ref file_path) = json_file {
@@ -336,6 +347,27 @@ pub fn create_reasoning<S: Storage>(
 
     let generic_entity = reasoning.to_generic();
     storage.store(&generic_entity)?;
+
+    // Create supersedes relationship if requested
+    if let Some(ref prior_id) = supersedes {
+        use crate::entities::{EntityRelationType, EntityRelationship};
+        let rel_id = uuid::Uuid::new_v4().to_string();
+        let relationship = EntityRelationship::new(
+            rel_id,
+            final_agent.clone(),
+            reasoning.id.clone(),
+            "reasoning".to_string(),
+            prior_id.clone(),
+            "reasoning".to_string(),
+            EntityRelationType::Supersedes,
+        );
+        let relationship_entity = relationship.to_generic();
+        storage.store(&relationship_entity)?;
+        println!(
+            "✅ Supersedes relationship created: {} → {}",
+            reasoning.id, prior_id
+        );
+    }
 
     println!("Reasoning '{}' created successfully", reasoning.id);
     println!("ID: {}", reasoning.id);
@@ -589,7 +621,11 @@ pub fn search_reasoning<S: Storage>(
             }
             // Filter by polarity in steps
             if let Some(ref pol) = polarity {
-                if !r.steps.iter().any(|s| s.ibis_polarity.as_ref() == Some(pol)) {
+                if !r
+                    .steps
+                    .iter()
+                    .any(|s| s.ibis_polarity.as_ref() == Some(pol))
+                {
                     return false;
                 }
             }
@@ -742,6 +778,87 @@ pub fn delete_reasoning<S: Storage>(storage: &mut S, id: &str) -> Result<(), Eng
     Ok(())
 }
 
+/// Show history of superseded reasoning chains (traverses supersedes chain backward)
+pub fn show_reasoning_history<S: Storage + crate::storage::RelationshipStorage>(
+    storage: &mut S,
+    id: &str,
+) -> Result<(), EngramError> {
+    use crate::entities::{EntityRelationType, RelationshipFilter};
+
+    // Verify the starting reasoning exists
+    let entity = storage.get(id, "reasoning")?;
+    match entity {
+        Some(generic_entity) => {
+            let reasoning = Reasoning::from_generic(generic_entity)
+                .map_err(|e| EngramError::Validation(e.to_string()))?;
+            println!("📋 Reasoning History (backward from {})", id);
+            println!("═══════════════════════════════════════════");
+            println!("  {} [CURRENT]", reasoning.title);
+            println!("    ID: {}", reasoning.id);
+            println!("    Agent: {}", reasoning.agent);
+            println!("    Confidence: {:.2}", reasoning.confidence);
+            println!("    Created: {}", reasoning.created_at);
+            println!();
+        }
+        None => {
+            return Err(EngramError::NotFound(format!(
+                "Reasoning with ID '{}' not found",
+                id
+            )));
+        }
+    }
+
+    // Traverse the supersedes chain backward
+    let mut current_id = id.to_string();
+    let mut depth = 0;
+    let max_depth = 50; // Safety limit
+
+    loop {
+        if depth >= max_depth {
+            println!("  ⚠️ Max depth ({}) reached, stopping traversal", max_depth);
+            break;
+        }
+
+        // Find relationships where current_id supersedes something
+        let filter = RelationshipFilter::new()
+            .source(current_id.clone())
+            .relationship_type(EntityRelationType::Supersedes);
+        let rels = storage.query_relationships(&filter)?;
+
+        if rels.is_empty() {
+            println!("  (no further predecessors)");
+            break;
+        }
+
+        for rel in &rels {
+            depth += 1;
+            let prior_id = &rel.target_id;
+            match storage.get(prior_id, "reasoning")? {
+                Some(prior_entity) => {
+                    let prior = Reasoning::from_generic(prior_entity)
+                        .map_err(|e| EngramError::Validation(e.to_string()))?;
+                    println!("  {} [SUPERSEDED v{}]", prior.title, depth);
+                    println!("    ID: {}", prior.id);
+                    println!("    Agent: {}", prior.agent);
+                    println!("    Confidence: {:.2}", prior.confidence);
+                    println!("    Created: {}", prior.created_at);
+                    println!();
+                    current_id = prior_id.clone();
+                }
+                None => {
+                    println!("  ⚠️ Referenced reasoning {} not found", prior_id);
+                    break;
+                }
+            }
+        }
+    }
+
+    println!("═══════════════════════════════════════════");
+    println!("Total predecessors: {}", depth);
+
+    Ok(())
+}
+
 /// Log an event to a reasoning chain
 pub fn log_reasoning_event<S: Storage>(
     storage: &mut S,
@@ -759,7 +876,7 @@ pub fn log_reasoning_event<S: Storage>(
                 event_type,
                 content,
             );
-            
+
             event.validate_entity()?;
             let generic = event.to_generic();
             storage.store(&generic)?;
@@ -805,6 +922,8 @@ mod tests {
             None,
             false,
             None,
+            None,
+            None,
         );
         assert!(result.is_ok());
 
@@ -836,6 +955,8 @@ mod tests {
             None,
             false,
             None,
+            None,
+            None,
         );
         assert!(matches!(result, Err(EngramError::Validation(_))));
 
@@ -853,6 +974,8 @@ mod tests {
             false,
             None,
             false,
+            None,
+            None,
             None,
         );
         assert!(matches!(result, Err(EngramError::Validation(_))));
@@ -874,6 +997,8 @@ mod tests {
             false,
             None,
             false,
+            None,
+            None,
             None,
         )
         .unwrap();
@@ -920,6 +1045,8 @@ mod tests {
             None,
             false,
             None,
+            None,
+            None,
         )
         .unwrap();
 
@@ -960,6 +1087,8 @@ mod tests {
             false,
             None,
             false,
+            None,
+            None,
             None,
         )
         .unwrap();
@@ -1009,6 +1138,8 @@ mod tests {
             None,
             false,
             None,
+            None,
+            None,
         )
         .unwrap();
 
@@ -1047,6 +1178,8 @@ mod tests {
             false,
             None,
             false,
+            None,
+            None,
             None,
         )
         .unwrap();
@@ -1101,6 +1234,8 @@ mod tests {
             None,
             false,
             None,
+            None,
+            None,
         )
         .unwrap();
 
@@ -1151,6 +1286,8 @@ mod tests {
             None,
             false,
             None,
+            None,
+            None,
         )
         .unwrap();
 
@@ -1167,6 +1304,8 @@ mod tests {
             false,
             None,
             false,
+            None,
+            None,
             None,
         )
         .unwrap();
@@ -1198,6 +1337,8 @@ mod tests {
             None,
             false,
             None,
+            None,
+            None,
         )
         .unwrap();
 
@@ -1225,6 +1366,8 @@ mod tests {
             false,
             None,
             false,
+            None,
+            None,
             None,
         );
         assert!(matches!(result, Err(EngramError::Validation(_))));

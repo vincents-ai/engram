@@ -504,7 +504,7 @@ fn handle_context_command<S: engram::storage::Storage>(
 }
 
 /// Handle reasoning commands
-fn handle_reasoning_command<S: engram::storage::Storage>(
+fn handle_reasoning_command<S: engram::storage::Storage + engram::storage::RelationshipStorage>(
     command: engram::cli::ReasoningCommands,
     storage: &mut S,
 ) -> Result<(), EngramError> {
@@ -522,6 +522,7 @@ fn handle_reasoning_command<S: engram::storage::Storage>(
             content_file,
             json,
             json_file,
+            supersedes,
         } => {
             cli::create_reasoning(
                 storage,
@@ -537,6 +538,7 @@ fn handle_reasoning_command<S: engram::storage::Storage>(
                 content_file,
                 json,
                 json_file,
+                supersedes,
             )?;
         }
         cli::ReasoningCommands::AddStep {
@@ -605,17 +607,15 @@ fn handle_reasoning_command<S: engram::storage::Storage>(
         cli::ReasoningCommands::Delete { id } => {
             cli::delete_reasoning(storage, &id)?;
         }
+        cli::ReasoningCommands::History { id } => {
+            cli::show_reasoning_history(storage, &id)?;
+        }
         cli::ReasoningCommands::Log {
             reasoning_id,
             event_type,
             content,
         } => {
-            cli::log_reasoning_event(
-                storage,
-                &reasoning_id,
-                event_type,
-                content,
-            )?;
+            cli::log_reasoning_event(storage, &reasoning_id, event_type, content)?;
         }
         cli::ReasoningCommands::Search {
             ibis_type,
@@ -1858,7 +1858,7 @@ fn handle_help_command(command: Option<cli::HelpCommands>) -> Result<(), EngramE
 }
 
 /// Handle theory commands (Naur, 1985 - Programming as Theory Building)
-fn handle_theory_command<S: engram::storage::Storage>(
+fn handle_theory_command<S: engram::storage::Storage + engram::storage::RelationshipStorage>(
     command: cli::TheoryCommands,
     storage: &mut S,
 ) -> Result<(), EngramError> {
@@ -1871,8 +1871,9 @@ fn handle_theory_command<S: engram::storage::Storage>(
             task,
             json,
             json_file,
+            supersedes,
         } => {
-            create_theory(storage, domain, agent, task, json, json_file)?;
+            create_theory(storage, domain, agent, task, json, json_file, supersedes)?;
         }
         cli::TheoryCommands::List {
             agent,
@@ -1897,6 +1898,9 @@ fn handle_theory_command<S: engram::storage::Storage>(
         }
         cli::TheoryCommands::Delete { id } => {
             delete_theory(storage, &id)?;
+        }
+        cli::TheoryCommands::History { id } => {
+            cli::show_theory_history(storage, &id)?;
         }
         cli::TheoryCommands::ApplyReflection {
             theory_id,

@@ -41,6 +41,9 @@ pub enum TheoryCommands {
         json: bool,
         #[arg(long)]
         json_file: Option<String>,
+        /// UUID of prior theory this supersedes
+        #[arg(long)]
+        supersedes: Option<String>,
     },
     List {
         #[arg(long, short)]
@@ -87,6 +90,12 @@ pub enum TheoryCommands {
         reflection_id: String,
         #[arg(long)]
         updates_file: String,
+    },
+    /// Show history of superseded theories
+    History {
+        /// Theory ID to traverse backward
+        #[arg(help = "Theory ID to traverse backward")]
+        id: String,
     },
 }
 
@@ -143,6 +152,7 @@ pub fn create_theory<S: Storage>(
     task: Option<String>,
     json: bool,
     json_file: Option<String>,
+    supersedes: Option<String>,
 ) -> Result<(), EngramError> {
     if json {
         let json_str = if let Some(file) = json_file {
@@ -179,13 +189,34 @@ pub fn create_theory<S: Storage>(
 
     let agent_name = agent.unwrap_or_else(|| "default".to_string());
     let theory = if let Some(task_id) = task {
-        Theory::for_task(domain_name, agent_name, task_id)
+        Theory::for_task(domain_name, agent_name.clone(), task_id)
     } else {
-        Theory::new(domain_name, agent_name)
+        Theory::new(domain_name, agent_name.clone())
     };
 
     let generic = theory.to_generic();
     storage.store(&generic)?;
+
+    // Create supersedes relationship if requested
+    if let Some(ref prior_id) = supersedes {
+        use crate::entities::{EntityRelationType, EntityRelationship};
+        let rel_id = uuid::Uuid::new_v4().to_string();
+        let relationship = EntityRelationship::new(
+            rel_id,
+            agent_name.clone(),
+            theory.id.clone(),
+            "theory".to_string(),
+            prior_id.clone(),
+            "theory".to_string(),
+            EntityRelationType::Supersedes,
+        );
+        let relationship_entity = relationship.to_generic();
+        storage.store(&relationship_entity)?;
+        println!(
+            "✅ Supersedes relationship created: {} → {}",
+            theory.id, prior_id
+        );
+    }
 
     println!("Theory created successfully with ID: {}", theory.id);
     Ok(())
@@ -411,6 +442,84 @@ pub fn delete_theory<S: Storage>(storage: &mut S, id: &str) -> Result<(), Engram
     Ok(())
 }
 
+/// Show history of superseded theories (traverses supersedes chain backward)
+pub fn show_theory_history<S: Storage + crate::storage::RelationshipStorage>(
+    storage: &mut S,
+    id: &str,
+) -> Result<(), EngramError> {
+    use crate::entities::{EntityRelationType, RelationshipFilter};
+
+    // Verify the starting theory exists
+    let entity = storage.get(id, Theory::entity_type())?;
+    match entity {
+        Some(generic_entity) => {
+            let theory = Theory::from_generic(generic_entity)
+                .map_err(|e| EngramError::Validation(e.to_string()))?;
+            println!("📋 Theory History (backward from {})", id);
+            println!("═══════════════════════════════════════════");
+            println!("  {} [CURRENT]", theory.domain_name);
+            println!("    ID: {}", theory.id);
+            println!("    Agent: {}", theory.agent);
+            println!("    Created: {}", theory.created_at);
+            println!();
+        }
+        None => {
+            return Err(EngramError::NotFound(format!(
+                "Theory with ID '{}' not found",
+                id
+            )));
+        }
+    }
+
+    // Traverse the supersedes chain backward
+    let mut current_id = id.to_string();
+    let mut depth = 0;
+    let max_depth = 50;
+
+    loop {
+        if depth >= max_depth {
+            println!("  ⚠️ Max depth ({}) reached, stopping traversal", max_depth);
+            break;
+        }
+
+        let filter = RelationshipFilter::new()
+            .source(current_id.clone())
+            .relationship_type(EntityRelationType::Supersedes);
+        let rels = storage.query_relationships(&filter)?;
+
+        if rels.is_empty() {
+            println!("  (no further predecessors)");
+            break;
+        }
+
+        for rel in &rels {
+            depth += 1;
+            let prior_id = &rel.target_id;
+            match storage.get(prior_id, Theory::entity_type())? {
+                Some(prior_entity) => {
+                    let prior = Theory::from_generic(prior_entity)
+                        .map_err(|e| EngramError::Validation(e.to_string()))?;
+                    println!("  {} [SUPERSEDED v{}]", prior.domain_name, depth);
+                    println!("    ID: {}", prior.id);
+                    println!("    Agent: {}", prior.agent);
+                    println!("    Created: {}", prior.created_at);
+                    println!();
+                    current_id = prior_id.clone();
+                }
+                None => {
+                    println!("  ⚠️ Referenced theory {} not found", prior_id);
+                    break;
+                }
+            }
+        }
+    }
+
+    println!("═══════════════════════════════════════════");
+    println!("Total predecessors: {}", depth);
+
+    Ok(())
+}
+
 pub fn apply_reflection<S: Storage>(
     storage: &mut S,
     theory_id: &str,
@@ -459,6 +568,7 @@ mod tests {
             None,
             false,
             None,
+            None,
         );
         assert!(result.is_ok());
 
@@ -474,7 +584,7 @@ mod tests {
     #[test]
     fn test_create_theory_missing_domain() {
         let mut storage = create_test_storage();
-        let result = create_theory(&mut storage, None, None, None, false, None);
+        let result = create_theory(&mut storage, None, None, None, false, None, None);
         assert!(matches!(result, Err(EngramError::Validation(_))));
     }
 
@@ -488,6 +598,7 @@ mod tests {
             None,
             false,
             None,
+            None,
         )
         .unwrap();
         create_theory(
@@ -496,6 +607,7 @@ mod tests {
             Some("agent2".to_string()),
             None,
             false,
+            None,
             None,
         )
         .unwrap();
@@ -521,6 +633,7 @@ mod tests {
             None,
             None,
             false,
+            None,
             None,
         )
         .unwrap();
@@ -548,6 +661,7 @@ mod tests {
             None,
             None,
             false,
+            None,
             None,
         )
         .unwrap();
@@ -583,6 +697,7 @@ mod tests {
             None,
             false,
             None,
+            None,
         )
         .unwrap();
 
@@ -603,6 +718,7 @@ mod tests {
             None,
             None,
             false,
+            None,
             None,
         )
         .unwrap();
