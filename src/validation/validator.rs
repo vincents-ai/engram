@@ -253,27 +253,24 @@ impl<S: Storage + RelationshipStorage> CommitValidator<S> {
 
     /// Get staged files from git
     pub fn get_staged_files(&self) -> Result<Vec<String>, EngramError> {
-        use std::process::Command;
-
-        let output = Command::new("git")
-            .args(&["diff", "--name-only", "--cached"])
-            .output()
-            .map_err(|e| EngramError::Io(e))?;
-
-        if !output.status.success() {
-            return Err(EngramError::Git(format!(
-                "Failed to get staged files: {}",
-                String::from_utf8_lossy(&output.stderr)
-            )));
-        }
-
-        let output_str = String::from_utf8_lossy(&output.stdout);
-        let files: Vec<String> = output_str
-            .lines()
-            .map(|s| s.trim().to_string())
-            .filter(|s| !s.is_empty())
-            .collect();
-
+        let repo = git2::Repository::open(".").map_err(|e| EngramError::Git(e.to_string()))?;
+        let head_tree = repo.head().and_then(|h| h.peel_to_tree()).ok();
+        let diff = repo
+            .diff_tree_to_index(head_tree.as_ref(), None, None)
+            .map_err(|e| EngramError::Git(e.to_string()))?;
+        let mut files = Vec::new();
+        diff.foreach(
+            &mut |delta, _| {
+                if let Some(p) = delta.new_file().path() {
+                    files.push(p.to_string_lossy().to_string());
+                }
+                true
+            },
+            None,
+            None,
+            None,
+        )
+        .map_err(|e| EngramError::Git(e.to_string()))?;
         Ok(files)
     }
 

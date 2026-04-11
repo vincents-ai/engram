@@ -1,10 +1,26 @@
 //! Migration utilities for converting between storage backends
 //!
 //! This module provides tools for migrating data from the dual-repository
-//! architecture (.engram/ directory) to the Git refs storage architecture.
+//! architecture (.engram/ directory) to the Git refs storage architecture,
+//! as well as fixing the triple-nesting serialisation bug.
+//!
+//! # Triple-nesting bug (BREAKING CHANGE to stored blob format)
+//!
+//! In early versions of engram the entity blob stored in git refs was
+//! triple-nested: the actual entity fields ended up at
+//! `data.entity.entity.entity.*` instead of being flat at `data.*`.
+//!
+//! The root cause was that `to_generic()` serialised the entity struct into a
+//! `Value::Object` that was then stored *as-is* in the `data` field of the
+//! `MemoryEntity` wrapper — adding an extra layer.  When this happened
+//! repeatedly (e.g. through `EntityRegistry::create()`), nesting compounded.
+//!
+//! `git_refs_storage::flatten_data_map` now prevents new nesting at write
+//! time.  `migrate_triple_nesting` below repairs blobs that were written
+//! before the fix by delegating to `GitRefsStorage::flatten_nested_refs`.
 
 use crate::error::EngramError;
-use crate::storage::{memory_entity::MemoryEntity, GitRefsStorage, Storage};
+use crate::storage::{memory_entity::MemoryEntity, FlattenRefsStats, GitRefsStorage, Storage};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -288,6 +304,76 @@ impl Migration {
 
         Ok(())
     }
+}
+
+/// Report returned by [`migrate_triple_nesting`].
+#[derive(Debug, Default)]
+pub struct MigrationReport {
+    /// Total entity refs inspected (workspace config and version sidecars excluded).
+    pub refs_scanned: usize,
+    /// Refs that were found to contain nested `data` blobs.
+    pub nested_found: usize,
+    /// Refs that were rewritten to a flat structure (always 0 in dry-run mode).
+    pub refs_rewritten: usize,
+}
+
+impl From<FlattenRefsStats> for MigrationReport {
+    fn from(s: FlattenRefsStats) -> Self {
+        Self {
+            refs_scanned: s.refs_scanned,
+            nested_found: s.nested_found,
+            refs_rewritten: s.refs_rewritten,
+        }
+    }
+}
+
+/// Scan all entity blobs in the git-ref store and flatten any that carry the
+/// legacy triple-nesting bug.
+///
+/// # The bug
+///
+/// Early versions of engram stored entity data with up to three levels of
+/// nesting inside the `data` field of the git blob:
+///
+/// ```json
+/// { "data": { "data": { "data": { "title": "...", ... } } } }
+/// ```
+///
+/// The fix in `git_refs_storage::flatten_data_map` prevents the bug for
+/// **newly written** blobs.  This function repairs **existing** blobs that
+/// were written before the fix.
+///
+/// # Detection
+///
+/// A blob is considered nested when its `data` field is a JSON object that
+/// itself contains a `"data"` key whose value is also a JSON object.  The
+/// detection is recursive: triple-, quadruple-, and deeper nesting is handled
+/// by `flatten_data_map`.
+///
+/// # Idempotency
+///
+/// Already-flat blobs are left completely unchanged — the function writes a
+/// new git blob only when the nesting is actually detected.  Running the
+/// migration a second time is therefore safe and produces zero rewrites.
+///
+/// # Version sidecar refs
+///
+/// Refs under `refs/engram/*/v<N>/<uuid>` carry only metadata (version
+/// number, timestamp, agent) and are never entity-data blobs.  They are
+/// skipped entirely.
+///
+/// # Arguments
+///
+/// * `storage` — an initialised [`GitRefsStorage`] pointing at the workspace
+///   to migrate.
+/// * `dry_run` — when `true`, the function performs all detection but writes
+///   nothing; `refs_rewritten` will be 0.
+pub fn migrate_triple_nesting(
+    storage: &GitRefsStorage,
+    dry_run: bool,
+) -> Result<MigrationReport, EngramError> {
+    let stats = storage.flatten_nested_refs(dry_run)?;
+    Ok(MigrationReport::from(stats))
 }
 
 #[cfg(test)]
@@ -750,5 +836,213 @@ mod tests {
         assert_eq!(dirs.len(), 2);
         assert_eq!(dirs[0].0, "alpha");
         assert_eq!(dirs[1].0, "zebra");
+    }
+
+    // ── triple-nesting migration tests ───────────────────────────────────────
+
+    /// Helper: write a raw blob JSON directly into a git ref (bypasses
+    /// `store_entity_as_ref` so we can inject a pre-fix nested blob).
+    fn write_raw_blob(repo: &git2::Repository, ref_name: &str, json: &str) {
+        let blob_oid = repo.blob(json.as_bytes()).unwrap();
+        repo.reference(ref_name, blob_oid, true, "test").unwrap();
+    }
+
+    /// Unit test: round-trip a Task through to_generic / store / get and
+    /// assert that the retrieved data map is *flat* (no "data" key nested
+    /// inside the "data" field of the stored blob).
+    #[test]
+    fn test_round_trip_produces_flat_structure() {
+        use crate::entities::{Entity, Task, TaskPriority};
+        use crate::storage::Storage;
+
+        let tmp = tempfile::TempDir::new().unwrap();
+        setup_git_repo(tmp.path());
+
+        let mut storage =
+            crate::storage::GitRefsStorage::new(tmp.path().to_str().unwrap(), "test-agent")
+                .unwrap();
+
+        let task = Task::new(
+            "Flat task".to_string(),
+            "Should be flat after round-trip".to_string(),
+            "test-agent".to_string(),
+            TaskPriority::High,
+            None,
+        );
+        let task_id = task.id.clone();
+        let generic = task.to_generic();
+        storage.store(&generic).unwrap();
+
+        let retrieved = storage.get(&task_id, "task").unwrap().unwrap();
+
+        // The `data` field of the retrieved GenericEntity must NOT contain a
+        // nested "data" key — that would indicate triple-nesting.
+        assert!(
+            !retrieved.data.get("data").map_or(false, |v| v.is_object()),
+            "retrieved data must be flat — found nested 'data' key: {:?}",
+            retrieved.data
+        );
+
+        // Entity fields must be accessible at the top level of `data`.
+        assert_eq!(
+            retrieved.data.get("title").and_then(|v| v.as_str()),
+            Some("Flat task"),
+            "title must be at data.title, not data.data.title"
+        );
+    }
+
+    /// Test that `migrate_triple_nesting` correctly flattens a
+    /// manually-constructed triple-nested blob.
+    #[test]
+    fn test_migrate_triple_nesting_flattens_nested_blob() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        setup_git_repo(tmp.path());
+
+        let storage =
+            crate::storage::GitRefsStorage::new(tmp.path().to_str().unwrap(), "test-agent")
+                .unwrap();
+        let repo = git2::Repository::open(tmp.path()).unwrap();
+
+        // Write a blob with triple nesting (data.data.data.*).
+        // This simulates what was produced by the buggy code path.
+        let triple_nested_json = r#"{
+            "id": "triple-nested-1",
+            "entity_type": "task",
+            "agent": "test-agent",
+            "timestamp": "2026-01-01T00:00:00Z",
+            "data": {
+                "data": {
+                    "data": {
+                        "title": "Triple Nested",
+                        "status": "todo"
+                    }
+                }
+            },
+            "content_hash": "",
+            "size_bytes": 0,
+            "tags": [],
+            "references": [],
+            "metadata": {}
+        }"#;
+        write_raw_blob(
+            &repo,
+            "refs/engram/task/triple-nested-1",
+            triple_nested_json,
+        );
+
+        let report = migrate_triple_nesting(&storage, false).unwrap();
+        assert!(report.refs_scanned >= 1);
+        assert_eq!(report.nested_found, 1, "should detect one nested ref");
+        assert_eq!(report.refs_rewritten, 1, "should rewrite one ref");
+
+        // Verify the blob is now flat.
+        let r = repo
+            .find_reference("refs/engram/task/triple-nested-1")
+            .unwrap();
+        let oid = r.target().unwrap();
+        let blob = repo.find_blob(oid).unwrap();
+        let updated: serde_json::Value = serde_json::from_slice(blob.content()).unwrap();
+        let data = updated.get("data").unwrap();
+
+        // No more nesting.
+        assert!(
+            !data.get("data").map_or(false, |v| v.is_object()),
+            "data must no longer contain a nested 'data' object"
+        );
+        // Entity fields now at top level.
+        assert_eq!(
+            data.get("title").and_then(|v| v.as_str()),
+            Some("Triple Nested"),
+            "title must be at data.title after migration"
+        );
+    }
+
+    /// Test that `migrate_triple_nesting` leaves already-flat blobs unchanged
+    /// (idempotency guarantee).
+    #[test]
+    fn test_migrate_triple_nesting_idempotent_on_flat_blobs() {
+        use crate::entities::{Entity, Task, TaskPriority};
+        use crate::storage::Storage;
+
+        let tmp = tempfile::TempDir::new().unwrap();
+        setup_git_repo(tmp.path());
+
+        let mut storage =
+            crate::storage::GitRefsStorage::new(tmp.path().to_str().unwrap(), "test-agent")
+                .unwrap();
+
+        // Store a correctly-written flat entity.
+        let task = Task::new(
+            "Already flat".to_string(),
+            "No nesting here".to_string(),
+            "test-agent".to_string(),
+            TaskPriority::Low,
+            None,
+        );
+        storage.store(&task.to_generic()).unwrap();
+
+        // First pass — should find nothing to fix.
+        let report1 = migrate_triple_nesting(&storage, false).unwrap();
+        assert_eq!(
+            report1.nested_found, 0,
+            "already-flat blobs must not be detected as nested"
+        );
+        assert_eq!(report1.refs_rewritten, 0);
+
+        // Second pass — still nothing.
+        let report2 = migrate_triple_nesting(&storage, false).unwrap();
+        assert_eq!(report2.nested_found, 0);
+        assert_eq!(report2.refs_rewritten, 0);
+    }
+
+    /// Test that `migrate_triple_nesting` in dry-run mode detects but does
+    /// not repair nested blobs.
+    #[test]
+    fn test_migrate_triple_nesting_dry_run() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        setup_git_repo(tmp.path());
+
+        let storage =
+            crate::storage::GitRefsStorage::new(tmp.path().to_str().unwrap(), "test-agent")
+                .unwrap();
+        let repo = git2::Repository::open(tmp.path()).unwrap();
+
+        let nested_json = r#"{
+            "id": "dry-run-nested",
+            "entity_type": "task",
+            "agent": "test-agent",
+            "timestamp": "2026-01-01T00:00:00Z",
+            "data": {
+                "data": {
+                    "title": "Dry Run"
+                }
+            },
+            "content_hash": "",
+            "size_bytes": 0,
+            "tags": [],
+            "references": [],
+            "metadata": {}
+        }"#;
+        write_raw_blob(&repo, "refs/engram/task/dry-run-nested", nested_json);
+
+        let report = migrate_triple_nesting(&storage, true /* dry_run */).unwrap();
+        assert_eq!(report.nested_found, 1);
+        assert_eq!(
+            report.refs_rewritten, 0,
+            "dry-run must not rewrite any refs"
+        );
+
+        // Blob must remain nested after dry-run.
+        let r = repo
+            .find_reference("refs/engram/task/dry-run-nested")
+            .unwrap();
+        let oid = r.target().unwrap();
+        let blob = repo.find_blob(oid).unwrap();
+        let still_nested: serde_json::Value = serde_json::from_slice(blob.content()).unwrap();
+        assert_eq!(
+            still_nested["data"]["data"]["title"],
+            serde_json::json!("Dry Run"),
+            "blob must remain nested after dry-run"
+        );
     }
 }
