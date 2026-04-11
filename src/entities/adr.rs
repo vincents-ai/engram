@@ -8,7 +8,7 @@ use uuid::Uuid;
 use validator::Validate;
 
 /// ADR status variants
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, schemars::JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum AdrStatus {
     Proposed,
@@ -18,7 +18,7 @@ pub enum AdrStatus {
 }
 
 /// Decision outcome
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, schemars::JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum DecisionOutcome {
     Accepted,
@@ -27,7 +27,7 @@ pub enum DecisionOutcome {
 }
 
 /// Architecture Decision Record entity
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, schemars::JsonSchema)]
 pub struct ADR {
     /// Unique identifier
     #[serde(rename = "id")]
@@ -123,7 +123,7 @@ pub struct ADR {
 }
 
 /// Alternative option considered
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, schemars::JsonSchema)]
 pub struct Alternative {
     /// Alternative identifier
     #[serde(rename = "id")]

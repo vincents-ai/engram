@@ -44,7 +44,7 @@ use uuid::Uuid;
 use validator::Validate;
 
 /// Rule status variants
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, schemars::JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum RuleStatus {
     Active,
@@ -53,7 +53,7 @@ pub enum RuleStatus {
 }
 
 /// Rule priority levels
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, schemars::JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum RulePriority {
     Low,
@@ -63,7 +63,7 @@ pub enum RulePriority {
 }
 
 /// Rule type variants
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, schemars::JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum RuleType {
     Validation,
@@ -73,7 +73,7 @@ pub enum RuleType {
 }
 
 /// Rule entity for system rules and policies
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, schemars::JsonSchema)]
 pub struct Rule {
     /// Unique identifier
     #[serde(rename = "id")]
@@ -153,7 +153,7 @@ pub struct Rule {
 }
 
 /// Rule execution record
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, schemars::JsonSchema)]
 pub struct RuleExecution {
     /// Execution identifier
     #[serde(rename = "id")]
@@ -181,7 +181,7 @@ pub struct RuleExecution {
 }
 
 /// Rule execution result
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, schemars::JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum RuleExecutionResult {
     Success,

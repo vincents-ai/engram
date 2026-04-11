@@ -7,8 +7,19 @@ use std::collections::HashMap;
 use uuid::Uuid;
 use validator::Validate;
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, schemars::JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum IBISNodeType {
+    Question,
+    Idea,
+    Pro,
+    Con,
+    Reference,
+    Note,
+}
+
 /// Step in a reasoning chain
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, schemars::JsonSchema)]
 pub struct ReasoningStep {
     /// Step identifier
     #[serde(rename = "id")]
@@ -36,7 +47,7 @@ pub struct ReasoningStep {
 }
 
 /// Reasoning chain entity
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, schemars::JsonSchema)]
 pub struct Reasoning {
     /// Unique identifier
     #[serde(rename = "id")]
@@ -93,6 +104,24 @@ pub struct Reasoning {
         default
     )]
     pub metadata: HashMap<String, serde_json::Value>,
+
+    #[serde(rename = "prov_used", skip_serializing_if = "Vec::is_empty", default)]
+    pub prov_used: Vec<String>,
+
+    #[serde(rename = "prov_generated", skip_serializing_if = "Vec::is_empty", default)]
+    pub prov_generated: Vec<String>,
+
+    #[serde(rename = "prov_attributed_to", default)]
+    pub prov_attributed_to: String,
+
+    #[serde(rename = "ibis_node_type", skip_serializing_if = "Option::is_none", default)]
+    pub ibis_node_type: Option<IBISNodeType>,
+
+    #[serde(rename = "ibis_parent_id", skip_serializing_if = "Option::is_none", default)]
+    pub ibis_parent_id: Option<String>,
+
+    #[serde(rename = "ibis_position", skip_serializing_if = "Option::is_none", default)]
+    pub ibis_position: Option<f64>,
 }
 
 impl Reasoning {
@@ -112,6 +141,12 @@ impl Reasoning {
             context_ids: Vec::new(),
             knowledge_ids: Vec::new(),
             metadata: HashMap::new(),
+            prov_used: Vec::new(),
+            prov_generated: Vec::new(),
+            prov_attributed_to: String::new(),
+            ibis_node_type: None,
+            ibis_parent_id: None,
+            ibis_position: None,
         }
     }
 

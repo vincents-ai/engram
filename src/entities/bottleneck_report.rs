@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use uuid::Uuid;
 use validator::Validate;
 
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, schemars::JsonSchema)]
 pub struct BottleneckReport {
     #[serde(rename = "id")]
     pub id: String,
@@ -47,7 +47,7 @@ pub struct BottleneckReport {
     pub metadata: HashMap<String, serde_json::Value>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct BottleneckEntry {
     #[serde(rename = "task_id")]
     pub task_id: String,

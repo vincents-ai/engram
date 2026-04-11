@@ -8,7 +8,7 @@ use uuid::Uuid;
 use validator::Validate;
 
 /// Session status variants
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, schemars::JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum SessionStatus {
     Active,
@@ -21,7 +21,7 @@ pub enum SessionStatus {
 }
 
 /// Session entity for tracking agent sessions
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, schemars::JsonSchema)]
 pub struct Session {
     /// Unique identifier
     #[serde(rename = "id")]
@@ -117,7 +117,7 @@ pub struct Session {
 }
 
 /// SPACE framework metrics
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, schemars::JsonSchema)]
 pub struct SpaceMetrics {
     /// Satisfaction score (0-100)
     #[serde(rename = "satisfaction_score")]
@@ -145,7 +145,7 @@ pub struct SpaceMetrics {
 }
 
 /// DORA metrics
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, schemars::JsonSchema)]
 pub struct DoraMetrics {
     /// Deployment frequency (per week)
     #[serde(rename = "deployment_frequency")]

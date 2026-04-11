@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use super::{Entity, GenericEntity};
 
 /// Direction of a relationship between entities
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
 pub enum RelationshipDirection {
     /// Bidirectional relationship (A <-> B)
     Bidirectional,
@@ -21,7 +21,7 @@ pub enum RelationshipDirection {
 }
 
 /// Type of relationship between entities
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, schemars::JsonSchema)]
 pub enum EntityRelationType {
     /// Direct dependency (Task A depends on Task B)
     DependsOn,
@@ -60,7 +60,7 @@ impl std::fmt::Display for EntityRelationType {
 }
 
 /// Strength of a relationship (for weighted graph algorithms)
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, schemars::JsonSchema)]
 pub enum RelationshipStrength {
     Weak,
     Medium,
@@ -83,7 +83,7 @@ impl RelationshipStrength {
 }
 
 /// Constraints for relationship validation
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct RelationshipConstraints {
     /// Maximum number of outbound relationships of this type
     pub max_outbound: Option<usize>,
@@ -110,7 +110,7 @@ impl Default for RelationshipConstraints {
 }
 
 /// Core entity relationship structure
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct EntityRelationship {
     /// Unique identifier for this relationship
     pub id: String,

@@ -17,6 +17,7 @@ pub mod lesson;
 pub mod persona;
 pub mod progressive_config;
 pub mod reasoning;
+pub mod reasoning_event;
 pub mod relationship;
 pub mod rule;
 pub mod session;
@@ -44,6 +45,7 @@ pub use lesson::*;
 pub use persona::*;
 pub use progressive_config::*;
 pub use reasoning::*;
+pub use reasoning_event::*;
 pub use relationship::*;
 pub use rule::*;
 pub use session::*;
@@ -147,7 +149,7 @@ pub trait Entity: Serialize + for<'de> Deserialize<'de> + Send + Sync {
 }
 
 /// Generic entity representation for dynamic handling
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct GenericEntity {
     pub id: String,
     #[serde(alias = "type")]

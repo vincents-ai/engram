@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct StaleTaskEntry {
     #[serde(rename = "task_id")]
     pub task_id: String,
@@ -34,7 +34,7 @@ pub struct StaleTaskEntry {
     pub staleness_reason: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct StaleTaskReport {
     #[serde(rename = "id")]
     pub id: String,

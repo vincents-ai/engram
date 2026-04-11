@@ -313,6 +313,27 @@ fn group_and_write(
         fs::write(topic_path.join("README.md"), readme_parts.join("\n"))?;
     }
 
+    // Write a root README.md so mdBook uses it as the landing page.
+    // Without this, mdBook falls back to the first chapter's README rendered
+    // at /index.html, where relative links like ./01-overview.html 404 because
+    // they lack the topic directory prefix.
+    let mut root_readme: Vec<String> = Vec::new();
+    root_readme.push("# Documentation".to_string());
+    root_readme.push(String::new());
+    for (topic_name, _) in &topic_dirs {
+        let topic_dir_name = slugify(topic_name);
+        let display_name = title_case(topic_name);
+        root_readme.push(format!(
+            "- [{}](./{}/README.md)",
+            display_name, topic_dir_name
+        ));
+    }
+    root_readme.push(String::new());
+    fs::write(src_dir.join("README.md"), root_readme.join("\n"))?;
+
+    // Prepend the root README to SUMMARY.md
+    summary_lines.insert(2, "- [Introduction](./README.md)".to_string());
+
     fs::write(src_dir.join("SUMMARY.md"), summary_lines.join("\n") + "\n")?;
 
     Ok(())
@@ -647,7 +668,15 @@ fn write_chunk<S: Storage>(
     } else if let Some(ref path) = file {
         fs::read_to_string(path).map_err(EngramError::Io)?
     } else if let Some(c) = content {
-        c
+        if c == "-" {
+            let mut buf = String::new();
+            std::io::stdin()
+                .read_to_string(&mut buf)
+                .map_err(EngramError::Io)?;
+            buf.trim().to_string()
+        } else {
+            c
+        }
     } else {
         return Err(EngramError::Validation(
             "Provide content via --stdin, --file, or --content".to_string(),

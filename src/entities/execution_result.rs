@@ -11,7 +11,7 @@ use uuid::Uuid;
 use validator::Validate;
 
 /// Validation status for quality gate execution
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, schemars::JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum ValidationStatus {
     /// Quality gate passed successfully
@@ -23,7 +23,7 @@ pub enum ValidationStatus {
 }
 
 /// Expected result type for quality gates
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, schemars::JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum ExpectedResult {
     /// Command should succeed (exit code 0)
@@ -35,7 +35,7 @@ pub enum ExpectedResult {
 }
 
 /// Execution result entity for quality gate output
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, schemars::JsonSchema)]
 pub struct ExecutionResult {
     /// Unique identifier
     #[serde(rename = "id")]

@@ -56,7 +56,7 @@ pub struct WorkflowDefinition {
 }
 
 /// Workflow execution context
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct WorkflowExecutionContext {
     pub variables: HashMap<String, RuleValue>,
     pub entity_id: Option<String>,
@@ -67,7 +67,7 @@ pub struct WorkflowExecutionContext {
 }
 
 /// Workflow execution status
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, schemars::JsonSchema)]
 pub enum WorkflowStatus {
     Running,
     Completed,
@@ -77,7 +77,7 @@ pub enum WorkflowStatus {
 }
 
 /// Workflow execution event for audit trail
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct WorkflowExecutionEvent {
     pub id: String,
     pub timestamp: DateTime<Utc>,
@@ -91,7 +91,7 @@ pub struct WorkflowExecutionEvent {
 }
 
 /// Types of workflow events
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub enum WorkflowEventType {
     Started,
     Transitioned,
@@ -106,7 +106,7 @@ pub enum WorkflowEventType {
 }
 
 /// Result of workflow operation
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct WorkflowExecutionResult {
     pub success: bool,
     pub instance_id: String,

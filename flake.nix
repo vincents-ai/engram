@@ -60,6 +60,7 @@
           git
           rust-analyzer
           perl
+          mdbook
         ];
 
         shellHook = ''

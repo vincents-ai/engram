@@ -56,7 +56,7 @@ use uuid::Uuid;
 use validator::Validate;
 
 /// Compliance status variants
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, schemars::JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum ComplianceStatus {
     Compliant,
@@ -66,7 +66,7 @@ pub enum ComplianceStatus {
 }
 
 /// Severity level for compliance violations
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, schemars::JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum SeverityLevel {
     Low,
@@ -76,7 +76,7 @@ pub enum SeverityLevel {
 }
 
 /// Compliance requirement entity
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, schemars::JsonSchema)]
 pub struct Compliance {
     /// Unique identifier
     #[serde(rename = "id")]
@@ -148,7 +148,7 @@ pub struct Compliance {
 }
 
 /// Evidence supporting compliance
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, schemars::JsonSchema)]
 pub struct ComplianceEvidence {
     /// Evidence identifier
     #[serde(rename = "id")]
@@ -176,7 +176,7 @@ pub struct ComplianceEvidence {
 }
 
 /// Compliance violation
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, schemars::JsonSchema)]
 pub struct ComplianceViolation {
     /// Violation identifier
     #[serde(rename = "id")]

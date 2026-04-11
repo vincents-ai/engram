@@ -184,7 +184,8 @@ async fn run() -> Result<(), EngramError> {
             }
         },
         cli::Commands::Schema { command } => {
-            cli::handle_schema_command(command)?;
+            let mut storage = GitRefsStorage::new(".", "default")?;
+            cli::handle_schema_command(command, &mut storage)?;
         }
         cli::Commands::Theory { command } => {
             let mut storage = GitRefsStorage::new(".", "default")?;

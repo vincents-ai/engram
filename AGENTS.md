@@ -1,10 +1,24 @@
-# Agent Instructions
+# Agent Instructions — engram
+
+**Read the workspace AGENTS.md at `../AGENTS.md` first.** This file extends it with repo-specific detail for `engram`. Platform-wide rules (engram protocol, licensing, build conventions, commit format) are defined there and apply here without exception.
+
+---
+
+## Repo Role in ADP
+
+`engram` is the distributed AI memory layer for the entire ADP platform. It is the single source of truth for all work across `agentic-repos`, `adp-web-ui`, and this repo itself. Every agent — human-driven or autonomous — stores tasks, reasoning, decisions, context, and session state here.
+
+Breaking changes to the engram CLI surface or storage schema affect every other repo. Treat them as platform-breaking changes and document them as ADRs.
+
+---
 
 ## North Star
 
 `engram ask query "full-fidelity handoff"` — ADR-018
 
 Any agent or human should be able to pick up exactly where another left off, with full fidelity, without the handoff party being present. Every decision, intent, and code change is traceable to engram.
+
+---
 
 ## Starting a Session
 
@@ -16,6 +30,8 @@ Any agent or human should be able to pick up exactly where another left off, wit
 
 Load the `engram-session-end` skill. Never finish without it — unclosed sessions break `engram next` for the next agent.
 
+---
+
 ## Commit Convention
 
 ```
@@ -23,6 +39,8 @@ Load the `engram-session-end` skill. Never finish without it — unclosed sessio
 ```
 
 The pre-commit hook rejects commits without a valid engram task UUID. Never use `--no-verify`.
+
+---
 
 ## Key Queries
 
@@ -45,3 +63,15 @@ engram workflow list                       # SDLC, Feature Development, Regressi
 engram sync pull --remote origin           # pull before starting
 engram sync push --remote origin           # push after ending session
 ```
+
+---
+
+## Key Conventions
+
+- New skills go in `engram/skills/` — follow existing skill file structure
+- New agent personas go in `engram/prompts/agents/`
+- The `engram` binary and `locus` TUI are both produced from this crate
+- CLI breaking changes require an ADR and a CHANGELOG entry
+- Storage schema changes (git refs format) require a migration in `src/migration.rs` and an ADR
+- Use `tracing` for all diagnostics — no `println!` / `eprintln!`
+- All public API surface requires tests; use BDD scenarios in `tests/` for user-facing behaviour

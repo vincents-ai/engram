@@ -16,7 +16,7 @@ use validator::Validate;
 /// A theory goes beyond context; it explicitly maps the domain model to the
 /// system implementation and records the "why" (design rationale), which Naur
 /// identified as the most critical and easily lost knowledge.
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, schemars::JsonSchema)]
 pub struct Theory {
     /// Unique identifier
     #[serde(rename = "id")]

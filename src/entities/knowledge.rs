@@ -8,7 +8,7 @@ use uuid::Uuid;
 use validator::Validate;
 
 /// Knowledge type variants
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, schemars::JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum KnowledgeType {
     Fact,
@@ -24,7 +24,7 @@ pub enum KnowledgeType {
 }
 
 /// Knowledge entity representing stored information
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, schemars::JsonSchema)]
 pub struct Knowledge {
     /// Unique identifier
     #[serde(rename = "id")]
@@ -93,6 +93,12 @@ pub struct Knowledge {
         default
     )]
     pub metadata: HashMap<String, serde_json::Value>,
+
+    #[serde(rename = "decay_weight", default)]
+    pub decay_weight: f64,
+
+    #[serde(rename = "citation_count", default)]
+    pub citation_count: u32,
 }
 
 impl Knowledge {
@@ -121,6 +127,8 @@ impl Knowledge {
             usage_count: 0,
             last_used: None,
             metadata: HashMap::new(),
+            decay_weight: 1.0,
+            citation_count: 0,
         }
     }
 

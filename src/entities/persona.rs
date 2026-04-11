@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use uuid::Uuid;
 
 /// Persona entity
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct Persona {
     /// Unique identifier
     pub id: String,

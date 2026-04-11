@@ -12,7 +12,7 @@ use uuid::Uuid;
 use validator::Validate;
 
 /// Persisted DORA metrics computation result
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, schemars::JsonSchema)]
 pub struct DoraMetricsReport {
     /// Unique identifier
     #[serde(rename = "id")]

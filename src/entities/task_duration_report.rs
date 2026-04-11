@@ -52,7 +52,7 @@ pub struct TaskDurationReport {
     pub metadata: HashMap<String, serde_json::Value>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct TaskDurationEntry {
     #[serde(rename = "task_id")]
     pub task_id: String,

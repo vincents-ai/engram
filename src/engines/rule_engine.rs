@@ -35,7 +35,7 @@ pub enum RuleResult {
 }
 
 /// Rule execution context containing state and variables
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct RuleExecutionContext {
     pub variables: HashMap<String, RuleValue>,
     pub current_entity: Option<GenericEntity>,
@@ -45,7 +45,7 @@ pub struct RuleExecutionContext {
 }
 
 /// Values that can be used in rule conditions and actions
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, schemars::JsonSchema)]
 #[serde(tag = "type", content = "value")]
 pub enum RuleValue {
     String(String),

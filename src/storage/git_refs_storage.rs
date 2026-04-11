@@ -313,6 +313,7 @@ impl GitRefsStorage {
         registry.register::<crate::entities::ExecutionResult>();
         registry.register::<crate::entities::ProgressiveGateConfig>();
         registry.register::<crate::entities::DocFragment>();
+        registry.register::<crate::entities::ReasoningEvent>();
 
         let mut storage = GitRefsStorage {
             repository: Arc::new(Mutex::new(repository)),

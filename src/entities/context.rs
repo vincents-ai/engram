@@ -8,7 +8,7 @@ use uuid::Uuid;
 use validator::Validate;
 
 /// Relevance level for context
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, schemars::JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum ContextRelevance {
     Low,
@@ -18,7 +18,7 @@ pub enum ContextRelevance {
 }
 
 /// Context entity representing background information
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, schemars::JsonSchema)]
 pub struct Context {
     /// Unique identifier
     #[serde(rename = "id")]
