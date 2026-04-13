@@ -1,232 +1,196 @@
 # Engram
 
-**Engram is a distributed memory system for AI agents and human operators.**
+**Your AI agents forget everything between sessions. Engram fixes that.**
 
-It acts as a "second brain" for your software projects — capturing context, plans, reasoning chains, and knowledge alongside your code. Unlike a wiki or a todo list, Engram is machine-readable: AI agents can query it with natural language, traverse its knowledge graph, and store decisions in a persistent, version-controlled store.
+Every time you start a new AI coding session, your agent starts from zero. It doesn't remember why you chose that architecture, what you tried and rejected, or what's left to do. You re-explain the same context, re-answer the same questions, and re-trace the same dead ends.
 
-> **Developers**: For build instructions and contributing guidelines see [DEVELOPMENT.md](DEVELOPMENT.md).
+Engram gives your AI agents **persistent memory** — a structured knowledge graph that lives alongside your code. Plans, decisions, reasoning chains, and context are stored in your git repo. When a new session starts, your agent queries engram and picks up exactly where the last one left off.
 
-## Why Engram?
+## What does it look like?
 
-- **Context Persistence** — Don't lose the "why" behind your code. Reasoning chains are stored, linked, and queryable.
-- **Agent Ready** — Plans and context are structured so AI agents can onboard instantly and operate without losing state across sessions.
-- **Theory Building** — Capture the mental model behind your code: concepts, design rationale, invariants (Naur, 1985).
-- **Cognitive Dissonance** — Detect when theory conflicts with reality and evolve your understanding.
-- **Git-Native Storage** — Data lives in `.git` using `refs/engram/`. Version-controlled, no directory pollution.
+A new AI agent joins your project and runs this:
 
----
+```
+$ engram ask query "what's the current state of authentication work"
 
-## Installing Engram for an LLM Agent
+→ Task #a3f1 "Add OAuth2 login flow" — status: in_progress, priority: high
+  Parent: #b7c2 "User authentication"
+  Assigned to: Claude (implementation)
 
-This section is for setting up Engram in a project so an AI agent (Claude, GPT-4, etc.) can use it as persistent memory. The install script below detects your OS, asks what you want to set up, and then runs only what you confirm.
+→ Reasoning #d4e9: "Chose JWT over sessions — stateless, scales horizontally"
+  Linked to: Task #a3f1
 
-### One-line install
+→ Context #c2b8: "OAuth2 RFC 6749 spec summary" (linked to task)
+
+→ Reasoning #e1f0: "Decided against Auth0 — cost, vendor lock-in. Rolling own with jose crate."
+  Linked to: Task #a3f1
+
+→ Task #a3f1 has 2 open subtasks:
+  • #f6a3 "Implement token refresh rotation" — status: todo
+  • #g7b4 "Add PKCE flow for mobile clients" — status: todo
+
+Next priority: #f6a3 "Implement token refresh rotation"
+```
+
+No onboarding doc. No wiki. No "let me explain the codebase to you." The agent reads engram and gets to work.
+
+## Why not just use a wiki / Notion / docs folder?
+
+| | Wiki / Docs | Engram |
+|---|---|---|
+| **Who reads it?** | Humans only | Humans and AI agents |
+| **How do you find things?** | Browse or full-text search | Natural language queries across a knowledge graph |
+| **How does it stay current?** | Someone remembers to update it | Agents write to it as part of their workflow |
+| **Where does it live?** | Separate tool / separate repo | In your git repo (`.git/refs/engram/`) |
+| **Can agents pick up where others left off?** | No | Yes — that's the point |
+
+## Install
+
+**One line (Linux, macOS):**
 
 ```bash
 curl -fsSL https://github.com/vincents-ai/engram/releases/latest/download/install.sh | bash
 ```
 
-Or install manually for your platform:
+**Or manually:**
 
-**Linux (x86\_64)**
+| Platform | Command |
+|----------|---------|
+| Linux (x86_64) | `curl -L …/engram-linux-amd64.tar.gz \| tar xz && chmod +x engram && sudo mv engram /usr/local/bin/` |
+| Linux (musl/static) | `curl -L …/engram-linux-musl-amd64.tar.gz \| tar xz && chmod +x engram && sudo mv engram /usr/local/bin/` |
+| macOS (Apple Silicon) | `curl -L …/engram-macos-arm64.tar.gz \| tar xz && chmod +x engram && sudo mv engram /usr/local/bin/` |
+| macOS (Intel) | `curl -L …/engram-macos-amd64.tar.gz \| tar xz && chmod +x engram && sudo mv engram /usr/local/bin/` |
+| Windows | Download `engram-windows-amd64.zip` from [releases](https://github.com/vincents-ai/engram/releases/latest) |
+| Nix | `nix run github:vincents-ai/engram -- --help` |
+| Cargo | `cargo install engram` |
+
+Replace `…` with `https://github.com/vincents-ai/engram/releases/latest/download` in the manual commands above.
+
 ```bash
-curl -L https://github.com/vincents-ai/engram/releases/latest/download/engram-linux-amd64.tar.gz | tar xz
-chmod +x engram && sudo mv engram /usr/local/bin/
+engram --version   # verify
 ```
 
-**Linux (static musl — for containers, NixOS, Alpine)**
-```bash
-curl -L https://github.com/vincents-ai/engram/releases/latest/download/engram-linux-musl-amd64.tar.gz | tar xz
-chmod +x engram && sudo mv engram /usr/local/bin/
-```
-
-**macOS (Apple Silicon)**
-```bash
-curl -L https://github.com/vincents-ai/engram/releases/latest/download/engram-macos-arm64.tar.gz | tar xz
-chmod +x engram && sudo mv engram /usr/local/bin/
-```
-
-**macOS (Intel)**
-```bash
-curl -L https://github.com/vincents-ai/engram/releases/latest/download/engram-macos-amd64.tar.gz | tar xz
-chmod +x engram && sudo mv engram /usr/local/bin/
-```
-
-**Windows (x86\_64)**
-
-Download `engram-windows-amd64.zip` from the [latest release](https://github.com/vincents-ai/engram/releases/latest), extract it, and add the directory to your `PATH`.
-
-**Nix**
-```bash
-nix run github:vincents-ai/engram -- --help
-```
-
-**Cargo**
-```bash
-cargo install engram
-```
-
-### Verify the install
+## Quick Start (5 minutes)
 
 ```bash
-engram --version
-```
-
----
-
-### Bootstrap for an AI agent (interactive)
-
-Once the binary is installed, run the bootstrap sequence in your project root. Each step asks for confirmation before running — nothing is applied automatically.
-
-```bash
-# 1. Initialise the workspace (creates .engram/ config in your project)
+# 1. Initialize engram in your project
+cd your-project
 engram setup workspace
 
-# 2. Register yourself or your agent (replace the name and type as appropriate)
-#    Types: operator | implementation | quality_assurance | architecture
-engram setup agent --name "Claude" --agent-type implementation
-
-# 3. Install LLM skills (14 engram-specific skills for AI coding tools (OpenCode, Claude, Goose, etc.))
-engram skills setup
-
-# 4. Install all skills — 44 skills across planning, architecture, review, debugging, and more
-engram setup skills
-
-# 5. Install prompt library (agents/, pipelines/, compliance/)
-#    Requires the prompts/ directory — clone with --recurse-submodules or supply --path
-engram setup prompts
-
-# 6. Install the commit-msg hook (enforces task linkage on every commit)
-engram validate hook install
-```
-
-You do not need to run all of these. A minimal agent setup is steps 1–3. Step 6 is strongly recommended if humans are also committing to the repo.
-
-**What each step does:**
-
-| Step | Command | What it installs |
-|------|---------|-----------------|
-| 1 | `engram setup workspace` | `.engram/` directory + `config.yaml` with default agent roles |
-| 2 | `engram setup agent` | Agent profile YAML in `.engram/agents/` |
-| 3 | `engram skills setup` | 14 core engram skills to `~/.config/engram/skills/` |
-| 4 | `engram setup skills` | 44 skills (all categories) to `~/.config/engram/skills/` |
-| 5 | `engram setup prompts` | Agent, pipeline, and compliance prompts to `~/.config/engram/prompts/` |
-| 6 | `engram validate hook install` | `commit-msg` hook that rejects commits without a task UUID |
-
-### Skills installed by `engram skills setup`
-
-These 14 skills are the core engram agent loop. They teach the LLM how to use engram correctly:
-
-| Skill | Purpose |
-|-------|---------|
-| `engram-use-engram-memory` | Core memory pattern — search before acting, store everything |
-| `engram-orchestrator` | Full agent execution loop |
-| `engram-subagent-register` | How a subagent claims a task UUID and reports back |
-| `engram-dispatching-parallel-agents` | Coordinate multiple agents on independent tasks |
-| `engram-subagent-driven-development` | Execute plans one subagent per task with review gates |
-| `engram-audit-trail` | Traceability — every decision stored and linked |
-| `engram-delegate-to-agents` | Single-agent delegation pattern |
-| `engram-brainstorming` | Design sessions stored as engram entities |
-| `engram-writing-plans` | Implementation plans stored as task hierarchies |
-| `engram-plan-feature` | Pipeline-template-based feature planning |
-| `engram-requesting-code-review` | Review dispatch via task UUID |
-| `engram-systematic-debugging` | Root cause investigation with reasoning chains |
-| `engram-test-driven-development` | TDD with engram checkpoints at each phase |
-| `engram-check-compliance` | Compliance audits stored as engram entities |
-
-Skills are embedded in the binary at compile time. Running `engram skills setup` installs the version that shipped with the binary you downloaded — skills and CLI commands are always in sync.
-
----
-
-## Quick Start (human operators)
-
-```bash
-# Initialize
-engram setup workspace
+# 2. Create your agent profile
 engram setup agent --name "Your Name" --agent-type operator
-engram validate hook install
 
-# Plan
+# 3. Install the commit hook (requires task UUID in every commit message)
+engram validate hook install
+```
+
+Now use it:
+
+```bash
+# Create a task
 engram task create --title "Add user authentication" --priority high
 
-# Document
-engram context create --title "OAuth2 Spec" --source "https://oauth.net/2/" --content "..."
-engram relationship create \
-  --source-id <TASK_ID> --source-type task \
-  --target-id <CONTEXT_ID> --target-type context \
-  --relationship-type relates_to --agent "Your Name"
-
-# Record reasoning
+# Store why you made a decision
 engram reasoning create \
-  --title "Chose JWT for stateless auth" \
+  --title "Chose JWT over sessions" \
   --task-id <TASK_ID> \
-  --content "JWT chosen: stateless, scales horizontally. Sessions rejected: stateful."
+  --content "Stateless, scales horizontally, no server-side session store."
 
-# Search
-engram ask query "authentication design decisions"
+# Save reference material
+engram context create --title "OAuth2 Spec" --source "https://oauth.net/2/" --content "..."
 
-# What to work on next
+# Ask a question across all your stored knowledge
+engram ask query "why did we choose JWT?"
+
+# What should I work on next?
 engram next
 ```
 
+Every entity is linked. Ask a question about authentication, and you get the task, the reasoning, the context, the open subtasks, and who worked on it last.
+
+## Setting up an AI agent
+
+If you use an AI coding tool (Claude Code, OpenCode, Goose, etc.), engram ships **skills** that teach your agent how to use it:
+
+```bash
+# Core engram skills (14 skills — search before acting, store everything, etc.)
+engram skills setup
+
+# All skills (44 — planning, architecture, review, debugging, compliance, TDD)
+engram setup skills
+```
+
+Minimal agent setup: `engram setup workspace` → `engram setup agent` → `engram skills setup`.
+
+Your agent now knows to search engram before acting, store decisions after making them, and link everything together. When a new session starts, it runs `engram ask query "full-fidelity handoff"` and gets the full state of the project.
+
+### Skills included
+
+| Skill | What it teaches your agent |
+|-------|---------------------------|
+| `engram-use-engram-memory` | Core loop: search before acting, store everything |
+| `engram-orchestrator` | Full agent execution loop with task management |
+| `engram-subagent-register` | How a subagent claims a task and reports back |
+| `engram-dispatching-parallel-agents` | Coordinate multiple agents on independent tasks |
+| `engram-writing-plans` | Store implementation plans as task hierarchies |
+| `engram-systematic-debugging` | Root cause investigation with reasoning chains |
+| `engram-test-driven-development` | TDD with engram checkpoints |
+| `engram-brainstorming` | Store design sessions as engram entities |
+| `engram-audit-trail` | Every decision stored, linked, and traceable |
+| `engram-check-compliance` | Compliance audits as engram entities |
+| `engram-requesting-code-review` | Review dispatch via task UUID |
+| `engram-plan-feature` | Template-based feature planning pipeline |
+| `engram-delegate-to-agents` | Single-agent delegation pattern |
+| `engram-subagent-driven-development` | Execute plans with review gates |
+
+Skills are embedded in the binary — they're always version-matched to your CLI.
+
 ---
 
-## Features
+## What's inside
 
-- **Tasks** — Hierarchical work items with priority, status, archiving, and parent/child linking
-- **Context** — Background info, docs, code snippets, linked to tasks
-- **Reasoning** — Decision logs and thought processes, linked to tasks and context
+**Core entities** — the things you store and query:
+
+- **Tasks** — Hierarchical work items with priority, status, and parent/child linking
+- **Context** — Background info, docs, and code snippets linked to tasks
+- **Reasoning** — Decision logs and thought chains linked to tasks and context
 - **Relationships** — Typed graph edges connecting any two entities
-- **Knowledge** — Typed reusable patterns that transcend individual tasks
+- **Knowledge** — Reusable patterns that transcend individual tasks
 - **ADRs** — Architecture Decision Records with numbered sequence
-- **Theory Building** — Capture mental models (Naur, 1985): concepts, mappings, invariants
-- **State Reflection** — Detect when theory conflicts with reality
+
+**Advanced capabilities:**
+
+- **Theory Building** — Capture the mental model behind your code (concepts, design rationale, invariants) per Naur's "Programming as Theory Building" (1985)
+- **State Reflection** — Detect when theory conflicts with reality and evolve your understanding
 - **Workflows** — State machines with transitions, guards, side-effects, and commit policies
-- **Sessions** — Work periods with theory binding, summaries, zombie detection
-- **Skills** — Auto-discovered agent playbooks installed to your LLM tool
-- **Validation** — Consolidated quality gates and commit-message enforcement
-- **NLQ** — Natural language queries with deep graph walk via `engram ask query`
+- **Sessions** — Work periods with theory binding, summaries, and zombie detection
+- **NLQ** — Natural language queries with deep graph traversal via `engram ask query`
 - **Sync** — Multi-agent coordination via `refs/engram/*` with conflict resolution
-- **Health** — Workspace diagnostics, consistency checks, orphan detection
-- **Doc** — Entity documentation, CLI reference, and mdBook generation
 - **Analytics** — DORA metrics, task duration reports, workflow analytics
-- **Personas & Lessons** — Structured expert prompting with CoV/FAP/OV methodology
-- **Locus TUI** — Terminal UI for browsing entities, sync, contexts, ADRs, and theories
+- **Locus TUI** — Terminal UI for browsing entities, relationships, and theories
 - **Escalation** — Permission management with create/approve/deny workflow
 
----
+## Theory Building in action
 
-## Theory Building
-
-Based on Peter Naur's "Programming as Theory Building" (1985):
+Engram implements Peter Naur's insight that programming is building a theory of the problem domain, not just writing code:
 
 ```bash
 engram theory create "User Authentication"
 engram theory update --id <ID> --concept "User: A person who authenticates to the system"
 engram theory update --id <ID> --mapping "User: src/entities/user.rs (struct User)"
 engram theory update --id <ID> --invariant "User email must be unique"
-```
 
-## State Reflection
-
-When code behaviour conflicts with theory:
-
-```bash
+# When reality contradicts theory
 engram reflect create --theory <THEORY_ID> --observed "Test failed" --trigger-type test_failure
 engram reflect record-dissonance --id <ID> --description "Theory claims X but code does Y"
-engram reflect requires-mutation --id <ID>
 ```
-
----
 
 ## Documentation
 
-- [User Guide](user-guide.md) — Comprehensive guide for human operators
+- [User Guide](docs/user-guide.md) — Comprehensive guide for human operators
 - [Using Engram (for Agents)](engram/skills/using-engram.md) — How AI agents interact with the system
 - [DEVELOPMENT.md](DEVELOPMENT.md) — Build instructions and contributing guidelines
 - [CHANGELOG.md](CHANGELOG.md) — Release history
-
----
 
 ## License
 
