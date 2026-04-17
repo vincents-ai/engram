@@ -383,7 +383,7 @@ mod tests {
     use std::collections::HashMap;
 
     fn setup_git_repo(dir: &std::path::Path) {
-        git2::Repository::init(dir).unwrap();
+        gix::init(dir).unwrap();
     }
 
     fn setup_engram_dir(dir: &std::path::Path) {
@@ -842,9 +842,23 @@ mod tests {
 
     /// Helper: write a raw blob JSON directly into a git ref (bypasses
     /// `store_entity_as_ref` so we can inject a pre-fix nested blob).
-    fn write_raw_blob(repo: &git2::Repository, ref_name: &str, json: &str) {
-        let blob_oid = repo.blob(json.as_bytes()).unwrap();
-        repo.reference(ref_name, blob_oid, true, "test").unwrap();
+    fn write_raw_blob(repo: &gix::Repository, ref_name: &str, json: &str) {
+        use gix::refs::FullName;
+        use gix::refs::Target;
+        use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
+
+        let blob_id = repo
+            .write_object(&gix::objs::Blob { data: json.as_bytes().to_vec() })
+            .unwrap();
+        repo.edit_reference(RefEdit {
+            change: Change::Update {
+                log: LogChange::default(),
+                expected: PreviousValue::Any,
+                new: Target::Object(blob_id.detach()),
+            },
+            name: FullName::try_from(ref_name).unwrap(),
+            deref: false,
+        }).unwrap();
     }
 
     /// Unit test: round-trip a Task through to_generic / store / get and
@@ -901,7 +915,7 @@ mod tests {
         let storage =
             crate::storage::GitRefsStorage::new(tmp.path().to_str().unwrap(), "test-agent")
                 .unwrap();
-        let repo = git2::Repository::open(tmp.path()).unwrap();
+        let repo = gix::open(tmp.path()).unwrap();
 
         // Write a blob with triple nesting (data.data.data.*).
         // This simulates what was produced by the buggy code path.
@@ -939,9 +953,9 @@ mod tests {
         let r = repo
             .find_reference("refs/engram/task/triple-nested-1")
             .unwrap();
-        let oid = r.target().unwrap();
-        let blob = repo.find_blob(oid).unwrap();
-        let updated: serde_json::Value = serde_json::from_slice(blob.content()).unwrap();
+        let target_id = r.try_id().unwrap();
+        let obj = repo.find_object(target_id).unwrap();
+        let updated: serde_json::Value = serde_json::from_slice(&obj.data).unwrap();
         let data = updated.get("data").unwrap();
 
         // No more nesting.
@@ -1005,7 +1019,7 @@ mod tests {
         let storage =
             crate::storage::GitRefsStorage::new(tmp.path().to_str().unwrap(), "test-agent")
                 .unwrap();
-        let repo = git2::Repository::open(tmp.path()).unwrap();
+        let repo = gix::open(tmp.path()).unwrap();
 
         let nested_json = r#"{
             "id": "dry-run-nested",
@@ -1036,9 +1050,9 @@ mod tests {
         let r = repo
             .find_reference("refs/engram/task/dry-run-nested")
             .unwrap();
-        let oid = r.target().unwrap();
-        let blob = repo.find_blob(oid).unwrap();
-        let still_nested: serde_json::Value = serde_json::from_slice(blob.content()).unwrap();
+        let target_id = r.try_id().unwrap();
+        let obj = repo.find_object(target_id).unwrap();
+        let still_nested: serde_json::Value = serde_json::from_slice(&obj.data).unwrap();
         assert_eq!(
             still_nested["data"]["data"]["title"],
             serde_json::json!("Dry Run"),
