@@ -7,6 +7,41 @@ use crate::storage::{RelationshipStorage, Storage, TraversalAlgorithm};
 use clap::Subcommand;
 use uuid::Uuid;
 
+/// Resolve a possibly-short entity ID to its full UUID.
+///
+/// If the ID is already a full UUID (36 chars with hyphens), return it as-is.
+/// If it looks like a UUID short form (hex chars only, 4-35 chars), try to resolve it.
+/// Otherwise, return as-is (for test fixtures like "source-1").
+fn resolve_entity_id<S: Storage>(
+    storage: &mut S,
+    id: &str,
+    entity_type: &str,
+) -> Result<String, EngramError> {
+    // Already a full UUID
+    if id.len() == 36 && id.chars().filter(|c| *c == '-').count() == 4 {
+        return Ok(id.to_string());
+    }
+
+    // Only try resolution for hex-like short IDs
+    let is_hex_short = id.len() >= 4
+        && id.len() < 36
+        && id.chars().all(|c| c.is_ascii_hexdigit());
+
+    if !is_hex_short {
+        return Ok(id.to_string());
+    }
+
+    // Try to resolve via storage (supports short ID prefix matching)
+    match storage.get(id, entity_type) {
+        Ok(Some(entity)) => Ok(entity.id.clone()),
+        Ok(None) => Err(EngramError::Validation(format!(
+            "Entity '{}' of type '{}' not found",
+            id, entity_type
+        ))),
+        Err(e) => Err(e),
+    }
+}
+
 #[derive(Debug, Clone, Subcommand)]
 pub enum RelationshipCommands {
     /// Create a new relationship between entities
@@ -270,6 +305,10 @@ fn create_relationship<S: Storage>(
     description: Option<String>,
     agent: String,
 ) -> Result<(), EngramError> {
+    // Resolve short IDs to full UUIDs so the relationship index works correctly
+    let source_id = resolve_entity_id(storage, &source_id, &source_type)?;
+    let target_id = resolve_entity_id(storage, &target_id, &target_type)?;
+
     let id = Uuid::new_v4().to_string();
     let direction =
         parse_direction(&direction_str).map_err(|e| EngramError::Validation(e.to_string()))?;
