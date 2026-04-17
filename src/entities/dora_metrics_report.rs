@@ -227,37 +227,33 @@ impl DoraMetricsCalculator {
         window_start: DateTime<Utc>,
         window_end: DateTime<Utc>,
     ) -> crate::Result<(f64, f64, u64)> {
-        let repo = git2::Repository::discover(repo_path).map_err(|e| {
+        let repo = gix::open(repo_path).map_err(|e| {
             crate::EngramError::Git(format!("Failed to open git repo at {:?}: {}", repo_path, e))
         })?;
 
-        let start_time = git2::Time::new(window_start.timestamp(), 0);
-        let end_time = git2::Time::new(window_end.timestamp(), 0);
+        let start_secs = window_start.timestamp();
+        let end_secs = window_end.timestamp();
 
-        let mut revwalk = repo
-            .revwalk()
-            .map_err(|e| crate::EngramError::Git(format!("revwalk failed: {}", e)))?;
-
-        revwalk
-            .push_head()
-            .map_err(|e| crate::EngramError::Git(format!("push_head failed: {}", e)))?;
-
-        revwalk
-            .set_sorting(git2::Sort::TOPOLOGICAL | git2::Sort::REVERSE)
-            .map_err(|e| crate::EngramError::Git(format!("set_sorting failed: {}", e)))?;
+        let head_id = repo.head_id().map_err(|e| {
+            crate::EngramError::Git(format!("head_id failed: {}", e))
+        })?;
 
         let mut commit_timestamps: Vec<i64> = Vec::new();
 
-        for oid_result in revwalk {
-            let oid = oid_result
-                .map_err(|e| crate::EngramError::Git(format!("revwalk iteration failed: {}", e)))?;
-            let commit = repo
-                .find_commit(oid)
-                .map_err(|e| crate::EngramError::Git(format!("find_commit failed: {}", e)))?;
+        // Walk commits from HEAD sorted by commit time (newest first).
+        // ByCommitTime sorting is required to populate commit_time in the walk info.
+        let commits = repo
+            .rev_walk([head_id])
+            .sorting(gix::revision::walk::Sorting::ByCommitTime(gix::traverse::commit::simple::CommitTimeOrder::NewestFirst))
+            .all()
+            .map_err(|e| crate::EngramError::Git(format!("revwalk failed: {}", e)))?;
 
-            let time = commit.time();
-            if time.seconds() >= start_time.seconds() && time.seconds() <= end_time.seconds() {
-                commit_timestamps.push(time.seconds());
+        for commit_result in commits {
+            let info = commit_result
+                .map_err(|e| crate::EngramError::Git(format!("revwalk iteration failed: {}", e)))?;
+            let secs = info.commit_time.unwrap_or(0);
+            if secs >= start_secs && secs <= end_secs {
+                commit_timestamps.push(secs);
             }
         }
 
