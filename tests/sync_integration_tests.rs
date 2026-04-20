@@ -90,8 +90,19 @@ impl SyncTestFixture {
         })
     }
 
-    fn set_working_directory(&self) -> Result<(), std::io::Error> {
-        env::set_current_dir(self.temp_dir.path())
+    fn set_working_directory(&self) -> Result<CwdGuard, std::io::Error> {
+        let original = std::env::current_dir()?;
+        env::set_current_dir(self.temp_dir.path())?;
+        Ok(CwdGuard(original))
+    }
+}
+
+/// RAII guard that restores the original working directory on drop.
+struct CwdGuard(std::path::PathBuf);
+
+impl Drop for CwdGuard {
+    fn drop(&mut self) {
+        let _ = std::env::set_current_dir(&self.0);
     }
 }
 
@@ -99,7 +110,7 @@ impl SyncTestFixture {
 async fn test_branch_creation_and_switching() -> Result<(), EngramError> {
     let _guard = TEST_MUTEX.lock().unwrap();
     let fixture = SyncTestFixture::new()?;
-    fixture.set_working_directory()?;
+    let _cwd_guard = fixture.set_working_directory()?;
 
     create_branch("test-branch", Some("test-agent"), None)?;
 
@@ -119,7 +130,7 @@ async fn test_branch_creation_and_switching() -> Result<(), EngramError> {
 async fn test_branch_listing() -> Result<(), EngramError> {
     let _guard = TEST_MUTEX.lock().unwrap();
     let fixture = SyncTestFixture::new()?;
-    fixture.set_working_directory()?;
+    let _cwd_guard = fixture.set_working_directory()?;
 
     create_branch("agent-alice", Some("alice"), None)?;
     create_branch("agent-bob", Some("bob"), None)?;
@@ -138,7 +149,7 @@ async fn test_branch_listing() -> Result<(), EngramError> {
 async fn test_branch_deletion() -> Result<(), EngramError> {
     let _guard = TEST_MUTEX.lock().unwrap();
     let fixture = SyncTestFixture::new()?;
-    fixture.set_working_directory()?;
+    let _cwd_guard = fixture.set_working_directory()?;
 
     create_branch("delete-me", Some("test"), None)?;
 
@@ -210,7 +221,7 @@ async fn test_memory_storage_integration() -> Result<(), EngramError> {
 async fn test_multi_agent_branch_isolation() -> Result<(), EngramError> {
     let _guard = TEST_MUTEX.lock().unwrap();
     let fixture = SyncTestFixture::new()?;
-    fixture.set_working_directory()?;
+    let _cwd_guard = fixture.set_working_directory()?;
 
     create_branch("agent-alice-work", Some("alice"), None)?;
     create_branch("agent-bob-work", Some("bob"), None)?;
@@ -230,7 +241,7 @@ async fn test_multi_agent_branch_isolation() -> Result<(), EngramError> {
 async fn test_branch_agent_association() -> Result<(), EngramError> {
     let _guard = TEST_MUTEX.lock().unwrap();
     let fixture = SyncTestFixture::new()?;
-    fixture.set_working_directory()?;
+    let _cwd_guard = fixture.set_working_directory()?;
 
     create_branch("feature-auth", Some("security-agent"), None)?;
     create_branch("feature-ui", Some("frontend-agent"), None)?;
@@ -244,7 +255,7 @@ async fn test_branch_agent_association() -> Result<(), EngramError> {
 async fn test_error_conditions() -> Result<(), EngramError> {
     let _guard = TEST_MUTEX.lock().unwrap();
     let fixture = SyncTestFixture::new()?;
-    fixture.set_working_directory()?;
+    let _cwd_guard = fixture.set_working_directory()?;
 
     let result = switch_branch("non-existent-branch", false);
     assert!(result.is_err());
@@ -269,7 +280,7 @@ async fn test_error_conditions() -> Result<(), EngramError> {
 async fn test_concurrent_branch_operations() -> Result<(), EngramError> {
     let _guard = TEST_MUTEX.lock().unwrap();
     let fixture = SyncTestFixture::new()?;
-    fixture.set_working_directory()?;
+    let _cwd_guard = fixture.set_working_directory()?;
 
     for i in 1..=5 {
         let branch_name = format!("concurrent-{}", i);
