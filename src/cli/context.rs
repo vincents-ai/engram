@@ -172,6 +172,7 @@ fn create_context_from_input<S: Storage>(
 
     // Store
     storage.store(&generic_entity)?;
+    super::session::track_entity_in_session(storage, "context", &context.id.to_string());
 
     println!("Context '{}' created successfully", context.id);
     println!("ID: {}", context.id);
@@ -286,6 +287,7 @@ pub fn create_context<S: Storage>(
 
     // Store
     storage.store(&generic_entity)?;
+    super::session::track_entity_in_session(storage, "context", &context.id.to_string());
 
     println!("Context '{}' created successfully", context.id);
     println!("ID: {}", context.id);

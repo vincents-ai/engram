@@ -220,6 +220,7 @@ fn create_knowledge_from_input<S: Storage>(
 
     let generic = knowledge.to_generic();
     storage.store(&generic)?;
+    super::session::track_entity_in_session(storage, "knowledge", &knowledge.id.to_string());
 
     println!("Knowledge created successfully with ID: {}", knowledge.id);
     Ok(())
@@ -331,6 +332,7 @@ pub fn create_knowledge<S: Storage>(
 
     let generic = knowledge.to_generic();
     storage.store(&generic)?;
+    super::session::track_entity_in_session(storage, "knowledge", &knowledge.id.to_string());
 
     println!("Knowledge created successfully with ID: {}", knowledge.id);
     Ok(())

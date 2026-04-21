@@ -324,6 +324,7 @@ pub fn create_task<S: Storage>(
 
         let generic = task.to_generic();
         storage.store(&generic)?;
+        super::session::track_entity_in_session(storage, "task", &task.id.to_string());
 
         if output_format == "json" {
             println!("{}", serde_json::to_string_pretty(&task).unwrap());
@@ -384,6 +385,7 @@ pub fn create_task<S: Storage>(
 
     let generic = task.to_generic();
     storage.store(&generic)?;
+    super::session::track_entity_in_session(storage, "task", &task.id.to_string());
 
     if output_format == "json" {
         println!("{}", serde_json::to_string_pretty(&task).unwrap());
@@ -499,6 +501,7 @@ pub fn create_task_batch<S: Storage>(
         let generic = task.to_generic();
         match storage.store(&generic) {
             Ok(_) => {
+                super::session::track_entity_in_session(storage, "task", &task.id.to_string());
                 match output_format {
                     "json" => {
                         writeln!(

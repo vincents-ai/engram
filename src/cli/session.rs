@@ -681,6 +681,63 @@ fn format_duration(seconds: u64) -> String {
     }
 }
 
+/// Track an entity creation in the active session.
+/// Called from task/context/knowledge create commands to populate
+/// session.task_ids / context_ids / knowledge_ids.
+pub fn track_entity_in_session<S: Storage>(
+    storage: &mut S,
+    entity_type: &str,
+    entity_id: &str,
+) {
+    let entity_type = match entity_type {
+        "task" | "engram.task" => "task",
+        "context" | "engram.context" => "context",
+        "knowledge" | "engram.knowledge" => "knowledge",
+        _ => return, // Only track tasks, context, and knowledge
+    };
+
+    // Find the most recent active session
+    let session_ids = match storage.list_ids("session") {
+        Ok(ids) => ids,
+        Err(_) => return,
+    };
+
+    let mut active_sessions: Vec<Session> = Vec::new();
+    for sid in &session_ids {
+        if let Ok(Some(generic)) = storage.get(sid, "session") {
+            if let Ok(session) = Session::from_generic(generic) {
+                if matches!(
+                    session.status,
+                    SessionStatus::Active | SessionStatus::Paused | SessionStatus::Reflecting
+                ) {
+                    active_sessions.push(session);
+                }
+            }
+        }
+    }
+
+    // Pick the most recently started active session
+    let mut session = match active_sessions
+        .into_iter()
+        .max_by_key(|s| s.start_time)
+    {
+        Some(s) => s,
+        None => return, // No active session — silently skip
+    };
+
+    let id = entity_id.to_string();
+    match entity_type {
+        "task" => session.add_task(id),
+        "context" => session.add_context(id),
+        "knowledge" => session.add_knowledge(id),
+        _ => return,
+    }
+
+    // Persist the updated session
+    let generic = session.to_generic();
+    let _ = storage.store(&generic);
+}
+
 pub fn summarize_sessions<S: Storage>(
     writer: &mut dyn std::io::Write,
     storage: &S,
@@ -1092,5 +1149,69 @@ mod tests {
         let output = String::from_utf8(buffer).unwrap();
 
         assert!(output.contains("2 of 3"));
+    }
+
+    #[test]
+    fn test_track_entity_in_session() {
+        let mut storage = create_test_storage();
+
+        // Start a session
+        start_session(&mut storage, "test-agent".to_string(), false).unwrap();
+
+        // Find the session ID
+        let session_ids = storage.list_ids("session").unwrap();
+        assert_eq!(session_ids.len(), 1);
+
+        // Track a task
+        let task_id = uuid::Uuid::new_v4().to_string();
+        track_entity_in_session(&mut storage, "task", &task_id);
+
+        // Verify the session was updated
+        let generic = storage.get(&session_ids[0], "session").unwrap().unwrap();
+        let session = Session::from_generic(generic).unwrap();
+        assert!(session.task_ids.contains(&task_id));
+        assert_eq!(session.task_ids.len(), 1);
+
+        // Track a context
+        let ctx_id = uuid::Uuid::new_v4().to_string();
+        track_entity_in_session(&mut storage, "context", &ctx_id);
+
+        let generic = storage.get(&session_ids[0], "session").unwrap().unwrap();
+        let session = Session::from_generic(generic).unwrap();
+        assert!(session.context_ids.contains(&ctx_id));
+        assert_eq!(session.task_ids.len(), 1); // Still 1 task
+        assert_eq!(session.context_ids.len(), 1);
+
+        // Track knowledge
+        let kn_id = uuid::Uuid::new_v4().to_string();
+        track_entity_in_session(&mut storage, "knowledge", &kn_id);
+
+        let generic = storage.get(&session_ids[0], "session").unwrap().unwrap();
+        let session = Session::from_generic(generic).unwrap();
+        assert!(session.knowledge_ids.contains(&kn_id));
+    }
+
+    #[test]
+    fn test_track_entity_no_active_session() {
+        let mut storage = create_test_storage();
+        // No session started — should silently do nothing
+        track_entity_in_session(&mut storage, "task", "some-id");
+        // No panic = success
+    }
+
+    #[test]
+    fn test_track_entity_ended_session() {
+        let mut storage = create_test_storage();
+        let session_id = start_session(&mut storage, "test-agent".to_string(), false).unwrap();
+
+        // End the session
+        end_session(&mut storage, session_id.clone(), false).unwrap();
+
+        // Tracking should silently skip ended sessions
+        track_entity_in_session(&mut storage, "task", "some-id");
+
+        let generic = storage.get(&session_id, "session").unwrap().unwrap();
+        let session = Session::from_generic(generic).unwrap();
+        assert!(session.task_ids.is_empty()); // Not tracked
     }
 }
