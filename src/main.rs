@@ -203,6 +203,9 @@ async fn run() -> Result<(), EngramError> {
             let mut storage = GitRefsStorage::new(".", "default")?;
             cli::health::handle_health_command(&mut storage, command)?;
         }
+        cli::Commands::Evo { command } => {
+            engram::evo::handle_evo_command(command)?;
+        }
         cli::Commands::Perkeep { command } => {
             use engram::cli::perkeep::{
                 perkeep_backup, perkeep_health, perkeep_list, perkeep_restore,

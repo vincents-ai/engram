@@ -26,6 +26,7 @@ pub mod storage;
 pub mod validation;
 pub mod vector;
 pub mod version;
+pub mod evo;
 
 use std::result::Result as StdResult;
 

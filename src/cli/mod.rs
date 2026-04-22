@@ -70,6 +70,7 @@ pub use sync::SyncCommands;
 pub use task::*;
 pub use theory::*;
 pub use validation::*;
+pub use crate::evo::EvoCommands;
 pub use workflow::*;
 
 use crate::ask::AskCommands;
@@ -301,6 +302,11 @@ pub enum Commands {
     Health {
         #[command(subcommand)]
         command: HealthCommands,
+    },
+    /// Self-improving loop for pi agents
+    Evo {
+        #[command(subcommand)]
+        command: EvoCommands,
     },
 }
 

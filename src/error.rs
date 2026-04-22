@@ -37,6 +37,9 @@ pub enum EngramError {
 
     #[error("Invalid operation: {0}")]
     InvalidOperation(String),
+
+    #[error("Not implemented: {0}")]
+    Unimplemented(String),
 }
 
 impl From<git2::Error> for EngramError {
