@@ -6,7 +6,7 @@
 
 ## Repo Role in ADP
 
-`engram` is the distributed AI memory layer for the entire ADP platform. It is the single source of truth for all work across `agentic-repos`, `adp-web-ui`, and this repo itself. Every agent — human-driven or autonomous — stores tasks, reasoning, decisions, context, and session state here.
+`engram` is the distributed AI memory layer for the entire ADP platform. It is the single source of truth for all work across `agentic-repos`, `adp`, and this repo itself. Every agent — human-driven or autonomous — stores tasks, reasoning, decisions, context, and session state here.
 
 Breaking changes to the engram CLI surface or storage schema affect every other repo. Treat them as platform-breaking changes and document them as ADRs.
 

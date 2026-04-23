@@ -121,6 +121,10 @@ pub enum KnowledgeCommands {
         /// Offset for pagination
         #[arg(long, short)]
         offset: Option<usize>,
+
+        /// Output format (text or json)
+        #[arg(long, default_value = "text")]
+        output: String,
     },
     /// Show knowledge details
     ///
@@ -354,6 +358,7 @@ pub fn list_knowledge<S: Storage>(
     limit: Option<usize>,
     all: bool,
     offset: Option<usize>,
+    output: String,
 ) -> Result<(), EngramError> {
     let ids = storage.list_ids(Knowledge::entity_type())?;
 
@@ -402,6 +407,12 @@ pub fn list_knowledge<S: Storage>(
 
     if items.is_empty() {
         println!("No knowledge items found matching the criteria.");
+        return Ok(());
+    }
+
+    // JSON output
+    if output == "json" {
+        println!("{}", serde_json::to_string_pretty(&items).map_err(|e| EngramError::Serialization(e))?);
         return Ok(());
     }
 

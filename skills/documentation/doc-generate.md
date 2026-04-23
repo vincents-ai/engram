@@ -240,7 +240,7 @@ cat <<'EOF' | engram doc write knowledge 01-project-facts --title "Project Facts
 Key immutable facts about this project stored in the engram knowledge graph.
 
 - **Platform**: ADP — Agentic Development Platform
-- **Repos**: engram, agentic-repos, adp-web-ui
+- **Repos**: engram, agentic-repos, adp
 - **License**: AGPL-3.0-or-later OR LicenseRef-Commercial
 EOF
 

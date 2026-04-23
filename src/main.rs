@@ -845,8 +845,9 @@ fn handle_knowledge_command<S: engram::storage::Storage>(
             limit,
             all,
             offset,
+            output,
         } => {
-            cli::list_knowledge(storage, agent, kind, tags, limit, all, offset)?;
+            cli::list_knowledge(storage, agent, kind, tags, limit, all, offset, output)?;
         }
         cli::KnowledgeCommands::Show { id } => {
             cli::show_knowledge(storage, &id)?;
