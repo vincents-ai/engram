@@ -1413,13 +1413,13 @@ mod tests {
         .unwrap();
 
         // No filters
-        assert!(list_reasoning(&storage, None, None, None, false, None).is_ok());
+        assert!(list_reasoning(&storage, None, None, None, None, false, None).is_ok());
 
         // Filter by agent
-        assert!(list_reasoning(&storage, Some("agent1"), None, None, false, None).is_ok());
+        assert!(list_reasoning(&storage, Some("agent1"), None, None, None, false, None).is_ok());
 
         // Filter by task
-        assert!(list_reasoning(&storage, None, Some("task-2"), None, false, None).is_ok());
+        assert!(list_reasoning(&storage, None, Some("task-2"), None, None, false, None).is_ok());
     }
 
     #[test]

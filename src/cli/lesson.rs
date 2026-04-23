@@ -592,7 +592,7 @@ mod tests {
         )
         .unwrap();
 
-        assert!(list_lessons(&storage, None, None, None, None, None, false, None).is_ok());
+        assert!(list_lessons(&storage, None, None, None, None, None, None, false, None).is_ok());
     }
 
     #[test]
@@ -621,6 +621,7 @@ mod tests {
             None,
             None,
             None,
+            None,
             false,
             None
         )
@@ -630,7 +631,7 @@ mod tests {
     #[test]
     fn test_list_lessons_empty() {
         let storage = create_test_storage();
-        assert!(list_lessons(&storage, None, None, None, None, None, false, None).is_ok());
+        assert!(list_lessons(&storage, None, None, None, None, None, None, false, None).is_ok());
     }
 
     #[test]

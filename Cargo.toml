@@ -62,7 +62,7 @@ regex = "1.10"
 similar = "2.6"
 
 # Git integration
-git2 = { version = "0.19", features = ["vendored-openssl"] }
+git2 = { version = "0.20", features = ["vendored-openssl"] }
 gix = { version = "0.70", default-features = false, features = ["max-performance-safe"] }
 
 # System resource monitoring

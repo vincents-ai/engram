@@ -484,6 +484,7 @@ fn handle_context_command<S: engram::storage::Storage>(
             limit,
             all,
             offset,
+            output,
         } => {
             cli::list_contexts(
                 storage,
@@ -493,6 +494,7 @@ fn handle_context_command<S: engram::storage::Storage>(
                 limit,
                 all,
                 offset,
+                output,
             )?;
         }
         cli::ContextCommands::Show { id } => {

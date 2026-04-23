@@ -766,7 +766,7 @@ mod tests {
 
         // Just verify it runs without error (output is to stdout)
         assert!(
-            list_knowledge(&storage, None, Some("fact".to_string()), None, false, None).is_ok()
+            list_knowledge(&storage, None, Some("fact".to_string()), None, None, false, None, "text".to_string()).is_ok()
         );
     }
 

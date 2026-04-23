@@ -102,6 +102,10 @@ pub enum ContextCommands {
         /// Offset for pagination
         #[arg(long, short)]
         offset: Option<usize>,
+
+        /// Output format (text or json)
+        #[arg(long, default_value = "text")]
+        output: String,
     },
     /// Show context details
     Show {
@@ -314,6 +318,7 @@ pub fn list_contexts<S: Storage>(
     limit: Option<usize>,
     all: bool,
     offset: Option<usize>,
+    output: String,
 ) -> Result<(), EngramError> {
     let mut filter = crate::storage::QueryFilter {
         entity_type: Some("context".to_string()),
@@ -349,6 +354,12 @@ pub fn list_contexts<S: Storage>(
 
     if contexts.is_empty() {
         println!("No contexts found");
+        return Ok(());
+    }
+
+    // JSON output
+    if output == "json" {
+        println!("{}", serde_json::to_string_pretty(&contexts).map_err(|e| EngramError::Serialization(e))?);
         return Ok(());
     }
 
@@ -717,10 +728,10 @@ mod tests {
         .unwrap();
 
         // Test listing all
-        list_contexts(&storage, None, None, None, false, None).unwrap();
+        list_contexts(&storage, None, None, None, None, false, None, "text".to_string()).unwrap();
 
         // Test filtering by relevance
-        list_contexts(&storage, None, Some("high"), None, false, None).unwrap();
+        list_contexts(&storage, None, Some("high"), None, None, false, None, "text".to_string()).unwrap();
     }
 
     #[test]
