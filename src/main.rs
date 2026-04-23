@@ -480,6 +480,7 @@ fn handle_context_command<S: engram::storage::Storage>(
         cli::ContextCommands::List {
             agent,
             relevance,
+            tags,
             limit,
             all,
             offset,
@@ -488,6 +489,7 @@ fn handle_context_command<S: engram::storage::Storage>(
                 storage,
                 agent.as_deref(),
                 relevance.as_deref(),
+                tags,
                 limit,
                 all,
                 offset,
@@ -591,6 +593,7 @@ fn handle_reasoning_command<S: engram::storage::Storage + engram::storage::Relat
         cli::ReasoningCommands::List {
             agent,
             task_id,
+            tags,
             limit,
             all,
             offset,
@@ -599,6 +602,7 @@ fn handle_reasoning_command<S: engram::storage::Storage + engram::storage::Relat
                 storage,
                 agent.as_deref(),
                 task_id.as_deref(),
+                tags,
                 limit,
                 all,
                 offset,
@@ -682,12 +686,13 @@ fn handle_lesson_command<S: engram::storage::Storage>(
             category,
             domain,
             severity,
+            tags,
             limit,
             all,
             offset,
         } => {
             cli::list_lessons(
-                storage, agent, category, domain, severity, limit, all, offset,
+                storage, agent, category, domain, severity, tags, limit, all, offset,
             )?;
         }
         cli::LessonCommands::Show { id } => {
@@ -836,11 +841,12 @@ fn handle_knowledge_command<S: engram::storage::Storage>(
         cli::KnowledgeCommands::List {
             agent,
             kind,
+            tags,
             limit,
             all,
             offset,
         } => {
-            cli::list_knowledge(storage, agent, kind, limit, all, offset)?;
+            cli::list_knowledge(storage, agent, kind, tags, limit, all, offset)?;
         }
         cli::KnowledgeCommands::Show { id } => {
             cli::show_knowledge(storage, &id)?;

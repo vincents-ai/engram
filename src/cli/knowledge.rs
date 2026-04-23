@@ -106,6 +106,10 @@ pub enum KnowledgeCommands {
         #[arg(long, short, value_parser = ["fact", "pattern", "rule", "concept", "procedure", "heuristic", "skill", "technique", "prompt", "autocomplete"])]
         kind: Option<String>,
 
+        /// Filter by tags (comma-separated)
+        #[arg(long, short, value_delimiter = ',')]
+        tags: Option<Vec<String>>,
+
         /// Limit results
         #[arg(long, short)]
         limit: Option<usize>,
@@ -346,6 +350,7 @@ pub fn list_knowledge<S: Storage>(
     storage: &S,
     agent: Option<String>,
     kind: Option<String>,
+    tags: Option<Vec<String>>,
     limit: Option<usize>,
     all: bool,
     offset: Option<usize>,
@@ -366,6 +371,14 @@ pub fn list_knowledge<S: Storage>(
                 if let Some(ref type_filter) = kind {
                     let type_str = format!("{:?}", knowledge.knowledge_type).to_lowercase();
                     if type_str != type_filter.to_lowercase() {
+                        continue;
+                    }
+                }
+
+                // Filter by tags (entity must have ALL specified tags)
+                if let Some(ref tag_filters) = tags {
+                    let has_all_tags = tag_filters.iter().all(|t| knowledge.tags.contains(t));
+                    if !has_all_tags {
                         continue;
                     }
                 }

@@ -159,6 +159,10 @@ pub enum ReasoningCommands {
         #[arg(long, short)]
         task_id: Option<String>,
 
+        /// Filter by tags (comma-separated)
+        #[arg(long, value_delimiter = ',')]
+        tags: Option<Vec<String>>,
+
         /// Limit number of results
         #[arg(long, short)]
         limit: Option<usize>,
@@ -166,6 +170,7 @@ pub enum ReasoningCommands {
         /// Show all results (no limit)
         #[arg(long, conflicts_with = "limit")]
         all: bool,
+
 
         /// Offset for pagination
         #[arg(long, short)]
@@ -531,6 +536,7 @@ pub fn list_reasoning<S: Storage>(
     storage: &S,
     agent: Option<&str>,
     task_id: Option<&str>,
+    tags: Option<Vec<String>>,
     limit: Option<usize>,
     all: bool,
     offset: Option<usize>,
@@ -552,37 +558,47 @@ pub fn list_reasoning<S: Storage>(
 
     let result = storage.query(&filter)?;
 
-    if result.entities.is_empty() {
+    // Filter by tags if specified
+    let mut reasoning_chains: Vec<Reasoning> = Vec::new();
+    for entity in result.entities {
+        if let Ok(reasoning) = Reasoning::from_generic(entity) {
+            if let Some(ref tag_filters) = tags {
+                let has_all_tags = tag_filters.iter().all(|t| reasoning.tags.contains(t));
+                if !has_all_tags {
+                    continue;
+                }
+            }
+            reasoning_chains.push(reasoning);
+        }
+    }
+
+    if reasoning_chains.is_empty() {
         println!("No reasoning chains found");
         return Ok(());
     }
 
     println!(
-        "Found {} reasoning chain(s) (showing {} of {})",
-        result.total_count,
-        result.entities.len(),
-        result.total_count
+        "Found {} reasoning chain(s)",
+        reasoning_chains.len()
     );
 
     let mut table = create_table();
     table.set_titles(row!["ID", "Status", "Title", "Task ID", "Agent"]);
 
-    for entity in result.entities {
-        if let Ok(reasoning) = Reasoning::from_generic(entity) {
-            let status = if !reasoning.conclusion.is_empty() {
-                "✅ Concluded"
-            } else {
-                "🚧 In Progress"
-            };
+    for reasoning in reasoning_chains {
+        let status = if !reasoning.conclusion.is_empty() {
+            "✅ Concluded"
+        } else {
+            "🚧 In Progress"
+        };
 
-            table.add_row(row![
-                &reasoning.id[..8],
-                status,
-                truncate(&reasoning.title, 40),
-                truncate(&reasoning.task_id, 15),
-                truncate(&reasoning.agent, 10)
-            ]);
-        }
+        table.add_row(row![
+            &reasoning.id[..8],
+            status,
+            truncate(&reasoning.title, 40),
+            truncate(&reasoning.task_id, 15),
+            truncate(&reasoning.agent, 10)
+        ]);
     }
 
     table.printstd();

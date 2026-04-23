@@ -64,6 +64,10 @@ pub enum LessonCommands {
         #[arg(long, short = 's')]
         severity: Option<String>,
 
+        /// Filter by tags (comma-separated)
+        #[arg(long, short, value_delimiter = ',')]
+        tags: Option<Vec<String>>,
+
         /// Limit results
         #[arg(long, short)]
         limit: Option<usize>,
@@ -194,6 +198,7 @@ pub fn list_lessons<S: Storage>(
     category: Option<String>,
     domain: Option<String>,
     severity: Option<String>,
+    tags: Option<Vec<String>>,
     limit: Option<usize>,
     all: bool,
     offset: Option<usize>,
@@ -201,6 +206,7 @@ pub fn list_lessons<S: Storage>(
     let ids = storage.list_ids(Lesson::entity_type())?;
 
     let mut items: Vec<Lesson> = Vec::new();
+
 
     for id in ids {
         if let Some(entity) = storage.get(&id, Lesson::entity_type())? {
@@ -222,6 +228,13 @@ pub fn list_lessons<S: Storage>(
                 }
                 if let Some(ref f) = severity {
                     if lesson.severity.to_string() != f.to_lowercase() {
+                        continue;
+                    }
+                }
+                // Filter by tags
+                if let Some(ref tag_filters) = tags {
+                    let has_all_tags = tag_filters.iter().all(|t| lesson.tags.contains(t));
+                    if !has_all_tags {
                         continue;
                     }
                 }

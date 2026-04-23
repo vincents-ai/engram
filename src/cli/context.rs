@@ -87,6 +87,10 @@ pub enum ContextCommands {
         #[arg(long, short)]
         relevance: Option<String>,
 
+        /// Filter by tags (comma-separated)
+        #[arg(long, short, value_delimiter = ',')]
+        tags: Option<Vec<String>>,
+
         /// Limit number of results
         #[arg(long, short)]
         limit: Option<usize>,
@@ -306,6 +310,7 @@ pub fn list_contexts<S: Storage>(
     storage: &S,
     agent: Option<&str>,
     relevance: Option<&str>,
+    tags: Option<Vec<String>>,
     limit: Option<usize>,
     all: bool,
     offset: Option<usize>,
@@ -328,33 +333,45 @@ pub fn list_contexts<S: Storage>(
 
     let result = storage.query(&filter)?;
 
-    if result.entities.is_empty() {
+    // Filter by tags if specified (entity must have ALL specified tags)
+    let mut contexts: Vec<Context> = Vec::new();
+    for entity in result.entities {
+        if let Ok(context) = Context::from_generic(entity) {
+            if let Some(ref tag_filters) = tags {
+                let has_all_tags = tag_filters.iter().all(|t| context.tags.contains(t));
+                if !has_all_tags {
+                    continue;
+                }
+            }
+            contexts.push(context);
+        }
+    }
+
+    if contexts.is_empty() {
         println!("No contexts found");
         return Ok(());
     }
 
     println!(
         "Found {} context(s) (showing {} of {})",
-        result.total_count,
-        result.entities.len(),
-        result.total_count
+        contexts.len(),
+        contexts.len(),
+        contexts.len()
     );
 
     let mut table = create_table();
     table.set_titles(row!["ID", "Title", "Relevance", "Source", "Agent"]);
 
-    for entity in result.entities {
-        if let Ok(context) = Context::from_generic(entity) {
-            let relevance_str = format!("{:?}", context.relevance);
+    for context in contexts {
+        let relevance_str = format!("{:?}", context.relevance);
 
-            table.add_row(row![
-                &context.id[..8],
-                truncate(&context.title, 40),
-                relevance_str,
-                truncate(&context.source, 20),
-                truncate(&context.agent, 10)
-            ]);
-        }
+        table.add_row(row![
+            &context.id[..8],
+            truncate(&context.title, 40),
+            relevance_str,
+            truncate(&context.source, 20),
+            truncate(&context.agent, 10)
+        ]);
     }
 
     table.printstd();
