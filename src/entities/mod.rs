@@ -58,118 +58,11 @@ pub use theory::*;
 pub use workflow::*;
 pub use workflow_instance::*;
 
+// Re-export Entity trait and GenericEntity from engram-core
+pub use engram_core::entity_types::{Entity, GenericEntity};
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-
-/// Trait for extensible entities
-pub trait Entity: Serialize + for<'de> Deserialize<'de> + Send + Sync {
-    /// Get the entity type identifier
-    fn entity_type() -> &'static str;
-
-    /// Get the entity ID
-    fn id(&self) -> &str;
-
-    /// Get the agent associated with this entity
-    fn agent(&self) -> &str;
-
-    /// Get timestamp for this entity
-    fn timestamp(&self) -> chrono::DateTime<chrono::Utc>;
-
-    /// Validate the entity
-    fn validate_entity(&self) -> crate::Result<()>;
-
-    /// Convert to generic representation
-    fn to_generic(&self) -> GenericEntity;
-
-    /// Create from generic representation
-    fn from_generic(entity: GenericEntity) -> crate::Result<Self>
-    where
-        Self: Sized;
-
-    /// Get entity type identifier (associated function)
-    fn get_entity_type() -> &'static str
-    where
-        Self: Sized,
-    {
-        Self::entity_type()
-    }
-
-    /// Get the entity ID (associated function)
-    fn get_id(entity: &Self) -> String
-    where
-        Self: Sized,
-    {
-        entity.id().to_string()
-    }
-
-    /// Get the agent associated with this entity (associated function)
-    fn get_agent(entity: &Self) -> String
-    where
-        Self: Sized,
-    {
-        entity.agent().to_string()
-    }
-
-    /// Get timestamp for this entity (associated function)
-    fn get_timestamp(entity: &Self) -> chrono::DateTime<chrono::Utc>
-    where
-        Self: Sized,
-    {
-        entity.timestamp()
-    }
-
-    /// Validate the entity (associated function)
-    fn validate_entity_static(entity: &Self) -> crate::Result<()>
-    where
-        Self: Sized,
-    {
-        entity.validate_entity()
-    }
-
-    /// Convert to generic representation (associated function)
-    fn to_generic_entity(entity: &Self) -> GenericEntity
-    where
-        Self: Sized,
-    {
-        entity.to_generic()
-    }
-
-    /// Convert to Any for downcasting
-    fn as_any(&self) -> &dyn std::any::Any
-    where
-        Self: Sized;
-
-    /// Downcast to specific type
-    fn downcast_ref<T: Entity + 'static>(&self) -> Option<&T>
-    where
-        Self: Sized,
-    {
-        self.as_any().downcast_ref()
-    }
-}
-
-/// Generic entity representation for dynamic handling
-#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
-pub struct GenericEntity {
-    pub id: String,
-    #[serde(alias = "type")]
-    pub entity_type: String,
-    pub agent: String,
-    pub timestamp: chrono::DateTime<chrono::Utc>,
-    pub data: serde_json::Value,
-}
-
-impl GenericEntity {
-    /// Create a GenericEntity from a serde_json::Value
-    pub fn from_value(value: serde_json::Value) -> crate::Result<Self> {
-        serde_json::from_value(value).map_err(|e| {
-            crate::EngramError::Deserialization(format!(
-                "Failed to deserialize GenericEntity: {}",
-                e
-            ))
-        })
-    }
-}
 
 #[cfg(test)]
 mod tests {
@@ -192,7 +85,7 @@ mod tests {
     }
 }
 
-/// Registry for entity types
+/// Registry for entity types (extends engram_core::EntityRegistry with factory-based create)
 pub struct EntityRegistry {
     entities: HashMap<String, EntityFactory>,
 }

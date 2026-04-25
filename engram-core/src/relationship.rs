@@ -7,7 +7,8 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-// GenericEntity used by Entity trait impl in the main crate
+// GenericEntity used by Entity trait impl below
+use crate::entity_types::{Entity, GenericEntity};
 
 /// Direction of a relationship between entities
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
@@ -260,7 +261,93 @@ impl EntityRelationship {
     }
 }
 
-// Entity trait impl lives in the main engram crate
+impl Entity for EntityRelationship {
+    fn entity_type() -> &'static str {
+        "relationship"
+    }
+
+    fn id(&self) -> &str {
+        &self.id
+    }
+
+    fn agent(&self) -> &str {
+        &self.agent
+    }
+
+    fn timestamp(&self) -> chrono::DateTime<chrono::Utc> {
+        self.timestamp
+    }
+
+    fn validate_entity(&self) -> Result<(), crate::error::EngramError> {
+        if self.id.trim().is_empty() {
+            return Err(crate::error::EngramError::Validation(
+                "Relationship ID cannot be empty".to_string(),
+            ));
+        }
+        if self.source_id.trim().is_empty() {
+            return Err(crate::error::EngramError::Validation(
+                "Source ID cannot be empty".to_string(),
+            ));
+        }
+        if self.target_id.trim().is_empty() {
+            return Err(crate::error::EngramError::Validation(
+                "Target ID cannot be empty".to_string(),
+            ));
+        }
+        if self.source_id == self.target_id {
+            return Err(crate::error::EngramError::Validation(
+                "Self-relationships are not allowed".to_string(),
+            ));
+        }
+        if self.source_type.trim().is_empty() {
+            return Err(crate::error::EngramError::Validation(
+                "Source type cannot be empty".to_string(),
+            ));
+        }
+        if self.target_type.trim().is_empty() {
+            return Err(crate::error::EngramError::Validation(
+                "Target type cannot be empty".to_string(),
+            ));
+        }
+        if self.agent.trim().is_empty() {
+            return Err(crate::error::EngramError::Validation(
+                "Agent cannot be empty".to_string(),
+            ));
+        }
+        self.validate_constraints()?;
+        Ok(())
+    }
+
+    fn to_generic(&self) -> GenericEntity {
+        GenericEntity {
+            id: self.id.clone(),
+            entity_type: Self::entity_type().to_string(),
+            agent: self.agent.clone(),
+            timestamp: self.timestamp,
+            data: serde_json::to_value(self).expect("Failed to serialize relationship"),
+        }
+    }
+
+    fn from_generic(entity: GenericEntity) -> Result<Self, crate::error::EngramError> {
+        if entity.entity_type != Self::entity_type() {
+            return Err(crate::error::EngramError::Deserialization(format!(
+                "Expected entity type '{}', got '{}'",
+                Self::entity_type(),
+                entity.entity_type
+            )));
+        }
+        serde_json::from_value(entity.data).map_err(|e| {
+            crate::error::EngramError::Deserialization(format!(
+                "Failed to deserialize relationship: {}",
+                e
+            ))
+        })
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
 
 /// Query filter for relationships
 #[derive(Debug, Clone, Default)]

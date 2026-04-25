@@ -43,6 +43,56 @@ pub trait Entity: Serialize + for<'de> Deserialize<'de> + Send + Sync {
     {
         self.as_any().downcast_ref()
     }
+
+    // Convenience associated functions (match main crate's interface)
+
+    /// Get entity type identifier (associated function).
+    fn get_entity_type() -> &'static str
+    where
+        Self: Sized,
+    {
+        Self::entity_type()
+    }
+
+    /// Get the entity ID (associated function).
+    fn get_id(entity: &Self) -> String
+    where
+        Self: Sized,
+    {
+        entity.id().to_string()
+    }
+
+    /// Get the agent (associated function).
+    fn get_agent(entity: &Self) -> String
+    where
+        Self: Sized,
+    {
+        entity.agent().to_string()
+    }
+
+    /// Get timestamp (associated function).
+    fn get_timestamp(entity: &Self) -> chrono::DateTime<chrono::Utc>
+    where
+        Self: Sized,
+    {
+        entity.timestamp()
+    }
+
+    /// Validate the entity (associated function).
+    fn validate_entity_static(entity: &Self) -> Result<(), crate::error::EngramError>
+    where
+        Self: Sized,
+    {
+        entity.validate_entity()
+    }
+
+    /// Convert to generic representation (associated function).
+    fn to_generic_entity(entity: &Self) -> GenericEntity
+    where
+        Self: Sized,
+    {
+        entity.to_generic()
+    }
 }
 
 /// Generic entity representation for dynamic handling.
