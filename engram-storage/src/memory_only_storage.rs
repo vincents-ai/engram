@@ -339,7 +339,7 @@ impl Storage for MemoryStorage {
 
         let has_more = filter
             .limit
-            .map_or(false, |_| offset + entities.len() < total_count);
+            .is_some_and(|_| offset + entities.len() < total_count);
 
         Ok(QueryResult {
             entities,
