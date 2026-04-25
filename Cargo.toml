@@ -9,6 +9,8 @@ repository = "https://github.com/vincents-ai/engram"
 build = "build.rs"
 
 [dependencies]
+# Workspace crate
+engram-core = { path = "engram-core" }
 # CLI and argument parsing
 clap = { version = "4.4", features = ["derive", "color"] }
 anyhow = "1.0"
@@ -53,7 +55,7 @@ digest = "0.10"
 hex = "0.4"
 
 # HTTP client for Perkeep
-reqwest = { version = "0.11", features = ["json", "blocking"] }
+reqwest = { version = "0.12", features = ["json", "blocking"] }
 
 # Regular expressions
 regex = "1.10"
@@ -122,4 +124,5 @@ tui = ["crossterm", "ratatui"]
 vector-search = ["rusqlite", "sqlite-vec", "fastembed", "ndarray", "bytemuck"]
 
 [workspace]
-members = ["."]
+members = [".", "engram-core"]
+resolver = "2"
