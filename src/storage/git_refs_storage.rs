@@ -1138,7 +1138,7 @@ impl Storage for GitRefsStorage {
 
             let git_commit = GitCommit {
                 id: info.id.to_string(),
-                author: commit.author.name.to_string(),
+                author: commit.author().map(|sig| sig.name.to_string()).unwrap_or_default(),
                 message: commit.message.to_string(),
                 timestamp: chrono::DateTime::from_timestamp(
                     info.commit_time.unwrap_or(0),

@@ -1,7 +1,8 @@
 //! Error types for the engram system.
 //!
-//! Core error variants that don't depend on git2/gix. Git-specific
-//! conversions live in the main engram crate.
+//! These are the canonical error types used across all engram crates.
+//! The main `engram` crate re-exports these and adds `From` impls for
+//! git2/gix error types.
 
 use thiserror::Error;
 
@@ -51,8 +52,14 @@ pub enum StorageError {
     #[error("Repository not found: {0}")]
     RepositoryNotFound(String),
 
-    #[error("Entity not found: {0}/{1}")]
-    EntityNotFound(String, String),
+    #[error("Invalid repository state: {0}")]
+    InvalidState(String),
+
+    #[error("Git operation failed: {0}")]
+    GitOperation(String),
+
+    #[error("Entity not found: {0}")]
+    EntityNotFound(String),
 
     #[error("Write conflict: {0}")]
     WriteConflict(String),
@@ -82,15 +89,33 @@ pub enum StorageError {
 /// Configuration errors.
 #[derive(Error, Debug)]
 pub enum ConfigError {
-    #[error("Missing configuration: {0}")]
-    Missing(String),
-
-    #[error("Invalid configuration: {0}")]
-    Invalid(String),
-
     #[error("File not found: {0}")]
     FileNotFound(String),
 
-    #[error("Parse error: {0}")]
-    ParseError(String),
+    #[error("Invalid format: {0}")]
+    InvalidFormat(String),
+
+    #[error("Validation failed: {0}")]
+    ValidationFailed(String),
+
+    #[error("Missing configuration: {0}")]
+    Missing(String),
+}
+
+/// Result type alias for convenience.
+pub type Result<T> = std::result::Result<T, EngramError>;
+
+// Git-specific From impls (behind feature flag)
+#[cfg(feature = "git")]
+impl From<git2::Error> for EngramError {
+    fn from(error: git2::Error) -> Self {
+        EngramError::Git(error.to_string())
+    }
+}
+
+#[cfg(feature = "git")]
+impl From<gix::hash::decode::Error> for EngramError {
+    fn from(error: gix::hash::decode::Error) -> Self {
+        EngramError::Git(error.to_string())
+    }
 }

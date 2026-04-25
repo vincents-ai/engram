@@ -10,7 +10,7 @@ build = "build.rs"
 
 [dependencies]
 # Workspace crate
-engram-core = { path = "engram-core" }
+engram-core = { path = "engram-core", features = ["git"] }
 # CLI and argument parsing
 clap = { version = "4.4", features = ["derive", "color"] }
 anyhow = "1.0"
@@ -65,7 +65,7 @@ similar = "2.6"
 
 # Git integration
 git2 = { version = "0.20", features = ["vendored-openssl"] }
-gix = { version = "0.70", default-features = false, features = ["max-performance-safe"] }
+gix = { version = "0.81", default-features = false, features = ["max-performance-safe", "sha1"] }
 
 # System resource monitoring
 sysinfo = "0.32"

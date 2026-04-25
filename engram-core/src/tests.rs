@@ -147,9 +147,8 @@ fn error_display_messages() {
     let err = EngramError::Validation("bad data".into());
     assert!(err.to_string().contains("bad data"));
 
-    let storage_err = StorageError::EntityNotFound("task".into(), "123".into());
+    let storage_err = StorageError::EntityNotFound("task".into());
     assert!(storage_err.to_string().contains("task"));
-    assert!(storage_err.to_string().contains("123"));
 }
 
 #[test]
@@ -157,7 +156,7 @@ fn config_error_variants() {
     let err = ConfigError::Missing("api_key".into());
     assert!(err.to_string().contains("api_key"));
 
-    let err = ConfigError::Invalid("bad format".into());
+    let err = ConfigError::InvalidFormat("bad format".into());
     assert!(err.to_string().contains("bad format"));
 }
 
