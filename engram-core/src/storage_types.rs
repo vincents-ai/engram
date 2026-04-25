@@ -7,19 +7,19 @@
 use crate::error::EngramError;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::any::Any;
 
 /// Filter for querying entities.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QueryFilter {
     pub entity_type: Option<String>,
     pub agent: Option<String>,
-    pub tags: Vec<String>,
+    pub text_search: Option<String>,
+    pub field_filters: HashMap<String, serde_json::Value>,
     pub time_range: Option<TimeRange>,
-    pub sort: SortOrder,
+    pub sort_by: Option<String>,
+    pub sort_order: SortOrder,
     pub limit: Option<usize>,
     pub offset: Option<usize>,
-    pub custom: HashMap<String, serde_json::Value>,
 }
 
 impl Default for QueryFilter {
@@ -27,12 +27,13 @@ impl Default for QueryFilter {
         Self {
             entity_type: None,
             agent: None,
-            tags: Vec::new(),
+            text_search: None,
+            field_filters: HashMap::new(),
             time_range: None,
-            sort: SortOrder::NewestFirst,
-            limit: None,
-            offset: None,
-            custom: HashMap::new(),
+            sort_by: None,
+            sort_order: SortOrder::Desc,
+            limit: Some(50),
+            offset: Some(0),
         }
     }
 }
@@ -45,10 +46,11 @@ pub struct TimeRange {
 }
 
 /// Sort order for query results.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub enum SortOrder {
-    NewestFirst,
-    OldestFirst,
+    Asc,
+    #[default]
+    Desc,
 }
 
 /// Result of a query operation.
@@ -76,6 +78,56 @@ pub struct StorageStats {
     pub entities_by_type: HashMap<String, usize>,
     pub repo_size_bytes: u64,
     pub last_commit: Option<String>,
+}
+
+/// Sync strategy for remote operations.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum SyncStrategy {
+    Pull,
+    Push,
+    PullPush,
+}
+
+/// Conflict resolution strategy.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ConflictResolution {
+    Ours,
+    Theirs,
+    Merge,
+    Fail,
+}
+
+/// Result of a sync operation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SyncResult {
+    pub pulled: usize,
+    pub pushed: usize,
+    pub conflicts: Vec<String>,
+}
+
+/// Remote sync direction.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum RemoteSyncDirection {
+    Pull,
+    Push,
+    Both,
+}
+
+/// Authentication for remote operations.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RemoteAuth {
+    pub method: String,
+    pub credentials: serde_json::Value,
+}
+
+/// Options for remote sync operations.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RemoteSyncOptions {
+    pub remote_url: String,
+    pub direction: RemoteSyncDirection,
+    pub auth: Option<RemoteAuth>,
+    pub conflict_resolution: ConflictResolution,
+    pub dry_run: bool,
 }
 
 /// Core storage trait — all engram storage backends implement this.
@@ -160,5 +212,5 @@ pub trait Storage: Send {
     fn get_stats(&self) -> Result<StorageStats, EngramError>;
 
     /// Cast to concrete type for accessing specific implementations.
-    fn as_any(&self) -> &dyn Any;
+    fn as_any(&self) -> &dyn std::any::Any;
 }

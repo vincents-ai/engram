@@ -115,9 +115,6 @@ fn entity_registry_register_and_check() {
     let mut registry = EntityRegistry::new();
     assert!(!registry.has_type("task"));
 
-    // We can't register a concrete Entity easily in this test since
-    // there are no concrete implementations in engram-core, but we
-    // can verify the registry mechanics with a manual entry.
     registry.types.insert(
         "task".to_string(),
         Ok,
@@ -133,10 +130,13 @@ fn query_filter_default() {
     let filter = storage_types::QueryFilter::default();
     assert!(filter.entity_type.is_none());
     assert!(filter.agent.is_none());
-    assert!(filter.tags.is_empty());
+    assert!(filter.text_search.is_none());
+    assert!(filter.field_filters.is_empty());
     assert!(filter.time_range.is_none());
-    assert!(filter.limit.is_none());
-    assert!(filter.offset.is_none());
+    assert!(filter.sort_by.is_none());
+    assert_eq!(filter.sort_order, storage_types::SortOrder::Desc);
+    assert_eq!(filter.limit, Some(50));
+    assert_eq!(filter.offset, Some(0));
 }
 
 #[test]
@@ -207,7 +207,28 @@ fn time_range_and_sort_order() {
     let json = serde_json::to_string(&range).unwrap();
     assert!(serde_json::from_str::<storage_types::TimeRange>(&json).is_ok());
 
-    let sort = storage_types::SortOrder::NewestFirst;
+    let sort = storage_types::SortOrder::Desc;
     let json = serde_json::to_string(&sort).unwrap();
-    assert!(json.contains("NewestFirst"));
+    assert!(json.contains("Desc"));
+}
+
+#[test]
+fn sync_types_serialization() {
+    let strategy = storage_types::SyncStrategy::PullPush;
+    let json = serde_json::to_string(&strategy).unwrap();
+    assert!(json.contains("PullPush"));
+
+    let resolution = storage_types::ConflictResolution::Merge;
+    let json = serde_json::to_string(&resolution).unwrap();
+    assert!(json.contains("Merge"));
+
+    let result = storage_types::SyncResult {
+        pulled: 5,
+        pushed: 3,
+        conflicts: vec!["conflict1".to_string()],
+    };
+    let json = serde_json::to_string(&result).unwrap();
+    let back: storage_types::SyncResult = serde_json::from_str(&json).unwrap();
+    assert_eq!(back.pulled, 5);
+    assert_eq!(back.conflicts.len(), 1);
 }

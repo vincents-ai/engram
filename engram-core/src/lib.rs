@@ -12,5 +12,5 @@ pub mod entity_types;
 mod tests;
 
 pub use error::{EngramError, StorageError, ConfigError};
-pub use storage_types::{Storage, QueryFilter, QueryResult, TimeRange, SortOrder, GitCommit, StorageStats};
+pub use storage_types::{Storage, QueryFilter, QueryResult, TimeRange, SortOrder, GitCommit, StorageStats, SyncStrategy, ConflictResolution, SyncResult, RemoteSyncDirection, RemoteAuth, RemoteSyncOptions};
 pub use entity_types::{Entity, GenericEntity, EntityRegistry};
