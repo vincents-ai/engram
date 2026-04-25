@@ -1100,6 +1100,7 @@ dependencies = [
  "digest",
  "dirs 5.0.1",
  "engram-core",
+ "engram-storage",
  "fastembed",
  "fastrand",
  "futures",
@@ -1146,6 +1147,21 @@ dependencies = [
  "serde_json",
  "serde_yaml",
  "thiserror 1.0.69",
+ "uuid",
+]
+
+[[package]]
+name = "engram-storage"
+version = "0.6.3"
+dependencies = [
+ "chrono",
+ "engram-core",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "thiserror 1.0.69",
+ "tracing",
  "uuid",
 ]
 

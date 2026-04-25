@@ -7,15 +7,15 @@
 
 #![allow(clippy::needless_borrows_for_generic_args)]
 
-use super::{
-    relationship_storage::{
-        EntityPath, GraphAnalyzer, RelationshipIndex, RelationshipStats, RelationshipStorage,
-        TraversalAlgorithm,
-    },
-    GitCommit, MemoryEntity, QueryFilter, QueryResult, SortOrder, Storage, StorageStats,
+use engram_core::storage_types::{GitCommit, QueryFilter, QueryResult, SortOrder, Storage, StorageStats};
+use engram_core::entity_types::{EntityRegistry, GenericEntity};
+use engram_core::relationship::{EntityRelationship, RelationshipFilter};
+use engram_core::error::{EngramError, StorageError};
+use engram_storage::memory_entity::MemoryEntity;
+use engram_storage::relationship_storage::{
+    EntityPath, GraphAnalyzer, RelationshipIndex, RelationshipStats, RelationshipStorage,
+    TraversalAlgorithm,
 };
-use crate::entities::{EntityRegistry, EntityRelationship, GenericEntity, RelationshipFilter};
-use crate::error::{EngramError, StorageError};
 use chrono::Utc;
 use gix::bstr::ByteSlice;
 use gix::Repository;

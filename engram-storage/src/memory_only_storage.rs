@@ -6,15 +6,16 @@
     clippy::needless_borrows_for_generic_args
 )]
 
-use super::{
-    GitCommit, MemoryEntity, QueryFilter, QueryResult, RelationshipIndex, RelationshipStats,
-    RelationshipStorage, SortOrder, Storage, StorageStats, TraversalAlgorithm,
+use crate::memory_entity::MemoryEntity;
+use crate::relationship_storage::{
+    RelationshipIndex, RelationshipStats, RelationshipStorage, TraversalAlgorithm,
 };
-use crate::entities::{
-    Entity, EntityRelationType, EntityRelationship, GenericEntity, RelationshipDirection,
-    RelationshipFilter,
+use engram_core::storage_types::{GitCommit, QueryFilter, QueryResult, SortOrder, Storage, StorageStats};
+use engram_core::entity_types::{Entity, GenericEntity};
+use engram_core::relationship::{
+    EntityRelationType, EntityRelationship, RelationshipDirection, RelationshipFilter,
 };
-use crate::error::EngramError;
+use engram_core::error::EngramError;
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -446,6 +447,8 @@ impl Storage for MemoryStorage {
             entities_by_type,
             entities_by_agent,
             total_storage_size,
+            repo_size_bytes: total_storage_size,
+            last_commit: None,
             last_sync: None,
         })
     }
@@ -705,31 +708,18 @@ impl RelationshipStorage for MemoryStorage {
     }
 }
 #[cfg(test)]
+
+#[cfg(test)]
 mod tests {
     use super::*;
-    use crate::entities::{Entity, Task, TaskPriority, TaskStatus};
 
-    fn create_test_task(id: &str) -> Task {
-        Task {
+    fn create_test_entity(id: &str, entity_type: &str, agent: &str) -> GenericEntity {
+        GenericEntity {
             id: id.to_string(),
-            title: "Test Task".to_string(),
-            description: "A test task".to_string(),
-            status: TaskStatus::Todo,
-            priority: TaskPriority::Medium,
-            agent: "test-agent".to_string(),
-            start_time: Utc::now(),
-            end_time: None,
-            parent: None,
-            children: Vec::new(),
-            tags: Vec::new(),
-            context_ids: Vec::new(),
-            knowledge: Vec::new(),
-            files: Vec::new(),
-            outcome: None,
-            block_reason: None,
-            workflow_id: None,
-            workflow_state: None,
-            metadata: HashMap::new(),
+            entity_type: entity_type.to_string(),
+            agent: agent.to_string(),
+            timestamp: Utc::now(),
+            data: serde_json::json!({"title": "Test"}),
         }
     }
 
@@ -743,37 +733,31 @@ mod tests {
     fn test_store_and_get_entity() {
         let mut storage = MemoryStorage::new("test-agent");
 
-        let task = create_test_task("task-1");
-        let generic = task.to_generic();
+        let entity = create_test_entity("task-1", "task", "test-agent");
 
-        // Store
-        let result = storage.store(&generic);
+        let result = storage.store(&entity);
         assert!(result.is_ok());
 
-        // Get
         let retrieved = storage.get("task-1", "task").unwrap();
         assert!(retrieved.is_some());
 
-        let retrieved_generic = retrieved.unwrap();
-        assert_eq!(retrieved_generic.id, "task-1");
-        assert_eq!(retrieved_generic.entity_type, "task");
+        let retrieved_entity = retrieved.unwrap();
+        assert_eq!(retrieved_entity.id, "task-1");
+        assert_eq!(retrieved_entity.entity_type, "task");
     }
 
     #[test]
     fn test_delete_entity() {
         let mut storage = MemoryStorage::new("test-agent");
 
-        let task = create_test_task("task-1");
-        storage.store(&task.to_generic()).unwrap();
+        let entity = create_test_entity("task-1", "task", "test-agent");
+        storage.store(&entity).unwrap();
 
-        // Verify exists
         assert!(storage.get("task-1", "task").unwrap().is_some());
 
-        // Delete
         let result = storage.delete("task-1", "task");
         assert!(result.is_ok());
 
-        // Verify gone
         assert!(storage.get("task-1", "task").unwrap().is_none());
     }
 
@@ -781,12 +765,11 @@ mod tests {
     fn test_query_by_agent() {
         let mut storage = MemoryStorage::new("test-agent");
 
-        let task1 = create_test_task("task-1");
-        let mut task2 = create_test_task("task-2");
-        task2.agent = "other-agent".to_string();
+        let entity1 = create_test_entity("task-1", "task", "test-agent");
+        let entity2 = create_test_entity("task-2", "task", "other-agent");
 
-        storage.store(&task1.to_generic()).unwrap();
-        storage.store(&task2.to_generic()).unwrap();
+        storage.store(&entity1).unwrap();
+        storage.store(&entity2).unwrap();
 
         let results = storage.query_by_agent("test-agent", None).unwrap();
         assert_eq!(results.len(), 1);

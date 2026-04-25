@@ -170,6 +170,9 @@ fn storage_stats_serialization() {
             m.insert("context".to_string(), 22);
             m
         },
+        entities_by_agent: std::collections::HashMap::new(),
+        total_storage_size: 1024,
+        last_sync: None,
         repo_size_bytes: 1024,
         last_commit: Some("abc123".to_string()),
     };
@@ -177,7 +180,7 @@ fn storage_stats_serialization() {
     let json = serde_json::to_string(&stats).unwrap();
     let back: storage_types::StorageStats = serde_json::from_str(&json).unwrap();
     assert_eq!(back.total_entities, 42);
-    assert_eq!(back.repo_size_bytes, 1024);
+    assert_eq!(back.total_storage_size, 1024);
 }
 
 #[test]
@@ -217,17 +220,27 @@ fn sync_types_serialization() {
     let json = serde_json::to_string(&strategy).unwrap();
     assert!(json.contains("PullPush"));
 
-    let resolution = storage_types::ConflictResolution::Merge;
+    let resolution = storage_types::ConflictResolution {
+        entity_id: "e1".to_string(),
+        entity_type: "task".to_string(),
+        strategy_used: storage_types::SyncStrategy::LatestWins,
+        winner: "ours".to_string(),
+        conflicts_detected: vec!["field mismatch".to_string()],
+    };
     let json = serde_json::to_string(&resolution).unwrap();
-    assert!(json.contains("Merge"));
+    assert!(json.contains("LatestWins"));
 
     let result = storage_types::SyncResult {
-        pulled: 5,
-        pushed: 3,
-        conflicts: vec!["conflict1".to_string()],
+        entities_synced: 5,
+        conflicts_resolved: vec![],
+        errors: vec![],
+        timestamp: chrono::Utc::now(),
+        synced_agents: vec!["agent-1".to_string()],
+        merged_entities: 3,
+        duration_ms: 1500,
     };
     let json = serde_json::to_string(&result).unwrap();
     let back: storage_types::SyncResult = serde_json::from_str(&json).unwrap();
-    assert_eq!(back.pulled, 5);
-    assert_eq!(back.conflicts.len(), 1);
+    assert_eq!(back.entities_synced, 5);
+    assert_eq!(back.synced_agents.len(), 1);
 }

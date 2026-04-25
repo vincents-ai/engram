@@ -1,8 +1,8 @@
 //! Storage trait and supporting types.
 //!
 //! The `Storage` trait is the core abstraction for all engram storage
-//! backends. Implementations include git-refs (primary), memory-only
-//! (testing), and future backends.
+//! backends. These types match the original definitions in the main crate's
+//! storage/mod.rs exactly.
 
 use crate::error::EngramError;
 use serde::{Deserialize, Serialize};
@@ -72,11 +72,17 @@ pub struct GitCommit {
 }
 
 /// Statistics about stored entities.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct StorageStats {
     pub total_entities: usize,
     pub entities_by_type: HashMap<String, usize>,
+    pub entities_by_agent: HashMap<String, usize>,
+    pub total_storage_size: u64,
+    pub last_sync: Option<chrono::DateTime<chrono::Utc>>,
+    // Extended fields (added during engram-core extraction)
+    #[serde(default)]
     pub repo_size_bytes: u64,
+    #[serde(default)]
     pub last_commit: Option<String>,
 }
 
@@ -86,23 +92,29 @@ pub enum SyncStrategy {
     Pull,
     Push,
     PullPush,
+    LatestWins,
 }
 
-/// Conflict resolution strategy.
+/// Conflict resolution result.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum ConflictResolution {
-    Ours,
-    Theirs,
-    Merge,
-    Fail,
+pub struct ConflictResolution {
+    pub entity_id: String,
+    pub entity_type: String,
+    pub strategy_used: SyncStrategy,
+    pub winner: String,
+    pub conflicts_detected: Vec<String>,
 }
 
 /// Result of a sync operation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SyncResult {
-    pub pulled: usize,
-    pub pushed: usize,
-    pub conflicts: Vec<String>,
+    pub entities_synced: usize,
+    pub conflicts_resolved: Vec<ConflictResolution>,
+    pub errors: Vec<String>,
+    pub timestamp: chrono::DateTime<chrono::Utc>,
+    pub synced_agents: Vec<String>,
+    pub merged_entities: usize,
+    pub duration_ms: u64,
 }
 
 /// Remote sync direction.
@@ -110,30 +122,30 @@ pub struct SyncResult {
 pub enum RemoteSyncDirection {
     Pull,
     Push,
-    Both,
+    BiDirectional,
 }
 
 /// Authentication for remote operations.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RemoteAuth {
-    pub method: String,
-    pub credentials: serde_json::Value,
+    pub auth_type: String,
+    pub username: Option<String>,
+    pub password: Option<String>,
+    pub key_path: Option<String>,
 }
 
 /// Options for remote sync operations.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RemoteSyncOptions {
-    pub remote_url: String,
+    pub remote: String,
     pub direction: RemoteSyncDirection,
-    pub auth: Option<RemoteAuth>,
-    pub conflict_resolution: ConflictResolution,
+    pub branch: Option<String>,
+    pub agent_ids: Vec<String>,
     pub dry_run: bool,
+    pub auth: RemoteAuth,
 }
 
 /// Core storage trait — all engram storage backends implement this.
-///
-/// Provides CRUD, querying, branching, and sync operations.
-/// Not async — engram's git-refs storage is synchronous (gix/git2 are sync).
 pub trait Storage: Send {
     /// Store a memory entity.
     fn store(&mut self, entity: &crate::entity_types::GenericEntity) -> Result<(), EngramError>;

@@ -11,6 +11,7 @@ build = "build.rs"
 [dependencies]
 # Workspace crate
 engram-core = { path = "engram-core", features = ["git"] }
+engram-storage = { path = "engram-storage" }
 # CLI and argument parsing
 clap = { version = "4.4", features = ["derive", "color"] }
 anyhow = "1.0"
@@ -124,5 +125,5 @@ tui = ["crossterm", "ratatui"]
 vector-search = ["rusqlite", "sqlite-vec", "fastembed", "ndarray", "bytemuck"]
 
 [workspace]
-members = [".", "engram-core"]
+members = [".", "engram-core", "engram-storage"]
 resolver = "2"
