@@ -261,22 +261,22 @@ pub struct AgentSandbox {
 
     /// Permission set
     #[serde(rename = "permissions")]
-    #[validate]
+    #[validate(nested)]
     pub permissions: PermissionSet,
 
     /// Resource limits
     #[serde(rename = "resource_limits")]
-    #[validate]
+    #[validate(nested)]
     pub resource_limits: ResourceLimits,
 
     /// Command filter
     #[serde(rename = "command_filter")]
-    #[validate]
+    #[validate(nested)]
     pub command_filter: CommandFilter,
 
     /// Escalation policy
     #[serde(rename = "escalation_policy")]
-    #[validate]
+    #[validate(nested)]
     pub escalation_policy: EscalationPolicy,
 
     /// Who created this sandbox

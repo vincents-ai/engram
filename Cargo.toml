@@ -46,7 +46,7 @@ futures = "0.3"
 async-trait = "0.1"
 
 # Error handling and validation
-validator = { version = "0.16", features = ["derive"] }
+validator = { version = "0.20", features = ["derive"] }
 
 # SHA-256 hashing
 sha2 = "0.10"

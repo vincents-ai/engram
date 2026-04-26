@@ -155,7 +155,7 @@ pub struct EscalationRequest {
 
     /// Context about the blocked operation
     #[serde(rename = "operation_context")]
-    #[validate]
+    #[validate(nested)]
     pub operation_context: OperationContext,
 
     /// Justification provided by the agent
