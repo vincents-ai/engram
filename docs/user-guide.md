@@ -1,12 +1,14 @@
 # Engram User Guide
 
-Welcome to Engram! This guide is written for **human operators**—developers, product managers, and architects who want to use Engram to manage their software projects.
+**Every new AI session starts from zero. Engram gives your agents — and you — persistent memory.**
+
+This guide is for **human operators**: developers, tech leads, and architects who want to stop losing context between sessions, between agents, and between sprints.
 
 ## What is Engram?
 
-Engram is a "second brain" for your code. While Git tracks *what* changed (the code), Engram tracks *why* it changed (the reasoning), *how* you planned it (the tasks), and *what* you learned along the way (the context).
+Git tracks *what* changed. Engram tracks *why* it changed (the reasoning), *how* you planned it (the tasks), and *what* you learned along the way (the context). It's a structured knowledge graph that lives inside your git repo — in `.git/refs/engram/`, not in your working tree. No extra files to commit, no wiki to maintain, no tool to context-switch to.
 
-It lives inside your repository but doesn't clutter your files. Engram stores data directly in your `.git` database using custom references (`refs/engram/`). This means your project management is version-controlled without you ever having to `git add` a task file.
+The result: when you (or an AI agent) ask "where were we on auth?", engram returns the task, the decision log, the reference material, the open subtasks, and who worked on it last. No onboarding required.
 
 ## Getting Started
 

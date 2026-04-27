@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::cli::utils::{create_table, truncate};
-use crate::entities::GenericEntity;
+use crate::entities::{Entity, GenericEntity};
 use crate::error::EngramError;
 use crate::feedback::{FeedbackStatus, StructuredFeedback};
 use crate::storage::{RelationshipStorage, Storage};
@@ -45,6 +45,12 @@ pub enum HealthCommands {
     Orphans,
     /// Check git refs store consistency
     Consistency,
+    /// Refresh knowledge decay weights and citation counts
+    RefreshDecay {
+        /// Decay rate lambda (default: 0.01, half-life ~70 days)
+        #[arg(long, default_value = "0.01")]
+        lambda: f64,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -255,6 +261,7 @@ pub fn handle_health_command<S: Storage + RelationshipStorage>(
         }
         HealthCommands::Orphans => run_orphan_detection(storage),
         HealthCommands::Consistency => run_consistency_check(storage),
+        HealthCommands::RefreshDecay { lambda } => run_refresh_decay(storage, lambda),
     }
 }
 
@@ -1402,6 +1409,45 @@ fn run_consistency_check<S: Storage + RelationshipStorage>(storage: &S) -> Resul
     }
 
     println!("  {}", report.summary());
+
+    Ok(())
+}
+
+fn run_refresh_decay<S: Storage + RelationshipStorage>(
+    storage: &mut S,
+    lambda: f64,
+) -> Result<(), EngramError> {
+    let knowledge_ids = storage.list_ids("knowledge")?;
+    let mut updated = 0usize;
+
+    for kid in &knowledge_ids {
+        if let Some(entity) = storage.get(kid, "knowledge")? {
+            let mut knowledge = crate::entities::Knowledge::from_generic(entity)?;
+            knowledge.compute_decay_weight(lambda);
+
+            let rels = storage.get_inbound_relationships(kid)?;
+            knowledge.citation_count = rels.len() as u32;
+
+            let updated_generic = knowledge.to_generic();
+            storage.store(&updated_generic)?;
+            updated += 1;
+        }
+    }
+
+    println!("Knowledge Decay Refresh");
+    println!("======================");
+    println!(
+        "  Lambda: {} (half-life: {:.0} days)",
+        lambda,
+        0.693 / lambda
+    );
+    println!("  Entries processed: {}", knowledge_ids.len());
+    println!("  Entries updated: {}", updated);
+
+    if updated > 0 {
+        println!();
+        println!("  Decay weights and citation counts refreshed.");
+    }
 
     Ok(())
 }

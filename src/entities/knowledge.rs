@@ -179,6 +179,16 @@ impl Knowledge {
     pub fn set_source(&mut self, source: String) {
         self.source = Some(source);
     }
+
+    /// Compute decay weight using exponential decay: e^(-lambda * days_since_last_used)
+    pub fn compute_decay_weight(&mut self, lambda: f64) {
+        let days = match &self.last_used {
+            Some(dt) => (Utc::now() - *dt).num_days() as f64,
+            None => 0.0,
+        };
+        let weight = (-lambda * days).exp();
+        self.decay_weight = weight.clamp(0.0, 1.0);
+    }
 }
 
 impl Entity for Knowledge {

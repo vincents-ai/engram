@@ -494,6 +494,10 @@ pub fn show_knowledge<S: Storage>(storage: &S, id: &str) -> Result<(), EngramErr
         println!("Last Used: {}", last_used);
     }
 
+    println!("Decay Weight: {:.4}", knowledge.decay_weight);
+
+    println!("Citation Count: {}", knowledge.citation_count);
+
     Ok(())
 }
 
