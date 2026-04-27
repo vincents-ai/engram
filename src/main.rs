@@ -503,7 +503,9 @@ fn handle_context_command<S: engram::storage::Storage>(
 }
 
 /// Handle reasoning commands
-fn handle_reasoning_command<S: engram::storage::Storage>(
+fn handle_reasoning_command<
+    S: engram::storage::Storage + engram::storage::relationship_storage::RelationshipStorage,
+>(
     command: engram::cli::ReasoningCommands,
     storage: &mut S,
 ) -> Result<(), EngramError> {
@@ -521,6 +523,14 @@ fn handle_reasoning_command<S: engram::storage::Storage>(
             content_file,
             json,
             json_file,
+            ibis,
+            ibis_file,
+            issue,
+            position,
+            argument,
+            prov_used,
+            prov_generated,
+            prov_attributed_to,
         } => {
             cli::create_reasoning(
                 storage,
@@ -536,6 +546,14 @@ fn handle_reasoning_command<S: engram::storage::Storage>(
                 content_file,
                 json,
                 json_file,
+                ibis,
+                ibis_file,
+                issue,
+                position,
+                argument,
+                prov_used,
+                prov_generated,
+                prov_attributed_to,
             )?;
         }
         cli::ReasoningCommands::AddStep {
