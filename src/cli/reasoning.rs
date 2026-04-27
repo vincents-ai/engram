@@ -1,6 +1,6 @@
 //! Reasoning command implementations
 
-use crate::entities::{Entity, Reasoning};
+use crate::entities::{Entity, Reasoning, ReasoningEvent, ReasoningEventType};
 use crate::error::EngramError;
 use crate::storage::Storage;
 use clap::Subcommand;
@@ -159,6 +159,25 @@ pub enum ReasoningCommands {
         /// Reasoning ID
         #[arg(help = "Reasoning ID to delete")]
         id: String,
+    },
+    /// Add a reasoning event
+    Event {
+        #[command(subcommand)]
+        command: ReasoningEventCommands,
+    },
+    /// List reasoning events
+    Log {
+        /// Filter by reasoning ID
+        #[arg(long)]
+        reasoning_id: Option<String>,
+
+        /// Filter by event type
+        #[arg(long)]
+        event_type: Option<String>,
+
+        /// Number of events to show (default: 20)
+        #[arg(long, short, default_value = "20")]
+        limit: usize,
     },
 }
 
@@ -565,6 +584,132 @@ pub fn delete_reasoning<S: Storage>(storage: &mut S, id: &str) -> Result<(), Eng
     }
 
     Ok(())
+}
+
+#[derive(Debug, Subcommand)]
+pub enum ReasoningEventCommands {
+    /// Add a new reasoning event
+    Add {
+        /// Parent reasoning ID
+        #[arg(long)]
+        reasoning_id: String,
+
+        /// Event type (auto_stored, theory_mutated, contradiction_found, hypothesis_updated, conclusion_reached, custom:<name>)
+        #[arg(long)]
+        event_type: String,
+
+        /// Event description
+        #[arg(long)]
+        content: Option<String>,
+
+        /// Additional metadata as JSON
+        #[arg(long)]
+        metadata: Option<String>,
+
+        /// Agent name
+        #[arg(long)]
+        agent: Option<String>,
+    },
+}
+
+pub fn handle_reasoning_event_add<S: Storage>(
+    storage: &mut S,
+    reasoning_id: String,
+    event_type: String,
+    content: Option<String>,
+    metadata: Option<String>,
+    agent: Option<String>,
+) -> Result<(), EngramError> {
+    let parsed_type = parse_reasoning_event_type(&event_type)?;
+    let agent_name = agent.unwrap_or_else(|| "default".to_string());
+    let event_content = content.unwrap_or_default();
+
+    let mut event = ReasoningEvent::new(reasoning_id, parsed_type, event_content, agent_name);
+
+    if let Some(meta_json) = metadata {
+        let meta_val: serde_json::Value = serde_json::from_str(&meta_json)
+            .map_err(|e| EngramError::Validation(format!("Invalid metadata JSON: {}", e)))?;
+        if let serde_json::Value::Object(map) = meta_val {
+            event.metadata = map.into_iter().collect();
+        }
+    }
+
+    let generic = event.to_generic();
+    storage.store(&generic)?;
+
+    println!("Reasoning event created: {}", event.id);
+    println!("  Reasoning ID: {}", event.reasoning_id);
+    println!("  Event Type: {:?}", event.event_type);
+    Ok(())
+}
+
+pub fn handle_reasoning_log<S: Storage>(
+    storage: &S,
+    reasoning_id: Option<&str>,
+    event_type: Option<&str>,
+    limit: usize,
+) -> Result<(), EngramError> {
+    let all_events = storage.get_all("reasoning_event")?;
+
+    let mut events: Vec<ReasoningEvent> = all_events
+        .into_iter()
+        .filter_map(|e| ReasoningEvent::from_generic(e).ok())
+        .collect();
+
+    if let Some(rid) = reasoning_id {
+        events.retain(|e| e.reasoning_id == rid || e.reasoning_id.starts_with(rid));
+    }
+
+    if let Some(et) = event_type {
+        let parsed = parse_reasoning_event_type(et)?;
+        events.retain(|e| e.event_type == parsed);
+    }
+
+    events.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+    events.truncate(limit);
+
+    if events.is_empty() {
+        println!("No reasoning events found.");
+        return Ok(());
+    }
+
+    println!("Reasoning Events ({} shown)", events.len());
+    println!("==================");
+    println!();
+
+    let mut table = create_table();
+    table.set_titles(row!["ID", "Type", "Reasoning", "Content", "Created"]);
+
+    for event in &events {
+        table.add_row(row![
+            &event.id[..8],
+            format!("{:?}", event.event_type),
+            truncate(&event.reasoning_id, 12),
+            truncate(&event.content, 40),
+            event.created_at.format("%Y-%m-%d %H:%M"),
+        ]);
+    }
+    table.printstd();
+
+    Ok(())
+}
+
+fn parse_reasoning_event_type(s: &str) -> Result<ReasoningEventType, EngramError> {
+    match s.to_lowercase().as_str() {
+        "auto_stored" => Ok(ReasoningEventType::AutoStored),
+        "theory_mutated" => Ok(ReasoningEventType::TheoryMutated),
+        "contradiction_found" => Ok(ReasoningEventType::ContradictionFound),
+        "hypothesis_updated" => Ok(ReasoningEventType::HypothesisUpdated),
+        "conclusion_reached" => Ok(ReasoningEventType::ConclusionReached),
+        s if s.starts_with("custom:") => {
+            let name = s.strip_prefix("custom:").unwrap().to_string();
+            Ok(ReasoningEventType::Custom(name))
+        }
+        _ => Err(EngramError::Validation(format!(
+            "Invalid event type '{}'. Must be: auto_stored, theory_mutated, contradiction_found, hypothesis_updated, conclusion_reached, or custom:<name>",
+            s
+        ))),
+    }
 }
 
 #[cfg(test)]

@@ -55,6 +55,7 @@ pub use lesson::*;
 pub use perkeep::*;
 pub use persona::*;
 pub use prompts::*;
+pub use reasoning::ReasoningEventCommands;
 pub use reasoning::*;
 pub use relationship::*;
 pub use rule::*;
