@@ -598,6 +598,36 @@ fn handle_reasoning_command<S: engram::storage::Storage>(
         cli::ReasoningCommands::Delete { id } => {
             cli::delete_reasoning(storage, &id)?;
         }
+        cli::ReasoningCommands::Event { command } => match command {
+            cli::ReasoningEventCommands::Add {
+                reasoning_id,
+                event_type,
+                content,
+                metadata,
+                agent,
+            } => {
+                cli::handle_reasoning_event_add(
+                    storage,
+                    reasoning_id,
+                    event_type,
+                    content,
+                    metadata,
+                    agent,
+                )?;
+            }
+        },
+        cli::ReasoningCommands::Log {
+            reasoning_id,
+            event_type,
+            limit,
+        } => {
+            cli::handle_reasoning_log(
+                storage,
+                reasoning_id.as_deref(),
+                event_type.as_deref(),
+                limit,
+            )?;
+        }
     }
     Ok(())
 }

@@ -8,6 +8,7 @@ pub mod memory_entity;
 pub mod memory_only_storage;
 pub mod relationship_storage;
 
+pub use git_refs_storage::RefreshDecayResult;
 pub use git_refs_storage::*;
 pub use memory_entity::*;
 pub use memory_only_storage::*;

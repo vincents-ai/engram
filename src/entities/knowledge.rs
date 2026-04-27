@@ -86,6 +86,18 @@ pub struct Knowledge {
     #[serde(rename = "last_used", skip_serializing_if = "Option::is_none")]
     pub last_used: Option<DateTime<Utc>>,
 
+    /// Decay weight (0.0 to 1.0), computed as e^(-lambda * days_since_last_used)
+    #[serde(rename = "decay_weight", skip_serializing_if = "Option::is_none")]
+    pub decay_weight: Option<f64>,
+
+    /// Number of times this entry is referenced by EntityRelationships
+    #[serde(rename = "citation_count", default)]
+    pub citation_count: u32,
+
+    /// ISO 8601 timestamp of last reference
+    #[serde(rename = "last_used_at", skip_serializing_if = "Option::is_none")]
+    pub last_used_at: Option<String>,
+
     /// Additional metadata
     #[serde(
         rename = "metadata",
@@ -120,6 +132,9 @@ impl Knowledge {
             contexts: Vec::new(),
             usage_count: 0,
             last_used: None,
+            decay_weight: None,
+            citation_count: 0,
+            last_used_at: None,
             metadata: HashMap::new(),
         }
     }
@@ -161,6 +176,22 @@ impl Knowledge {
     /// Set source
     pub fn set_source(&mut self, source: String) {
         self.source = Some(source);
+    }
+
+    /// Compute decay weight using exponential decay: e^(-lambda * days_since_last_used)
+    pub fn compute_decay_weight(&mut self, lambda: f64) {
+        let days = match &self.last_used_at {
+            Some(ts) => match chrono::DateTime::parse_from_rfc3339(ts) {
+                Ok(dt) => {
+                    let dt_utc = dt.with_timezone(&chrono::Utc);
+                    (Utc::now() - dt_utc).num_days() as f64
+                }
+                Err(_) => 0.0,
+            },
+            None => 0.0,
+        };
+        let weight = (-lambda * days).exp();
+        self.decay_weight = Some(weight.clamp(0.0, 1.0));
     }
 }
 
@@ -302,5 +333,116 @@ mod tests {
 
         knowledge.confidence = 0.5;
         assert!(knowledge.validate_entity().is_ok());
+    }
+
+    #[test]
+    fn test_knowledge_decay_weight_day_zero() {
+        let mut knowledge = Knowledge::new(
+            "Test".to_string(),
+            "Content".to_string(),
+            KnowledgeType::Fact,
+            0.9,
+            "agent".to_string(),
+        );
+        knowledge.last_used_at = Some(Utc::now().to_rfc3339());
+        knowledge.compute_decay_weight(0.01);
+        let weight = knowledge.decay_weight.unwrap();
+        assert!(
+            (weight - 1.0).abs() < 0.01,
+            "Day 0 decay_weight should be ~1.0, got {}",
+            weight
+        );
+    }
+
+    #[test]
+    fn test_knowledge_decay_weight_half_life() {
+        let mut knowledge = Knowledge::new(
+            "Test".to_string(),
+            "Content".to_string(),
+            KnowledgeType::Fact,
+            0.9,
+            "agent".to_string(),
+        );
+        let seventy_days_ago = Utc::now() - chrono::Duration::days(70);
+        knowledge.last_used_at = Some(seventy_days_ago.to_rfc3339());
+        knowledge.compute_decay_weight(0.01);
+        let weight = knowledge.decay_weight.unwrap();
+        assert!(
+            (weight - 0.5).abs() < 0.05,
+            "Day 70 decay_weight with lambda=0.01 should be ~0.5, got {}",
+            weight
+        );
+    }
+
+    #[test]
+    fn test_knowledge_decay_weight_no_last_used() {
+        let mut knowledge = Knowledge::new(
+            "Test".to_string(),
+            "Content".to_string(),
+            KnowledgeType::Fact,
+            0.9,
+            "agent".to_string(),
+        );
+        knowledge.compute_decay_weight(0.01);
+        let weight = knowledge.decay_weight.unwrap();
+        assert!(
+            (weight - 1.0).abs() < 0.01,
+            "No last_used_at should give decay_weight of 1.0, got {}",
+            weight
+        );
+    }
+
+    #[test]
+    fn test_knowledge_citation_count_default() {
+        let knowledge = Knowledge::new(
+            "Test".to_string(),
+            "Content".to_string(),
+            KnowledgeType::Fact,
+            0.9,
+            "agent".to_string(),
+        );
+        assert_eq!(knowledge.citation_count, 0);
+    }
+
+    #[test]
+    fn test_knowledge_serialization_with_new_fields() {
+        let mut knowledge = Knowledge::new(
+            "Test".to_string(),
+            "Content".to_string(),
+            KnowledgeType::Fact,
+            0.9,
+            "agent".to_string(),
+        );
+        knowledge.citation_count = 5;
+        knowledge.decay_weight = Some(0.75);
+        knowledge.last_used_at = Some("2026-01-01T00:00:00+00:00".to_string());
+
+        let json = serde_json::to_string(&knowledge).unwrap();
+        let deserialized: Knowledge = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.citation_count, 5);
+        assert_eq!(deserialized.decay_weight, Some(0.75));
+        assert_eq!(
+            deserialized.last_used_at,
+            Some("2026-01-01T00:00:00+00:00".to_string())
+        );
+    }
+
+    #[test]
+    fn test_knowledge_serialization_backward_compat() {
+        let json_without_new_fields = r#"{
+            "id": "test-id",
+            "title": "Old Entry",
+            "content": "Some content",
+            "knowledge_type": "fact",
+            "confidence": 0.8,
+            "agent": "agent",
+            "created_at": "2026-01-01T00:00:00Z",
+            "updated_at": "2026-01-01T00:00:00Z",
+            "usage_count": 2
+        }"#;
+        let knowledge: Knowledge = serde_json::from_str(json_without_new_fields).unwrap();
+        assert_eq!(knowledge.citation_count, 0);
+        assert_eq!(knowledge.decay_weight, None);
+        assert_eq!(knowledge.last_used_at, None);
     }
 }

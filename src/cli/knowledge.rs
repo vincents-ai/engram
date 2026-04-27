@@ -468,6 +468,16 @@ pub fn show_knowledge<S: Storage>(storage: &S, id: &str) -> Result<(), EngramErr
         println!("Last Used: {}", last_used);
     }
 
+    if let Some(decay_weight) = knowledge.decay_weight {
+        println!("Decay Weight: {:.4}", decay_weight);
+    }
+
+    println!("Citation Count: {}", knowledge.citation_count);
+
+    if let Some(ref last_used_at) = knowledge.last_used_at {
+        println!("Last Used At: {}", last_used_at);
+    }
+
     Ok(())
 }
 
