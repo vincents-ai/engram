@@ -1,7 +1,6 @@
-//! Agent Sandbox entity implementation
-
 use super::{Entity, GenericEntity};
 use chrono::{DateTime, Utc};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Duration;
@@ -9,7 +8,7 @@ use uuid::Uuid;
 use validator::Validate;
 
 /// Sandbox levels for agents
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum SandboxLevel {
     /// Full system access
@@ -25,7 +24,7 @@ pub enum SandboxLevel {
 }
 
 /// Permission set for an agent
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, JsonSchema)]
 pub struct PermissionSet {
     /// Commands the agent is allowed to run
     pub allowed_commands: Vec<CommandPermission>,
@@ -42,7 +41,7 @@ pub struct PermissionSet {
 }
 
 /// Resource limits for an agent
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, JsonSchema)]
 pub struct ResourceLimits {
     /// Maximum memory usage in MB
     #[validate(range(min = 1, max = 16384))]
@@ -68,7 +67,7 @@ pub struct ResourceLimits {
 }
 
 /// Command filtering configuration
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, JsonSchema)]
 pub struct CommandFilter {
     /// Whether to use whitelist mode (only allow listed commands)
     pub whitelist_mode: bool,
@@ -83,7 +82,7 @@ pub struct CommandFilter {
 }
 
 /// Command patterns for filtering
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum CommandPattern {
     /// Exact command match
@@ -97,7 +96,7 @@ pub enum CommandPattern {
 }
 
 /// Built-in command types
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum BuiltinCommandType {
     Git,
@@ -109,7 +108,7 @@ pub enum BuiltinCommandType {
 }
 
 /// Escalation policy for handling restricted operations
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, JsonSchema)]
 pub struct EscalationPolicy {
     /// Automatically approve operations deemed safe
     pub auto_approve_safe_operations: bool,
@@ -117,6 +116,7 @@ pub struct EscalationPolicy {
     pub require_human_approval: Vec<OperationType>,
     /// Timeout for escalation requests
     #[serde(with = "duration_serde")]
+    #[schemars(with = "u64")]
     pub escalation_timeout: Duration,
     /// Action to take when escalation times out
     pub fallback_action: FallbackAction,
@@ -125,7 +125,7 @@ pub struct EscalationPolicy {
 }
 
 /// Types of operations that can be escalated
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum OperationType {
     FileWrite,
@@ -139,7 +139,7 @@ pub enum OperationType {
 }
 
 /// Fallback actions for escalation timeouts
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum FallbackAction {
     Deny,
@@ -158,7 +158,7 @@ impl From<CommandPattern> for CommandPermission {
 }
 
 /// Command permissions
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct CommandPermission {
     pub pattern: CommandPattern,
     pub description: String,
@@ -166,7 +166,7 @@ pub struct CommandPermission {
 }
 
 /// Path restrictions
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct PathRestriction {
     pub pattern: String,
     pub reason: String,
@@ -174,7 +174,7 @@ pub struct PathRestriction {
 }
 
 /// File operations
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum FileOperation {
     Read,
@@ -188,7 +188,7 @@ pub enum FileOperation {
 }
 
 /// Network access policies
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum NetworkPolicy {
     Denied,
@@ -198,7 +198,7 @@ pub enum NetworkPolicy {
 }
 
 /// Quality gate permissions
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct QualityGatePermission {
     pub gate_name: String,
     pub allowed: bool,
@@ -206,7 +206,7 @@ pub struct QualityGatePermission {
 }
 
 /// Workflow permissions
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct WorkflowPermissions {
     pub can_create_workflows: bool,
     pub can_modify_workflows: bool,
@@ -215,7 +215,7 @@ pub struct WorkflowPermissions {
 }
 
 /// Parameter restrictions for commands
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ParameterRestriction {
     pub allowed_values: Vec<String>,
     pub forbidden_values: Vec<String>,
@@ -224,7 +224,7 @@ pub struct ParameterRestriction {
 }
 
 /// Dangerous patterns to detect
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct DangerousPattern {
     pub pattern: String,
     pub description: String,
@@ -233,7 +233,7 @@ pub struct DangerousPattern {
 }
 
 /// Risk levels
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum RiskLevel {
     Low,
@@ -243,7 +243,7 @@ pub enum RiskLevel {
 }
 
 /// Agent Sandbox entity
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, JsonSchema)]
 pub struct AgentSandbox {
     /// Unique identifier
     #[serde(rename = "id")]

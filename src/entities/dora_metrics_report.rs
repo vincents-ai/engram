@@ -1,18 +1,13 @@
-//! DoraMetricsReport entity - persisted DORA metrics computation results
-//!
-//! Stores computed DORA metrics (Deployment Frequency, Lead Time for Changes,
-//! Change Failure Rate, Mean Time to Recovery) as a first-class engram entity
-//! so results persist and sync via GitRefsStorage.
-
 use super::{Entity, GenericEntity};
 use chrono::{DateTime, Utc};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
 use validator::Validate;
 
 /// Persisted DORA metrics computation result
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, JsonSchema)]
 pub struct DoraMetricsReport {
     /// Unique identifier
     #[serde(rename = "id")]
