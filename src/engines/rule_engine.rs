@@ -8,6 +8,7 @@ use crate::error::EngramError;
 use crate::storage::Storage;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use schemars::JsonSchema;
 use std::collections::HashMap;
 use std::fmt;
 
@@ -45,7 +46,7 @@ pub struct RuleExecutionContext {
 }
 
 /// Values that can be used in rule conditions and actions
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(tag = "type", content = "value")]
 pub enum RuleValue {
     String(String),

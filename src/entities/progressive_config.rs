@@ -91,9 +91,9 @@ pub struct EscalationRule {
     pub action: EscalationAction,
     pub conditions: Vec<EscalationCondition>,
     pub enabled: bool,
-    #[serde(with = "duration_serde")]
+    #[serde(with = "duration_serde", default = "duration_serde::default_cooldown")]
     #[schemars(with = "u64")]
-    pub cooldown_period: Option<Duration>,
+    pub cooldown_period: Duration,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -418,6 +418,10 @@ impl Entity for ProgressiveGateConfig {
 mod duration_serde {
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
     use std::time::Duration;
+
+    pub fn default_cooldown() -> Duration {
+        Duration::from_secs(300) // 5 minutes default
+    }
 
     pub fn serialize<S>(duration: &Duration, serializer: S) -> Result<S::Ok, S::Error>
     where
