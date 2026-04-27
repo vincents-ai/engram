@@ -8,6 +8,7 @@ use crate::engines::rule_engine::{RuleExecutionContext, RuleExecutionEngine, Rul
 use crate::entities::{Entity, Task, TriggerCondition, Workflow, WorkflowInstance};
 use crate::error::EngramError;
 use crate::storage::{QueryFilter, Storage};
+use schemars::JsonSchema;
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -56,7 +57,7 @@ pub struct WorkflowDefinition {
 }
 
 /// Workflow execution context
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct WorkflowExecutionContext {
     pub variables: HashMap<String, RuleValue>,
     pub entity_id: Option<String>,
@@ -67,7 +68,7 @@ pub struct WorkflowExecutionContext {
 }
 
 /// Workflow execution status
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub enum WorkflowStatus {
     Running,
     Completed,
@@ -77,7 +78,7 @@ pub enum WorkflowStatus {
 }
 
 /// Workflow execution event for audit trail
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct WorkflowExecutionEvent {
     pub id: String,
     pub timestamp: DateTime<Utc>,
@@ -91,7 +92,7 @@ pub struct WorkflowExecutionEvent {
 }
 
 /// Types of workflow events
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub enum WorkflowEventType {
     Started,
     Transitioned,

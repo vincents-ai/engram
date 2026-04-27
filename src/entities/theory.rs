@@ -1,11 +1,6 @@
-//! Theory entity implementation for agent cognitive modeling (Naur, 1985)
-//!
-//! Based on Peter Naur's "Programming as Theory Building" (1985), this entity
-//! represents an agent's internal theory of the system - the mental model
-//! that informs how the agent understands and operates on the domain.
-
 use super::{Entity, GenericEntity};
 use chrono::{DateTime, Utc};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -16,7 +11,7 @@ use validator::Validate;
 /// A theory goes beyond context; it explicitly maps the domain model to the
 /// system implementation and records the "why" (design rationale), which Naur
 /// identified as the most critical and easily lost knowledge.
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, JsonSchema)]
 pub struct Theory {
     /// Unique identifier
     #[serde(rename = "id")]

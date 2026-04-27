@@ -46,13 +46,14 @@
 
 use super::{Entity, GenericEntity};
 use chrono::{DateTime, Utc};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
 use validator::Validate;
 
 /// Standard status variants
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum StandardStatus {
     Draft,
@@ -62,7 +63,7 @@ pub enum StandardStatus {
 }
 
 /// Standard category
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum StandardCategory {
     Coding,
@@ -75,7 +76,7 @@ pub enum StandardCategory {
 }
 
 /// Standard entity for team standards and guidelines
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, JsonSchema)]
 pub struct Standard {
     /// Unique identifier
     #[serde(rename = "id")]
@@ -151,7 +152,7 @@ pub struct Standard {
 }
 
 /// Standard requirement or guideline
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, JsonSchema)]
 pub struct StandardRequirement {
     /// Requirement identifier
     #[serde(rename = "id")]

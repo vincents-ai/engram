@@ -1,44 +1,34 @@
-//! Escalation Request entity for sandbox permission escalations
-
 use super::{Entity, GenericEntity};
 use chrono::{DateTime, Utc};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
 use validator::Validate;
 
 /// Status of an escalation request
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum EscalationStatus {
-    /// Request is pending human review
     Pending,
-    /// Request has been approved
     Approved,
-    /// Request has been denied
     Denied,
-    /// Request has expired without action
     Expired,
-    /// Request was cancelled by the requestor
     Cancelled,
 }
 
 /// Priority level for escalation requests
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum EscalationPriority {
-    /// Low priority - can wait for review
     Low,
-    /// Normal priority - standard review process
     Normal,
-    /// High priority - expedited review needed
     High,
-    /// Critical priority - immediate attention required
     Critical,
 }
 
 /// Type of operation being escalated
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum EscalationOperationType {
     /// File system operations
@@ -60,7 +50,7 @@ pub enum EscalationOperationType {
 }
 
 /// Context information about the blocked operation
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, JsonSchema)]
 pub struct OperationContext {
     /// The specific operation that was blocked
     #[validate(length(min = 1))]
@@ -84,7 +74,7 @@ pub struct OperationContext {
 }
 
 /// Human reviewer information
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, JsonSchema)]
 pub struct ReviewerInfo {
     /// ID of the human reviewer
     #[validate(length(min = 1))]
@@ -103,7 +93,7 @@ pub struct ReviewerInfo {
 }
 
 /// Decision made by the reviewer
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, JsonSchema)]
 pub struct ReviewDecision {
     /// The decision made (approved/denied)
     pub status: EscalationStatus,
@@ -126,7 +116,7 @@ pub struct ReviewDecision {
 }
 
 /// Escalation Request entity
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, JsonSchema)]
 pub struct EscalationRequest {
     /// Unique identifier
     #[serde(rename = "id")]

@@ -2,26 +2,25 @@
 
 use super::{Entity, GenericEntity};
 use chrono::{DateTime, Utc};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
 use validator::Validate;
 
 /// Session status variants
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum SessionStatus {
     Active,
     Paused,
     Completed,
     Cancelled,
-    /// Agent is experiencing cognitive dissonance and must
-    /// pause to mutate its Theory before continuing
     Reflecting,
 }
 
 /// Session entity for tracking agent sessions
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, JsonSchema)]
 pub struct Session {
     /// Unique identifier
     #[serde(rename = "id")]
@@ -117,7 +116,7 @@ pub struct Session {
 }
 
 /// SPACE framework metrics
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, JsonSchema)]
 pub struct SpaceMetrics {
     /// Satisfaction score (0-100)
     #[serde(rename = "satisfaction_score")]
@@ -145,7 +144,7 @@ pub struct SpaceMetrics {
 }
 
 /// DORA metrics
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, JsonSchema)]
 pub struct DoraMetrics {
     /// Deployment frequency (per week)
     #[serde(rename = "deployment_frequency")]

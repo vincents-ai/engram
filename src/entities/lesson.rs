@@ -3,11 +3,12 @@
 
 use super::{Entity, GenericEntity};
 use chrono::{DateTime, Utc};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 /// Lesson category — the broad domain the lesson falls into
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum LessonCategory {
     Code,
@@ -28,7 +29,7 @@ impl std::fmt::Display for LessonCategory {
 }
 
 /// Severity of the lesson
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum LessonSeverity {
     #[default]
@@ -49,7 +50,7 @@ impl std::fmt::Display for LessonSeverity {
 
 /// Lesson entity — a structured record of a mistake, its correction, and
 /// how to prevent recurrence.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct Lesson {
     /// Unique identifier
     pub id: String,

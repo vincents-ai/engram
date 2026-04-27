@@ -2,13 +2,14 @@
 
 use super::{Entity, GenericEntity};
 use chrono::{DateTime, Utc};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
 use validator::Validate;
 
 /// Step in a reasoning chain
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, JsonSchema)]
 pub struct ReasoningStep {
     /// Step identifier
     #[serde(rename = "id")]
@@ -36,7 +37,7 @@ pub struct ReasoningStep {
 }
 
 /// Reasoning chain entity
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, JsonSchema)]
 pub struct Reasoning {
     /// Unique identifier
     #[serde(rename = "id")]

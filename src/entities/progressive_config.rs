@@ -1,11 +1,12 @@
 use crate::entities::{Entity, GenericEntity};
 use chrono::{DateTime, Utc};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Duration;
 use validator::Validate;
 
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, JsonSchema)]
 pub struct ProgressiveGateConfig {
     pub id: String,
     pub name: String,
@@ -19,7 +20,7 @@ pub struct ProgressiveGateConfig {
     pub active: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, JsonSchema)]
 pub struct GateLevel {
     #[validate(length(min = 1))]
     pub name: String,
@@ -27,6 +28,7 @@ pub struct GateLevel {
     pub required_gates: Vec<QualityGate>,
     pub optional_gates: Vec<QualityGate>,
     #[serde(with = "duration_serde")]
+    #[schemars(with = "u64")]
     pub max_execution_time: Duration,
     pub parallelization: ParallelizationStrategy,
     pub failure_handling: FailureHandling,
@@ -34,7 +36,7 @@ pub struct GateLevel {
     pub priority: u32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ChangeThreshold {
     pub max_lines_changed: u32,
     pub max_files_affected: u32,
@@ -44,11 +46,12 @@ pub struct ChangeThreshold {
     pub file_patterns: Vec<FilePattern>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct QualityGate {
     pub name: String,
     pub command: String,
     #[serde(with = "duration_serde")]
+    #[schemars(with = "u64")]
     pub timeout: Duration,
     pub required: bool,
     pub condition: Option<GateCondition>,
@@ -56,14 +59,14 @@ pub struct QualityGate {
     pub retry_policy: RetryPolicy,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub enum ParallelizationStrategy {
     Sequential,
     Parallel { max_concurrent: u32 },
     Adaptive { based_on: Vec<AdaptiveFactor> },
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub enum AdaptiveFactor {
     SystemLoad,
     ChangeComplexity,
@@ -72,7 +75,7 @@ pub enum AdaptiveFactor {
     TimeOfDay,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct FailureHandling {
     pub continue_on_optional_failure: bool,
     pub fail_fast: bool,
@@ -81,17 +84,19 @@ pub struct FailureHandling {
     pub notification_channels: Vec<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct EscalationRule {
     pub name: String,
     pub trigger: EscalationTrigger,
     pub action: EscalationAction,
     pub conditions: Vec<EscalationCondition>,
     pub enabled: bool,
+    #[serde(with = "duration_serde")]
+    #[schemars(with = "u64")]
     pub cooldown_period: Option<Duration>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub enum EscalationTrigger {
     GateFailure {
         gate_name: String,
@@ -113,7 +118,7 @@ pub enum EscalationTrigger {
     },
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub enum EscalationAction {
     EscalateTo { level_name: String },
     TerminateAndEscalate { level_name: String },
@@ -122,7 +127,7 @@ pub enum EscalationAction {
     SkipRemaining,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub enum EscalationCondition {
     NotInBddRedPhase,
     WorkingHours,
@@ -131,18 +136,20 @@ pub enum EscalationCondition {
     MaxEscalationsPerDay { limit: u32 },
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct OptimizationSettings {
     pub enable_historical_learning: bool,
     pub performance_tracking: bool,
     pub resource_optimization: bool,
     pub cache_results: bool,
+    #[serde(with = "duration_serde")]
+    #[schemars(with = "u64")]
     pub max_cache_age: Duration,
     pub adaptive_timeouts: bool,
     pub prediction_model: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd, JsonSchema)]
 pub enum ChangeType {
     Documentation,
     Comments,
@@ -158,7 +165,7 @@ pub enum ChangeType {
     Configuration,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd, JsonSchema)]
 pub enum ProgressiveRiskLevel {
     Low,
     Medium,
@@ -166,7 +173,7 @@ pub enum ProgressiveRiskLevel {
     Critical,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct FilePattern {
     pub pattern: String,
     pub pattern_type: PatternType,
@@ -174,7 +181,7 @@ pub struct FilePattern {
     pub risk_multiplier: f32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub enum PatternType {
     Glob,
     Regex,
@@ -182,7 +189,7 @@ pub enum PatternType {
     Directory,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub enum GateCondition {
     FilePatternMatch { patterns: Vec<String> },
     ChangeTypeMatch { types: Vec<ChangeType> },
@@ -193,21 +200,21 @@ pub enum GateCondition {
     EnvironmentVariable { var: String, value: String },
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct RetryPolicy {
     pub max_attempts: u32,
     pub backoff_strategy: BackoffStrategy,
     pub retry_conditions: Vec<RetryCondition>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub enum BackoffStrategy {
     Linear { increment: Duration },
     Exponential { base: f32, max: Duration },
     Fixed { delay: Duration },
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub enum RetryCondition {
     ExitCodeEquals { code: i32 },
     TimeoutOccurred,
@@ -216,7 +223,7 @@ pub enum RetryCondition {
     TemporaryFailure,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ResourceThreshold {
     pub memory_mb: Option<u64>,
     pub cpu_percentage: Option<f32>,
@@ -308,7 +315,7 @@ impl Default for RetryPolicy {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ComplexityMetrics {
     pub lines_changed: u32,
     pub files_affected: u32,
@@ -320,7 +327,7 @@ pub struct ComplexityMetrics {
     pub performance_impact: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ChangeDistribution {
     pub source_files: u32,
     pub test_files: u32,

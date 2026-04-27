@@ -2,13 +2,14 @@
 
 use super::{Entity, GenericEntity};
 use chrono::{DateTime, Utc};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
 use validator::Validate;
 
 /// Task status variants
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum TaskStatus {
     Todo,
@@ -19,7 +20,7 @@ pub enum TaskStatus {
 }
 
 /// Task priority variants
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum TaskPriority {
     Low,
@@ -29,7 +30,7 @@ pub enum TaskPriority {
 }
 
 /// Task entity representing a work item with status tracking
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, JsonSchema)]
 pub struct Task {
     /// Unique identifier
     #[serde(rename = "id")]

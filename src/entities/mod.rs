@@ -56,6 +56,7 @@ pub use theory::*;
 pub use workflow::*;
 pub use workflow_instance::*;
 
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -147,7 +148,7 @@ pub trait Entity: Serialize + for<'de> Deserialize<'de> + Send + Sync {
 }
 
 /// Generic entity representation for dynamic handling
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct GenericEntity {
     pub id: String,
     #[serde(alias = "type")]

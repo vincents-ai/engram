@@ -1,12 +1,6 @@
-//! State Reflection entity for evaluating system state against theory
-//!
-//! Reflection is the mechanism of taking the current observed state and
-//! explicitly hunting for contradictions against the Theory (Naur, 1985).
-//! When observations conflict with the theory, cognitive dissonance is recorded
-//! and theory updates are proposed.
-
 use super::{Entity, GenericEntity};
 use chrono::{DateTime, Utc};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -16,7 +10,7 @@ use validator::Validate;
 ///
 /// This entity captures the moment when an agent observes something that
 /// conflicts with its internal model, enabling theory evolution.
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, JsonSchema)]
 pub struct StateReflection {
     /// Unique identifier
     #[serde(rename = "id")]
@@ -94,7 +88,7 @@ pub struct StateReflection {
 }
 
 /// Types of observations that can trigger state reflection
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum TriggerType {
     /// Test failure
@@ -188,7 +182,7 @@ impl StateReflection {
 }
 
 /// Severity levels for state reflection
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Severity {
     /// No dissonance

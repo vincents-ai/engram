@@ -5,10 +5,11 @@ use crate::engines::workflow_engine::{
     WorkflowExecutionContext, WorkflowExecutionEvent, WorkflowStatus,
 };
 use chrono::{DateTime, Utc};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// Workflow instance execution state
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct WorkflowInstance {
     /// Unique identifier
     #[serde(rename = "id")]

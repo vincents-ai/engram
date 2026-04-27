@@ -1,13 +1,12 @@
-//! DocFragment entity implementation
-
 use super::{Entity, GenericEntity};
 use chrono::{DateTime, Utc};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use validator::Validate;
 
 /// DocFragment entity representing a named documentation content chunk
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, JsonSchema)]
 pub struct DocFragment {
     /// Unique identifier
     #[serde(rename = "id")]
@@ -377,7 +376,7 @@ mod tests {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct StaleChunk {
     pub fragment_id: String,
     pub topic: String,
@@ -386,7 +385,7 @@ pub struct StaleChunk {
     pub outdated_by: Vec<OutdatedSource>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct OutdatedSource {
     pub entity_id: String,
     pub entity_type: String,
@@ -394,7 +393,7 @@ pub struct OutdatedSource {
 }
 
 /// Result of a staleness check across all doc fragments.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct StalenessReport {
     pub total_fragments: usize,
     pub stale_count: usize,
