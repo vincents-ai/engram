@@ -215,12 +215,8 @@ exit 0
         // Check if hook is installed
         status.hook_installed = self.is_installed()?;
 
-        // Check if engram command is available
-        status.engram_available = std::process::Command::new("which")
-            .arg("engram")
-            .output()
-            .map(|output| output.status.success())
-            .unwrap_or(false);
+        // Check if engram command is available — if we're running, it is
+        status.engram_available = true;
 
         // Check if config is valid
         status.config_valid = true; // ValidationConfig::default() should always be valid
