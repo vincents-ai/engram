@@ -552,13 +552,16 @@ pub fn submit_persona<S: Storage>(
     repo: Option<String>,
     message: Option<String>,
 ) -> Result<(), EngramError> {
-    let which_result = std::process::Command::new("which")
-        .arg("gh")
-        .output()
-        .map(|o| o.status.success())
+    // Check gh availability by trying to run it
+    let gh_available = std::process::Command::new("gh")
+        .arg("--version")
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .map(|s| s.success())
         .unwrap_or(false);
 
-    if !which_result {
+    if !gh_available {
         return Err(EngramError::InvalidOperation(
             "gh CLI is required for persona submission. Install it from https://cli.github.com/"
                 .to_string(),

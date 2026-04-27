@@ -1,5 +1,4 @@
 use std::env;
-use std::process::Command;
 
 /// Version information for Engram with git tag-based release management
 #[derive(Debug, Clone)]
@@ -45,37 +44,78 @@ impl BuildInfo {
 }
 
 fn get_runtime_git_tag() -> String {
-    run_git_command(&["describe", "--tags", "--abbrev=0", "--exact-match"]).unwrap_or_default()
+    let cwd = std::env::current_dir().unwrap_or_default();
+    let repo = match gix::open(&cwd) {
+        Ok(r) => r,
+        Err(_) => return String::new(),
+    };
+    let head_id = match repo.head_id() {
+        Ok(id) => id,
+        Err(_) => return String::new(),
+    };
+    // Check if HEAD is at a tag
+    let refs = match repo.references() {
+        Ok(r) => r,
+        Err(_) => return String::new(),
+    };
+    let tags = match refs.tags() {
+        Ok(t) => t,
+        Err(_) => return String::new(),
+    };
+    for tag_ref in tags {
+        if let Ok(tag) = tag_ref {
+            let target_id = match tag.try_id() {
+                Some(id) => id,
+                None => continue,
+            };
+            if target_id == head_id {
+                // Return the tag name (strip refs/tags/ prefix)
+                let name = tag.name().shorten();
+                return name.to_string();
+            }
+        }
+    }
+    String::new()
 }
 
 fn get_runtime_git_sha() -> String {
-    run_git_command(&["log", "-1", "--format=%H"]).unwrap_or_else(|| "unknown".to_string())
+    let cwd = std::env::current_dir().unwrap_or_default();
+    match gix::open(&cwd) {
+        Ok(repo) => repo.head_id()
+            .map(|id| id.to_string())
+            .unwrap_or_else(|_| "unknown".to_string()),
+        Err(_) => "unknown".to_string(),
+    }
 }
 
 fn get_runtime_git_date() -> String {
-    run_git_command(&["log", "-1", "--format=%ci"])
-        .map(|output| {
-            output
-                .split_whitespace()
-                .next()
-                .unwrap_or("unknown")
-                .to_string()
-        })
-        .unwrap_or_else(|| "unknown".to_string())
-}
-
-fn run_git_command(args: &[&str]) -> Option<String> {
-    match Command::new("git").args(args).output() {
-        Ok(output) if output.status.success() => {
-            let result = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            if result.is_empty() {
-                None
-            } else {
-                Some(result)
-            }
-        }
-        _ => None,
+    let cwd = std::env::current_dir().unwrap_or_default();
+    let repo = match gix::open(&cwd) {
+        Ok(r) => r,
+        Err(_) => return "unknown".to_string(),
+    };
+    let head_id = match repo.head_id() {
+        Ok(id) => id,
+        Err(_) => return "unknown".to_string(),
+    };
+    // Do a revwalk to get commit_time
+    let walk = match repo
+        .rev_walk([head_id])
+        .sorting(gix::revision::walk::Sorting::ByCommitTime(
+            gix::traverse::commit::simple::CommitTimeOrder::NewestFirst,
+        ))
+        .all()
+    {
+        Ok(w) => w,
+        Err(_) => return "unknown".to_string(),
+    };
+    if let Some(Ok(info)) = walk.into_iter().next() {
+        let secs = info.commit_time.unwrap_or(0);
+        return chrono::DateTime::from_timestamp(secs, 0)
+            .map(|dt| dt.format("%Y-%m-%d").to_string())
+            .unwrap_or_else(|| "unknown".to_string());
     }
+    "unknown".to_string()
 }
 
 fn get_current_timestamp() -> String {

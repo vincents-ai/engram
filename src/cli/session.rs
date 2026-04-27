@@ -649,23 +649,38 @@ pub fn detect_zombie_sessions<S: Storage>(
 /// Check if any git commits were made since the given timestamp.
 /// Returns true if at least one commit exists after `since`.
 fn commits_since(since: &DateTime<Utc>) -> bool {
-    let since_epoch = since.timestamp();
-    let output = std::process::Command::new("git")
-        .args([
-            "log",
-            "--format=%ct",
-            "-1",
-            &format!("--after={}", since_epoch),
-        ])
-        .output();
-
-    match output {
-        Ok(out) if out.status.success() => {
-            let stdout = String::from_utf8_lossy(&out.stdout);
-            !stdout.trim().is_empty()
+    let cwd = std::env::current_dir().unwrap_or_default();
+    let repo = match gix::open(&cwd) {
+        Ok(r) => r,
+        Err(_) => return false,
+    };
+    let head_id = match repo.head_id() {
+        Ok(id) => id,
+        Err(_) => return false,
+    };
+    let cutoff_secs = since.timestamp();
+    let walk = match repo
+        .rev_walk([head_id])
+        .sorting(gix::revision::walk::Sorting::ByCommitTime(
+            gix::traverse::commit::simple::CommitTimeOrder::NewestFirst,
+        ))
+        .all()
+    {
+        Ok(w) => w,
+        Err(_) => return false,
+    };
+    for info_result in walk {
+        if let Ok(info) = info_result {
+            if let Some(ct) = info.commit_time {
+                if ct > cutoff_secs {
+                    return true;
+                }
+                // Walk is newest-first, so once we see one before cutoff, stop
+                break;
+            }
         }
-        _ => false,
     }
+    false
 }
 
 fn format_duration(seconds: u64) -> String {

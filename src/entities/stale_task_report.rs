@@ -149,34 +149,32 @@ impl StaleTaskReport {
 }
 
 fn find_last_commit_for_task(task_id: &str) -> Option<DateTime<Utc>> {
-    let short_id = &task_id[..8];
-    let full_id = task_id;
+    let cwd = std::env::current_dir().unwrap_or_default();
+    let repo = gix::open(&cwd).ok()?;
+    let head_id = repo.head_id().ok()?;
 
-    let output = std::process::Command::new("git")
-        .args(["log", "--all", "--format=%aI", &format!("[{}]", short_id)])
-        .output()
+    let short_tag = format!("[{}]", &task_id[..8.min(task_id.len())]);
+    let full_tag = format!("[{}]", task_id);
+
+    let walk = repo
+        .rev_walk([head_id])
+        .sorting(gix::revision::walk::Sorting::ByCommitTime(
+            gix::traverse::commit::simple::CommitTimeOrder::NewestFirst,
+        ))
+        .all()
         .ok()?;
 
-    if !output.status.success() || output.stdout.is_empty() {
-        let output = std::process::Command::new("git")
-            .args(["log", "--all", "--format=%aI", &format!("[{}]", full_id)])
-            .output()
-            .ok()?;
-
-        if !output.status.success() || output.stdout.is_empty() {
-            return None;
+    for info_result in walk {
+        let info = info_result.ok()?;
+        let obj = repo.find_object(info.id).ok()?;
+        let commit = gix::objs::CommitRef::from_bytes(&obj.data).ok()?;
+        let msg = commit.message.to_string();
+        if msg.contains(&short_tag) || msg.contains(&full_tag) {
+            let secs = info.commit_time.unwrap_or(0);
+            return DateTime::from_timestamp(secs, 0);
         }
-
-        let line = std::str::from_utf8(&output.stdout).ok()?.lines().next()?;
-        DateTime::parse_from_rfc3339(line)
-            .ok()
-            .map(|dt| dt.with_timezone(&Utc))
-    } else {
-        let line = std::str::from_utf8(&output.stdout).ok()?.lines().next()?;
-        DateTime::parse_from_rfc3339(line)
-            .ok()
-            .map(|dt| dt.with_timezone(&Utc))
     }
+    None
 }
 
 impl crate::feedback::StructuredFeedback for StaleTaskReport {
