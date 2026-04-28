@@ -1955,8 +1955,8 @@ pub fn handle_sync_command<S: Storage>(
             create_branch(name, agent.as_deref(), from.as_deref())
         }
         SyncCommands::SwitchBranch { name, create } => switch_branch(name, *create),
-        SyncCommands::ListBranches { all, current } => list_branches(*all, *current),
-        SyncCommands::DeleteBranch { name, force } => delete_branch(name, *force),
+        SyncCommands::ListBranches { all, current } => crate::cli::sync_gix::list_branches_gix(*all, *current),
+        SyncCommands::DeleteBranch { name, force } => crate::cli::sync_gix::delete_branch_gix(name, *force),
         SyncCommands::ImportGitRemotes => handle_import_git_remotes(),
         SyncCommands::Both {
             remote,

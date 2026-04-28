@@ -33,6 +33,7 @@ pub mod skills;
 pub mod standard;
 pub mod state_reflection;
 pub mod sync;
+pub mod sync_gix;
 pub mod task;
 pub mod theory;
 pub mod utils;
