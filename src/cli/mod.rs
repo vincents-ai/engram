@@ -121,7 +121,7 @@ pub enum Commands {
         #[command(subcommand)]
         command: import::ImportCommands,
     },
-    /// Run Git commands safely (blocks --no-verify)
+    /// Run Git commands with engram validation (gix-backed, no shell-outs)
     Git {
         #[command(subcommand)]
         command: git::GitCommands,

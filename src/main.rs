@@ -101,9 +101,7 @@ async fn run() -> Result<(), EngramError> {
             handle_relationship_command(&mut storage, command)?;
         }
         cli::Commands::Git { command } => {
-            engram::cli::git::handle_git_command(match command {
-                engram::cli::git::GitCommands::External(args) => args,
-            })?;
+            engram::cli::git::handle_git_command(command)?;
         }
         cli::Commands::Validate { command } => {
             let storage = GitRefsStorage::new(".", "default")?;
