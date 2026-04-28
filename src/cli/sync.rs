@@ -1905,7 +1905,7 @@ pub fn handle_sync_command<S: Storage>(
         }
         SyncCommands::Status { remote, json } => {
             if let Some(remote_name) = remote {
-                get_sync_status(&mut std::io::stdout(), remote_name, *json)?;
+                crate::cli::sync_gix::get_sync_status_gix(&mut std::io::stdout(), remote_name, *json)?;
             } else {
                 return Err(EngramError::Validation(
                     "Remote name required for status check".to_string(),
@@ -1980,7 +1980,7 @@ pub fn handle_sync_command<S: Storage>(
                 Some(s) => Some(ResolveStrategy::from_str(s)?),
                 None => None,
             };
-            resolve_conflicts(remote.clone(), strat)?;
+            crate::cli::sync_gix::resolve_conflicts_gix(&remote, strat)?;
             Ok(())
         }
     }
