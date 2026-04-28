@@ -130,69 +130,69 @@ resolver = "2"
 
 # Use our gitoxide fork with russh SSH transport + push module
 [patch.crates-io]
-gix = { path = "../gitoxide/gix" }
-gix-actor = { path = "../gitoxide/gix-actor" }
-gix-archive = { path = "../gitoxide/gix-archive" }
-gix-attributes = { path = "../gitoxide/gix-attributes" }
-gix-bitmap = { path = "../gitoxide/gix-bitmap" }
-gix-blame = { path = "../gitoxide/gix-blame" }
-gix-chunk = { path = "../gitoxide/gix-chunk" }
-gix-command = { path = "../gitoxide/gix-command" }
-gix-commitgraph = { path = "../gitoxide/gix-commitgraph" }
-gix-config = { path = "../gitoxide/gix-config" }
-gix-config-value = { path = "../gitoxide/gix-config-value" }
-gix-credentials = { path = "../gitoxide/gix-credentials" }
-gix-date = { path = "../gitoxide/gix-date" }
-gix-diff = { path = "../gitoxide/gix-diff" }
-gix-dir = { path = "../gitoxide/gix-dir" }
-gix-discover = { path = "../gitoxide/gix-discover" }
-gix-features = { path = "../gitoxide/gix-features" }
-gix-fetchhead = { path = "../gitoxide/gix-fetchhead" }
-gix-filter = { path = "../gitoxide/gix-filter" }
-gix-fs = { path = "../gitoxide/gix-fs" }
-gix-fsck = { path = "../gitoxide/gix-fsck" }
-gix-glob = { path = "../gitoxide/gix-glob" }
-gix-hash = { path = "../gitoxide/gix-hash" }
-gix-hashtable = { path = "../gitoxide/gix-hashtable" }
-gix-ignore = { path = "../gitoxide/gix-ignore" }
-gix-index = { path = "../gitoxide/gix-index" }
-gix-lfs = { path = "../gitoxide/gix-lfs" }
-gix-lock = { path = "../gitoxide/gix-lock" }
-gix-macros = { path = "../gitoxide/gix-macros" }
-gix-mailmap = { path = "../gitoxide/gix-mailmap" }
-gix-merge = { path = "../gitoxide/gix-merge" }
-gix-negotiate = { path = "../gitoxide/gix-negotiate" }
-gix-note = { path = "../gitoxide/gix-note" }
-gix-object = { path = "../gitoxide/gix-object" }
-gix-odb = { path = "../gitoxide/gix-odb" }
-gix-pack = { path = "../gitoxide/gix-pack" }
-gix-packetline = { path = "../gitoxide/gix-packetline" }
-gix-path = { path = "../gitoxide/gix-path" }
-gix-pathspec = { path = "../gitoxide/gix-pathspec" }
-gix-prompt = { path = "../gitoxide/gix-prompt" }
-gix-protocol = { path = "../gitoxide/gix-protocol" }
-gix-quote = { path = "../gitoxide/gix-quote" }
-gix-rebase = { path = "../gitoxide/gix-rebase" }
-gix-ref = { path = "../gitoxide/gix-ref" }
-gix-refspec = { path = "../gitoxide/gix-refspec" }
-gix-revision = { path = "../gitoxide/gix-revision" }
-gix-revwalk = { path = "../gitoxide/gix-revwalk" }
-gix-sec = { path = "../gitoxide/gix-sec" }
-gix-sequencer = { path = "../gitoxide/gix-sequencer" }
-gix-shallow = { path = "../gitoxide/gix-shallow" }
-gix-status = { path = "../gitoxide/gix-status" }
-gix-submodule = { path = "../gitoxide/gix-submodule" }
-gix-tempfile = { path = "../gitoxide/gix-tempfile" }
-gix-trace = { path = "../gitoxide/gix-trace" }
-gix-transport = { path = "../gitoxide/gix-transport" }
-gix-traverse = { path = "../gitoxide/gix-traverse" }
-gix-tui = { path = "../gitoxide/gix-tui" }
-gix-url = { path = "../gitoxide/gix-url" }
-gix-utils = { path = "../gitoxide/gix-utils" }
-gix-validate = { path = "../gitoxide/gix-validate" }
-gix-worktree = { path = "../gitoxide/gix-worktree" }
-gix-worktree-state = { path = "../gitoxide/gix-worktree-state" }
-gix-worktree-stream = { path = "../gitoxide/gix-worktree-stream" }
-gix-error = { path = "../gitoxide/gix-error" }
-gix-imara-diff = { path = "../gitoxide/gix-imara-diff" }
-gix-tix = { path = "../gitoxide/gix-tix" }
+gix = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-actor = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-archive = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-attributes = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-bitmap = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-blame = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-chunk = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-command = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-commitgraph = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-config = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-config-value = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-credentials = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-date = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-diff = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-dir = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-discover = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-features = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-fetchhead = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-filter = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-fs = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-fsck = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-glob = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-hash = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-hashtable = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-ignore = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-index = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-lfs = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-lock = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-macros = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-mailmap = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-merge = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-negotiate = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-note = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-object = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-odb = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-pack = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-packetline = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-path = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-pathspec = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-prompt = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-protocol = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-quote = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-rebase = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-ref = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-refspec = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-revision = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-revwalk = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-sec = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-sequencer = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-shallow = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-status = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-submodule = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-tempfile = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-trace = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-transport = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-traverse = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-tui = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-url = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-utils = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-validate = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-worktree = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-worktree-state = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-worktree-stream = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-error = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-imara-diff = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
+gix-tix = { git = "https://github.com/vincents-ai/gitoxide.git", branch = "main" }
