@@ -69,7 +69,7 @@ similar = "2.6"
 # until gix-protocol push + russh transport are integrated into sync module
 # See AGENTS.md INTERIM(git2) migration plan
  git2 = { version = "0.20", features = ["vendored-openssl"] }
-gix = { version = "0.83", default-features = false, features = ["max-performance-safe", "sha1"] }
+gix = { version = "0.83", default-features = false, features = ["max-performance-safe", "sha1", "blocking-network-client", "russh-client", "blocking-http-transport-curl"] }
 
 # System resource monitoring
 sysinfo = "0.32"
