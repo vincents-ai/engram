@@ -430,6 +430,7 @@ impl GitHistory {
     }
 }
 
+#[allow(dead_code)]
 fn parse_count_name_lines(output: &str) -> Vec<ChurnEntry> {
     output
         .lines()
@@ -448,6 +449,7 @@ fn parse_count_name_lines(output: &str) -> Vec<ChurnEntry> {
         .collect()
 }
 
+#[allow(dead_code)]
 fn parse_shortlog(output: &str) -> Vec<Contributor> {
     output
         .lines()
@@ -469,6 +471,7 @@ fn parse_shortlog(output: &str) -> Vec<Contributor> {
         .collect()
 }
 
+#[allow(dead_code)]
 fn parse_velocity(output: &str) -> Vec<VelocityEntry> {
     output
         .lines()
@@ -490,6 +493,7 @@ fn parse_velocity(output: &str) -> Vec<VelocityEntry> {
         .collect()
 }
 
+#[allow(dead_code)]
 fn parse_numstat(output: &str) -> CommitSizeStats {
     let mut total_add: u64 = 0;
     let mut total_del: u64 = 0;

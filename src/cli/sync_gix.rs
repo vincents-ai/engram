@@ -832,3 +832,276 @@ pub fn switch_branch_gix(name: &str, create_if_missing: bool) -> Result<(), Engr
     println!("✅ Switched to branch '{}'", name);
     Ok(())
 }
+
+/// Set up russh environment variables from RemoteAuth for gix transport
+fn set_russh_env(auth: &crate::storage::RemoteAuth) {
+    if auth.auth_type == "ssh" {
+        if let Some(ref key_path) = auth.key_path {
+            std::env::set_var("ENGRAM_SSH_KEY", key_path);
+        }
+        if let Some(ref password) = auth.password {
+            std::env::set_var("ENGRAM_SSH_KEY_PASSWORD", password);
+        }
+        std::env::remove_var("ENGRAM_SSH_ACCEPT_UNKNOWN");
+    }
+}
+
+/// Perform a gix-based fetch of refs/engram/* from a remote
+fn gix_fetch(
+    repo: &gix::Repository,
+    remote_url: &str,
+    auth: &crate::storage::RemoteAuth,
+    refspec_str: &str,
+) -> Result<(), EngramError> {
+    use gix::remote::Direction;
+
+    // Set up russh env for SSH auth
+    set_russh_env(auth);
+
+    // Create a temporary remote from URL with our custom refspec
+    let remote = repo.remote_at(remote_url)
+        .map_err(|e| EngramError::Git(format!("Failed to create remote for '{}': {:?}", remote_url, e)))?;
+
+    let refspec: gix::refspec::RefSpec = gix::refspec::parse(
+        refspec_str.into(),
+        gix::refspec::parse::Operation::Fetch,
+    ).map_err(|e| EngramError::Git(format!("Invalid refspec '{}': {:?}", refspec_str, e)))?
+    .into();
+
+    let ref_map_opts = gix::remote::ref_map::Options {
+        prefix_from_spec_as_filter_on_remote: true,
+        handshake_parameters: Vec::new(),
+        extra_refspecs: vec![refspec],
+    };
+
+    let connection = remote.connect(Direction::Fetch)
+        .map_err(|e| EngramError::Git(format!("Failed to connect to '{}': {:?}", remote_url, e)))?;
+
+    let prepare = connection.prepare_fetch(gix::progress::Discard, ref_map_opts)
+        .map_err(|e| EngramError::Git(format!("Failed to prepare fetch from '{}': {:?}", remote_url, e)))?;
+
+    let should_interrupt = std::sync::atomic::AtomicBool::new(false);
+    let _outcome = prepare.receive(gix::progress::Discard, &should_interrupt)
+        .map_err(|e| EngramError::Git(format!("Failed to fetch from '{}': {:?}", remote_url, e)))?;
+
+    Ok(())
+}
+
+/// Pull from remote using gix transport
+pub fn pull_from_remote_gix(
+    remote_name: &str,
+    auth: &crate::storage::RemoteAuth,
+    dry_run: bool,
+) -> Result<Vec<super::sync::PullEntityOutcome>, EngramError> {
+    use super::sync::{PullEntityOutcome, RemoteConfig};
+
+    println!("📥 Pulling from remote '{}'...", remote_name);
+    if dry_run {
+        println!("   (dry-run — no local changes will be written)");
+    }
+
+    let config_path = ".engram/remotes.json";
+    if !Path::new(config_path).exists() {
+        return Err(EngramError::Validation(
+            "No remotes configured. Use 'add-remote' first.".to_string(),
+        ));
+    }
+
+    let content = fs::read_to_string(config_path).map_err(|e| EngramError::Io(e))?;
+    let mut remotes: HashMap<String, RemoteConfig> =
+        serde_json::from_str(&content).map_err(|e| EngramError::Serialization(e))?;
+
+    let remote_config = remotes
+        .get(remote_name)
+        .ok_or_else(|| EngramError::Validation(format!("Remote '{}' not found", remote_name)))?
+        .clone();
+
+    println!("📡 Remote URL: {}", remote_config.url);
+
+    let repo = open_workspace_repo()?;
+
+    // Fetch refs/engram/* into refs/engram/remote/<name>/*
+    let refspec = format!("+refs/engram/*:refs/engram/remote/{}/*", remote_name);
+    gix_fetch(&repo, &remote_config.url, auth, &refspec)?;
+    println!("   Fetch complete.");
+
+    // --- Version-aware merge (same logic as git2 version, using gix helpers) ---
+    let remote_prefix = format!("refs/engram/remote/{}/", remote_name);
+    let sidecar_segment = "/v";
+    let mut outcomes: Vec<PullEntityOutcome> = Vec::new();
+
+    let all_refs = list_all_refs(&repo)?;
+
+    // Build local max-version map
+    let mut local_max_version: HashMap<(String, String), u64> = HashMap::new();
+    for (name, _) in &all_refs {
+        if !name.starts_with("refs/engram/") || name.starts_with("refs/engram/remote/") {
+            continue;
+        }
+        let after = &name["refs/engram/".len()..];
+        if let Some(v_pos) = after.find("/v") {
+            let entity_type = &after[..v_pos];
+            let rest = &after[v_pos + 2..];
+            if let Some(slash_pos) = rest.find('/') {
+                let version_str = &rest[..slash_pos];
+                let uuid = &rest[slash_pos + 1..];
+                if let Ok(n) = version_str.parse::<u64>() {
+                    let key = (entity_type.to_string(), uuid.to_string());
+                    let entry = local_max_version.entry(key).or_insert(0);
+                    if n > *entry {
+                        *entry = n;
+                    }
+                }
+            }
+        }
+    }
+
+    // Check for workspace config project_id update
+    let workspace_config_ref = format!("refs/engram/remote/{}/config/workspace", remote_name);
+    let mut new_project_id: Option<String> = None;
+    if let Some((_name, oid)) = all_refs.iter().find(|(n, _)| n == &workspace_config_ref) {
+        if let Ok(data) = read_blob(&repo, oid) {
+            if let Ok(json) = serde_json::from_slice::<serde_json::Value>(&data) {
+                if let Some(pid) = json.get("project_id").and_then(|v| v.as_str()) {
+                    if remote_config.project_id.as_deref() != Some(pid) {
+                        new_project_id = Some(pid.to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    // Iterate remote primary entity refs
+    for (ref_name, remote_oid) in &all_refs {
+        if !ref_name.starts_with(&remote_prefix) {
+            continue;
+        }
+        let after_prefix = &ref_name[remote_prefix.len()..];
+
+        if after_prefix.contains(sidecar_segment) || after_prefix.starts_with("config/") {
+            continue;
+        }
+
+        let slash_pos = match after_prefix.find('/') {
+            Some(p) => p,
+            None => continue,
+        };
+        let entity_type = &after_prefix[..slash_pos];
+        let uuid = &after_prefix[slash_pos + 1..];
+        if uuid.contains('/') {
+            continue;
+        }
+
+        // Determine remote version from remote sidecar
+        let remote_sidecar_prefix = format!("refs/engram/remote/{}/{}/v", remote_name, entity_type);
+        let remote_sidecar_suffix = format!("/{}", uuid);
+        let remote_version: u64 = all_refs
+            .iter()
+            .filter(|(n, _)| {
+                n.starts_with(&remote_sidecar_prefix) && n.ends_with(&remote_sidecar_suffix)
+            })
+            .filter_map(|(n, _)| {
+                let after = &n[remote_sidecar_prefix.len()..];
+                let version_part = &after[..after.len() - remote_sidecar_suffix.len()];
+                version_part.parse::<u64>().ok()
+            })
+            .max()
+            .unwrap_or(0);
+
+        let key = (entity_type.to_string(), uuid.to_string());
+        let local_max = *local_max_version.get(&key).unwrap_or(&0);
+
+        let remote_content = match read_blob(&repo, remote_oid) {
+            Ok(c) => c,
+            Err(_) => continue,
+        };
+
+        let local_ref_name = format!("refs/engram/{}/{}", entity_type, uuid);
+        let local_content: Option<Vec<u8>> = all_refs
+            .iter()
+            .find(|(n, _)| n == &local_ref_name)
+            .and_then(|(_, oid)| read_blob(&repo, oid).ok());
+
+        let outcome = if remote_version > local_max {
+            if !dry_run {
+                set_ref(&repo, &local_ref_name, remote_oid, false,
+                    &format!("pull: merge {} {} v{} from {}", entity_type, uuid, remote_version, remote_name))?;
+            }
+            PullEntityOutcome::Merged {
+                entity_type: entity_type.to_string(),
+                uuid: uuid.to_string(),
+                remote_version,
+            }
+        } else if remote_version == local_max && remote_version > 0 {
+            if local_content.as_deref() == Some(&remote_content) {
+                PullEntityOutcome::UpToDate {
+                    entity_type: entity_type.to_string(),
+                    uuid: uuid.to_string(),
+                }
+            } else {
+                PullEntityOutcome::Conflict {
+                    entity_type: entity_type.to_string(),
+                    uuid: uuid.to_string(),
+                    version: remote_version,
+                }
+            }
+        } else if local_max > remote_version {
+            PullEntityOutcome::LocalNewer {
+                entity_type: entity_type.to_string(),
+                uuid: uuid.to_string(),
+                local_version: local_max,
+            }
+        } else {
+            // Both 0 — new from remote
+            if !dry_run {
+                set_ref(&repo, &local_ref_name, remote_oid, false,
+                    &format!("pull: new {} {} from {}", entity_type, uuid, remote_name))?;
+            }
+            PullEntityOutcome::Merged {
+                entity_type: entity_type.to_string(),
+                uuid: uuid.to_string(),
+                remote_version: 0,
+            }
+        };
+
+        outcomes.push(outcome);
+    }
+
+    // Update project_id
+    if let Some(pid) = new_project_id {
+        if !dry_run {
+            if let Some(cfg) = remotes.get_mut(remote_name) {
+                cfg.project_id = Some(pid.clone());
+                let config_content = serde_json::to_string_pretty(&remotes)
+                    .map_err(|e| EngramError::Serialization(e))?;
+                fs::write(config_path, config_content).map_err(|e| EngramError::Io(e))?;
+                println!("   Updated remote project_id: {}", &pid[..16]);
+            }
+        }
+    }
+
+    // Print summary
+    let merged = outcomes.iter().filter(|o| matches!(o, PullEntityOutcome::Merged { .. })).count();
+    let up_to_date = outcomes.iter().filter(|o| matches!(o, PullEntityOutcome::UpToDate { .. })).count();
+    let conflicts = outcomes.iter().filter(|o| matches!(o, PullEntityOutcome::Conflict { .. })).count();
+    let local_newer = outcomes.iter().filter(|o| matches!(o, PullEntityOutcome::LocalNewer { .. })).count();
+
+    println!();
+    println!("Pull summary for '{}':", remote_name);
+    println!("  Merged (remote newer): {}", merged);
+    println!("  Up to date:            {}", up_to_date);
+    println!("  Conflicts:             {}", conflicts);
+    println!("  Skipped (local newer): {}", local_newer);
+
+    for o in &outcomes {
+        if let PullEntityOutcome::Conflict { entity_type, uuid, version } = o {
+            println!("  CONFLICT {}/{} at v{} — use 'engram sync resolve' to resolve", entity_type, uuid, version);
+        }
+    }
+
+    if dry_run {
+        println!("(dry-run: no changes written)");
+    }
+
+    Ok(outcomes)
+}

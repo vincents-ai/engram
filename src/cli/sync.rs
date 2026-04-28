@@ -155,7 +155,7 @@ pub fn sync_both(
     println!("🔄 Sync both for remote '{}'", remote_name);
 
     // Step 1: pull
-    let pull_outcomes = pull_from_remote(remote_name.clone(), auth.clone(), dry_run)?;
+    let pull_outcomes = crate::cli::sync_gix::pull_from_remote_gix(&remote_name, &auth, dry_run)?;
     let conflicts = pull_outcomes
         .iter()
         .filter(|o| matches!(o, PullEntityOutcome::Conflict { .. }))
@@ -1930,7 +1930,7 @@ pub fn handle_sync_command<S: Storage>(
                 password: password.clone(),
                 key_path: ssh_key.clone(),
             };
-            pull_from_remote(remote.clone(), auth, *dry_run)?;
+            crate::cli::sync_gix::pull_from_remote_gix(remote, &auth, *dry_run)?;
             Ok(())
         }
         SyncCommands::Push {
