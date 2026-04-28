@@ -360,7 +360,7 @@ impl<S: Storage + RelationshipStorage + Send> LocusTuiBackend for EngramBackend<
         &self,
         remote_name: &str,
     ) -> Result<Vec<crate::locus_tui::app::SyncStatusRow>, EngramError> {
-        let report = crate::cli::sync::get_sync_status(&mut std::io::sink(), remote_name, false)?;
+        let report = crate::cli::sync_gix::get_sync_status_gix(&mut std::io::sink(), remote_name, false)?;
         let rows = report
             .rows
             .into_iter()

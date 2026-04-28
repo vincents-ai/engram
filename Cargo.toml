@@ -65,10 +65,7 @@ regex = "1.10"
 similar = "2.6"
 
 # Git integration
-# git2 retained as INTERIM for sync.rs clone/fetch/push/checkout operations
 # until gix-protocol push + russh transport are integrated into sync module
-# See AGENTS.md INTERIM(git2) migration plan
- git2 = { version = "0.20", features = ["vendored-openssl"] }
 gix = { version = "0.83", default-features = false, features = ["max-performance-safe", "sha1", "blocking-network-client", "russh-client", "blocking-http-transport-curl"] }
 
 # System resource monitoring
