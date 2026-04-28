@@ -131,7 +131,7 @@ fn run_checkpoint(message: &str, allow_empty: bool) -> Result<(), EngramError> {
 
     let head_obj = repo.find_object(head_id)
         .map_err(|e| EngramError::Git(format!("Failed to find HEAD commit: {}", e)))?;
-    let head_commit = gix::objs::CommitRef::from_bytes(&head_obj.data)
+    let head_commit = gix::objs::CommitRef::from_bytes(&head_obj.data, gix::hash::Kind::Sha1)
         .map_err(|e| EngramError::Git(format!("Failed to parse HEAD commit: {}", e)))?;
 
     // Use HEAD tree — user stages via `git add` externally
@@ -207,7 +207,7 @@ fn run_status() -> Result<(), EngramError> {
     let head_info: Option<(gix::ObjectId, String)> = (|| {
         let head_id = repo.head_id().ok()?;
         let obj = repo.find_object(head_id).ok()?;
-        let commit = gix::objs::CommitRef::from_bytes(&obj.data).ok()?;
+        let commit = gix::objs::CommitRef::from_bytes(&obj.data, gix::hash::Kind::Sha1).ok()?;
         let first_line = commit.message.to_string().lines().next().unwrap_or("").to_string();
         Some((head_id.detach(), first_line))
     })();
@@ -255,7 +255,7 @@ fn run_log(limit: usize) -> Result<(), EngramError> {
 
         let obj = repo.find_object(info.id)
             .map_err(|e| EngramError::Git(format!("Failed to find commit: {}", e)))?;
-        let commit = gix::objs::CommitRef::from_bytes(&obj.data)
+        let commit = gix::objs::CommitRef::from_bytes(&obj.data, gix::hash::Kind::Sha1)
             .map_err(|e| EngramError::Git(format!("Failed to parse commit: {}", e)))?;
 
         let id_str = info.id.to_string();
@@ -320,7 +320,7 @@ fn run_verify_history(limit: usize) -> Result<(), EngramError> {
             }
         };
 
-        match gix::objs::CommitRef::from_bytes(&obj.data) {
+        match gix::objs::CommitRef::from_bytes(&obj.data, gix::hash::Kind::Sha1) {
             Ok(commit) => {
                 // Verify tree exists
                 let tree_id = gix::hash::ObjectId::from_hex(commit.tree)

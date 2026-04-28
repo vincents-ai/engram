@@ -307,7 +307,7 @@ impl GitHistory {
             let obj = repo.find_object(info.id)
                 .map_err(|e| EngramError::Git(format!("Failed to find commit {}: {}", info.id, e)))?;
 
-            let commit = gix::objs::CommitRef::from_bytes(&obj.data)
+            let commit = gix::objs::CommitRef::from_bytes(&obj.data, gix::hash::Kind::Sha1)
                 .map_err(|e| EngramError::Git(format!("Failed to parse commit: {}", e)))?;
 
             commits.push(GitCommitInfo {

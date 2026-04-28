@@ -65,8 +65,11 @@ regex = "1.10"
 similar = "2.6"
 
 # Git integration
-git2 = { version = "0.20", features = ["vendored-openssl"] }
-gix = { version = "0.81", default-features = false, features = ["max-performance-safe", "sha1"] }
+# git2 retained as INTERIM for sync.rs clone/fetch/push/checkout operations
+# until gix-protocol push + russh transport are integrated into sync module
+# See AGENTS.md INTERIM(git2) migration plan
+ git2 = { version = "0.20", features = ["vendored-openssl"] }
+gix = { version = "0.83", default-features = false, features = ["max-performance-safe", "sha1"] }
 
 # System resource monitoring
 sysinfo = "0.32"
@@ -127,3 +130,72 @@ vector-search = ["rusqlite", "sqlite-vec", "fastembed", "ndarray", "bytemuck"]
 [workspace]
 members = [".", "engram-core", "engram-storage"]
 resolver = "2"
+
+# Use our gitoxide fork with russh SSH transport + push module
+[patch.crates-io]
+gix = { path = "../gitoxide/gix" }
+gix-actor = { path = "../gitoxide/gix-actor" }
+gix-archive = { path = "../gitoxide/gix-archive" }
+gix-attributes = { path = "../gitoxide/gix-attributes" }
+gix-bitmap = { path = "../gitoxide/gix-bitmap" }
+gix-blame = { path = "../gitoxide/gix-blame" }
+gix-chunk = { path = "../gitoxide/gix-chunk" }
+gix-command = { path = "../gitoxide/gix-command" }
+gix-commitgraph = { path = "../gitoxide/gix-commitgraph" }
+gix-config = { path = "../gitoxide/gix-config" }
+gix-config-value = { path = "../gitoxide/gix-config-value" }
+gix-credentials = { path = "../gitoxide/gix-credentials" }
+gix-date = { path = "../gitoxide/gix-date" }
+gix-diff = { path = "../gitoxide/gix-diff" }
+gix-dir = { path = "../gitoxide/gix-dir" }
+gix-discover = { path = "../gitoxide/gix-discover" }
+gix-features = { path = "../gitoxide/gix-features" }
+gix-fetchhead = { path = "../gitoxide/gix-fetchhead" }
+gix-filter = { path = "../gitoxide/gix-filter" }
+gix-fs = { path = "../gitoxide/gix-fs" }
+gix-fsck = { path = "../gitoxide/gix-fsck" }
+gix-glob = { path = "../gitoxide/gix-glob" }
+gix-hash = { path = "../gitoxide/gix-hash" }
+gix-hashtable = { path = "../gitoxide/gix-hashtable" }
+gix-ignore = { path = "../gitoxide/gix-ignore" }
+gix-index = { path = "../gitoxide/gix-index" }
+gix-lfs = { path = "../gitoxide/gix-lfs" }
+gix-lock = { path = "../gitoxide/gix-lock" }
+gix-macros = { path = "../gitoxide/gix-macros" }
+gix-mailmap = { path = "../gitoxide/gix-mailmap" }
+gix-merge = { path = "../gitoxide/gix-merge" }
+gix-negotiate = { path = "../gitoxide/gix-negotiate" }
+gix-note = { path = "../gitoxide/gix-note" }
+gix-object = { path = "../gitoxide/gix-object" }
+gix-odb = { path = "../gitoxide/gix-odb" }
+gix-pack = { path = "../gitoxide/gix-pack" }
+gix-packetline = { path = "../gitoxide/gix-packetline" }
+gix-path = { path = "../gitoxide/gix-path" }
+gix-pathspec = { path = "../gitoxide/gix-pathspec" }
+gix-prompt = { path = "../gitoxide/gix-prompt" }
+gix-protocol = { path = "../gitoxide/gix-protocol" }
+gix-quote = { path = "../gitoxide/gix-quote" }
+gix-rebase = { path = "../gitoxide/gix-rebase" }
+gix-ref = { path = "../gitoxide/gix-ref" }
+gix-refspec = { path = "../gitoxide/gix-refspec" }
+gix-revision = { path = "../gitoxide/gix-revision" }
+gix-revwalk = { path = "../gitoxide/gix-revwalk" }
+gix-sec = { path = "../gitoxide/gix-sec" }
+gix-sequencer = { path = "../gitoxide/gix-sequencer" }
+gix-shallow = { path = "../gitoxide/gix-shallow" }
+gix-status = { path = "../gitoxide/gix-status" }
+gix-submodule = { path = "../gitoxide/gix-submodule" }
+gix-tempfile = { path = "../gitoxide/gix-tempfile" }
+gix-trace = { path = "../gitoxide/gix-trace" }
+gix-transport = { path = "../gitoxide/gix-transport" }
+gix-traverse = { path = "../gitoxide/gix-traverse" }
+gix-tui = { path = "../gitoxide/gix-tui" }
+gix-url = { path = "../gitoxide/gix-url" }
+gix-utils = { path = "../gitoxide/gix-utils" }
+gix-validate = { path = "../gitoxide/gix-validate" }
+gix-worktree = { path = "../gitoxide/gix-worktree" }
+gix-worktree-state = { path = "../gitoxide/gix-worktree-state" }
+gix-worktree-stream = { path = "../gitoxide/gix-worktree-stream" }
+gix-error = { path = "../gitoxide/gix-error" }
+gix-imara-diff = { path = "../gitoxide/gix-imara-diff" }
+gix-tix = { path = "../gitoxide/gix-tix" }
