@@ -1777,6 +1777,7 @@ pub fn resolve_conflicts(
     Ok(resolved)
 }
 
+#[allow(dead_code)]
 pub fn handle_import_git_remotes() -> Result<(), EngramError> {
     let repo = Repository::open(".")
         .map_err(|e| EngramError::Git(format!("Failed to open repository: {}", e)))?;
@@ -1952,12 +1953,12 @@ pub fn handle_sync_command<S: Storage>(
             Ok(())
         }
         SyncCommands::CreateBranch { name, agent, from } => {
-            create_branch(name, agent.as_deref(), from.as_deref())
+            crate::cli::sync_gix::create_branch_gix(name, agent.as_deref(), from.as_deref())
         }
-        SyncCommands::SwitchBranch { name, create } => switch_branch(name, *create),
+        SyncCommands::SwitchBranch { name, create } => crate::cli::sync_gix::switch_branch_gix(name, *create),
         SyncCommands::ListBranches { all, current } => crate::cli::sync_gix::list_branches_gix(*all, *current),
         SyncCommands::DeleteBranch { name, force } => crate::cli::sync_gix::delete_branch_gix(name, *force),
-        SyncCommands::ImportGitRemotes => handle_import_git_remotes(),
+        SyncCommands::ImportGitRemotes => crate::cli::sync_gix::handle_import_git_remotes_gix(),
         SyncCommands::Both {
             remote,
             auth_type,
@@ -1987,6 +1988,7 @@ pub fn handle_sync_command<S: Storage>(
 }
 
 /// Create a new branch for agent isolation
+#[allow(dead_code)]
 pub fn create_branch(
     branch_name: &str,
     agent: Option<&str>,
@@ -2047,6 +2049,7 @@ pub fn create_branch(
 }
 
 /// Switch to a different branch
+#[allow(dead_code)]
 pub fn switch_branch(branch_name: &str, create_if_missing: bool) -> Result<(), EngramError> {
     let repo_path = std::env::current_dir()?.join(".engram");
     let repo = Repository::open(&repo_path)

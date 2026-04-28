@@ -638,3 +638,197 @@ pub fn resolve_conflicts_gix(
     println!("Resolved {}/{} conflict(s).", resolved, conflicts.len());
     Ok(resolved)
 }
+
+/// Set HEAD to point to a symbolic reference (branch)
+fn set_head_symbolic(
+    repo: &gix::Repository,
+    target_ref: &str,
+) -> Result<(), EngramError> {
+    use gix::refs::FullName;
+    use gix::refs::Target;
+    use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
+
+    let name = FullName::try_from("HEAD")
+        .map_err(|e| EngramError::Git(format!("Invalid HEAD ref: {}", e)))?;
+    let target = FullName::try_from(target_ref.to_string())
+        .map_err(|e| EngramError::Git(format!("Invalid target ref '{}': {}", target_ref, e)))?;
+
+    repo.edit_reference(RefEdit {
+        change: Change::Update {
+            log: LogChange {
+                mode: gix::refs::transaction::RefLog::AndReference,
+                force_create_reflog: false,
+                message: format!("switch to {}", target_ref).into(),
+            },
+            expected: PreviousValue::Any,
+            new: Target::Symbolic(target),
+        },
+        name,
+        deref: false,
+    })
+    .map_err(|e| EngramError::Git(format!("Failed to set HEAD: {}", e)))?;
+
+    Ok(())
+}
+
+/// Import git remotes from the workspace repo into engram remotes.json
+pub fn handle_import_git_remotes_gix() -> Result<(), EngramError> {
+    use super::sync::RemoteConfig;
+
+    let repo = open_workspace_repo()?;
+
+    let remote_names: Vec<_> = repo
+        .remote_names()
+        .into_iter()
+        .map(|name| name.to_string())
+        .collect();
+
+    let config_path = ".engram/remotes.json";
+    let mut imported = 0usize;
+    let mut skipped = 0usize;
+
+    for name in &remote_names {
+        let remote = match repo.find_remote(name.as_str()) {
+            Ok(r) => r,
+            Err(_) => {
+                skipped += 1;
+                continue;
+            }
+        };
+
+        let url = match remote.url(gix::remote::Direction::Fetch) {
+            Some(u) => u.to_bstring().to_string(),
+            None => {
+                skipped += 1;
+                continue;
+            }
+        };
+
+        if url.is_empty() {
+            skipped += 1;
+            continue;
+        }
+
+        let mut remotes: HashMap<String, RemoteConfig> = if Path::new(config_path).exists() {
+            let content = fs::read_to_string(config_path).map_err(|e| EngramError::Io(e))?;
+            serde_json::from_str(&content).map_err(|e| EngramError::Serialization(e))?
+        } else {
+            HashMap::new()
+        };
+
+        if remotes.contains_key(name) {
+            skipped += 1;
+            continue;
+        }
+
+        let remote_config = RemoteConfig {
+            name: name.to_string(),
+            url: url.clone(),
+            branch: "main".to_string(),
+            last_sync: None,
+            auth_type: None,
+            username: None,
+            ssh_key_path: None,
+            project_id: None,
+        };
+
+        remotes.insert(name.to_string(), remote_config);
+
+        let config_content =
+            serde_json::to_string_pretty(&remotes).map_err(|e| EngramError::Serialization(e))?;
+
+        if !Path::new(".engram").exists() {
+            fs::create_dir_all(".engram").map_err(|e| EngramError::Io(e))?;
+        }
+
+        fs::write(config_path, config_content).map_err(|e| EngramError::Io(e))?;
+
+        println!("📡 Imported remote '{}' ({})", name, url);
+        imported += 1;
+    }
+
+    println!(
+        "\n✅ Import complete: {} imported, {} skipped (already existed or no URL)",
+        imported, skipped
+    );
+
+    Ok(())
+}
+
+/// Create a branch in the engram repo using gix
+pub fn create_branch_gix(
+    name: &str,
+    agent: Option<&str>,
+    from: Option<&str>,
+) -> Result<(), EngramError> {
+    let repo = open_engram_repo()?;
+
+    // Determine the starting point
+    let start_ref = if let Some(from_name) = from {
+        format!("refs/heads/{}", from_name)
+    } else {
+        "HEAD".to_string()
+    };
+
+    // Resolve the starting point to an OID
+    let start_oid = if start_ref == "HEAD" {
+        repo.head_id()
+            .map_err(|e| EngramError::Git(format!("Failed to resolve HEAD: {}", e)))?
+            .to_string()
+    } else {
+        let ref_name = gix::refs::FullName::try_from(start_ref.clone())
+            .map_err(|e| EngramError::Git(format!("Invalid ref '{}': {}", start_ref, e)))?;
+        repo.find_reference(&ref_name)
+            .map_err(|e| EngramError::Git(format!("Failed to find ref '{}': {}", start_ref, e)))?
+            .try_id()
+            .ok_or_else(|| EngramError::Git(format!("Ref '{}' has no target", start_ref)))?
+            .to_string()
+    };
+
+    let new_ref = format!("refs/heads/{}", name);
+    let message = format!("create branch '{}'{}",
+        name,
+        agent.map(|a| format!(" (agent: {})", a)).unwrap_or_default()
+    );
+
+    set_ref(&repo, &new_ref, &start_oid, true, &message)?;
+
+    // Switch HEAD to the new branch
+    set_head_symbolic(&repo, &format!("refs/heads/{}", name))?;
+
+    println!("✅ Created and switched to branch '{}'", name);
+    Ok(())
+}
+
+/// Switch to a branch in the engram repo using gix
+pub fn switch_branch_gix(name: &str, create_if_missing: bool) -> Result<(), EngramError> {
+    let repo = open_engram_repo()?;
+
+    let branch_ref = format!("refs/heads/{}", name);
+    let ref_name = gix::refs::FullName::try_from(branch_ref.clone())
+        .map_err(|e| EngramError::Git(format!("Invalid branch name '{}': {}", name, e)))?;
+
+    // Check if branch exists
+    let exists = repo.find_reference(&ref_name).is_ok();
+
+    if !exists && !create_if_missing {
+        return Err(EngramError::Git(format!(
+            "Branch '{}' does not exist. Use --create to create it.",
+            name
+        )));
+    }
+
+    if !exists && create_if_missing {
+        // Create from HEAD
+        let start_oid = repo.head_id()
+            .map_err(|e| EngramError::Git(format!("Failed to resolve HEAD: {}", e)))?
+            .to_string();
+        set_ref(&repo, &branch_ref, &start_oid, true, &format!("create branch '{}' via switch", name))?;
+    }
+
+    // Switch HEAD
+    set_head_symbolic(&repo, &format!("refs/heads/{}", name))?;
+
+    println!("✅ Switched to branch '{}'", name);
+    Ok(())
+}
