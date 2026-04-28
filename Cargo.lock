@@ -2049,6 +2049,7 @@ dependencies = [
 name = "gix"
 version = "0.83.0"
 dependencies = [
+ "flate2",
  "gix-actor",
  "gix-archive",
  "gix-attributes",

@@ -1105,3 +1105,105 @@ pub fn pull_from_remote_gix(
 
     Ok(outcomes)
 }
+
+/// Push to remote using gix transport + pack generation
+pub fn push_to_remote_gix(
+    remote_name: &str,
+    auth: &crate::storage::RemoteAuth,
+    dry_run: bool,
+) -> Result<usize, EngramError> {
+    use super::sync::RemoteConfig;
+
+    println!("📤 Pushing to remote '{}'...", remote_name);
+    if dry_run {
+        println!("   (dry-run — no refs will be pushed)");
+    }
+
+    let config_path = ".engram/remotes.json";
+    if !Path::new(config_path).exists() {
+        return Err(EngramError::Validation(
+            "No remotes configured. Use 'add-remote' first.".to_string(),
+        ));
+    }
+
+    let content = fs::read_to_string(config_path).map_err(|e| EngramError::Io(e))?;
+    let remotes: HashMap<String, RemoteConfig> =
+        serde_json::from_str(&content).map_err(|e| EngramError::Serialization(e))?;
+
+    let remote_config = remotes
+        .get(remote_name)
+        .ok_or_else(|| EngramError::Validation(format!("Remote '{}' not found", remote_name)))?;
+
+    println!("📡 Remote URL: {}", remote_config.url);
+
+    let repo = open_workspace_repo()?;
+
+    // Collect all local refs/engram/* refs (excluding refs/engram/remote/*)
+    let all_refs = list_all_refs(&repo)?;
+    let local_engram_refs: Vec<(String, String)> = all_refs
+        .iter()
+        .filter(|(name, _)| name.starts_with("refs/engram/") && !name.starts_with("refs/engram/remote/"))
+        .cloned()
+        .collect();
+
+    if local_engram_refs.is_empty() {
+        println!("   No refs/engram/* refs found locally — nothing to push.");
+        return Ok(0);
+    }
+
+    println!(
+        "   Found {} local engram refs to push.",
+        local_engram_refs.len()
+    );
+
+    if dry_run {
+        for (r, _) in &local_engram_refs {
+            println!("   would push: {}", r);
+        }
+        println!("(dry-run: no refs pushed)");
+        return Ok(local_engram_refs.len());
+    }
+
+    // Generate pack from all referenced objects
+    let oids: Vec<gix::ObjectId> = local_engram_refs
+        .iter()
+        .filter_map(|(_, oid)| gix::ObjectId::from_hex(oid.as_bytes()).ok())
+        .collect();
+    let pack_data = repo.pack_from_objects(&oids)
+        .map_err(|e| EngramError::Git(format!("Failed to generate pack: {}", e)))?;
+
+    // Set up russh env for SSH auth
+    set_russh_env(auth);
+
+    // Connect to remote and push
+    let remote = repo.remote_at(remote_config.url.as_str())
+        .map_err(|e| EngramError::Git(format!("Failed to create remote: {:?}", e)))?;
+
+    let connection = remote.connect(gix::remote::Direction::Push)
+        .map_err(|e| EngramError::Git(format!("Failed to connect to '{}': {:?}", remote_config.url, e)))?;
+
+    // Build ref updates — all are force-push (old_id = zero for create)
+    let zero_id = gix::ObjectId::null(repo.object_hash());
+    let ref_updates: Vec<gix::remote::push::RefUpdate> = local_engram_refs
+        .iter()
+        .map(|(name, new_oid)| {
+            let new_id = gix::ObjectId::from_hex(new_oid.as_bytes())
+                .unwrap_or_else(|_| zero_id.clone());
+            gix::remote::push::RefUpdate {
+                old_id: zero_id.clone(),
+                new_id,
+                name: name.as_bytes().into(),
+            }
+        })
+        .collect();
+
+    let _outcome = connection.push(ref_updates, &pack_data)
+        .map_err(|e| EngramError::Git(format!("Push failed: {:?}", e)))?;
+
+    println!(
+        "✅ Pushed {} engram refs to '{}'",
+        local_engram_refs.len(),
+        remote_name
+    );
+    Ok(local_engram_refs.len())
+}

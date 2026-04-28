@@ -169,7 +169,7 @@ pub fn sync_both(
     }
 
     // Step 2: push
-    let push_count = push_to_remote(remote_name.clone(), auth, dry_run)?;
+    let push_count = crate::cli::sync_gix::push_to_remote_gix(&remote_name, &auth, dry_run)?;
 
     println!("\n✅ Both complete for '{}'", remote_name);
 
@@ -1949,7 +1949,7 @@ pub fn handle_sync_command<S: Storage>(
                 password: password.clone(),
                 key_path: ssh_key.clone(),
             };
-            push_to_remote(remote.clone(), auth, *dry_run)?;
+            crate::cli::sync_gix::push_to_remote_gix(remote, &auth, *dry_run)?;
             Ok(())
         }
         SyncCommands::CreateBranch { name, agent, from } => {
