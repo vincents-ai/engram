@@ -111,11 +111,15 @@ fn derive_project_id(repo: &gix::Repository) -> Result<String, EngramError> {
             // Set HEAD to point to this commit via refs/heads/main
             use gix::refs::FullName;
             use gix::refs::Target;
-            use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
+            use gix::refs::transaction::{Change, PreviousValue, RefEdit};
 
             repo.edit_reference(RefEdit {
                 change: Change::Update {
-                    log: LogChange::default(),
+                    log: gix::refs::transaction::LogChange {
+                        mode: gix::refs::transaction::RefLog::AndReference,
+                        force_create_reflog: false,
+                        message: Default::default(),
+                    },
                     expected: PreviousValue::MustNotExist,
                     new: Target::Object(commit_id.detach()),
                 },
@@ -128,7 +132,11 @@ fn derive_project_id(repo: &gix::Repository) -> Result<String, EngramError> {
             // Set HEAD symbolic to refs/heads/main
             repo.edit_reference(RefEdit {
                 change: Change::Update {
-                    log: LogChange::default(),
+                    log: gix::refs::transaction::LogChange {
+                        mode: gix::refs::transaction::RefLog::AndReference,
+                        force_create_reflog: false,
+                        message: Default::default(),
+                    },
                     expected: PreviousValue::Any,
                     new: Target::Symbolic(
                         FullName::try_from("refs/heads/main")
