@@ -384,6 +384,14 @@ mod tests {
 
     fn setup_git_repo(dir: &std::path::Path) {
         gix::init(dir).unwrap();
+        // Configure git identity for reflog operations (required on CI where no global config exists)
+        let config_path = dir.join(".git").join("config");
+        let config_content = std::fs::read_to_string(&config_path).unwrap_or_default();
+        let new_content = format!(
+            "{}\n[user]\n\tname = Test\n\temail = test@test.com\n",
+            config_content.trim_end()
+        );
+        std::fs::write(&config_path, new_content).unwrap();
     }
 
     fn setup_engram_dir(dir: &std::path::Path) {
