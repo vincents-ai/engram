@@ -23,3 +23,5 @@ gix = { version = "0.83", default-features = false, features = ["max-performance
 [features]
 default = []
 git = ["git2", "gix"]
+gix = ["dep:gix"]
+git2 = ["dep:git2"]
