@@ -1196,8 +1196,7 @@ mod tests {
         assert!(result.is_ok());
 
         let output = String::from_utf8(buf).unwrap();
-        eprintln!("DEBUG output: {}", output);
-        assert!(output.contains("Found 1 skills"), "output was: {}", output);
+        assert!(output.contains("Found 1 skills"));
         assert!(output.contains("Installed: 1"));
         assert!(output.contains("Skills setup complete"));
 
