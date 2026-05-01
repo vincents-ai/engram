@@ -111,6 +111,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Configure git identity
+        run: |
+          git config --global user.name "CI"
+          git config --global user.email "ci@localhost"
+
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
