@@ -23,9 +23,7 @@ fn resolve_entity_id<S: Storage>(
     }
 
     // Only try resolution for hex-like short IDs
-    let is_hex_short = id.len() >= 4
-        && id.len() < 36
-        && id.chars().all(|c| c.is_ascii_hexdigit());
+    let is_hex_short = id.len() >= 4 && id.len() < 36 && id.chars().all(|c| c.is_ascii_hexdigit());
 
     if !is_hex_short {
         return Ok(id.to_string());

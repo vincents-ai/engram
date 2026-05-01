@@ -359,7 +359,10 @@ pub fn list_contexts<S: Storage>(
 
     // JSON output
     if output == "json" {
-        println!("{}", serde_json::to_string_pretty(&contexts).map_err(|e| EngramError::Serialization(e))?);
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&contexts).map_err(|e| EngramError::Serialization(e))?
+        );
         return Ok(());
     }
 
@@ -728,10 +731,30 @@ mod tests {
         .unwrap();
 
         // Test listing all
-        list_contexts(&storage, None, None, None, None, false, None, "text".to_string()).unwrap();
+        list_contexts(
+            &storage,
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+            "text".to_string(),
+        )
+        .unwrap();
 
         // Test filtering by relevance
-        list_contexts(&storage, None, Some("high"), None, None, false, None, "text".to_string()).unwrap();
+        list_contexts(
+            &storage,
+            None,
+            Some("high"),
+            None,
+            None,
+            false,
+            None,
+            "text".to_string(),
+        )
+        .unwrap();
     }
 
     #[test]

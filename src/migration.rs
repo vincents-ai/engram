@@ -851,12 +851,14 @@ mod tests {
     /// Helper: write a raw blob JSON directly into a git ref (bypasses
     /// `store_entity_as_ref` so we can inject a pre-fix nested blob).
     fn write_raw_blob(repo: &gix::Repository, ref_name: &str, json: &str) {
+        use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
         use gix::refs::FullName;
         use gix::refs::Target;
-        use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
 
         let blob_id = repo
-            .write_object(&gix::objs::Blob { data: json.as_bytes().to_vec() })
+            .write_object(&gix::objs::Blob {
+                data: json.as_bytes().to_vec(),
+            })
             .unwrap();
         repo.edit_reference(RefEdit {
             change: Change::Update {
@@ -866,7 +868,8 @@ mod tests {
             },
             name: FullName::try_from(ref_name).unwrap(),
             deref: false,
-        }).unwrap();
+        })
+        .unwrap();
     }
 
     /// Unit test: round-trip a Task through to_generic / store / get and

@@ -40,6 +40,7 @@ pub mod utils;
 pub mod validation;
 pub mod workflow;
 
+pub use crate::evo::EvoCommands;
 pub use adr::*;
 pub use analytics::*;
 pub use compliance::*;
@@ -71,7 +72,6 @@ pub use sync::SyncCommands;
 pub use task::*;
 pub use theory::*;
 pub use validation::*;
-pub use crate::evo::EvoCommands;
 pub use workflow::*;
 
 use crate::ask::AskCommands;

@@ -4,10 +4,10 @@
 //! and uses an LLM to analyze what went wrong and generate a MemoryPatch
 //! (a specification for engram entities to write).
 
+use crate::error::EngramError;
 use crate::evo::cli::OptimizeArgs;
 use crate::evo::llm::LlmClient;
 use crate::evo::types::*;
-use crate::error::EngramError;
 use std::fs;
 use std::io::{self, Read as IoRead};
 
@@ -21,8 +21,7 @@ pub fn handle_optimize(args: OptimizeArgs) -> Result<(), EngramError> {
             .map_err(|e| EngramError::Io(e))?;
         buf
     } else {
-        fs::read_to_string(&args.eval_report)
-            .map_err(|e| EngramError::Io(e))?
+        fs::read_to_string(&args.eval_report).map_err(|e| EngramError::Io(e))?
     };
 
     let reports: Vec<EvalReport> = if report_json.trim_start().starts_with('[') {
@@ -39,8 +38,7 @@ pub fn handle_optimize(args: OptimizeArgs) -> Result<(), EngramError> {
             .map_err(|e| EngramError::Io(e))?;
         buf
     } else {
-        fs::read_to_string(&args.trajectory)
-            .map_err(|e| EngramError::Io(e))?
+        fs::read_to_string(&args.trajectory).map_err(|e| EngramError::Io(e))?
     };
 
     let trajectories: Vec<Trajectory> = if traj_json.trim_start().starts_with('[') {
@@ -70,14 +68,13 @@ pub fn handle_optimize(args: OptimizeArgs) -> Result<(), EngramError> {
     }
 
     // Output
-    let output_json = serde_json::to_string_pretty(&patches)
-        .map_err(|e| EngramError::Serialization(e))?;
+    let output_json =
+        serde_json::to_string_pretty(&patches).map_err(|e| EngramError::Serialization(e))?;
 
     if args.output == "-" {
         println!("{}", output_json);
     } else {
-        fs::write(&args.output, &output_json)
-            .map_err(|e| EngramError::Io(e))?;
+        fs::write(&args.output, &output_json).map_err(|e| EngramError::Io(e))?;
         eprintln!("Wrote {} patch(es) to {}", patches.len(), args.output);
     }
 
@@ -135,7 +132,10 @@ Rules:
 
     // Evaluation scores
     context.push_str("## Evaluation Report\n\n");
-    context.push_str(&format!("Composite Score: {:.3}\n", report.scores.composite));
+    context.push_str(&format!(
+        "Composite Score: {:.3}\n",
+        report.scores.composite
+    ));
     context.push_str(&format!(
         "Step Efficiency: {:.3} | Tool Correctness: {:.3} | Plan Adherence: {:.3} | Task Completion: {:.3}\n",
         report.scores.step_efficiency,
@@ -157,10 +157,7 @@ Rules:
     context.push_str("\n## Trajectory Context\n\n");
     context.push_str(&format!(
         "Task: {}\n",
-        trajectory
-            .task_description
-            .as_deref()
-            .unwrap_or("Unknown")
+        trajectory.task_description.as_deref().unwrap_or("Unknown")
     ));
     context.push_str(&format!(
         "Model: {} | Provider: {} | Total Turns: {}\n",
@@ -181,7 +178,10 @@ Rules:
     ));
 
     for turn in &trajectory.turns[start..end] {
-        context.push_str(&format!("**Turn {}** (stop: {:?})\n", turn.index, turn.stopped_reason));
+        context.push_str(&format!(
+            "**Turn {}** (stop: {:?})\n",
+            turn.index, turn.stopped_reason
+        ));
 
         if let Some(thinking) = &turn.assistant_thinking {
             let truncated = if thinking.len() > 500 {

@@ -2,4 +2,3 @@
 
 // Re-export all relationship types from engram-core
 pub use engram_core::relationship::*;
-

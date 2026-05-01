@@ -4,9 +4,9 @@
 //! - **text**: Human-readable summary with scores and suggestions
 //! - **json**: Raw JSON output (default evaluation output)
 
+use crate::error::EngramError;
 use crate::evo::cli::ReportArgs;
 use crate::evo::types::EvalReport;
-use crate::error::EngramError;
 use std::fs;
 use std::io::{self, Read as IoRead};
 
@@ -20,8 +20,7 @@ pub fn handle_report(args: ReportArgs) -> Result<(), EngramError> {
             .map_err(|e| EngramError::Io(e))?;
         buf
     } else {
-        fs::read_to_string(&args.eval_report)
-            .map_err(|e| EngramError::Io(e))?
+        fs::read_to_string(&args.eval_report).map_err(|e| EngramError::Io(e))?
     };
 
     // Parse — supports single report or array

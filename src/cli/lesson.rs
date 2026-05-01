@@ -207,7 +207,6 @@ pub fn list_lessons<S: Storage>(
 
     let mut items: Vec<Lesson> = Vec::new();
 
-
     for id in ids {
         if let Some(entity) = storage.get(&id, Lesson::entity_type())? {
             if let Ok(lesson) = Lesson::from_generic(entity) {

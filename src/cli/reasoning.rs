@@ -171,7 +171,6 @@ pub enum ReasoningCommands {
         #[arg(long, conflicts_with = "limit")]
         all: bool,
 
-
         /// Offset for pagination
         #[arg(long, short)]
         offset: Option<usize>,
@@ -577,10 +576,7 @@ pub fn list_reasoning<S: Storage>(
         return Ok(());
     }
 
-    println!(
-        "Found {} reasoning chain(s)",
-        reasoning_chains.len()
-    );
+    println!("Found {} reasoning chain(s)", reasoning_chains.len());
 
     let mut table = create_table();
     table.set_titles(row!["ID", "Status", "Title", "Task ID", "Agent"]);

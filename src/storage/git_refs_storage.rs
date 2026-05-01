@@ -7,16 +7,18 @@
 
 #![allow(clippy::needless_borrows_for_generic_args)]
 
-use engram_core::storage_types::{GitCommit, QueryFilter, QueryResult, SortOrder, Storage, StorageStats};
+use chrono::Utc;
 use engram_core::entity_types::{EntityRegistry, GenericEntity};
-use engram_core::relationship::{EntityRelationship, RelationshipFilter};
 use engram_core::error::{EngramError, StorageError};
+use engram_core::relationship::{EntityRelationship, RelationshipFilter};
+use engram_core::storage_types::{
+    GitCommit, QueryFilter, QueryResult, SortOrder, Storage, StorageStats,
+};
 use engram_storage::memory_entity::MemoryEntity;
 use engram_storage::relationship_storage::{
     EntityPath, GraphAnalyzer, RelationshipIndex, RelationshipStats, RelationshipStorage,
     TraversalAlgorithm,
 };
-use chrono::Utc;
 use gix::bstr::ByteSlice;
 use gix::Repository;
 use serde::{Deserialize, Serialize};
@@ -87,9 +89,7 @@ fn derive_project_id(repo: &gix::Repository) -> Result<String, EngramError> {
         Ok(id) => id.detach(),
         Err(_) => {
             // Create empty tree
-            let empty_tree = gix::objs::Tree {
-                entries: vec![],
-            };
+            let empty_tree = gix::objs::Tree { entries: vec![] };
             let tree_id = repo
                 .write_object(&empty_tree)
                 .map_err(|e| EngramError::Git(format!("Failed to write empty tree: {}", e)))?;
@@ -109,9 +109,9 @@ fn derive_project_id(repo: &gix::Repository) -> Result<String, EngramError> {
                 .map_err(|e| EngramError::Git(format!("Failed to create init commit: {}", e)))?;
 
             // Set HEAD to point to this commit via refs/heads/main
+            use gix::refs::transaction::{Change, PreviousValue, RefEdit};
             use gix::refs::FullName;
             use gix::refs::Target;
-            use gix::refs::transaction::{Change, PreviousValue, RefEdit};
 
             repo.edit_reference(RefEdit {
                 change: Change::Update {
@@ -191,25 +191,21 @@ fn ensure_workspace_ref(
         .map_err(|e| EngramError::Git(format!("Failed to find workspace ref: {}", e)))?
     {
         Some(reference) => {
-            let target_id = reference
-                .try_id()
-                .ok_or_else(|| {
-                    EngramError::Git("refs/engram/config/workspace is a symbolic ref".into())
-                })?;
-            let obj = repo.find_object(target_id).map_err(|e| {
-                EngramError::Git(format!("Failed to find workspace blob: {}", e))
+            let target_id = reference.try_id().ok_or_else(|| {
+                EngramError::Git("refs/engram/config/workspace is a symbolic ref".into())
             })?;
-            let content = std::str::from_utf8(&obj.data)
-                .map_err(|e| EngramError::Git(format!("Workspace blob is not valid UTF-8: {}", e)))?;
-            let v: serde_json::Value = serde_json::from_str(content).map_err(|e| {
-                EngramError::Git(format!("Failed to parse workspace JSON: {}", e))
+            let obj = repo
+                .find_object(target_id)
+                .map_err(|e| EngramError::Git(format!("Failed to find workspace blob: {}", e)))?;
+            let content = std::str::from_utf8(&obj.data).map_err(|e| {
+                EngramError::Git(format!("Workspace blob is not valid UTF-8: {}", e))
             })?;
+            let v: serde_json::Value = serde_json::from_str(content)
+                .map_err(|e| EngramError::Git(format!("Failed to parse workspace JSON: {}", e)))?;
             let pid = v
                 .get("project_id")
                 .and_then(|p| p.as_str())
-                .ok_or_else(|| {
-                    EngramError::Git("workspace JSON missing project_id field".into())
-                })?
+                .ok_or_else(|| EngramError::Git("workspace JSON missing project_id field".into()))?
                 .to_string();
             Ok(pid)
         }
@@ -225,13 +221,11 @@ fn ensure_workspace_ref(
                 .write_object(&gix::objs::Blob {
                     data: json.into_bytes(),
                 })
-                .map_err(|e| {
-                    EngramError::Git(format!("Failed to create workspace blob: {}", e))
-                })?;
+                .map_err(|e| EngramError::Git(format!("Failed to create workspace blob: {}", e)))?;
 
+            use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
             use gix::refs::FullName;
             use gix::refs::Target;
-            use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
 
             repo.edit_reference(RefEdit {
                 change: Change::Update {
@@ -319,15 +313,13 @@ fn write_version_sidecar(
         .write_object(&gix::objs::Blob {
             data: json.to_string().into_bytes(),
         })
-        .map_err(|e| {
-            EngramError::Git(format!("Failed to create version sidecar blob: {}", e))
-        })?;
+        .map_err(|e| EngramError::Git(format!("Failed to create version sidecar blob: {}", e)))?;
 
     let ref_name = format!("refs/engram/{}/v{}/{}", entity.entity_type, n, entity.id);
 
+    use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
     use gix::refs::FullName;
     use gix::refs::Target;
-    use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
 
     repo.edit_reference(RefEdit {
         change: Change::Update {
@@ -340,9 +332,7 @@ fn write_version_sidecar(
             .map_err(|e| EngramError::Git(format!("Invalid ref name: {}", e)))?,
         deref: false,
     })
-    .map_err(|e| {
-        EngramError::Git(format!("Failed to write version sidecar ref: {}", e))
-    })?;
+    .map_err(|e| EngramError::Git(format!("Failed to write version sidecar ref: {}", e)))?;
 
     Ok(())
 }
@@ -469,9 +459,9 @@ impl GitRefsStorage {
 
         let ref_name = self.get_entity_ref(&entity.entity_type, &entity.id);
 
+        use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
         use gix::refs::FullName;
         use gix::refs::Target;
-        use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
 
         repo.edit_reference(RefEdit {
             change: Change::Update {
@@ -547,7 +537,8 @@ impl GitRefsStorage {
                     }
                     // Re-lookup the matched ref by full name
                     match matched_full_name {
-                        Some(full_name) => repo.try_find_reference(&full_name)
+                        Some(full_name) => repo
+                            .try_find_reference(&full_name)
                             .map_err(|e| EngramError::Git(format!("Failed to find ref: {}", e)))?,
                         None => None,
                     }
@@ -567,10 +558,7 @@ impl GitRefsStorage {
                 })?;
 
                 let obj = repo.find_object(target_id).map_err(|e| {
-                    EngramError::Git(format!(
-                        "Failed to find object {}: {}",
-                        target_id, e
-                    ))
+                    EngramError::Git(format!("Failed to find object {}: {}", target_id, e))
                 })?;
 
                 let json_content = std::str::from_utf8(&obj.data).map_err(|e| {
@@ -613,8 +601,8 @@ impl GitRefsStorage {
             .map_err(|e| EngramError::Git(format!("Failed to find ref: {}", e)))?
         {
             Some(_) => {
-                use gix::refs::FullName;
                 use gix::refs::transaction::{Change, PreviousValue, RefEdit};
+                use gix::refs::FullName;
 
                 repo.edit_reference(RefEdit {
                     change: Change::Delete {
@@ -1018,7 +1006,11 @@ impl Storage for GitRefsStorage {
 
         // head.name() returns the full ref name (e.g. "refs/heads/main")
         let name_bstr = head.name();
-        let name_str = name_bstr.as_bstr().to_str().map(|s| s.to_string()).unwrap_or_default();
+        let name_str = name_bstr
+            .as_bstr()
+            .to_str()
+            .map(|s| s.to_string())
+            .unwrap_or_default();
         if let Some(short) = name_str.strip_prefix("refs/heads/") {
             Ok(short.to_string())
         } else {
@@ -1039,9 +1031,9 @@ impl Storage for GitRefsStorage {
 
         let ref_name = format!("refs/heads/{}", branch_name);
 
+        use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
         use gix::refs::FullName;
         use gix::refs::Target;
-        use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
 
         repo.edit_reference(RefEdit {
             change: Change::Update {
@@ -1073,12 +1065,15 @@ impl Storage for GitRefsStorage {
             .map_err(|e| EngramError::Git(format!("Failed to find branch: {}", e)))?
             .is_none()
         {
-            return Err(EngramError::Git(format!("Branch '{}' not found", branch_name)));
+            return Err(EngramError::Git(format!(
+                "Branch '{}' not found",
+                branch_name
+            )));
         }
 
+        use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
         use gix::refs::FullName;
         use gix::refs::Target;
-        use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
 
         // Set HEAD to point to the branch
         repo.edit_reference(RefEdit {
@@ -1137,22 +1132,22 @@ impl Storage for GitRefsStorage {
             let info = info_result
                 .map_err(|e| EngramError::Git(format!("revwalk iteration failed: {}", e)))?;
 
-            let obj = repo
-                .find_object(info.id)
-                .map_err(|e| EngramError::Git(format!("Failed to find commit {}: {}", info.id, e)))?;
+            let obj = repo.find_object(info.id).map_err(|e| {
+                EngramError::Git(format!("Failed to find commit {}: {}", info.id, e))
+            })?;
 
             let commit = gix::objs::CommitRef::from_bytes(&obj.data, gix::hash::Kind::Sha1)
                 .map_err(|e| EngramError::Git(format!("Failed to parse commit: {}", e)))?;
 
             let git_commit = GitCommit {
                 id: info.id.to_string(),
-                author: commit.author().map(|sig| sig.name.to_string()).unwrap_or_default(),
+                author: commit
+                    .author()
+                    .map(|sig| sig.name.to_string())
+                    .unwrap_or_default(),
                 message: commit.message.to_string(),
-                timestamp: chrono::DateTime::from_timestamp(
-                    info.commit_time.unwrap_or(0),
-                    0,
-                )
-                .unwrap_or_else(chrono::Utc::now),
+                timestamp: chrono::DateTime::from_timestamp(info.commit_time.unwrap_or(0), 0)
+                    .unwrap_or_else(chrono::Utc::now),
                 parents: commit.parents.iter().map(|id| id.to_string()).collect(),
             };
 
@@ -1800,9 +1795,9 @@ impl GitRefsStorage {
                 })
                 .map_err(|e| EngramError::Git(format!("Failed to create blob: {}", e)))?;
 
+            use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
             use gix::refs::FullName;
             use gix::refs::Target;
-            use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
 
             repo.edit_reference(RefEdit {
                 change: Change::Update {
@@ -1814,9 +1809,7 @@ impl GitRefsStorage {
                     .map_err(|e| EngramError::Git(format!("Invalid ref name: {}", e)))?,
                 deref: false,
             })
-            .map_err(|e| {
-                EngramError::Git(format!("Failed to update ref {}: {}", ref_name, e))
-            })?;
+            .map_err(|e| EngramError::Git(format!("Failed to update ref {}: {}", ref_name, e)))?;
 
             stats.refs_rewritten += 1;
         }
@@ -2142,9 +2135,9 @@ mod tests {
             };
             let commit_id = repo.write_object(&commit).unwrap();
 
+            use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
             use gix::refs::FullName;
             use gix::refs::Target;
-            use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
 
             repo.edit_reference(RefEdit {
                 change: Change::Update {
@@ -2154,7 +2147,8 @@ mod tests {
                 },
                 name: FullName::try_from("refs/heads/main").unwrap(),
                 deref: false,
-            }).unwrap();
+            })
+            .unwrap();
             repo.edit_reference(RefEdit {
                 change: Change::Update {
                     log: LogChange::default(),
@@ -2163,7 +2157,8 @@ mod tests {
                 },
                 name: FullName::try_from("HEAD").unwrap(),
                 deref: false,
-            }).unwrap();
+            })
+            .unwrap();
         }
         // now open via storage
         let storage = GitRefsStorage::new(dir.path().to_str().unwrap(), "test").unwrap();
@@ -2189,7 +2184,8 @@ mod tests {
         let repo = gix::open(dir.path()).unwrap();
         let ref_name = format!("refs/engram/task/v1/{}", entity.id);
         assert!(
-            repo.try_find_reference(&ref_name).is_ok_and(|o| o.is_some()),
+            repo.try_find_reference(&ref_name)
+                .is_ok_and(|o| o.is_some()),
             "v1 sidecar must exist after store"
         );
     }
@@ -2269,7 +2265,9 @@ mod tests {
         let repo = gix::open(dir.path()).unwrap();
 
         let bad_json = b"not valid json {{{";
-        write_raw_blob(&repo, "refs/engram/task/bad-json-123", unsafe { std::str::from_utf8_unchecked(bad_json) });
+        write_raw_blob(&repo, "refs/engram/task/bad-json-123", unsafe {
+            std::str::from_utf8_unchecked(bad_json)
+        });
 
         let report = storage.consistency_check().unwrap();
         assert!(report.invalid_json_refs.len() >= 1);
@@ -2325,11 +2323,12 @@ mod tests {
         let storage = GitRefsStorage::new(dir.path().to_str().unwrap(), "test").unwrap();
         let repo = gix::open(dir.path()).unwrap();
 
-        let fake_oid = gix::hash::ObjectId::from_hex(b"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa").unwrap();
+        let fake_oid =
+            gix::hash::ObjectId::from_hex(b"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa").unwrap();
 
+        use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
         use gix::refs::FullName;
         use gix::refs::Target;
-        use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
 
         let result = repo.edit_reference(RefEdit {
             change: Change::Update {
@@ -2554,9 +2553,9 @@ mod tests {
 
     /// Helper: write a raw blob JSON directly into a git ref.
     fn write_raw_blob(repo: &gix::Repository, ref_name: &str, json: &str) {
+        use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
         use gix::refs::FullName;
         use gix::refs::Target;
-        use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
 
         let blob_id = repo
             .write_object(&gix::objs::Blob {
@@ -2661,7 +2660,10 @@ mod tests {
         assert_eq!(stats.refs_rewritten, 0, "dry-run must not rewrite any refs");
 
         // Verify the blob is still nested (unchanged).
-        let r = repo.try_find_reference("refs/engram/task/dry-run-1").unwrap().unwrap();
+        let r = repo
+            .try_find_reference("refs/engram/task/dry-run-1")
+            .unwrap()
+            .unwrap();
         let target_id = r.try_id().unwrap();
         let obj = repo.find_object(target_id).unwrap();
         let still_nested: serde_json::Value = serde_json::from_slice(&obj.data).unwrap();

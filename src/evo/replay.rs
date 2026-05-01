@@ -10,10 +10,10 @@
 //! loads engram entities into agent context at session start. Writing patches
 //! to engram storage is all that's needed — no custom injection code required.
 
+use crate::error::EngramError;
 use crate::evo::capture::{self, CaptureConfig};
 use crate::evo::cli::ReplayArgs;
 use crate::evo::types::*;
-use crate::error::EngramError;
 use std::fs;
 use std::io::{self, Read as IoRead};
 
@@ -27,8 +27,7 @@ pub fn handle_replay(args: ReplayArgs) -> Result<(), EngramError> {
             .map_err(|e| EngramError::Io(e))?;
         buf
     } else {
-        fs::read_to_string(&args.patch)
-            .map_err(|e| EngramError::Io(e))?
+        fs::read_to_string(&args.patch).map_err(|e| EngramError::Io(e))?
     };
 
     let patches: Vec<MemoryPatch> = if patch_json.trim_start().starts_with('[') {
@@ -51,8 +50,7 @@ pub fn handle_replay(args: ReplayArgs) -> Result<(), EngramError> {
     if args.output == "-" {
         println!("{}", output_json);
     } else {
-        fs::write(&args.output, &output_json)
-            .map_err(|e| EngramError::Io(e))?;
+        fs::write(&args.output, &output_json).map_err(|e| EngramError::Io(e))?;
         eprintln!(
             "Wrote {} replay trajectory(ies) to {}",
             all_trajectories.len(),
@@ -77,10 +75,7 @@ pub fn replay_with_patch(
 ) -> Result<Trajectory, EngramError> {
     // Step 1: Write patch entities to engram
     let entity_ids = write_patch_to_engram(patch)?;
-    tracing::info!(
-        "Wrote {} entities to engram for replay",
-        entity_ids.len()
-    );
+    tracing::info!("Wrote {} entities to engram for replay", entity_ids.len());
 
     // Step 2: Create temp session directory
     let session_dir = create_temp_dir()?;
@@ -133,23 +128,13 @@ fn write_patch_to_engram(patch: &MemoryPatch) -> Result<Vec<String>, EngramError
                     &entity.tags,
                 )?
             }
-            PatchEntityType::Lesson => create_lesson(
-                &entity.title,
-                &entity.content,
-                &entity.tags,
-            )?,
-            PatchEntityType::Context => create_context(
-                &entity.title,
-                &entity.content,
-                &entity.tags,
-            )?,
+            PatchEntityType::Lesson => create_lesson(&entity.title, &entity.content, &entity.tags)?,
+            PatchEntityType::Context => {
+                create_context(&entity.title, &entity.content, &entity.tags)?
+            }
             PatchEntityType::Reasoning => {
                 // Create as context since standalone reasoning needs a task
-                create_context(
-                    &entity.title,
-                    &entity.content,
-                    &entity.tags,
-                )?
+                create_context(&entity.title, &entity.content, &entity.tags)?
             }
         };
         ids.push(id);
@@ -170,12 +155,18 @@ fn create_knowledge(
     let conf = confidence.unwrap_or(0.85);
 
     let output = run_engram_cli(&[
-        "knowledge", "create",
-        "--title", title,
-        "--content", content,
-        "--knowledge-type", knowledge_type,
-        "--confidence", &conf.to_string(),
-        "--tags", &tags_str,
+        "knowledge",
+        "create",
+        "--title",
+        title,
+        "--content",
+        content,
+        "--knowledge-type",
+        knowledge_type,
+        "--confidence",
+        &conf.to_string(),
+        "--tags",
+        &tags_str,
         "--json",
     ])?;
 
@@ -188,10 +179,14 @@ fn create_lesson(title: &str, content: &str, tags: &[String]) -> Result<String, 
     let tags_str = tags.join(",");
 
     let output = run_engram_cli(&[
-        "lesson", "create",
-        "--title", title,
-        "--content", content,
-        "--tags", &tags_str,
+        "lesson",
+        "create",
+        "--title",
+        title,
+        "--content",
+        content,
+        "--tags",
+        &tags_str,
         "--json",
     ])?;
 
@@ -203,10 +198,14 @@ fn create_context(title: &str, content: &str, tags: &[String]) -> Result<String,
     let tags_str = tags.join(",");
 
     let output = run_engram_cli(&[
-        "context", "create",
-        "--title", title,
-        "--content", content,
-        "--tags", &tags_str,
+        "context",
+        "create",
+        "--title",
+        title,
+        "--content",
+        content,
+        "--tags",
+        &tags_str,
         "--json",
     ])?;
 

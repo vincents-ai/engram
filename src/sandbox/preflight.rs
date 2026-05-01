@@ -168,14 +168,12 @@ pub fn check_workspace_writable(workspace_dir: &Path) -> PreflightCheckResult {
 
 pub fn check_git_repo_clean(workspace_dir: &Path) -> PreflightCheckResult {
     match gix::open(workspace_dir) {
-        Ok(_repo) => {
-            PreflightCheckResult {
-                name: "git_clean".into(),
-                status: PreflightStatus::Pass,
-                message: "Git repository is accessible".into(),
-                detail: None,
-            }
-        }
+        Ok(_repo) => PreflightCheckResult {
+            name: "git_clean".into(),
+            status: PreflightStatus::Pass,
+            message: "Git repository is accessible".into(),
+            detail: None,
+        },
         Err(e) => PreflightCheckResult {
             name: "git_clean".into(),
             status: PreflightStatus::Warn,

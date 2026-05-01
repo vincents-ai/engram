@@ -699,11 +699,7 @@ fn format_duration(seconds: u64) -> String {
 /// Track an entity creation in the active session.
 /// Called from task/context/knowledge create commands to populate
 /// session.task_ids / context_ids / knowledge_ids.
-pub fn track_entity_in_session<S: Storage>(
-    storage: &mut S,
-    entity_type: &str,
-    entity_id: &str,
-) {
+pub fn track_entity_in_session<S: Storage>(storage: &mut S, entity_type: &str, entity_id: &str) {
     let entity_type = match entity_type {
         "task" | "engram.task" => "task",
         "context" | "engram.context" => "context",
@@ -732,10 +728,7 @@ pub fn track_entity_in_session<S: Storage>(
     }
 
     // Pick the most recently started active session
-    let mut session = match active_sessions
-        .into_iter()
-        .max_by_key(|s| s.start_time)
-    {
+    let mut session = match active_sessions.into_iter().max_by_key(|s| s.start_time) {
         Some(s) => s,
         None => return, // No active session — silently skip
     };

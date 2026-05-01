@@ -863,7 +863,11 @@ pub fn handle_sync_command<S: Storage>(
         }
         SyncCommands::Status { remote, json } => {
             if let Some(remote_name) = remote {
-                crate::cli::sync_gix::get_sync_status_gix(&mut std::io::stdout(), remote_name, *json)?;
+                crate::cli::sync_gix::get_sync_status_gix(
+                    &mut std::io::stdout(),
+                    remote_name,
+                    *json,
+                )?;
             } else {
                 return Err(EngramError::Validation(
                     "Remote name required for status check".to_string(),
@@ -912,9 +916,15 @@ pub fn handle_sync_command<S: Storage>(
         SyncCommands::CreateBranch { name, agent, from } => {
             crate::cli::sync_gix::create_branch_gix(name, agent.as_deref(), from.as_deref())
         }
-        SyncCommands::SwitchBranch { name, create } => crate::cli::sync_gix::switch_branch_gix(name, *create),
-        SyncCommands::ListBranches { all, current } => crate::cli::sync_gix::list_branches_gix(*all, *current),
-        SyncCommands::DeleteBranch { name, force } => crate::cli::sync_gix::delete_branch_gix(name, *force),
+        SyncCommands::SwitchBranch { name, create } => {
+            crate::cli::sync_gix::switch_branch_gix(name, *create)
+        }
+        SyncCommands::ListBranches { all, current } => {
+            crate::cli::sync_gix::list_branches_gix(*all, *current)
+        }
+        SyncCommands::DeleteBranch { name, force } => {
+            crate::cli::sync_gix::delete_branch_gix(name, *force)
+        }
         SyncCommands::ImportGitRemotes => crate::cli::sync_gix::handle_import_git_remotes_gix(),
         SyncCommands::Both {
             remote,
@@ -943,7 +953,6 @@ pub fn handle_sync_command<S: Storage>(
         }
     }
 }
-
 
 #[cfg(test)]
 mod tests {

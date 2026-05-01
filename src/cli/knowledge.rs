@@ -412,7 +412,10 @@ pub fn list_knowledge<S: Storage>(
 
     // JSON output
     if output == "json" {
-        println!("{}", serde_json::to_string_pretty(&items).map_err(|e| EngramError::Serialization(e))?);
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&items).map_err(|e| EngramError::Serialization(e))?
+        );
         return Ok(());
     }
 
@@ -769,9 +772,17 @@ mod tests {
         .unwrap();
 
         // Just verify it runs without error (output is to stdout)
-        assert!(
-            list_knowledge(&storage, None, Some("fact".to_string()), None, None, false, None, "text".to_string()).is_ok()
-        );
+        assert!(list_knowledge(
+            &storage,
+            None,
+            Some("fact".to_string()),
+            None,
+            None,
+            false,
+            None,
+            "text".to_string()
+        )
+        .is_ok());
     }
 
     #[test]

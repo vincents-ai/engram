@@ -234,9 +234,9 @@ impl DoraMetricsCalculator {
         let start_secs = window_start.timestamp();
         let end_secs = window_end.timestamp();
 
-        let head_id = repo.head_id().map_err(|e| {
-            crate::EngramError::Git(format!("head_id failed: {}", e))
-        })?;
+        let head_id = repo
+            .head_id()
+            .map_err(|e| crate::EngramError::Git(format!("head_id failed: {}", e)))?;
 
         let mut commit_timestamps: Vec<i64> = Vec::new();
 
@@ -244,7 +244,9 @@ impl DoraMetricsCalculator {
         // ByCommitTime sorting is required to populate commit_time in the walk info.
         let commits = repo
             .rev_walk([head_id])
-            .sorting(gix::revision::walk::Sorting::ByCommitTime(gix::traverse::commit::simple::CommitTimeOrder::NewestFirst))
+            .sorting(gix::revision::walk::Sorting::ByCommitTime(
+                gix::traverse::commit::simple::CommitTimeOrder::NewestFirst,
+            ))
             .all()
             .map_err(|e| crate::EngramError::Git(format!("revwalk failed: {}", e)))?;
 

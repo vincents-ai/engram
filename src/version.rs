@@ -81,7 +81,8 @@ fn get_runtime_git_tag() -> String {
 fn get_runtime_git_sha() -> String {
     let cwd = std::env::current_dir().unwrap_or_default();
     match gix::open(&cwd) {
-        Ok(repo) => repo.head_id()
+        Ok(repo) => repo
+            .head_id()
             .map(|id| id.to_string())
             .unwrap_or_else(|_| "unknown".to_string()),
         Err(_) => "unknown".to_string(),

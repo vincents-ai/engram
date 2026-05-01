@@ -60,10 +60,7 @@ fn read_blob(repo: &gix::Repository, oid_str: &str) -> Result<Vec<u8>, EngramErr
         .map_err(|e| EngramError::Git(format!("Failed to find object '{}': {}", oid_str, e)))?;
     match obj.kind {
         gix::object::Kind::Blob => Ok(obj.data.clone()),
-        other => Err(EngramError::Git(format!(
-            "Expected blob, got {:?}",
-            other
-        ))),
+        other => Err(EngramError::Git(format!("Expected blob, got {:?}", other))),
     }
 }
 
@@ -83,9 +80,9 @@ fn set_ref(
     create: bool,
     message: &str,
 ) -> Result<(), EngramError> {
+    use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
     use gix::refs::FullName;
     use gix::refs::Target;
-    use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
 
     let name = FullName::try_from(ref_name)
         .map_err(|e| EngramError::Git(format!("Invalid ref name '{}': {}", ref_name, e)))?;
@@ -360,8 +357,8 @@ pub fn get_sync_status_gix(
     };
 
     if output_json {
-        let json = serde_json::to_string_pretty(&report)
-            .map_err(|e| EngramError::Serialization(e))?;
+        let json =
+            serde_json::to_string_pretty(&report).map_err(|e| EngramError::Serialization(e))?;
         writeln!(writer, "{}", json)?;
     } else {
         writeln!(writer, "Sync status — remote '{}'", remote_name)?;
@@ -490,8 +487,8 @@ pub fn delete_branch_gix(branch_name: &str, force: bool) -> Result<(), EngramErr
         return Ok(());
     }
 
-    use gix::refs::FullName;
     use gix::refs::transaction::{Change, PreviousValue, RefEdit, RefLog};
+    use gix::refs::FullName;
 
     let ref_name = FullName::try_from(format!("refs/heads/{}", branch_name))
         .map_err(|e| EngramError::Git(format!("Invalid branch name: {}", e)))?;
@@ -640,13 +637,10 @@ pub fn resolve_conflicts_gix(
 }
 
 /// Set HEAD to point to a symbolic reference (branch)
-fn set_head_symbolic(
-    repo: &gix::Repository,
-    target_ref: &str,
-) -> Result<(), EngramError> {
+fn set_head_symbolic(repo: &gix::Repository, target_ref: &str) -> Result<(), EngramError> {
+    use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
     use gix::refs::FullName;
     use gix::refs::Target;
-    use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
 
     let name = FullName::try_from("HEAD")
         .map_err(|e| EngramError::Git(format!("Invalid HEAD ref: {}", e)))?;
@@ -786,9 +780,12 @@ pub fn create_branch_gix(
     };
 
     let new_ref = format!("refs/heads/{}", name);
-    let message = format!("create branch '{}'{}",
+    let message = format!(
+        "create branch '{}'{}",
         name,
-        agent.map(|a| format!(" (agent: {})", a)).unwrap_or_default()
+        agent
+            .map(|a| format!(" (agent: {})", a))
+            .unwrap_or_default()
     );
 
     set_ref(&repo, &new_ref, &start_oid, true, &message)?;
@@ -820,10 +817,17 @@ pub fn switch_branch_gix(name: &str, create_if_missing: bool) -> Result<(), Engr
 
     if !exists && create_if_missing {
         // Create from HEAD
-        let start_oid = repo.head_id()
+        let start_oid = repo
+            .head_id()
             .map_err(|e| EngramError::Git(format!("Failed to resolve HEAD: {}", e)))?
             .to_string();
-        set_ref(&repo, &branch_ref, &start_oid, true, &format!("create branch '{}' via switch", name))?;
+        set_ref(
+            &repo,
+            &branch_ref,
+            &start_oid,
+            true,
+            &format!("create branch '{}' via switch", name),
+        )?;
     }
 
     // Switch HEAD
@@ -859,14 +863,17 @@ fn gix_fetch(
     set_russh_env(auth);
 
     // Create a temporary remote from URL with our custom refspec
-    let remote = repo.remote_at(remote_url)
-        .map_err(|e| EngramError::Git(format!("Failed to create remote for '{}': {:?}", remote_url, e)))?;
+    let remote = repo.remote_at(remote_url).map_err(|e| {
+        EngramError::Git(format!(
+            "Failed to create remote for '{}': {:?}",
+            remote_url, e
+        ))
+    })?;
 
-    let refspec: gix::refspec::RefSpec = gix::refspec::parse(
-        refspec_str.into(),
-        gix::refspec::parse::Operation::Fetch,
-    ).map_err(|e| EngramError::Git(format!("Invalid refspec '{}': {:?}", refspec_str, e)))?
-    .into();
+    let refspec: gix::refspec::RefSpec =
+        gix::refspec::parse(refspec_str.into(), gix::refspec::parse::Operation::Fetch)
+            .map_err(|e| EngramError::Git(format!("Invalid refspec '{}': {:?}", refspec_str, e)))?
+            .into();
 
     let ref_map_opts = gix::remote::ref_map::Options {
         prefix_from_spec_as_filter_on_remote: true,
@@ -874,14 +881,22 @@ fn gix_fetch(
         extra_refspecs: vec![refspec],
     };
 
-    let connection = remote.connect(Direction::Fetch)
+    let connection = remote
+        .connect(Direction::Fetch)
         .map_err(|e| EngramError::Git(format!("Failed to connect to '{}': {:?}", remote_url, e)))?;
 
-    let prepare = connection.prepare_fetch(gix::progress::Discard, ref_map_opts)
-        .map_err(|e| EngramError::Git(format!("Failed to prepare fetch from '{}': {:?}", remote_url, e)))?;
+    let prepare = connection
+        .prepare_fetch(gix::progress::Discard, ref_map_opts)
+        .map_err(|e| {
+            EngramError::Git(format!(
+                "Failed to prepare fetch from '{}': {:?}",
+                remote_url, e
+            ))
+        })?;
 
     let should_interrupt = std::sync::atomic::AtomicBool::new(false);
-    let _outcome = prepare.receive(gix::progress::Discard, &should_interrupt)
+    let _outcome = prepare
+        .receive(gix::progress::Discard, &should_interrupt)
         .map_err(|e| EngramError::Git(format!("Failed to fetch from '{}': {:?}", remote_url, e)))?;
 
     Ok(())
@@ -1024,8 +1039,16 @@ pub fn pull_from_remote_gix(
 
         let outcome = if remote_version > local_max {
             if !dry_run {
-                set_ref(&repo, &local_ref_name, remote_oid, false,
-                    &format!("pull: merge {} {} v{} from {}", entity_type, uuid, remote_version, remote_name))?;
+                set_ref(
+                    &repo,
+                    &local_ref_name,
+                    remote_oid,
+                    false,
+                    &format!(
+                        "pull: merge {} {} v{} from {}",
+                        entity_type, uuid, remote_version, remote_name
+                    ),
+                )?;
             }
             PullEntityOutcome::Merged {
                 entity_type: entity_type.to_string(),
@@ -1054,8 +1077,13 @@ pub fn pull_from_remote_gix(
         } else {
             // Both 0 — new from remote
             if !dry_run {
-                set_ref(&repo, &local_ref_name, remote_oid, false,
-                    &format!("pull: new {} {} from {}", entity_type, uuid, remote_name))?;
+                set_ref(
+                    &repo,
+                    &local_ref_name,
+                    remote_oid,
+                    false,
+                    &format!("pull: new {} {} from {}", entity_type, uuid, remote_name),
+                )?;
             }
             PullEntityOutcome::Merged {
                 entity_type: entity_type.to_string(),
@@ -1081,10 +1109,22 @@ pub fn pull_from_remote_gix(
     }
 
     // Print summary
-    let merged = outcomes.iter().filter(|o| matches!(o, PullEntityOutcome::Merged { .. })).count();
-    let up_to_date = outcomes.iter().filter(|o| matches!(o, PullEntityOutcome::UpToDate { .. })).count();
-    let conflicts = outcomes.iter().filter(|o| matches!(o, PullEntityOutcome::Conflict { .. })).count();
-    let local_newer = outcomes.iter().filter(|o| matches!(o, PullEntityOutcome::LocalNewer { .. })).count();
+    let merged = outcomes
+        .iter()
+        .filter(|o| matches!(o, PullEntityOutcome::Merged { .. }))
+        .count();
+    let up_to_date = outcomes
+        .iter()
+        .filter(|o| matches!(o, PullEntityOutcome::UpToDate { .. }))
+        .count();
+    let conflicts = outcomes
+        .iter()
+        .filter(|o| matches!(o, PullEntityOutcome::Conflict { .. }))
+        .count();
+    let local_newer = outcomes
+        .iter()
+        .filter(|o| matches!(o, PullEntityOutcome::LocalNewer { .. }))
+        .count();
 
     println!();
     println!("Pull summary for '{}':", remote_name);
@@ -1094,8 +1134,16 @@ pub fn pull_from_remote_gix(
     println!("  Skipped (local newer): {}", local_newer);
 
     for o in &outcomes {
-        if let PullEntityOutcome::Conflict { entity_type, uuid, version } = o {
-            println!("  CONFLICT {}/{} at v{} — use 'engram sync resolve' to resolve", entity_type, uuid, version);
+        if let PullEntityOutcome::Conflict {
+            entity_type,
+            uuid,
+            version,
+        } = o
+        {
+            println!(
+                "  CONFLICT {}/{} at v{} — use 'engram sync resolve' to resolve",
+                entity_type, uuid, version
+            );
         }
     }
 
@@ -1142,7 +1190,9 @@ pub fn push_to_remote_gix(
     let all_refs = list_all_refs(&repo)?;
     let local_engram_refs: Vec<(String, String)> = all_refs
         .iter()
-        .filter(|(name, _)| name.starts_with("refs/engram/") && !name.starts_with("refs/engram/remote/"))
+        .filter(|(name, _)| {
+            name.starts_with("refs/engram/") && !name.starts_with("refs/engram/remote/")
+        })
         .cloned()
         .collect();
 
@@ -1169,26 +1219,32 @@ pub fn push_to_remote_gix(
         .iter()
         .filter_map(|(_, oid)| gix::ObjectId::from_hex(oid.as_bytes()).ok())
         .collect();
-    let pack_data = repo.pack_from_objects(&oids)
+    let pack_data = repo
+        .pack_from_objects(&oids)
         .map_err(|e| EngramError::Git(format!("Failed to generate pack: {}", e)))?;
 
     // Set up russh env for SSH auth
     set_russh_env(auth);
 
     // Connect to remote and push
-    let remote = repo.remote_at(remote_config.url.as_str())
+    let remote = repo
+        .remote_at(remote_config.url.as_str())
         .map_err(|e| EngramError::Git(format!("Failed to create remote: {:?}", e)))?;
 
-    let connection = remote.connect(gix::remote::Direction::Push)
-        .map_err(|e| EngramError::Git(format!("Failed to connect to '{}': {:?}", remote_config.url, e)))?;
+    let connection = remote.connect(gix::remote::Direction::Push).map_err(|e| {
+        EngramError::Git(format!(
+            "Failed to connect to '{}': {:?}",
+            remote_config.url, e
+        ))
+    })?;
 
     // Build ref updates — all are force-push (old_id = zero for create)
     let zero_id = gix::ObjectId::null(repo.object_hash());
     let ref_updates: Vec<gix::remote::push::RefUpdate> = local_engram_refs
         .iter()
         .map(|(name, new_oid)| {
-            let new_id = gix::ObjectId::from_hex(new_oid.as_bytes())
-                .unwrap_or_else(|_| zero_id.clone());
+            let new_id =
+                gix::ObjectId::from_hex(new_oid.as_bytes()).unwrap_or_else(|_| zero_id.clone());
             gix::remote::push::RefUpdate {
                 old_id: zero_id.clone(),
                 new_id,
@@ -1197,7 +1253,8 @@ pub fn push_to_remote_gix(
         })
         .collect();
 
-    let _outcome = connection.push(ref_updates, &pack_data)
+    let _outcome = connection
+        .push(ref_updates, &pack_data)
         .map_err(|e| EngramError::Git(format!("Push failed: {:?}", e)))?;
 
     println!(
