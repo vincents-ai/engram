@@ -106,16 +106,9 @@ pub enum ConfigError {
 pub type Result<T> = std::result::Result<T, EngramError>;
 
 // Git-specific From impls (behind feature flags)
-#[cfg(feature = "git2")]
-impl From<git2::Error> for EngramError {
-    fn from(error: git2::Error) -> Self {
-        EngramError::Git(error.to_string())
-    }
-}
-
 #[cfg(feature = "gix")]
 impl From<gix::hash::decode::Error> for EngramError {
     fn from(error: gix::hash::decode::Error) -> Self {
-        EngramError::Git(error.to_string())
+        Self::Git(error.to_string())
     }
 }
