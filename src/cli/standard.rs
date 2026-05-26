@@ -104,6 +104,10 @@ pub enum StandardCommands {
         /// Show all results (no limit)
         #[arg(long, conflicts_with = "limit")]
         all: bool,
+
+        /// Output format
+        #[arg(long, default_value = "table")]
+        output: String,
     },
     /// Add requirement to standard
     AddRequirement {
@@ -322,6 +326,7 @@ pub fn list_standards<S: Storage>(
     limit: usize,
     offset: usize,
     all: bool,
+    output: &str,
 ) -> Result<(), EngramError> {
     use crate::storage::QueryFilter;
     use serde_json::Value;
@@ -354,7 +359,25 @@ pub fn list_standards<S: Storage>(
     let result = storage.query(&filter)?;
 
     if result.entities.is_empty() {
-        writeln!(writer, "No standards found matching the criteria.")?;
+        if output == "json" {
+            writeln!(writer, "[]")?;
+        } else {
+            writeln!(writer, "No standards found matching the criteria.")?;
+        }
+        return Ok(());
+    }
+
+    // JSON output
+    if output == "json" {
+        let items: Vec<serde_json::Value> = result.entities.iter().map(|e| serde_json::json!({
+            "id": e.id,
+            "entity_type": e.entity_type,
+            "agent": e.agent,
+            "data": e.data,
+        })).collect();
+        writeln!(writer, "{}",
+            serde_json::to_string_pretty(&items).map_err(|e| EngramError::Serialization(e))?
+        )?;
         return Ok(());
     }
 
@@ -711,7 +734,7 @@ mod tests {
 
         // List all
         let mut buffer = Vec::new();
-        let result = list_standards(&mut buffer, &storage, None, None, None, 10, 0, false);
+        let result = list_standards(&mut buffer, &storage, None, None, None, 10, 0, false, "table");
         assert!(result.is_ok());
 
         // Filter by category
@@ -725,6 +748,7 @@ mod tests {
             10,
             0,
             false,
+            "table",
         );
         assert!(result.is_ok());
     }

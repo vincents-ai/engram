@@ -123,6 +123,10 @@ pub enum RuleCommands {
         /// Show all results (no limit)
         #[arg(long, conflicts_with = "limit")]
         all: bool,
+
+        /// Output format
+        #[arg(long, default_value = "table")]
+        output: String,
     },
     /// Execute rule
     Execute {
@@ -366,6 +370,7 @@ pub fn list_rules<S: Storage>(
     limit: usize,
     offset: usize,
     all: bool,
+    output: &str,
 ) -> Result<(), EngramError> {
     use crate::storage::QueryFilter;
     use serde_json::Value;
@@ -409,7 +414,25 @@ pub fn list_rules<S: Storage>(
     let result = storage.query(&filter)?;
 
     if result.entities.is_empty() {
-        println!("No rules found matching the criteria.");
+        if output == "json" {
+            println!("[]");
+        } else {
+            println!("No rules found matching the criteria.");
+        }
+        return Ok(());
+    }
+
+    // JSON output
+    if output == "json" {
+        let items: Vec<serde_json::Value> = result.entities.iter().map(|e| serde_json::json!({
+            "id": e.id,
+            "entity_type": e.entity_type,
+            "agent": e.agent,
+            "data": e.data,
+        })).collect();
+        println!("{}",
+            serde_json::to_string_pretty(&items).map_err(|e| EngramError::Serialization(e))?
+        );
         return Ok(());
     }
 
@@ -665,7 +688,7 @@ mod tests {
         )
         .unwrap();
 
-        list_rules(&storage, None, None, None, None, None, 10, 0, false).unwrap();
+        list_rules(&storage, None, None, None, None, None, 10, 0, false, "table").unwrap();
         list_rules(
             &storage,
             Some("validation".to_string()),
@@ -676,6 +699,7 @@ mod tests {
             10,
             0,
             false,
+            "table",
         )
         .unwrap();
     }
