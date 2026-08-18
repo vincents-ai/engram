@@ -7,6 +7,7 @@
 
 #![allow(clippy::needless_borrows_for_generic_args)]
 
+use crate::entities::Entity;
 use chrono::Utc;
 use engram_core::entity_types::{EntityRegistry, GenericEntity};
 use engram_core::error::{EngramError, StorageError};
@@ -428,6 +429,15 @@ impl GitRefsStorage {
             ))
         })?;
 
+        let ref_name = self.get_entity_ref(&entity.entity_type, &entity.id);
+
+        if entity.entity_type == "reasoning_event" && repo.find_reference(&ref_name).is_ok() {
+            return Err(EngramError::AlreadyExists(format!(
+                "ReasoningEvent {} already exists (append-only)",
+                entity.id
+            )));
+        }
+
         let data_map = match &entity.data {
             Value::Object(map) => {
                 let flat: HashMap<String, Value> =
@@ -664,7 +674,6 @@ impl GitRefsStorage {
         })?;
         index.clear();
 
-        // Get all entity types and rebuild index
         let entity_types = [
             "task",
             "context",
@@ -681,7 +690,6 @@ impl GitRefsStorage {
             for entity_id in entity_ids {
                 if let Some(entity) = self.load_entity_from_ref(entity_type, &entity_id)? {
                     if *entity_type == "relationship" {
-                        // Special handling for relationship entities
                         if let Ok(relationship) =
                             serde_json::from_value::<EntityRelationship>(entity.data)
                         {
@@ -694,6 +702,51 @@ impl GitRefsStorage {
 
         Ok(())
     }
+
+    pub fn increment_knowledge_citation(&mut self, knowledge_id: &str) -> Result<(), EngramError> {
+        if let Some(entity) = self.load_entity_from_ref("knowledge", knowledge_id)? {
+            let mut knowledge = crate::entities::Knowledge::from_generic(entity)?;
+            knowledge.citation_count += 1;
+            knowledge.last_used_at = Some(Utc::now().to_rfc3339());
+            let updated = knowledge.to_generic();
+            self.store_entity_as_ref(&updated)?;
+        }
+        Ok(())
+    }
+
+    pub fn refresh_decay(&mut self, lambda: f64) -> Result<RefreshDecayResult, EngramError> {
+        let knowledge_ids = self.list_entity_refs("knowledge")?;
+        let mut updated = 0usize;
+
+        for kid in &knowledge_ids {
+            if let Some(entity) = self.load_entity_from_ref("knowledge", kid)? {
+                let mut knowledge = crate::entities::Knowledge::from_generic(entity)?;
+
+                knowledge.compute_decay_weight(lambda);
+
+                let citation_count = self.count_knowledge_citations(kid);
+                knowledge.citation_count = citation_count;
+
+                let updated_generic = knowledge.to_generic();
+                self.store_entity_as_ref(&updated_generic)?;
+                updated += 1;
+            }
+        }
+
+        Ok(RefreshDecayResult {
+            entries_processed: knowledge_ids.len(),
+            entries_updated: updated,
+        })
+    }
+
+    fn count_knowledge_citations(&self, knowledge_id: &str) -> u32 {
+        let index = match self.relationship_index.lock() {
+            Ok(i) => i,
+            Err(_) => return 0,
+        };
+        let inbound = index.get_inbound(knowledge_id);
+        inbound.len() as u32
+    }
 }
 
 // Storage trait implementation will be added next
@@ -701,7 +754,6 @@ impl Storage for GitRefsStorage {
     fn store(&mut self, entity: &GenericEntity) -> Result<(), EngramError> {
         self.store_entity_as_ref(entity)?;
 
-        // Update relationship index if this is a relationship entity
         if entity.entity_type == "relationship" {
             if let Ok(relationship) =
                 serde_json::from_value::<EntityRelationship>(entity.data.clone())
@@ -712,6 +764,31 @@ impl Storage for GitRefsStorage {
                     ))
                 })?;
                 index.add_relationship(&relationship);
+                drop(index);
+
+                if relationship.target_type == "knowledge" {
+                    self.increment_knowledge_citation(&relationship.target_id)?;
+                }
+            }
+        }
+
+        if entity.entity_type == "reasoning" {
+            let mut event = crate::entities::ReasoningEvent::new(
+                entity.id.clone(),
+                crate::entities::ReasoningEventType::AutoStored,
+                format!(
+                    "Reasoning '{}' stored",
+                    entity
+                        .data
+                        .get("title")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or(&entity.id)
+                ),
+            );
+            event.agent = self.current_agent.clone();
+            let event_generic = event.to_generic();
+            if let Err(e) = self.store_entity_as_ref(&event_generic) {
+                tracing::warn!("Failed to auto-emit ReasoningEvent: {}", e);
             }
         }
 
@@ -1829,6 +1906,12 @@ pub struct FlattenRefsStats {
     pub refs_rewritten: usize,
 }
 
+#[derive(Debug, Clone)]
+pub struct RefreshDecayResult {
+    pub entries_processed: usize,
+    pub entries_updated: usize,
+}
+
 fn count_orphaned_blobs(
     repo: &gix::Repository,
     referenced_oids: &HashSet<String>,
@@ -1847,6 +1930,7 @@ fn count_orphaned_blobs(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::entities::EntityRelationType;
     use crate::feedback::StructuredFeedback;
     use chrono::Utc;
     use serde_json::json;
@@ -2725,6 +2809,110 @@ mod tests {
         assert_eq!(
             stats.refs_scanned, 1,
             "version sidecar refs must be excluded from scanning"
+        );
+    }
+
+    #[test]
+    fn test_reasoning_event_append_only() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut storage = GitRefsStorage::new(dir.path().to_str().unwrap(), "test").unwrap();
+
+        let event = crate::entities::ReasoningEvent::new(
+            "reasoning-1".to_string(),
+            crate::entities::ReasoningEventType::AutoStored,
+            "First store".to_string(),
+            "agent".to_string(),
+        );
+        let event_id = event.id.clone();
+        let generic = event.to_generic();
+        storage.store(&generic).unwrap();
+
+        // Store again with the same ID must fail
+        let event2 = GenericEntity {
+            id: event_id,
+            entity_type: "reasoning_event".to_string(),
+            agent: "agent".to_string(),
+            timestamp: Utc::now(),
+            data: serde_json::json!({
+                "reasoning_id": "reasoning-1",
+                "event_type": "auto_stored",
+                "content": "Second store",
+                "agent": "agent",
+                "created_at": Utc::now().to_rfc3339(),
+            }),
+        };
+        let result = storage.store(&event2);
+        assert!(result.is_err(), "Storing reasoning_event twice should fail");
+    }
+
+    #[test]
+    fn test_reasoning_store_auto_emits_event() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut storage = GitRefsStorage::new(dir.path().to_str().unwrap(), "test").unwrap();
+
+        let reasoning = crate::entities::Reasoning::new(
+            "Auto-emit test".to_string(),
+            "task-1".to_string(),
+            "agent".to_string(),
+        );
+        let generic = reasoning.to_generic();
+        storage.store(&generic).unwrap();
+
+        // A reasoning_event should have been created
+        let event_ids = storage.list_entity_refs("reasoning_event").unwrap();
+        assert_eq!(
+            event_ids.len(),
+            1,
+            "Should have auto-emitted one reasoning_event"
+        );
+
+        let event_entity = storage
+            .get(&event_ids[0], "reasoning_event")
+            .unwrap()
+            .unwrap();
+        let event = crate::entities::ReasoningEvent::from_generic(event_entity).unwrap();
+        assert_eq!(event.reasoning_id, reasoning.id);
+        assert_eq!(
+            event.event_type,
+            crate::entities::ReasoningEventType::AutoStored
+        );
+    }
+
+    #[test]
+    fn test_knowledge_citation_increment_on_relationship() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut storage = GitRefsStorage::new(dir.path().to_str().unwrap(), "test").unwrap();
+
+        // Store a knowledge entity
+        let knowledge = crate::entities::Knowledge::new(
+            "Test knowledge".to_string(),
+            "Content".to_string(),
+            crate::entities::KnowledgeType::Fact,
+            0.9,
+            "agent".to_string(),
+        );
+        let k_generic = knowledge.to_generic();
+        storage.store(&k_generic).unwrap();
+
+        // Create a relationship pointing at the knowledge
+        let rel = EntityRelationship::new(
+            uuid::Uuid::new_v4().to_string(),
+            "agent".to_string(),
+            "other-entity".to_string(),
+            "task".to_string(),
+            knowledge.id.clone(),
+            "knowledge".to_string(),
+            EntityRelationType::References,
+        );
+        storage.store_relationship(&rel).unwrap();
+
+        // Knowledge citation_count should be incremented
+        let stored = storage.get(&knowledge.id, "knowledge").unwrap().unwrap();
+        let stored_k = crate::entities::Knowledge::from_generic(stored).unwrap();
+        assert_eq!(stored_k.citation_count, 1, "Citation count should be 1");
+        assert!(
+            stored_k.last_used_at.is_some(),
+            "last_used_at should be set"
         );
     }
 }
