@@ -1,11 +1,12 @@
 use super::{Entity, GenericEntity};
 use chrono::{DateTime, Utc};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
 use validator::Validate;
 
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, JsonSchema)]
 pub struct TaskDurationReport {
     #[serde(rename = "id")]
     pub id: String,

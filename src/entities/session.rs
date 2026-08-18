@@ -15,8 +15,6 @@ pub enum SessionStatus {
     Paused,
     Completed,
     Cancelled,
-    /// Agent is experiencing cognitive dissonance and must
-    /// pause to mutate its Theory before continuing
     Reflecting,
 }
 

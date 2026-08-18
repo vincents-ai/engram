@@ -1,9 +1,3 @@
-//! DoraMetricsReport entity - persisted DORA metrics computation results
-//!
-//! Stores computed DORA metrics (Deployment Frequency, Lead Time for Changes,
-//! Change Failure Rate, Mean Time to Recovery) as a first-class engram entity
-//! so results persist and sync via GitRefsStorage.
-
 use super::{Entity, GenericEntity};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

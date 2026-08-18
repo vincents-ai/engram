@@ -1,10 +1,3 @@
-//! State Reflection entity for evaluating system state against theory
-//!
-//! Reflection is the mechanism of taking the current observed state and
-//! explicitly hunting for contradictions against the Theory (Naur, 1985).
-//! When observations conflict with the theory, cognitive dissonance is recorded
-//! and theory updates are proposed.
-
 use super::{Entity, GenericEntity};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
