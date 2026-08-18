@@ -16,16 +16,29 @@ engram doc chunk list <topic>
 engram doc write tasks task-overview --title "Task Overview" --order 10 --stdin
 engram doc write tasks task-overview --title "Task Overview" --file overview.md
 
-# Read and maintain chunks
-engram doc show tasks task-overview
-engram doc stale
-engram doc search "validation"
+# Inspect documentation state
+engram doc status
+engram doc refs
+engram doc fetch
 ```
 
-## Topics
+## Built-in Topics
 
-Built-in topics include tasks, knowledge, reasoning, workflows, sessions, standards, ADRs, decisions, theories, and overview.
+- `adrs`
+- `decisions`
+- `tasks`
+- `knowledge`
+- `theories`
+- `workflows`
+- `sessions`
+- `reasoning`
+- `standards`
+- `overview`
+
+## Staleness
+
+Doc fragments can reference source entity IDs. When those entities change, the fragment can be marked stale and regenerated/reviewed.
 
 ## mdBook Deployment
 
-The GitHub Pages workflow runs `mdbook build`, so every path referenced in `docs/SUMMARY.md` must exist in the `docs/` tree.
+The GitHub Pages workflow runs `mdbook build`. Every file referenced in `docs/SUMMARY.md` must exist under `docs/`, and `book.toml` must use keys supported by the mdBook version installed in CI.
