@@ -458,13 +458,21 @@ pub fn list_workflows<S: Storage>(
 
     // JSON output
     if output == "json" {
-        let items: Vec<serde_json::Value> = result.entities.iter().map(|e| serde_json::json!({
-            "id": e.id,
-            "entity_type": e.entity_type,
-            "agent": e.agent,
-            "data": e.data,
-        })).collect();
-        writeln!(writer, "{}",
+        let items: Vec<serde_json::Value> = result
+            .entities
+            .iter()
+            .map(|e| {
+                serde_json::json!({
+                    "id": e.id,
+                    "entity_type": e.entity_type,
+                    "agent": e.agent,
+                    "data": e.data,
+                })
+            })
+            .collect();
+        writeln!(
+            writer,
+            "{}",
             serde_json::to_string_pretty(&items).map_err(|e| EngramError::Serialization(e))?
         )?;
         return Ok(());
