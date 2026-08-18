@@ -750,8 +750,9 @@ impl EngramWorld {
             contexts: Vec::new(),
             usage_count: 0,
             last_used: None,
-            decay_weight: 1.0,
+            decay_weight: Some(1.0),
             citation_count: 0,
+            last_used_at: None,
             metadata: std::collections::HashMap::new(),
         };
 

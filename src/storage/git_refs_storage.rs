@@ -2817,12 +2817,12 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let mut storage = GitRefsStorage::new(dir.path().to_str().unwrap(), "test").unwrap();
 
-        let event = crate::entities::ReasoningEvent::new(
+        let mut event = crate::entities::ReasoningEvent::new(
             "reasoning-1".to_string(),
             crate::entities::ReasoningEventType::AutoStored,
             "First store".to_string(),
-            "agent".to_string(),
         );
+        event.agent = "agent".to_string();
         let event_id = event.id.clone();
         let generic = event.to_generic();
         storage.store(&generic).unwrap();
