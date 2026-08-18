@@ -261,8 +261,7 @@ fn run_log(limit: usize) -> Result<(), EngramError> {
         .all()
         .map_err(|e| EngramError::Git(format!("revwalk failed: {}", e)))?;
 
-    let mut count = 0;
-    for info_result in walk {
+    for (count, info_result) in walk.enumerate() {
         if count >= limit {
             break;
         }
@@ -291,8 +290,6 @@ fn run_log(limit: usize) -> Result<(), EngramError> {
             .unwrap_or_else(|| "unknown".to_string());
 
         println!("{} {} {} <{}>", short_hash, date, msg_first_line, author);
-
-        count += 1;
     }
 
     Ok(())

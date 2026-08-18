@@ -177,7 +177,7 @@ impl ResponseFormatter {
             let priority = task["priority"].as_str().unwrap_or("Unknown");
             let agent = task["agent"].as_str().unwrap_or("Unknown");
 
-            let mut response = format!("Task Details:\n");
+            let mut response = "Task Details:\n".to_string();
             response.push_str(&format!("Title: {}\n", title));
             response.push_str(&format!("Status: {}\n", status));
             response.push_str(&format!("Priority: {}\n", priority));

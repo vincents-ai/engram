@@ -907,7 +907,7 @@ impl Storage for GitRefsStorage {
 
         let has_more = filter
             .limit
-            .map_or(false, |_| offset + paginated_results.len() < total);
+            .is_some_and(|_| offset + paginated_results.len() < total);
         Ok(QueryResult {
             entities: paginated_results,
             total_count: total,

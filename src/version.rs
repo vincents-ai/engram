@@ -62,17 +62,15 @@ fn get_runtime_git_tag() -> String {
         Ok(t) => t,
         Err(_) => return String::new(),
     };
-    for tag_ref in tags {
-        if let Ok(tag) = tag_ref {
-            let target_id = match tag.try_id() {
-                Some(id) => id,
-                None => continue,
-            };
-            if target_id == head_id {
-                // Return the tag name (strip refs/tags/ prefix)
-                let name = tag.name().shorten();
-                return name.to_string();
-            }
+    for tag in tags.flatten() {
+        let target_id = match tag.try_id() {
+            Some(id) => id,
+            None => continue,
+        };
+        if target_id == head_id {
+            // Return the tag name (strip refs/tags/ prefix)
+            let name = tag.name().shorten();
+            return name.to_string();
         }
     }
     String::new()

@@ -982,8 +982,7 @@ fn run_audit<S: Storage + RelationshipStorage>(
     println!();
 
     if store {
-        let json =
-            serde_json::to_string_pretty(&report).map_err(|e| EngramError::Serialization(e))?;
+        let json = serde_json::to_string_pretty(&report).map_err(EngramError::Serialization)?;
         let summary = report.summary();
 
         let content = format!(

@@ -409,6 +409,7 @@ pub fn delete_workflow<S: Storage>(storage: &mut S, id: &str) -> Result<(), Engr
 }
 
 /// List workflows
+#[allow(clippy::too_many_arguments)]
 pub fn list_workflows<S: Storage>(
     writer: &mut dyn std::io::Write,
     storage: &S,
@@ -473,7 +474,7 @@ pub fn list_workflows<S: Storage>(
         writeln!(
             writer,
             "{}",
-            serde_json::to_string_pretty(&items).map_err(|e| EngramError::Serialization(e))?
+            serde_json::to_string_pretty(&items).map_err(EngramError::Serialization)?
         )?;
         return Ok(());
     }
@@ -1121,6 +1122,7 @@ pub fn cancel_workflow_instance<S: Storage + 'static>(
 }
 
 /// Execute an action (external command, notification, etc.)
+#[allow(clippy::too_many_arguments)]
 pub fn execute_action<S: Storage + 'static>(
     _storage: S,
     action_type: String,

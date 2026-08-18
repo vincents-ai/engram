@@ -194,6 +194,7 @@ fn resolve_persona<S: Storage>(storage: &S, id: &str) -> Result<Persona, EngramE
 // ── CRUD functions ────────────────────────────────────────────────────────────
 
 /// Create a new persona
+#[allow(clippy::too_many_arguments)]
 pub fn create_persona<S: Storage>(
     storage: &mut S,
     slug: String,
@@ -265,6 +266,7 @@ use crate::cli::utils::{create_table, truncate};
 use prettytable::row;
 
 /// List personas
+#[allow(clippy::too_many_arguments)]
 pub fn list_personas<S: Storage>(
     storage: &S,
     agent: Option<String>,
@@ -327,7 +329,7 @@ pub fn list_personas<S: Storage>(
     if output == "json" {
         println!(
             "{}",
-            serde_json::to_string_pretty(&items).map_err(|e| EngramError::Serialization(e))?
+            serde_json::to_string_pretty(&items).map_err(EngramError::Serialization)?
         );
         return Ok(());
     }
@@ -424,6 +426,7 @@ pub fn show_persona<S: Storage>(storage: &S, id: &str) -> Result<(), EngramError
 }
 
 /// Update a persona (accepts slug or UUID prefix)
+#[allow(clippy::too_many_arguments)]
 pub fn update_persona<S: Storage>(
     storage: &mut S,
     id: &str,

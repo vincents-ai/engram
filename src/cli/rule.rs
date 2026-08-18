@@ -145,6 +145,7 @@ pub enum RuleCommands {
 }
 
 /// Create a new rule
+#[allow(clippy::too_many_arguments)]
 pub fn create_rule<S: Storage>(
     storage: &mut S,
     title: String,
@@ -227,6 +228,7 @@ pub fn get_rule<S: Storage>(storage: &S, id: &str) -> Result<(), EngramError> {
 }
 
 /// Update rule
+#[allow(clippy::too_many_arguments)]
 pub fn update_rule<S: Storage>(
     storage: &mut S,
     id: &str,
@@ -360,6 +362,7 @@ use crate::cli::utils::{create_table, truncate};
 use prettytable::row;
 
 /// List rules
+#[allow(clippy::too_many_arguments)]
 pub fn list_rules<S: Storage>(
     storage: &S,
     rule_type: Option<String>,
@@ -438,7 +441,7 @@ pub fn list_rules<S: Storage>(
             .collect();
         println!(
             "{}",
-            serde_json::to_string_pretty(&items).map_err(|e| EngramError::Serialization(e))?
+            serde_json::to_string_pretty(&items).map_err(EngramError::Serialization)?
         );
         return Ok(());
     }

@@ -22,17 +22,17 @@ pub fn handle_evaluate(args: EvaluateArgs) -> Result<(), EngramError> {
         let mut buf = String::new();
         io::stdin()
             .read_to_string(&mut buf)
-            .map_err(|e| EngramError::Io(e))?;
+            .map_err(EngramError::Io)?;
         buf
     } else {
-        fs::read_to_string(&args.trajectory).map_err(|e| EngramError::Io(e))?
+        fs::read_to_string(&args.trajectory).map_err(EngramError::Io)?
     };
 
     // Parse — supports both single trajectory and array
     let trajectories: Vec<Trajectory> = if trajectory_json.trim_start().starts_with('[') {
-        serde_json::from_str(&trajectory_json).map_err(|e| EngramError::Serialization(e))?
+        serde_json::from_str(&trajectory_json).map_err(EngramError::Serialization)?
     } else {
-        vec![serde_json::from_str(&trajectory_json).map_err(|e| EngramError::Serialization(e))?]
+        vec![serde_json::from_str(&trajectory_json).map_err(EngramError::Serialization)?]
     };
 
     let mut reports = Vec::new();
@@ -42,13 +42,12 @@ pub fn handle_evaluate(args: EvaluateArgs) -> Result<(), EngramError> {
     }
 
     // Output
-    let output_json =
-        serde_json::to_string_pretty(&reports).map_err(|e| EngramError::Serialization(e))?;
+    let output_json = serde_json::to_string_pretty(&reports).map_err(EngramError::Serialization)?;
 
     if args.output == "-" {
         println!("{}", output_json);
     } else {
-        fs::write(&args.output, &output_json).map_err(|e| EngramError::Io(e))?;
+        fs::write(&args.output, &output_json).map_err(EngramError::Io)?;
         eprintln!("Wrote {} report(s) to {}", reports.len(), args.output);
     }
 

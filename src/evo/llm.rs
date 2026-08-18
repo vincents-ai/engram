@@ -79,9 +79,9 @@ fn discover_config() -> Result<(String, String, String), EngramError> {
         .join(".pi/agent/auth.json");
 
     if auth_path.exists() {
-        let content = std::fs::read_to_string(&auth_path).map_err(|e| EngramError::Io(e))?;
+        let content = std::fs::read_to_string(&auth_path).map_err(EngramError::Io)?;
         let auth: serde_json::Value =
-            serde_json::from_str(&content).map_err(|e| EngramError::Serialization(e))?;
+            serde_json::from_str(&content).map_err(EngramError::Serialization)?;
 
         // Try providers in preference order
         let providers = [

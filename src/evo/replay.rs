@@ -24,16 +24,16 @@ pub fn handle_replay(args: ReplayArgs) -> Result<(), EngramError> {
         let mut buf = String::new();
         io::stdin()
             .read_to_string(&mut buf)
-            .map_err(|e| EngramError::Io(e))?;
+            .map_err(EngramError::Io)?;
         buf
     } else {
-        fs::read_to_string(&args.patch).map_err(|e| EngramError::Io(e))?
+        fs::read_to_string(&args.patch).map_err(EngramError::Io)?
     };
 
     let patches: Vec<MemoryPatch> = if patch_json.trim_start().starts_with('[') {
-        serde_json::from_str(&patch_json).map_err(|e| EngramError::Serialization(e))?
+        serde_json::from_str(&patch_json).map_err(EngramError::Serialization)?
     } else {
-        vec![serde_json::from_str(&patch_json).map_err(|e| EngramError::Serialization(e))?]
+        vec![serde_json::from_str(&patch_json).map_err(EngramError::Serialization)?]
     };
 
     let mut all_trajectories = Vec::new();
@@ -44,13 +44,13 @@ pub fn handle_replay(args: ReplayArgs) -> Result<(), EngramError> {
     }
 
     // Output
-    let output_json = serde_json::to_string_pretty(&all_trajectories)
-        .map_err(|e| EngramError::Serialization(e))?;
+    let output_json =
+        serde_json::to_string_pretty(&all_trajectories).map_err(EngramError::Serialization)?;
 
     if args.output == "-" {
         println!("{}", output_json);
     } else {
-        fs::write(&args.output, &output_json).map_err(|e| EngramError::Io(e))?;
+        fs::write(&args.output, &output_json).map_err(EngramError::Io)?;
         eprintln!(
             "Wrote {} replay trajectory(ies) to {}",
             all_trajectories.len(),
@@ -267,6 +267,6 @@ fn create_temp_dir() -> Result<std::path::PathBuf, EngramError> {
     let base = std::env::temp_dir().join("engram-evo-replay");
     let unique = format!("{}", chrono::Utc::now().timestamp_millis());
     let dir = base.join(&unique);
-    fs::create_dir_all(&dir).map_err(|e| EngramError::Io(e))?;
+    fs::create_dir_all(&dir).map_err(EngramError::Io)?;
     Ok(dir)
 }

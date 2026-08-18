@@ -669,15 +669,13 @@ fn commits_since(since: &DateTime<Utc>) -> bool {
         Ok(w) => w,
         Err(_) => return false,
     };
-    for info_result in walk {
-        if let Ok(info) = info_result {
-            if let Some(ct) = info.commit_time {
-                if ct > cutoff_secs {
-                    return true;
-                }
-                // Walk is newest-first, so once we see one before cutoff, stop
-                break;
+    for info in walk.flatten() {
+        if let Some(ct) = info.commit_time {
+            if ct > cutoff_secs {
+                return true;
             }
+            // Walk is newest-first, so once we see one before cutoff, stop
+            break;
         }
     }
     false

@@ -17,26 +17,26 @@ pub fn handle_report(args: ReportArgs) -> Result<(), EngramError> {
         let mut buf = String::new();
         io::stdin()
             .read_to_string(&mut buf)
-            .map_err(|e| EngramError::Io(e))?;
+            .map_err(EngramError::Io)?;
         buf
     } else {
-        fs::read_to_string(&args.eval_report).map_err(|e| EngramError::Io(e))?
+        fs::read_to_string(&args.eval_report).map_err(EngramError::Io)?
     };
 
     // Parse — supports single report or array
     let reports: Vec<EvalReport> = if report_json.trim_start().starts_with('[') {
-        serde_json::from_str(&report_json).map_err(|e| EngramError::Serialization(e))?
+        serde_json::from_str(&report_json).map_err(EngramError::Serialization)?
     } else {
-        vec![serde_json::from_str(&report_json).map_err(|e| EngramError::Serialization(e))?]
+        vec![serde_json::from_str(&report_json).map_err(EngramError::Serialization)?]
     };
 
     match args.format.as_str() {
         "json" => {
-            let output = serde_json::to_string_pretty(&reports)
-                .map_err(|e| EngramError::Serialization(e))?;
+            let output =
+                serde_json::to_string_pretty(&reports).map_err(EngramError::Serialization)?;
             println!("{}", output);
         }
-        "text" | _ => {
+        _ => {
             for report in &reports {
                 print_text_report(report);
             }

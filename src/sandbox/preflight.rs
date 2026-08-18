@@ -66,14 +66,14 @@ pub fn run_preflight_checks(
     workspace_dir: &Path,
     resource_limits: Option<&ResourceLimits>,
 ) -> PreflightReport {
-    let mut checks = Vec::new();
-
-    checks.push(check_resource_limits(resource_limits));
-    checks.push(check_workspace_exists(workspace_dir));
-    checks.push(check_workspace_writable(workspace_dir));
-    checks.push(check_git_repo_clean(workspace_dir));
-    checks.push(check_git_available());
-    checks.push(check_engram_storage(workspace_dir));
+    let checks = vec![
+        check_resource_limits(resource_limits),
+        check_workspace_exists(workspace_dir),
+        check_workspace_writable(workspace_dir),
+        check_git_repo_clean(workspace_dir),
+        check_git_available(),
+        check_engram_storage(workspace_dir),
+    ];
 
     let overall_status = if checks.iter().any(|c| c.status == PreflightStatus::Fail) {
         PreflightStatus::Fail

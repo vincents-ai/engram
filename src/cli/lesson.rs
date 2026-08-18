@@ -146,6 +146,7 @@ fn parse_severity(s: &str) -> Result<LessonSeverity, EngramError> {
 // ── CRUD functions ───────────────────────────────────────────────────────────
 
 /// Create a new lesson
+#[allow(clippy::too_many_arguments)]
 pub fn create_lesson<S: Storage>(
     storage: &mut S,
     title: String,
@@ -192,6 +193,7 @@ use crate::cli::utils::{create_table, truncate};
 use prettytable::row;
 
 /// List lessons
+#[allow(clippy::too_many_arguments)]
 pub fn list_lessons<S: Storage>(
     storage: &S,
     agent: Option<String>,

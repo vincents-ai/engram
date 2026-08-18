@@ -155,7 +155,7 @@ impl TaskDurationReport {
             report.max_duration_hours = durations[durations.len() - 1];
 
             let mid = durations.len() / 2;
-            report.median_duration_hours = if durations.len() % 2 == 0 {
+            report.median_duration_hours = if durations.len().is_multiple_of(2) {
                 (durations[mid - 1] + durations[mid]) / 2.0
             } else {
                 durations[mid]

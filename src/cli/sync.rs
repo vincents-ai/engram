@@ -189,6 +189,7 @@ pub enum MergeStrategy {
 }
 
 impl MergeStrategy {
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Result<Self, EngramError> {
         match s.to_lowercase().as_str() {
             "latest_wins" | "latest-wins" => Ok(MergeStrategy::LatestWins),
@@ -432,9 +433,9 @@ fn merge_priority_wins(
         let key = entity.id.clone();
 
         if let Some(existing) = entity_map.get(&key) {
-            if entity.agent == priority_agent {
-                entity_map.insert(key, entity);
-            } else if existing.agent != priority_agent && entity.timestamp > existing.timestamp {
+            if entity.agent == priority_agent
+                || (existing.agent != priority_agent && entity.timestamp > existing.timestamp)
+            {
                 entity_map.insert(key, entity);
             }
         } else {
@@ -517,10 +518,8 @@ fn merge_with_conflict_detection(
                 }
 
                 conflicts.push(conflict_resolution);
-            } else {
-                if entity.timestamp > existing.timestamp {
-                    entity_map.insert(key, entity);
-                }
+            } else if entity.timestamp > existing.timestamp {
+                entity_map.insert(key, entity);
             }
         } else {
             entity_map.insert(key, entity);
@@ -627,8 +626,8 @@ pub fn add_remote<S: Storage>(
     // Load existing remotes configuration
     let config_path = ".engram/remotes.json";
     let mut remotes: HashMap<String, RemoteConfig> = if Path::new(config_path).exists() {
-        let content = fs::read_to_string(config_path).map_err(|e| EngramError::Io(e))?;
-        serde_json::from_str(&content).map_err(|e| EngramError::Serialization(e))?
+        let content = fs::read_to_string(config_path).map_err(EngramError::Io)?;
+        serde_json::from_str(&content).map_err(EngramError::Serialization)?
     } else {
         HashMap::new()
     };
@@ -657,14 +656,14 @@ pub fn add_remote<S: Storage>(
 
     // Save updated configuration
     let config_content =
-        serde_json::to_string_pretty(&remotes).map_err(|e| EngramError::Serialization(e))?;
+        serde_json::to_string_pretty(&remotes).map_err(EngramError::Serialization)?;
 
     // Ensure .engram directory exists
     if !Path::new(".engram").exists() {
-        fs::create_dir_all(".engram").map_err(|e| EngramError::Io(e))?;
+        fs::create_dir_all(".engram").map_err(EngramError::Io)?;
     }
 
-    fs::write(config_path, config_content).map_err(|e| EngramError::Io(e))?;
+    fs::write(config_path, config_content).map_err(EngramError::Io)?;
 
     println!("✅ Remote '{}' added successfully", name);
     Ok(())
@@ -682,10 +681,10 @@ pub fn list_remotes(writer: &mut dyn std::io::Write) -> Result<Vec<RemoteConfig>
         return Ok(Vec::new());
     }
 
-    let content = fs::read_to_string(config_path).map_err(|e| EngramError::Io(e))?;
+    let content = fs::read_to_string(config_path).map_err(EngramError::Io)?;
 
     let remotes: HashMap<String, RemoteConfig> =
-        serde_json::from_str(&content).map_err(|e| EngramError::Serialization(e))?;
+        serde_json::from_str(&content).map_err(EngramError::Serialization)?;
 
     if remotes.is_empty() {
         writeln!(writer, "No remotes configured.")?;
@@ -798,6 +797,7 @@ pub enum ResolveStrategy {
 }
 
 impl ResolveStrategy {
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Result<Self, EngramError> {
         match s.to_lowercase().as_str() {
             "local" => Ok(ResolveStrategy::Local),
@@ -811,7 +811,6 @@ impl ResolveStrategy {
 }
 
 /// Detect conflicts between local refs/engram/* and remote staging area refs/engram/remote/<name>/*
-
 pub fn handle_sync_command<S: Storage>(
     storage: &mut S,
     command: &SyncCommands,
@@ -948,7 +947,7 @@ pub fn handle_sync_command<S: Storage>(
                 Some(s) => Some(ResolveStrategy::from_str(s)?),
                 None => None,
             };
-            crate::cli::sync_gix::resolve_conflicts_gix(&remote, strat)?;
+            crate::cli::sync_gix::resolve_conflicts_gix(remote, strat)?;
             Ok(())
         }
     }

@@ -70,7 +70,7 @@ pub fn capture_pi_session(config: &CaptureConfig) -> Result<CaptureResult, Engra
     let mut events: Vec<serde_json::Value> = Vec::new();
 
     for line in reader.lines() {
-        let line = line.map_err(|e| EngramError::Io(e))?;
+        let line = line.map_err(EngramError::Io)?;
         if line.trim().is_empty() {
             continue;
         }
@@ -81,7 +81,7 @@ pub fn capture_pi_session(config: &CaptureConfig) -> Result<CaptureResult, Engra
     }
 
     // Wait for process to finish
-    let status = child.wait().map_err(|e| EngramError::Io(e))?;
+    let status = child.wait().map_err(EngramError::Io)?;
     let exit_code = status.code();
 
     // Parse events into Trajectory

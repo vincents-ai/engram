@@ -306,7 +306,7 @@ impl DoraMetricsCalculator {
         spans.sort_by(|a, b| a.partial_cmp(b).unwrap());
 
         let mid = spans.len() / 2;
-        if spans.len() % 2 == 0 {
+        if spans.len().is_multiple_of(2) {
             (spans[mid - 1] + spans[mid]) / 2.0
         } else {
             spans[mid]

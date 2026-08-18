@@ -158,7 +158,7 @@ impl Migration {
             let entry = entry.map_err(|e| {
                 EngramError::InvalidOperation(format!("Failed to read entry: {}", e))
             })?;
-            if entry.path().extension().map_or(false, |ext| ext == "json") {
+            if entry.path().extension().is_some_and(|ext| ext == "json") {
                 return Ok(true);
             }
         }
@@ -183,7 +183,7 @@ impl Migration {
             })?;
             let path = entry.path();
 
-            if path.extension().map_or(false, |ext| ext == "json") {
+            if path.extension().is_some_and(|ext| ext == "json") {
                 stats.entities_processed += 1;
 
                 match self.migrate_single_entity(entity_type, &path) {
@@ -218,8 +218,7 @@ impl Migration {
             entity_type: entity_type.to_string(),
             agent: memory_entity.agent.clone(),
             timestamp: memory_entity.timestamp,
-            data: serde_json::to_value(&memory_entity.data)
-                .map_err(|e| EngramError::Serialization(e))?,
+            data: serde_json::to_value(&memory_entity.data).map_err(EngramError::Serialization)?,
         };
 
         if !self.dry_run {
@@ -263,7 +262,7 @@ impl Migration {
             if ty.is_dir() {
                 self.copy_dir_all(&entry.path(), &dst.join(entry.file_name()))?;
             } else {
-                fs::copy(&entry.path(), &dst.join(entry.file_name())).map_err(|e| {
+                fs::copy(entry.path(), dst.join(entry.file_name())).map_err(|e| {
                     EngramError::InvalidOperation(format!("Failed to copy file: {}", e))
                 })?;
             }

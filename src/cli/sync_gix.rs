@@ -9,14 +9,14 @@ use crate::error::EngramError;
 /// Open the engram git repo (the .engram directory)
 fn open_engram_repo() -> Result<gix::Repository, EngramError> {
     let repo_path = std::env::current_dir()
-        .map_err(|e| EngramError::Io(e))?
+        .map_err(EngramError::Io)?
         .join(".engram");
     gix::open(&repo_path).map_err(|e| EngramError::Git(format!("Failed to open repository: {}", e)))
 }
 
 /// Open the workspace git repo (current directory)
 fn open_workspace_repo() -> Result<gix::Repository, EngramError> {
-    let cwd = std::env::current_dir().map_err(|e| EngramError::Io(e))?;
+    let cwd = std::env::current_dir().map_err(EngramError::Io)?;
     gix::open(&cwd).map_err(|e| EngramError::Git(format!("Failed to open repository: {}", e)))
 }
 
@@ -103,7 +103,7 @@ fn set_ref(
                 message: message.into(),
             },
             expected,
-            new: Target::Object(oid.into()),
+            new: Target::Object(oid),
         },
         name,
         deref: false,
@@ -245,9 +245,9 @@ pub fn get_sync_status_gix(
         ));
     }
 
-    let content = fs::read_to_string(config_path).map_err(|e| EngramError::Io(e))?;
+    let content = fs::read_to_string(config_path).map_err(EngramError::Io)?;
     let remotes: HashMap<String, serde_json::Value> =
-        serde_json::from_str(&content).map_err(|e| EngramError::Serialization(e))?;
+        serde_json::from_str(&content).map_err(EngramError::Serialization)?;
     let _remote_config = remotes
         .get(remote_name)
         .ok_or_else(|| EngramError::Validation(format!("Remote '{}' not found", remote_name)))?;
@@ -357,8 +357,7 @@ pub fn get_sync_status_gix(
     };
 
     if output_json {
-        let json =
-            serde_json::to_string_pretty(&report).map_err(|e| EngramError::Serialization(e))?;
+        let json = serde_json::to_string_pretty(&report).map_err(EngramError::Serialization)?;
         writeln!(writer, "{}", json)?;
     } else {
         writeln!(writer, "Sync status — remote '{}'", remote_name)?;
@@ -519,9 +518,9 @@ pub fn resolve_conflicts_gix(
         ));
     }
 
-    let content = fs::read_to_string(config_path).map_err(|e| EngramError::Io(e))?;
+    let content = fs::read_to_string(config_path).map_err(EngramError::Io)?;
     let remotes: HashMap<String, serde_json::Value> =
-        serde_json::from_str(&content).map_err(|e| EngramError::Serialization(e))?;
+        serde_json::from_str(&content).map_err(EngramError::Serialization)?;
     let _remote_config = remotes
         .get(remote_name)
         .ok_or_else(|| EngramError::Validation(format!("Remote '{}' not found", remote_name)))?;
@@ -569,7 +568,7 @@ pub fn resolve_conflicts_gix(
                 let mut input = String::new();
                 std::io::stdin()
                     .read_line(&mut input)
-                    .map_err(|e| EngramError::Io(e))?;
+                    .map_err(EngramError::Io)?;
                 match input.trim().to_lowercase().as_str() {
                     "l" | "local" => {
                         println!("  -> keeping local");
@@ -704,8 +703,8 @@ pub fn handle_import_git_remotes_gix() -> Result<(), EngramError> {
         }
 
         let mut remotes: HashMap<String, RemoteConfig> = if Path::new(config_path).exists() {
-            let content = fs::read_to_string(config_path).map_err(|e| EngramError::Io(e))?;
-            serde_json::from_str(&content).map_err(|e| EngramError::Serialization(e))?
+            let content = fs::read_to_string(config_path).map_err(EngramError::Io)?;
+            serde_json::from_str(&content).map_err(EngramError::Serialization)?
         } else {
             HashMap::new()
         };
@@ -729,13 +728,13 @@ pub fn handle_import_git_remotes_gix() -> Result<(), EngramError> {
         remotes.insert(name.to_string(), remote_config);
 
         let config_content =
-            serde_json::to_string_pretty(&remotes).map_err(|e| EngramError::Serialization(e))?;
+            serde_json::to_string_pretty(&remotes).map_err(EngramError::Serialization)?;
 
         if !Path::new(".engram").exists() {
-            fs::create_dir_all(".engram").map_err(|e| EngramError::Io(e))?;
+            fs::create_dir_all(".engram").map_err(EngramError::Io)?;
         }
 
-        fs::write(config_path, config_content).map_err(|e| EngramError::Io(e))?;
+        fs::write(config_path, config_content).map_err(EngramError::Io)?;
 
         println!("📡 Imported remote '{}' ({})", name, url);
         imported += 1;
@@ -922,9 +921,9 @@ pub fn pull_from_remote_gix(
         ));
     }
 
-    let content = fs::read_to_string(config_path).map_err(|e| EngramError::Io(e))?;
+    let content = fs::read_to_string(config_path).map_err(EngramError::Io)?;
     let mut remotes: HashMap<String, RemoteConfig> =
-        serde_json::from_str(&content).map_err(|e| EngramError::Serialization(e))?;
+        serde_json::from_str(&content).map_err(EngramError::Serialization)?;
 
     let remote_config = remotes
         .get(remote_name)
@@ -1100,9 +1099,9 @@ pub fn pull_from_remote_gix(
         if !dry_run {
             if let Some(cfg) = remotes.get_mut(remote_name) {
                 cfg.project_id = Some(pid.clone());
-                let config_content = serde_json::to_string_pretty(&remotes)
-                    .map_err(|e| EngramError::Serialization(e))?;
-                fs::write(config_path, config_content).map_err(|e| EngramError::Io(e))?;
+                let config_content =
+                    serde_json::to_string_pretty(&remotes).map_err(EngramError::Serialization)?;
+                fs::write(config_path, config_content).map_err(EngramError::Io)?;
                 println!("   Updated remote project_id: {}", &pid[..16]);
             }
         }
@@ -1174,9 +1173,9 @@ pub fn push_to_remote_gix(
         ));
     }
 
-    let content = fs::read_to_string(config_path).map_err(|e| EngramError::Io(e))?;
+    let content = fs::read_to_string(config_path).map_err(EngramError::Io)?;
     let remotes: HashMap<String, RemoteConfig> =
-        serde_json::from_str(&content).map_err(|e| EngramError::Serialization(e))?;
+        serde_json::from_str(&content).map_err(EngramError::Serialization)?;
 
     let remote_config = remotes
         .get(remote_name)
@@ -1243,10 +1242,9 @@ pub fn push_to_remote_gix(
     let ref_updates: Vec<gix::remote::push::RefUpdate> = local_engram_refs
         .iter()
         .map(|(name, new_oid)| {
-            let new_id =
-                gix::ObjectId::from_hex(new_oid.as_bytes()).unwrap_or_else(|_| zero_id.clone());
+            let new_id = gix::ObjectId::from_hex(new_oid.as_bytes()).unwrap_or(zero_id);
             gix::remote::push::RefUpdate {
-                old_id: zero_id.clone(),
+                old_id: zero_id,
                 new_id,
                 name: name.as_bytes().into(),
             }

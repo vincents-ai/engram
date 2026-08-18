@@ -114,6 +114,7 @@ fn find_active_session<S: Storage>(storage: &S) -> Result<Option<Session>, Engra
     Ok(active_sessions.into_iter().next())
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn handle_next_command<S: Storage>(
     storage: &mut S,
     id: Option<String>,
@@ -138,13 +139,11 @@ pub fn handle_next_command<S: Storage>(
         } else {
             return Err(EngramError::NotFound(format!("Task {} not found", task_id)));
         }
+    } else if let Some(t) = find_next_task(storage, "default", &scope)? {
+        t
     } else {
-        if let Some(t) = find_next_task(storage, "default", &scope)? {
-            t
-        } else {
-            println!("No pending tasks found.");
-            return Ok(());
-        }
+        println!("No pending tasks found.");
+        return Ok(());
     };
 
     // 2. Load associated Workflow (if any)
@@ -304,9 +303,7 @@ engram relationship connected --entity-id {}
         task.id,
         task.id,
         if workflow.is_some() {
-            format!(
-                "This task is part of a workflow. Use:\n   engram workflow status <instance-id>\n   engram workflow transition <instance-id> --transition <name> --agent default"
-            )
+            "This task is part of a workflow. Use:\n   engram workflow status <instance-id>\n   engram workflow transition <instance-id> --transition <name> --agent default".to_string()
         } else {
             "No active workflow for this task.".to_string()
         },
