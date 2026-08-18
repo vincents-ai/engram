@@ -369,13 +369,21 @@ pub fn list_standards<S: Storage>(
 
     // JSON output
     if output == "json" {
-        let items: Vec<serde_json::Value> = result.entities.iter().map(|e| serde_json::json!({
-            "id": e.id,
-            "entity_type": e.entity_type,
-            "agent": e.agent,
-            "data": e.data,
-        })).collect();
-        writeln!(writer, "{}",
+        let items: Vec<serde_json::Value> = result
+            .entities
+            .iter()
+            .map(|e| {
+                serde_json::json!({
+                    "id": e.id,
+                    "entity_type": e.entity_type,
+                    "agent": e.agent,
+                    "data": e.data,
+                })
+            })
+            .collect();
+        writeln!(
+            writer,
+            "{}",
             serde_json::to_string_pretty(&items).map_err(|e| EngramError::Serialization(e))?
         )?;
         return Ok(());
@@ -734,7 +742,17 @@ mod tests {
 
         // List all
         let mut buffer = Vec::new();
-        let result = list_standards(&mut buffer, &storage, None, None, None, 10, 0, false, "table");
+        let result = list_standards(
+            &mut buffer,
+            &storage,
+            None,
+            None,
+            None,
+            10,
+            0,
+            false,
+            "table",
+        );
         assert!(result.is_ok());
 
         // Filter by category

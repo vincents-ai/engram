@@ -424,13 +424,20 @@ pub fn list_rules<S: Storage>(
 
     // JSON output
     if output == "json" {
-        let items: Vec<serde_json::Value> = result.entities.iter().map(|e| serde_json::json!({
-            "id": e.id,
-            "entity_type": e.entity_type,
-            "agent": e.agent,
-            "data": e.data,
-        })).collect();
-        println!("{}",
+        let items: Vec<serde_json::Value> = result
+            .entities
+            .iter()
+            .map(|e| {
+                serde_json::json!({
+                    "id": e.id,
+                    "entity_type": e.entity_type,
+                    "agent": e.agent,
+                    "data": e.data,
+                })
+            })
+            .collect();
+        println!(
+            "{}",
             serde_json::to_string_pretty(&items).map_err(|e| EngramError::Serialization(e))?
         );
         return Ok(());
@@ -688,7 +695,10 @@ mod tests {
         )
         .unwrap();
 
-        list_rules(&storage, None, None, None, None, None, 10, 0, false, "table").unwrap();
+        list_rules(
+            &storage, None, None, None, None, None, 10, 0, false, "table",
+        )
+        .unwrap();
         list_rules(
             &storage,
             Some("validation".to_string()),
