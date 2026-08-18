@@ -30,14 +30,13 @@ impl HookManager {
 
     /// Generate the hook script content
     fn generate_hook_script(&self) -> String {
-        format!(
-            r#"#!/usr/bin/env bash
+        r#"#!/usr/bin/env bash
 # ENGRAM_PRE_COMMIT_HOOK
 
 set -e
 
 # Get the directory where this script is located
-SCRIPT_DIR="$(cd "$(dirname "${{BASH_SOURCE[0]}}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # Try to find engram binary in multiple locations
@@ -84,7 +83,7 @@ fi
 echo "✅ Commit validation passed"
 exit 0
 "#
-        )
+        .to_string()
     }
 
     /// Check if hook is installed

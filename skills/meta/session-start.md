@@ -7,7 +7,7 @@ description: "Universal session start protocol. Run at the beginning of every ag
 
 ## Overview
 
-This skill defines the universal protocol for starting an agent session. It ensures you are working with the latest engram state, opens a named session for grouping your work, loads prior context so you don't duplicate effort, and surfaces the highest-priority next action.
+This skill defines the universal protocol for starting an agent session. It ensures you are working with the latest engram state, opens a named session for grouping your work, loads prior context so you don't duplicate effort, and surfaces the highest-priority next action. Prior context may be a recovery checkpoint from a model that failed, timed out, or lost context before finishing.
 
 **Rule:** Run this protocol at the beginning of every agent session — no exceptions.
 
@@ -63,7 +63,7 @@ Name format: `<role>-<goal>`. This makes the session queryable by the next agent
 
 ### Step 2: Search for Prior Context
 
-Before acting on anything, check what has already been done. Prior agents may have stored findings, decisions, and session summaries that are directly relevant to your goal.
+Before acting on anything, check what has already been done. Prior agents may have stored findings, decisions, recovery checkpoints, and session summaries that are directly relevant to your goal.
 
 ```bash
 engram ask query "<your goal or task area>"
@@ -73,7 +73,7 @@ engram session list
 # Scan for recent session summaries — look for sessions with matching names or goals
 ```
 
-**Rule:** Never start work without querying prior session summaries. Prior agent context is in engram, not in the conversation.
+**Rule:** Never start work without querying prior session summaries and recovery checkpoints. Prior agent/model context is in engram, not in the conversation.
 
 ---
 
@@ -93,7 +93,7 @@ engram next
 
 1. **Always run session-start before any work** — no exceptions. An unopened session produces no summary, loses grouping, and breaks `engram next` context.
 2. **Sync pull is step 0** — pull before creating anything so you don't duplicate work another agent has already done.
-3. **Check for prior session summaries before acting** — `engram ask query` surfaces handoff context from previous sessions.
+3. **Check for prior session summaries before acting** — `engram ask query` surfaces handoff context and failure-recovery details from previous sessions.
 4. **Save the SESSION_ID** — you need it for `engram session end --id <SESSION_ID> --generate-summary` at the end of your session.
 5. **If no remote is configured, note it and continue** — local-only work is valid. The absence of a remote is not an error.
 

@@ -285,10 +285,11 @@ impl GitHistory {
     /// Collect all commit history from the current repo via gix
     fn collect() -> Result<Self, EngramError> {
         let cwd = std::env::current_dir().map_err(EngramError::Io)?;
-        let repo = gix::open(&cwd)
-            .map_err(|e| EngramError::Git(format!("Failed to open repo: {}", e)))?;
+        let repo =
+            gix::open(&cwd).map_err(|e| EngramError::Git(format!("Failed to open repo: {}", e)))?;
 
-        let head_id = repo.head_id()
+        let head_id = repo
+            .head_id()
             .map_err(|e| EngramError::Git(format!("Failed to get HEAD: {}", e)))?;
 
         let walk = repo
@@ -304,16 +305,20 @@ impl GitHistory {
             let info = info_result
                 .map_err(|e| EngramError::Git(format!("revwalk iteration failed: {}", e)))?;
 
-            let obj = repo.find_object(info.id)
-                .map_err(|e| EngramError::Git(format!("Failed to find commit {}: {}", info.id, e)))?;
+            let obj = repo.find_object(info.id).map_err(|e| {
+                EngramError::Git(format!("Failed to find commit {}: {}", info.id, e))
+            })?;
 
-            let commit = gix::objs::CommitRef::from_bytes(&obj.data)
+            let commit = gix::objs::CommitRef::from_bytes(&obj.data, gix::hash::Kind::Sha1)
                 .map_err(|e| EngramError::Git(format!("Failed to parse commit: {}", e)))?;
 
             commits.push(GitCommitInfo {
                 id: info.id.to_string(),
                 message: commit.message.to_string(),
-                author: commit.author().map(|sig| sig.name.to_string()).unwrap_or_default(),
+                author: commit
+                    .author()
+                    .map(|sig| sig.name.to_string())
+                    .unwrap_or_default(),
                 timestamp: info.commit_time.unwrap_or(0),
                 parent_count: commit.parents.len(),
             });
@@ -326,7 +331,10 @@ impl GitHistory {
     fn commits_since(&self, months: i64) -> Vec<&GitCommitInfo> {
         let cutoff = chrono::Utc::now() - chrono::Duration::days(months * 30);
         let cutoff_secs = cutoff.timestamp();
-        self.commits.iter().filter(|c| c.timestamp >= cutoff_secs).collect()
+        self.commits
+            .iter()
+            .filter(|c| c.timestamp >= cutoff_secs)
+            .collect()
     }
 
     /// "git shortlog -sn --no-merges" equivalent
@@ -375,10 +383,15 @@ impl GitHistory {
     fn bug_related_files(&self) -> Vec<ChurnEntry> {
         // We can't get file names from gix diff easily, so we return
         // a simplified version counting bug-related commits
-        let _ = self.commits.iter()
+        let _ = self
+            .commits
+            .iter()
             .filter(|c| {
                 let msg = c.message.to_lowercase();
-                msg.contains("fix") || msg.contains("bug") || msg.contains("broken") || msg.contains("regression")
+                msg.contains("fix")
+                    || msg.contains("bug")
+                    || msg.contains("broken")
+                    || msg.contains("regression")
             })
             .count();
         // Return empty — file-level analysis requires diff which is expensive
@@ -389,14 +402,26 @@ impl GitHistory {
     fn test_signal(&self) -> TestSignalStats {
         let recent = self.commits_since(12);
         let total = recent.len();
-        let test_commits = recent.iter()
+        let test_commits = recent
+            .iter()
             .filter(|c| {
                 let msg = c.message.to_lowercase();
-                msg.contains("test") || msg.contains("spec") || msg.contains("coverage") || msg.contains("fixture")
+                msg.contains("test")
+                    || msg.contains("spec")
+                    || msg.contains("coverage")
+                    || msg.contains("fixture")
             })
             .count();
-        let percentage = if total > 0 { (test_commits as f64 / total as f64) * 100.0 } else { 0.0 };
-        TestSignalStats { test_commits, total_commits: total, percentage }
+        let percentage = if total > 0 {
+            (test_commits as f64 / total as f64) * 100.0
+        } else {
+            0.0
+        };
+        TestSignalStats {
+            test_commits,
+            total_commits: total,
+            percentage,
+        }
     }
 
     /// Firefighting: commits with revert/hotfix/emergency/rollback
@@ -405,7 +430,10 @@ impl GitHistory {
             .iter()
             .filter(|c| {
                 let msg = c.message.to_lowercase();
-                msg.contains("revert") || msg.contains("hotfix") || msg.contains("emergency") || msg.contains("rollback")
+                msg.contains("revert")
+                    || msg.contains("hotfix")
+                    || msg.contains("emergency")
+                    || msg.contains("rollback")
             })
             .map(|c| FirefightingEntry {
                 hash: c.id.clone(),
@@ -430,6 +458,7 @@ impl GitHistory {
     }
 }
 
+#[allow(dead_code)]
 fn parse_count_name_lines(output: &str) -> Vec<ChurnEntry> {
     output
         .lines()
@@ -448,6 +477,7 @@ fn parse_count_name_lines(output: &str) -> Vec<ChurnEntry> {
         .collect()
 }
 
+#[allow(dead_code)]
 fn parse_shortlog(output: &str) -> Vec<Contributor> {
     output
         .lines()
@@ -469,6 +499,7 @@ fn parse_shortlog(output: &str) -> Vec<Contributor> {
         .collect()
 }
 
+#[allow(dead_code)]
 fn parse_velocity(output: &str) -> Vec<VelocityEntry> {
     output
         .lines()
@@ -490,6 +521,7 @@ fn parse_velocity(output: &str) -> Vec<VelocityEntry> {
         .collect()
 }
 
+#[allow(dead_code)]
 fn parse_numstat(output: &str) -> CommitSizeStats {
     let mut total_add: u64 = 0;
     let mut total_del: u64 = 0;
@@ -950,8 +982,7 @@ fn run_audit<S: Storage + RelationshipStorage>(
     println!();
 
     if store {
-        let json =
-            serde_json::to_string_pretty(&report).map_err(|e| EngramError::Serialization(e))?;
+        let json = serde_json::to_string_pretty(&report).map_err(EngramError::Serialization)?;
         let summary = report.summary();
 
         let content = format!(

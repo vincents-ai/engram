@@ -24,6 +24,7 @@
 - [Workflows](features/workflows.md)
 - [Sessions](features/sessions.md)
 - [Sync](features/sync.md)
+- [Schema](features/schema.md)
 - [Health](features/health.md)
 - [Doc](features/doc.md)
 - [Analytics](features/analytics.md)

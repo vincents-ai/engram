@@ -4,10 +4,10 @@
 //! and uses an LLM to analyze what went wrong and generate a MemoryPatch
 //! (a specification for engram entities to write).
 
+use crate::error::EngramError;
 use crate::evo::cli::OptimizeArgs;
 use crate::evo::llm::LlmClient;
 use crate::evo::types::*;
-use crate::error::EngramError;
 use std::fs;
 use std::io::{self, Read as IoRead};
 
@@ -18,17 +18,16 @@ pub fn handle_optimize(args: OptimizeArgs) -> Result<(), EngramError> {
         let mut buf = String::new();
         io::stdin()
             .read_to_string(&mut buf)
-            .map_err(|e| EngramError::Io(e))?;
+            .map_err(EngramError::Io)?;
         buf
     } else {
-        fs::read_to_string(&args.eval_report)
-            .map_err(|e| EngramError::Io(e))?
+        fs::read_to_string(&args.eval_report).map_err(EngramError::Io)?
     };
 
     let reports: Vec<EvalReport> = if report_json.trim_start().starts_with('[') {
-        serde_json::from_str(&report_json).map_err(|e| EngramError::Serialization(e))?
+        serde_json::from_str(&report_json).map_err(EngramError::Serialization)?
     } else {
-        vec![serde_json::from_str(&report_json).map_err(|e| EngramError::Serialization(e))?]
+        vec![serde_json::from_str(&report_json).map_err(EngramError::Serialization)?]
     };
 
     // Read trajectory
@@ -36,17 +35,16 @@ pub fn handle_optimize(args: OptimizeArgs) -> Result<(), EngramError> {
         let mut buf = String::new();
         io::stdin()
             .read_to_string(&mut buf)
-            .map_err(|e| EngramError::Io(e))?;
+            .map_err(EngramError::Io)?;
         buf
     } else {
-        fs::read_to_string(&args.trajectory)
-            .map_err(|e| EngramError::Io(e))?
+        fs::read_to_string(&args.trajectory).map_err(EngramError::Io)?
     };
 
     let trajectories: Vec<Trajectory> = if traj_json.trim_start().starts_with('[') {
-        serde_json::from_str(&traj_json).map_err(|e| EngramError::Serialization(e))?
+        serde_json::from_str(&traj_json).map_err(EngramError::Serialization)?
     } else {
-        vec![serde_json::from_str(&traj_json).map_err(|e| EngramError::Serialization(e))?]
+        vec![serde_json::from_str(&traj_json).map_err(EngramError::Serialization)?]
     };
 
     // Create LLM client
@@ -70,14 +68,12 @@ pub fn handle_optimize(args: OptimizeArgs) -> Result<(), EngramError> {
     }
 
     // Output
-    let output_json = serde_json::to_string_pretty(&patches)
-        .map_err(|e| EngramError::Serialization(e))?;
+    let output_json = serde_json::to_string_pretty(&patches).map_err(EngramError::Serialization)?;
 
     if args.output == "-" {
         println!("{}", output_json);
     } else {
-        fs::write(&args.output, &output_json)
-            .map_err(|e| EngramError::Io(e))?;
+        fs::write(&args.output, &output_json).map_err(EngramError::Io)?;
         eprintln!("Wrote {} patch(es) to {}", patches.len(), args.output);
     }
 
@@ -135,7 +131,10 @@ Rules:
 
     // Evaluation scores
     context.push_str("## Evaluation Report\n\n");
-    context.push_str(&format!("Composite Score: {:.3}\n", report.scores.composite));
+    context.push_str(&format!(
+        "Composite Score: {:.3}\n",
+        report.scores.composite
+    ));
     context.push_str(&format!(
         "Step Efficiency: {:.3} | Tool Correctness: {:.3} | Plan Adherence: {:.3} | Task Completion: {:.3}\n",
         report.scores.step_efficiency,
@@ -157,10 +156,7 @@ Rules:
     context.push_str("\n## Trajectory Context\n\n");
     context.push_str(&format!(
         "Task: {}\n",
-        trajectory
-            .task_description
-            .as_deref()
-            .unwrap_or("Unknown")
+        trajectory.task_description.as_deref().unwrap_or("Unknown")
     ));
     context.push_str(&format!(
         "Model: {} | Provider: {} | Total Turns: {}\n",
@@ -181,7 +177,10 @@ Rules:
     ));
 
     for turn in &trajectory.turns[start..end] {
-        context.push_str(&format!("**Turn {}** (stop: {:?})\n", turn.index, turn.stopped_reason));
+        context.push_str(&format!(
+            "**Turn {}** (stop: {:?})\n",
+            turn.index, turn.stopped_reason
+        ));
 
         if let Some(thinking) = &turn.assistant_thinking {
             let truncated = if thinking.len() > 500 {

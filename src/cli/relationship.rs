@@ -23,9 +23,7 @@ fn resolve_entity_id<S: Storage>(
     }
 
     // Only try resolution for hex-like short IDs
-    let is_hex_short = id.len() >= 4
-        && id.len() < 36
-        && id.chars().all(|c| c.is_ascii_hexdigit());
+    let is_hex_short = id.len() >= 4 && id.len() < 36 && id.chars().all(|c| c.is_ascii_hexdigit());
 
     if !is_hex_short {
         return Ok(id.to_string());
@@ -201,7 +199,7 @@ fn parse_strength(s: &str) -> Result<RelationshipStrength, String> {
         "critical" => Ok(RelationshipStrength::Critical),
         custom => {
             if let Ok(value) = custom.parse::<f64>() {
-                if value >= 0.0 && value <= 1.0 {
+                if (0.0..=1.0).contains(&value) {
                     Ok(RelationshipStrength::Custom(value))
                 } else {
                     Err("Custom strength must be between 0.0 and 1.0".to_string())
@@ -293,6 +291,7 @@ pub fn handle_relationship_command<S: RelationshipStorage>(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn create_relationship<S: Storage>(
     storage: &mut S,
     source_id: String,
@@ -348,6 +347,7 @@ fn create_relationship<S: Storage>(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn list_relationships<S: Storage>(
     _storage: &S,
     entity_id: Option<String>,

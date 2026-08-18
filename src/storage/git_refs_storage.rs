@@ -7,16 +7,19 @@
 
 #![allow(clippy::needless_borrows_for_generic_args)]
 
-use engram_core::storage_types::{GitCommit, QueryFilter, QueryResult, SortOrder, Storage, StorageStats};
+use crate::entities::Entity;
+use chrono::Utc;
 use engram_core::entity_types::{EntityRegistry, GenericEntity};
-use engram_core::relationship::{EntityRelationship, RelationshipFilter};
 use engram_core::error::{EngramError, StorageError};
+use engram_core::relationship::{EntityRelationship, RelationshipFilter};
+use engram_core::storage_types::{
+    GitCommit, QueryFilter, QueryResult, SortOrder, Storage, StorageStats,
+};
 use engram_storage::memory_entity::MemoryEntity;
 use engram_storage::relationship_storage::{
     EntityPath, GraphAnalyzer, RelationshipIndex, RelationshipStats, RelationshipStorage,
     TraversalAlgorithm,
 };
-use chrono::Utc;
 use gix::bstr::ByteSlice;
 use gix::Repository;
 use serde::{Deserialize, Serialize};
@@ -87,9 +90,7 @@ fn derive_project_id(repo: &gix::Repository) -> Result<String, EngramError> {
         Ok(id) => id.detach(),
         Err(_) => {
             // Create empty tree
-            let empty_tree = gix::objs::Tree {
-                entries: vec![],
-            };
+            let empty_tree = gix::objs::Tree { entries: vec![] };
             let tree_id = repo
                 .write_object(&empty_tree)
                 .map_err(|e| EngramError::Git(format!("Failed to write empty tree: {}", e)))?;
@@ -109,13 +110,17 @@ fn derive_project_id(repo: &gix::Repository) -> Result<String, EngramError> {
                 .map_err(|e| EngramError::Git(format!("Failed to create init commit: {}", e)))?;
 
             // Set HEAD to point to this commit via refs/heads/main
+            use gix::refs::transaction::{Change, PreviousValue, RefEdit};
             use gix::refs::FullName;
             use gix::refs::Target;
-            use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
 
             repo.edit_reference(RefEdit {
                 change: Change::Update {
-                    log: LogChange::default(),
+                    log: gix::refs::transaction::LogChange {
+                        mode: gix::refs::transaction::RefLog::AndReference,
+                        force_create_reflog: false,
+                        message: Default::default(),
+                    },
                     expected: PreviousValue::MustNotExist,
                     new: Target::Object(commit_id.detach()),
                 },
@@ -128,7 +133,11 @@ fn derive_project_id(repo: &gix::Repository) -> Result<String, EngramError> {
             // Set HEAD symbolic to refs/heads/main
             repo.edit_reference(RefEdit {
                 change: Change::Update {
-                    log: LogChange::default(),
+                    log: gix::refs::transaction::LogChange {
+                        mode: gix::refs::transaction::RefLog::AndReference,
+                        force_create_reflog: false,
+                        message: Default::default(),
+                    },
                     expected: PreviousValue::Any,
                     new: Target::Symbolic(
                         FullName::try_from("refs/heads/main")
@@ -183,25 +192,21 @@ fn ensure_workspace_ref(
         .map_err(|e| EngramError::Git(format!("Failed to find workspace ref: {}", e)))?
     {
         Some(reference) => {
-            let target_id = reference
-                .try_id()
-                .ok_or_else(|| {
-                    EngramError::Git("refs/engram/config/workspace is a symbolic ref".into())
-                })?;
-            let obj = repo.find_object(target_id).map_err(|e| {
-                EngramError::Git(format!("Failed to find workspace blob: {}", e))
+            let target_id = reference.try_id().ok_or_else(|| {
+                EngramError::Git("refs/engram/config/workspace is a symbolic ref".into())
             })?;
-            let content = std::str::from_utf8(&obj.data)
-                .map_err(|e| EngramError::Git(format!("Workspace blob is not valid UTF-8: {}", e)))?;
-            let v: serde_json::Value = serde_json::from_str(content).map_err(|e| {
-                EngramError::Git(format!("Failed to parse workspace JSON: {}", e))
+            let obj = repo
+                .find_object(target_id)
+                .map_err(|e| EngramError::Git(format!("Failed to find workspace blob: {}", e)))?;
+            let content = std::str::from_utf8(&obj.data).map_err(|e| {
+                EngramError::Git(format!("Workspace blob is not valid UTF-8: {}", e))
             })?;
+            let v: serde_json::Value = serde_json::from_str(content)
+                .map_err(|e| EngramError::Git(format!("Failed to parse workspace JSON: {}", e)))?;
             let pid = v
                 .get("project_id")
                 .and_then(|p| p.as_str())
-                .ok_or_else(|| {
-                    EngramError::Git("workspace JSON missing project_id field".into())
-                })?
+                .ok_or_else(|| EngramError::Git("workspace JSON missing project_id field".into()))?
                 .to_string();
             Ok(pid)
         }
@@ -217,13 +222,11 @@ fn ensure_workspace_ref(
                 .write_object(&gix::objs::Blob {
                     data: json.into_bytes(),
                 })
-                .map_err(|e| {
-                    EngramError::Git(format!("Failed to create workspace blob: {}", e))
-                })?;
+                .map_err(|e| EngramError::Git(format!("Failed to create workspace blob: {}", e)))?;
 
+            use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
             use gix::refs::FullName;
             use gix::refs::Target;
-            use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
 
             repo.edit_reference(RefEdit {
                 change: Change::Update {
@@ -311,15 +314,13 @@ fn write_version_sidecar(
         .write_object(&gix::objs::Blob {
             data: json.to_string().into_bytes(),
         })
-        .map_err(|e| {
-            EngramError::Git(format!("Failed to create version sidecar blob: {}", e))
-        })?;
+        .map_err(|e| EngramError::Git(format!("Failed to create version sidecar blob: {}", e)))?;
 
     let ref_name = format!("refs/engram/{}/v{}/{}", entity.entity_type, n, entity.id);
 
+    use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
     use gix::refs::FullName;
     use gix::refs::Target;
-    use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
 
     repo.edit_reference(RefEdit {
         change: Change::Update {
@@ -332,9 +333,7 @@ fn write_version_sidecar(
             .map_err(|e| EngramError::Git(format!("Invalid ref name: {}", e)))?,
         deref: false,
     })
-    .map_err(|e| {
-        EngramError::Git(format!("Failed to write version sidecar ref: {}", e))
-    })?;
+    .map_err(|e| EngramError::Git(format!("Failed to write version sidecar ref: {}", e)))?;
 
     Ok(())
 }
@@ -430,6 +429,15 @@ impl GitRefsStorage {
             ))
         })?;
 
+        let ref_name = self.get_entity_ref(&entity.entity_type, &entity.id);
+
+        if entity.entity_type == "reasoning_event" && repo.find_reference(&ref_name).is_ok() {
+            return Err(EngramError::AlreadyExists(format!(
+                "ReasoningEvent {} already exists (append-only)",
+                entity.id
+            )));
+        }
+
         let data_map = match &entity.data {
             Value::Object(map) => {
                 let flat: HashMap<String, Value> =
@@ -461,9 +469,9 @@ impl GitRefsStorage {
 
         let ref_name = self.get_entity_ref(&entity.entity_type, &entity.id);
 
+        use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
         use gix::refs::FullName;
         use gix::refs::Target;
-        use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
 
         repo.edit_reference(RefEdit {
             change: Change::Update {
@@ -539,7 +547,8 @@ impl GitRefsStorage {
                     }
                     // Re-lookup the matched ref by full name
                     match matched_full_name {
-                        Some(full_name) => repo.try_find_reference(&full_name)
+                        Some(full_name) => repo
+                            .try_find_reference(&full_name)
                             .map_err(|e| EngramError::Git(format!("Failed to find ref: {}", e)))?,
                         None => None,
                     }
@@ -559,10 +568,7 @@ impl GitRefsStorage {
                 })?;
 
                 let obj = repo.find_object(target_id).map_err(|e| {
-                    EngramError::Git(format!(
-                        "Failed to find object {}: {}",
-                        target_id, e
-                    ))
+                    EngramError::Git(format!("Failed to find object {}: {}", target_id, e))
                 })?;
 
                 let json_content = std::str::from_utf8(&obj.data).map_err(|e| {
@@ -605,8 +611,8 @@ impl GitRefsStorage {
             .map_err(|e| EngramError::Git(format!("Failed to find ref: {}", e)))?
         {
             Some(_) => {
-                use gix::refs::FullName;
                 use gix::refs::transaction::{Change, PreviousValue, RefEdit};
+                use gix::refs::FullName;
 
                 repo.edit_reference(RefEdit {
                     change: Change::Delete {
@@ -668,7 +674,6 @@ impl GitRefsStorage {
         })?;
         index.clear();
 
-        // Get all entity types and rebuild index
         let entity_types = [
             "task",
             "context",
@@ -685,7 +690,6 @@ impl GitRefsStorage {
             for entity_id in entity_ids {
                 if let Some(entity) = self.load_entity_from_ref(entity_type, &entity_id)? {
                     if *entity_type == "relationship" {
-                        // Special handling for relationship entities
                         if let Ok(relationship) =
                             serde_json::from_value::<EntityRelationship>(entity.data)
                         {
@@ -698,6 +702,51 @@ impl GitRefsStorage {
 
         Ok(())
     }
+
+    pub fn increment_knowledge_citation(&mut self, knowledge_id: &str) -> Result<(), EngramError> {
+        if let Some(entity) = self.load_entity_from_ref("knowledge", knowledge_id)? {
+            let mut knowledge = crate::entities::Knowledge::from_generic(entity)?;
+            knowledge.citation_count += 1;
+            knowledge.last_used_at = Some(Utc::now().to_rfc3339());
+            let updated = knowledge.to_generic();
+            self.store_entity_as_ref(&updated)?;
+        }
+        Ok(())
+    }
+
+    pub fn refresh_decay(&mut self, lambda: f64) -> Result<RefreshDecayResult, EngramError> {
+        let knowledge_ids = self.list_entity_refs("knowledge")?;
+        let mut updated = 0usize;
+
+        for kid in &knowledge_ids {
+            if let Some(entity) = self.load_entity_from_ref("knowledge", kid)? {
+                let mut knowledge = crate::entities::Knowledge::from_generic(entity)?;
+
+                knowledge.compute_decay_weight(lambda);
+
+                let citation_count = self.count_knowledge_citations(kid);
+                knowledge.citation_count = citation_count;
+
+                let updated_generic = knowledge.to_generic();
+                self.store_entity_as_ref(&updated_generic)?;
+                updated += 1;
+            }
+        }
+
+        Ok(RefreshDecayResult {
+            entries_processed: knowledge_ids.len(),
+            entries_updated: updated,
+        })
+    }
+
+    fn count_knowledge_citations(&self, knowledge_id: &str) -> u32 {
+        let index = match self.relationship_index.lock() {
+            Ok(i) => i,
+            Err(_) => return 0,
+        };
+        let inbound = index.get_inbound(knowledge_id);
+        inbound.len() as u32
+    }
 }
 
 // Storage trait implementation will be added next
@@ -705,7 +754,6 @@ impl Storage for GitRefsStorage {
     fn store(&mut self, entity: &GenericEntity) -> Result<(), EngramError> {
         self.store_entity_as_ref(entity)?;
 
-        // Update relationship index if this is a relationship entity
         if entity.entity_type == "relationship" {
             if let Ok(relationship) =
                 serde_json::from_value::<EntityRelationship>(entity.data.clone())
@@ -716,6 +764,31 @@ impl Storage for GitRefsStorage {
                     ))
                 })?;
                 index.add_relationship(&relationship);
+                drop(index);
+
+                if relationship.target_type == "knowledge" {
+                    self.increment_knowledge_citation(&relationship.target_id)?;
+                }
+            }
+        }
+
+        if entity.entity_type == "reasoning" {
+            let mut event = crate::entities::ReasoningEvent::new(
+                entity.id.clone(),
+                crate::entities::ReasoningEventType::AutoStored,
+                format!(
+                    "Reasoning '{}' stored",
+                    entity
+                        .data
+                        .get("title")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or(&entity.id)
+                ),
+            );
+            event.agent = self.current_agent.clone();
+            let event_generic = event.to_generic();
+            if let Err(e) = self.store_entity_as_ref(&event_generic) {
+                tracing::warn!("Failed to auto-emit ReasoningEvent: {}", e);
             }
         }
 
@@ -834,7 +907,7 @@ impl Storage for GitRefsStorage {
 
         let has_more = filter
             .limit
-            .map_or(false, |_| offset + paginated_results.len() < total);
+            .is_some_and(|_| offset + paginated_results.len() < total);
         Ok(QueryResult {
             entities: paginated_results,
             total_count: total,
@@ -1010,7 +1083,11 @@ impl Storage for GitRefsStorage {
 
         // head.name() returns the full ref name (e.g. "refs/heads/main")
         let name_bstr = head.name();
-        let name_str = name_bstr.as_bstr().to_str().map(|s| s.to_string()).unwrap_or_default();
+        let name_str = name_bstr
+            .as_bstr()
+            .to_str()
+            .map(|s| s.to_string())
+            .unwrap_or_default();
         if let Some(short) = name_str.strip_prefix("refs/heads/") {
             Ok(short.to_string())
         } else {
@@ -1031,9 +1108,9 @@ impl Storage for GitRefsStorage {
 
         let ref_name = format!("refs/heads/{}", branch_name);
 
+        use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
         use gix::refs::FullName;
         use gix::refs::Target;
-        use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
 
         repo.edit_reference(RefEdit {
             change: Change::Update {
@@ -1065,12 +1142,15 @@ impl Storage for GitRefsStorage {
             .map_err(|e| EngramError::Git(format!("Failed to find branch: {}", e)))?
             .is_none()
         {
-            return Err(EngramError::Git(format!("Branch '{}' not found", branch_name)));
+            return Err(EngramError::Git(format!(
+                "Branch '{}' not found",
+                branch_name
+            )));
         }
 
+        use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
         use gix::refs::FullName;
         use gix::refs::Target;
-        use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
 
         // Set HEAD to point to the branch
         repo.edit_reference(RefEdit {
@@ -1129,22 +1209,22 @@ impl Storage for GitRefsStorage {
             let info = info_result
                 .map_err(|e| EngramError::Git(format!("revwalk iteration failed: {}", e)))?;
 
-            let obj = repo
-                .find_object(info.id)
-                .map_err(|e| EngramError::Git(format!("Failed to find commit {}: {}", info.id, e)))?;
+            let obj = repo.find_object(info.id).map_err(|e| {
+                EngramError::Git(format!("Failed to find commit {}: {}", info.id, e))
+            })?;
 
-            let commit = gix::objs::CommitRef::from_bytes(&obj.data)
+            let commit = gix::objs::CommitRef::from_bytes(&obj.data, gix::hash::Kind::Sha1)
                 .map_err(|e| EngramError::Git(format!("Failed to parse commit: {}", e)))?;
 
             let git_commit = GitCommit {
                 id: info.id.to_string(),
-                author: commit.author().map(|sig| sig.name.to_string()).unwrap_or_default(),
+                author: commit
+                    .author()
+                    .map(|sig| sig.name.to_string())
+                    .unwrap_or_default(),
                 message: commit.message.to_string(),
-                timestamp: chrono::DateTime::from_timestamp(
-                    info.commit_time.unwrap_or(0),
-                    0,
-                )
-                .unwrap_or_else(chrono::Utc::now),
+                timestamp: chrono::DateTime::from_timestamp(info.commit_time.unwrap_or(0), 0)
+                    .unwrap_or_else(chrono::Utc::now),
                 parents: commit.parents.iter().map(|id| id.to_string()).collect(),
             };
 
@@ -1792,9 +1872,9 @@ impl GitRefsStorage {
                 })
                 .map_err(|e| EngramError::Git(format!("Failed to create blob: {}", e)))?;
 
+            use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
             use gix::refs::FullName;
             use gix::refs::Target;
-            use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
 
             repo.edit_reference(RefEdit {
                 change: Change::Update {
@@ -1806,9 +1886,7 @@ impl GitRefsStorage {
                     .map_err(|e| EngramError::Git(format!("Invalid ref name: {}", e)))?,
                 deref: false,
             })
-            .map_err(|e| {
-                EngramError::Git(format!("Failed to update ref {}: {}", ref_name, e))
-            })?;
+            .map_err(|e| EngramError::Git(format!("Failed to update ref {}: {}", ref_name, e)))?;
 
             stats.refs_rewritten += 1;
         }
@@ -1826,6 +1904,12 @@ pub struct FlattenRefsStats {
     pub nested_found: usize,
     /// Refs that were rewritten (always 0 in dry-run mode).
     pub refs_rewritten: usize,
+}
+
+#[derive(Debug, Clone)]
+pub struct RefreshDecayResult {
+    pub entries_processed: usize,
+    pub entries_updated: usize,
 }
 
 fn count_orphaned_blobs(
@@ -1846,6 +1930,7 @@ fn count_orphaned_blobs(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::entities::EntityRelationType;
     use crate::feedback::StructuredFeedback;
     use chrono::Utc;
     use serde_json::json;
@@ -2134,9 +2219,9 @@ mod tests {
             };
             let commit_id = repo.write_object(&commit).unwrap();
 
+            use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
             use gix::refs::FullName;
             use gix::refs::Target;
-            use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
 
             repo.edit_reference(RefEdit {
                 change: Change::Update {
@@ -2146,7 +2231,8 @@ mod tests {
                 },
                 name: FullName::try_from("refs/heads/main").unwrap(),
                 deref: false,
-            }).unwrap();
+            })
+            .unwrap();
             repo.edit_reference(RefEdit {
                 change: Change::Update {
                     log: LogChange::default(),
@@ -2155,7 +2241,8 @@ mod tests {
                 },
                 name: FullName::try_from("HEAD").unwrap(),
                 deref: false,
-            }).unwrap();
+            })
+            .unwrap();
         }
         // now open via storage
         let storage = GitRefsStorage::new(dir.path().to_str().unwrap(), "test").unwrap();
@@ -2181,7 +2268,8 @@ mod tests {
         let repo = gix::open(dir.path()).unwrap();
         let ref_name = format!("refs/engram/task/v1/{}", entity.id);
         assert!(
-            repo.try_find_reference(&ref_name).is_ok_and(|o| o.is_some()),
+            repo.try_find_reference(&ref_name)
+                .is_ok_and(|o| o.is_some()),
             "v1 sidecar must exist after store"
         );
     }
@@ -2261,7 +2349,9 @@ mod tests {
         let repo = gix::open(dir.path()).unwrap();
 
         let bad_json = b"not valid json {{{";
-        write_raw_blob(&repo, "refs/engram/task/bad-json-123", unsafe { std::str::from_utf8_unchecked(bad_json) });
+        write_raw_blob(&repo, "refs/engram/task/bad-json-123", unsafe {
+            std::str::from_utf8_unchecked(bad_json)
+        });
 
         let report = storage.consistency_check().unwrap();
         assert!(report.invalid_json_refs.len() >= 1);
@@ -2317,11 +2407,12 @@ mod tests {
         let storage = GitRefsStorage::new(dir.path().to_str().unwrap(), "test").unwrap();
         let repo = gix::open(dir.path()).unwrap();
 
-        let fake_oid = gix::hash::ObjectId::from_hex(b"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa").unwrap();
+        let fake_oid =
+            gix::hash::ObjectId::from_hex(b"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa").unwrap();
 
+        use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
         use gix::refs::FullName;
         use gix::refs::Target;
-        use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
 
         let result = repo.edit_reference(RefEdit {
             change: Change::Update {
@@ -2546,9 +2637,9 @@ mod tests {
 
     /// Helper: write a raw blob JSON directly into a git ref.
     fn write_raw_blob(repo: &gix::Repository, ref_name: &str, json: &str) {
+        use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
         use gix::refs::FullName;
         use gix::refs::Target;
-        use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
 
         let blob_id = repo
             .write_object(&gix::objs::Blob {
@@ -2653,7 +2744,10 @@ mod tests {
         assert_eq!(stats.refs_rewritten, 0, "dry-run must not rewrite any refs");
 
         // Verify the blob is still nested (unchanged).
-        let r = repo.try_find_reference("refs/engram/task/dry-run-1").unwrap().unwrap();
+        let r = repo
+            .try_find_reference("refs/engram/task/dry-run-1")
+            .unwrap()
+            .unwrap();
         let target_id = r.try_id().unwrap();
         let obj = repo.find_object(target_id).unwrap();
         let still_nested: serde_json::Value = serde_json::from_slice(&obj.data).unwrap();
@@ -2715,6 +2809,110 @@ mod tests {
         assert_eq!(
             stats.refs_scanned, 1,
             "version sidecar refs must be excluded from scanning"
+        );
+    }
+
+    #[test]
+    fn test_reasoning_event_append_only() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut storage = GitRefsStorage::new(dir.path().to_str().unwrap(), "test").unwrap();
+
+        let mut event = crate::entities::ReasoningEvent::new(
+            "reasoning-1".to_string(),
+            crate::entities::ReasoningEventType::AutoStored,
+            "First store".to_string(),
+        );
+        event.agent = "agent".to_string();
+        let event_id = event.id.clone();
+        let generic = event.to_generic();
+        storage.store(&generic).unwrap();
+
+        // Store again with the same ID must fail
+        let event2 = GenericEntity {
+            id: event_id,
+            entity_type: "reasoning_event".to_string(),
+            agent: "agent".to_string(),
+            timestamp: Utc::now(),
+            data: serde_json::json!({
+                "reasoning_id": "reasoning-1",
+                "event_type": "auto_stored",
+                "content": "Second store",
+                "agent": "agent",
+                "created_at": Utc::now().to_rfc3339(),
+            }),
+        };
+        let result = storage.store(&event2);
+        assert!(result.is_err(), "Storing reasoning_event twice should fail");
+    }
+
+    #[test]
+    fn test_reasoning_store_auto_emits_event() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut storage = GitRefsStorage::new(dir.path().to_str().unwrap(), "test").unwrap();
+
+        let reasoning = crate::entities::Reasoning::new(
+            "Auto-emit test".to_string(),
+            "task-1".to_string(),
+            "agent".to_string(),
+        );
+        let generic = reasoning.to_generic();
+        storage.store(&generic).unwrap();
+
+        // A reasoning_event should have been created
+        let event_ids = storage.list_entity_refs("reasoning_event").unwrap();
+        assert_eq!(
+            event_ids.len(),
+            1,
+            "Should have auto-emitted one reasoning_event"
+        );
+
+        let event_entity = storage
+            .get(&event_ids[0], "reasoning_event")
+            .unwrap()
+            .unwrap();
+        let event = crate::entities::ReasoningEvent::from_generic(event_entity).unwrap();
+        assert_eq!(event.reasoning_id, reasoning.id);
+        assert_eq!(
+            event.event_type,
+            crate::entities::ReasoningEventType::AutoStored
+        );
+    }
+
+    #[test]
+    fn test_knowledge_citation_increment_on_relationship() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut storage = GitRefsStorage::new(dir.path().to_str().unwrap(), "test").unwrap();
+
+        // Store a knowledge entity
+        let knowledge = crate::entities::Knowledge::new(
+            "Test knowledge".to_string(),
+            "Content".to_string(),
+            crate::entities::KnowledgeType::Fact,
+            0.9,
+            "agent".to_string(),
+        );
+        let k_generic = knowledge.to_generic();
+        storage.store(&k_generic).unwrap();
+
+        // Create a relationship pointing at the knowledge
+        let rel = EntityRelationship::new(
+            uuid::Uuid::new_v4().to_string(),
+            "agent".to_string(),
+            "other-entity".to_string(),
+            "task".to_string(),
+            knowledge.id.clone(),
+            "knowledge".to_string(),
+            EntityRelationType::References,
+        );
+        storage.store_relationship(&rel).unwrap();
+
+        // Knowledge citation_count should be incremented
+        let stored = storage.get(&knowledge.id, "knowledge").unwrap().unwrap();
+        let stored_k = crate::entities::Knowledge::from_generic(stored).unwrap();
+        assert_eq!(stored_k.citation_count, 1, "Citation count should be 1");
+        assert!(
+            stored_k.last_used_at.is_some(),
+            "last_used_at should be set"
         );
     }
 }

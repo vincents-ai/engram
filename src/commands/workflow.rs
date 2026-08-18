@@ -48,6 +48,7 @@ pub fn handle_workflow_command<S: engram::storage::Storage>(
             limit,
             offset,
             all,
+            output,
         } => {
             cli::list_workflows(
                 &mut std::io::stdout(),
@@ -57,6 +58,7 @@ pub fn handle_workflow_command<S: engram::storage::Storage>(
                 limit,
                 offset,
                 all,
+                &output,
             )?;
         }
         cli::WorkflowCommands::AddState {

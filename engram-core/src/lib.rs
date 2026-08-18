@@ -4,18 +4,21 @@
 //! crates. No storage implementations, no CLI, no git operations — just the
 //! trait contracts and shared types.
 
-pub mod error;
-pub mod storage_types;
 pub mod entity_types;
+pub mod error;
 pub mod relationship;
+pub mod storage_types;
 
 #[cfg(test)]
 mod tests;
 
-pub use error::{EngramError, StorageError, ConfigError};
-pub use storage_types::{Storage, QueryFilter, QueryResult, TimeRange, SortOrder, GitCommit, StorageStats, SyncStrategy, ConflictResolution, SyncResult, RemoteSyncDirection, RemoteAuth, RemoteSyncOptions};
-pub use entity_types::{Entity, GenericEntity, EntityRegistry, EntityDeserializeFn};
+pub use entity_types::{Entity, EntityDeserializeFn, EntityRegistry, GenericEntity};
+pub use error::{ConfigError, EngramError, StorageError};
 pub use relationship::{
-    EntityRelationship, RelationshipFilter, EntityRelationType,
-    RelationshipDirection, RelationshipStrength, RelationshipConstraints,
+    EntityRelationType, EntityRelationship, RelationshipConstraints, RelationshipDirection,
+    RelationshipFilter, RelationshipStrength,
+};
+pub use storage_types::{
+    ConflictResolution, GitCommit, QueryFilter, QueryResult, RemoteAuth, RemoteSyncDirection,
+    RemoteSyncOptions, SortOrder, Storage, StorageStats, SyncResult, SyncStrategy, TimeRange,
 };

@@ -93,6 +93,7 @@ pub struct Lesson {
 
 impl Lesson {
     /// Create a new Lesson.
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         title: String,
         mistake: String,

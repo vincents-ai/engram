@@ -145,6 +145,12 @@ pub struct WorkflowEngineBuilder<S: Storage> {
     max_execution_steps: u64,
 }
 
+impl<S: Storage> Default for WorkflowEngineBuilder<S> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<S: Storage> WorkflowEngineBuilder<S> {
     pub fn new() -> Self {
         Self {
@@ -180,7 +186,7 @@ impl<S: Storage> WorkflowEngineBuilder<S> {
             .storage
             .ok_or_else(|| EngramError::Validation("Storage is required".to_string()))?;
 
-        let rule_engine = self.rule_engine.unwrap_or_else(RuleExecutionEngine::new);
+        let rule_engine = self.rule_engine.unwrap_or_default();
         let action_executor = self
             .action_executor
             .unwrap_or_else(|| ActionExecutor::new(true));
@@ -978,9 +984,9 @@ impl<S: Storage> WorkflowAutomationEngine<S> {
                         (Some(RuleValue::String(s)), Some(serde_json::Value::String(es))) => {
                             s == es
                         }
-                        (Some(RuleValue::Number(n)), Some(serde_json::Value::Number(en))) => en
-                            .as_f64()
-                            .map_or(false, |en| (n - en).abs() < f64::EPSILON),
+                        (Some(RuleValue::Number(n)), Some(serde_json::Value::Number(en))) => {
+                            en.as_f64().is_some_and(|en| (n - en).abs() < f64::EPSILON)
+                        }
                         _ => true,
                     }
                 } else {

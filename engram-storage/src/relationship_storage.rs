@@ -5,12 +5,12 @@
 use std::cmp::{Ordering, Reverse};
 use std::collections::{HashMap, HashSet, VecDeque};
 
-use engram_core::storage_types::Storage;
 use engram_core::entity_types::Entity;
+use engram_core::error::EngramError;
 use engram_core::relationship::{
     EntityRelationType, EntityRelationship, RelationshipDirection, RelationshipFilter,
 };
-use engram_core::error::EngramError;
+use engram_core::storage_types::Storage;
 
 /// Path in the entity graph
 #[derive(Debug, Clone)]
