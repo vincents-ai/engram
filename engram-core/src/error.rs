@@ -107,8 +107,8 @@ pub type Result<T> = std::result::Result<T, EngramError>;
 
 // Git-specific From impls (behind feature flags)
 #[cfg(feature = "gix")]
-impl From<gix::hash::decode::Error> for EngramError {
-    fn from(error: gix::hash::decode::Error) -> Self {
+impl From<gix::Error> for EngramError {
+    fn from(error: gix::Error) -> Self {
         Self::Git(error.to_string())
     }
 }

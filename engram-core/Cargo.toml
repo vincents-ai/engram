@@ -17,7 +17,7 @@ schemars = { version = "0.8", features = ["derive", "chrono"] }
 serde_yaml = "0.9"
 
 # Optional git dependencies for error conversions
-gix = { version = "0.83", default-features = false, features = ["max-performance-safe", "sha1"], optional = true }
+gix = { version = "0.90", default-features = false, features = ["max-performance", "sha1"], optional = true }
 
 [features]
 default = []
