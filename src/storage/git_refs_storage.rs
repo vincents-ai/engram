@@ -114,40 +114,52 @@ fn derive_project_id(repo: &gix::Repository) -> Result<String, EngramError> {
             use gix::refs::FullName;
             use gix::refs::Target;
 
-            repo.edit_reference(RefEdit {
-                change: Change::Update {
-                    log: gix::refs::transaction::LogChange {
-                        mode: gix::refs::transaction::RefLog::AndReference,
-                        force_create_reflog: false,
-                        message: Default::default(),
+            // Write these two refs with engram's own signature as the reflog
+            // committer. `edit_reference` takes the committer from the repository
+            // config, and a fresh repository — a container, CI, a brand new
+            // directory — usually has no `user.name` / `user.email`. That made
+            // workspace creation fail with "Could not update reflog", which took
+            // every engram tool down with it, on the very first run.
+            //
+            // The commit above is already signed by engram, so signing the
+            // reflog entry the same way is the consistent choice; it does not
+            // borrow an identity the user never configured.
+            let mut time_buf = gix::date::parse::TimeBuf::default();
+            let committer = engram_signature();
+            let committer = committer.to_ref(&mut time_buf);
+
+            repo.edit_references_as(
+                [RefEdit {
+                    change: Change::Update {
+                        log: gix::refs::transaction::LogChange::default(),
+                        expected: PreviousValue::MustNotExist,
+                        new: Target::Object(commit_id.detach()),
                     },
-                    expected: PreviousValue::MustNotExist,
-                    new: Target::Object(commit_id.detach()),
-                },
-                name: FullName::try_from("refs/heads/main")
-                    .map_err(|e| EngramError::Git(format!("Invalid ref name: {}", e)))?,
-                deref: false,
-            })
+                    name: FullName::try_from("refs/heads/main")
+                        .map_err(|e| EngramError::Git(format!("Invalid ref name: {}", e)))?,
+                    deref: false,
+                }],
+                Some(committer),
+            )
             .map_err(|e| EngramError::Git(format!("Failed to set refs/heads/main: {}", e)))?;
 
             // Set HEAD symbolic to refs/heads/main
-            repo.edit_reference(RefEdit {
-                change: Change::Update {
-                    log: gix::refs::transaction::LogChange {
-                        mode: gix::refs::transaction::RefLog::AndReference,
-                        force_create_reflog: false,
-                        message: Default::default(),
+            repo.edit_references_as(
+                [RefEdit {
+                    change: Change::Update {
+                        log: gix::refs::transaction::LogChange::default(),
+                        expected: PreviousValue::Any,
+                        new: Target::Symbolic(
+                            FullName::try_from("refs/heads/main")
+                                .map_err(|e| EngramError::Git(format!("Invalid ref name: {}", e)))?,
+                        ),
                     },
-                    expected: PreviousValue::Any,
-                    new: Target::Symbolic(
-                        FullName::try_from("refs/heads/main")
-                            .map_err(|e| EngramError::Git(format!("Invalid ref name: {}", e)))?,
-                    ),
-                },
-                name: FullName::try_from("HEAD")
-                    .map_err(|e| EngramError::Git(format!("Invalid ref name: {}", e)))?,
-                deref: false,
-            })
+                    name: FullName::try_from("HEAD")
+                        .map_err(|e| EngramError::Git(format!("Invalid ref name: {}", e)))?,
+                    deref: false,
+                }],
+                Some(committer),
+            )
             .map_err(|e| EngramError::Git(format!("Failed to set HEAD: {}", e)))?;
 
             commit_id.detach()
