@@ -1153,6 +1153,130 @@ pub fn pull_from_remote_gix(
     Ok(outcomes)
 }
 
+/// If `url` is a local filesystem remote (`file://…` or a plain path), return the
+/// repository path; otherwise `None` (a network remote).
+///
+/// Mirrors `gix_url::parse::find_scheme`: a `:` before any `/` is scp/ssh, a
+/// `://` is a scheme, and `user@host` is remote — everything else is a local path.
+fn local_remote_path(url: &str) -> Option<std::path::PathBuf> {
+    if let Some(stripped) = url.strip_prefix("file://") {
+        return Some(std::path::PathBuf::from(stripped));
+    }
+    if url.contains("://") || url.contains('@') {
+        return None;
+    }
+    let is_scp = url
+        .find(':')
+        .is_some_and(|colon| !url[..colon].contains('/'));
+    if is_scp || !url.contains('/') {
+        return None;
+    }
+    Some(std::path::PathBuf::from(url))
+}
+
+/// Push engram refs to a local filesystem repository without any network
+/// transport.
+///
+/// The gix *file* transport shells out to `git receive-pack` for push, which is
+/// both against engram's "never shell out to system git" rule and broken here
+/// (BrokenPipe). Instead, for a local remote we copy the closed object graph of
+/// each ref into the destination object database with gix's own `write_object`
+/// (pure Rust, no subprocess, no `auth callback` misclassification) and
+/// force-update the refs.
+///
+/// All refs share most objects (engram commits/trees), so the copy is
+/// deduped by object id with a visited set.
+fn push_to_local_remote(
+    src: &gix::Repository,
+    dest_path: std::path::PathBuf,
+    local_engram_refs: &[(String, String)],
+) -> Result<usize, EngramError> {
+    use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
+    use gix::refs::{FullName, Target};
+    use std::collections::HashSet;
+
+    let dest = gix::open(&dest_path).map_err(|e| {
+        EngramError::Git(format!(
+            "Failed to open local remote '{}': {}",
+            dest_path.display(),
+            e
+        ))
+    })?;
+
+    // 1. Copy every object reachable from the refs into the destination odb
+    //    (deduped by id). Commits bring their tree (and tree entries) and
+    //    parents; that closure covers the whole connected component.
+    let mut visited: HashSet<gix::ObjectId> = HashSet::new();
+    let mut stack: Vec<gix::ObjectId> = Vec::new();
+    stack.extend(
+        local_engram_refs
+            .iter()
+            .filter_map(|(_, oid_str)| gix::ObjectId::from_hex(oid_str.as_bytes()).ok()),
+    );
+
+    while let Some(oid) = stack.pop() {
+        if !visited.insert(oid) {
+            continue;
+        }
+        let obj = src
+            .find_object(oid)
+            .map_err(|e| EngramError::Git(format!("Failed to load object {oid}: {e}")))?;
+        let kind = obj.kind;
+        let hash_kind = src.object_hash();
+
+        // Parse the borrowed form to enumerate children (order only affects
+        // traversal, not correctness). Commits bring their tree and parents;
+        // trees bring their entry objects; blobs have none. We then write the
+        // same object into the destination odb.
+        let parsed = gix::objs::ObjectRef::from_bytes(&obj.data, kind, hash_kind)
+            .map_err(|e| EngramError::Git(format!("Failed to parse object {oid}: {e}")))?;
+        match &parsed {
+            gix::objs::ObjectRef::Commit(commit) => {
+                stack.push(commit.tree());
+                stack.extend(commit.parents());
+            }
+            gix::objs::ObjectRef::Tree(tree) => {
+                for entry in &tree.entries {
+                    stack.push(gix::ObjectId::from(entry.oid));
+                }
+            }
+            _ => {}
+        }
+
+        dest.write_object(&parsed)
+            .map_err(|e| EngramError::Git(format!("Failed to write object {oid}: {e}")))?;
+    }
+
+    // 2. Force-update every engram ref in the destination.
+    for (ref_name, oid_str) in local_engram_refs {
+        let name = FullName::try_from(ref_name.as_str())
+            .map_err(|e| EngramError::Git(format!("Invalid ref name '{}': {}", ref_name, e)))?;
+        let oid = gix::ObjectId::from_hex(oid_str.as_bytes())
+            .map_err(|e| EngramError::Git(format!("Invalid OID '{}': {}", oid_str, e)))?;
+        dest.edit_reference(RefEdit {
+            change: Change::Update {
+                log: LogChange {
+                    mode: gix::refs::transaction::RefLog::AndReference,
+                    force_create_reflog: false,
+                    message: format!("engram sync push: {}", ref_name).into(),
+                },
+                expected: PreviousValue::Any,
+                new: Target::Object(oid),
+            },
+            name,
+            deref: false,
+        })
+        .map_err(|e| EngramError::Git(format!("Failed to write ref '{}': {}", ref_name, e)))?;
+    }
+
+    println!(
+        "✅ Pushed {} engram refs to local remote '{}'",
+        local_engram_refs.len(),
+        dest_path.display()
+    );
+    Ok(local_engram_refs.len())
+}
+
 /// Push to remote using gix transport + pack generation
 pub fn push_to_remote_gix(
     remote_name: &str,
@@ -1222,6 +1346,16 @@ pub fn push_to_remote_gix(
         .pack_from_objects(&oids)
         .map_err(|e| EngramError::Git(format!("Failed to generate pack: {}", e)))?;
 
+    // Local filesystem remote: write the pack and refs directly — the gix file
+    // transport shells out to `git receive-pack` for push (against the no-shell-
+    // out rule) and fails here with BrokenPipe, and a bare path was even being
+    // misclassified as SSH by the transport. See `push_to_local_remote`.
+    if !dry_run {
+        if let Some(dest_path) = local_remote_path(&remote_config.url) {
+            return push_to_local_remote(&repo, dest_path, &local_engram_refs);
+        }
+    }
+
     // Set up russh env for SSH auth
     set_russh_env(auth);
 
@@ -1261,4 +1395,96 @@ pub fn push_to_remote_gix(
         remote_name
     );
     Ok(local_engram_refs.len())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
+    use gix::refs::{FullName, Target};
+
+    #[test]
+    fn local_remote_path_classifies_paths() {
+        // Local filesystem remotes.
+        assert_eq!(
+            local_remote_path("file:///home/u/.x"),
+            Some(std::path::PathBuf::from("/home/u/.x"))
+        );
+        assert_eq!(
+            local_remote_path("/home/u/.engram"),
+            Some(std::path::PathBuf::from("/home/u/.engram"))
+        );
+        assert_eq!(
+            local_remote_path("./.engram"),
+            Some(std::path::PathBuf::from("./.engram"))
+        );
+        assert_eq!(
+            local_remote_path("../other"),
+            Some(std::path::PathBuf::from("../other"))
+        );
+        // Network remotes.
+        assert_eq!(local_remote_path("ssh://git@github.com/o/r.git"), None);
+        assert_eq!(local_remote_path("git@github.com:o/r.git"), None);
+        assert_eq!(local_remote_path("github.com:o/r.git"), None);
+        if local_remote_path("ssh://x/y") != None {
+            panic!("scheme URL is not local");
+        }
+    }
+
+    /// A real local push round-trip: a source repo with an object+ref, pushed
+    /// into a freshly-init'd bare destination, becomes readable there and the
+    /// ref resolves — proving the object graph copy (not just the ref) landed.
+    #[test]
+    fn local_push_copies_objects_and_refs() {
+        let src_dir = tempfile::TempDir::new().unwrap();
+        let dest_dir = tempfile::TempDir::new().unwrap();
+        let dest_path = dest_dir.path().join("dest.git");
+
+        let src = gix::init(src_dir.path()).unwrap();
+        // Write a blob and point a ref at it.
+        let blob_id = src
+            .write_object(&gix::objs::Object::Blob(gix::objs::Blob {
+                data: b"hello sync".to_vec(),
+            }))
+            .unwrap()
+            .detach();
+        let name = FullName::try_from("refs/engram/t1").unwrap();
+        src.edit_reference(RefEdit {
+            change: Change::Update {
+                log: LogChange {
+                    mode: gix::refs::transaction::RefLog::AndReference,
+                    force_create_reflog: false,
+                    message: "seed".into(),
+                },
+                expected: PreviousValue::MustNotExist,
+                new: Target::Object(blob_id),
+            },
+            name: name.clone(),
+            deref: false,
+        })
+        .unwrap();
+
+        // The destination is a real (bare) repo we push into — initialize it
+        // before the push, exactly as `adp init`/sync would.
+        gix::init_bare(&dest_path).unwrap();
+
+        let refs = vec![("refs/engram/t1".to_string(), blob_id.to_string())];
+        push_to_local_remote(&src, dest_path.clone(), &refs).unwrap();
+
+        // Destination is a valid repo, the blob object landed, and the ref points at it.
+        let bare = gix::open(&dest_path).unwrap();
+        let found = bare.find_object(blob_id).ok();
+        assert!(
+            found.is_some(),
+            "object must be present in the destination odb"
+        );
+        let reference = bare
+            .try_find_reference("refs/engram/t1")
+            .unwrap()
+            .expect("ref must be present in the destination");
+        assert_eq!(
+            reference.target().id().to_string(),
+            blob_id.to_string()
+        );
+    }
 }
