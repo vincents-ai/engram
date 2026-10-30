@@ -33,12 +33,14 @@ pub mod skills;
 pub mod standard;
 pub mod state_reflection;
 pub mod sync;
+pub mod sync_gix;
 pub mod task;
 pub mod theory;
 pub mod utils;
 pub mod validation;
 pub mod workflow;
 
+pub use crate::evo::EvoCommands;
 pub use adr::*;
 pub use analytics::*;
 pub use compliance::*;
@@ -70,7 +72,6 @@ pub use sync::SyncCommands;
 pub use task::*;
 pub use theory::*;
 pub use validation::*;
-pub use crate::evo::EvoCommands;
 pub use workflow::*;
 
 use crate::ask::AskCommands;

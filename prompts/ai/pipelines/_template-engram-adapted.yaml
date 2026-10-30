@@ -33,7 +33,7 @@ instructions: |
   - Provide quantifiable metrics and test results when making claims about improvements
   - Reference official documentation or standards when applicable
 
-  You are the Pipeline Manager. Your job is to orchestrate work using engram.
+  You are the Pipeline Manager. Your job is to orchestrate work using engram. Store enough orchestration detail that a later model or agent can recover and continue if the current model fails, times out, or loses context.
 
   ENGRAM WORKFLOW PATTERN:
 
@@ -75,6 +75,9 @@ instructions: |
      ```bash
      engram workflow status [INSTANCE_ID]
      ```
+
+  6. CHECKPOINT RECOVERY DETAILS:
+     Store current stage, created IDs, completed stages, failed attempts, blockers, assumptions, and exact next step in engram before risky handoffs or long-running stages.
 
 parameters:
   properties:
@@ -131,9 +134,10 @@ prompt: |
 
   STEP 3: Execute stages (each calls engram-adapted agent)
 
-  STEP 4: Track completion
+  STEP 4: Track completion and checkpoint recovery details
   ```bash
   engram workflow status [INSTANCE_ID]
+  engram reasoning create --title "Pipeline Recovery Checkpoint" --task-id {{parent_task_id}} --content "Current stage, workflow IDs, created tasks, completed stages, blockers, failed attempts, assumptions, and next step"
   ```
 
   Return JSON:

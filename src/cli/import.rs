@@ -198,7 +198,7 @@ fn import_file<S: Storage + RelationshipStorage>(
         println!("Reading file: {:?}", file);
     }
 
-    let content = fs::read_to_string(file).map_err(|e| EngramError::Io(e))?;
+    let content = fs::read_to_string(file).map_err(EngramError::Io)?;
 
     // Parse frontmatter
     if verbose {
@@ -415,9 +415,9 @@ fn extract_markdown_sections(content: &str) -> Vec<(String, String)> {
     let mut sections = Vec::new();
 
     // Split content after frontmatter
-    let content_after_frontmatter = if content.starts_with("---") {
-        if let Some(pos) = content[3..].find("---") {
-            &content[pos + 6..]
+    let content_after_frontmatter = if let Some(stripped) = content.strip_prefix("---") {
+        if let Some(pos) = stripped.find("---") {
+            &stripped[pos + 3..]
         } else {
             content
         }

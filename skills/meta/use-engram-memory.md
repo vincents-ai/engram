@@ -7,11 +7,11 @@ description: "Use engram as persistent memory for all work. Store context, decis
 
 ## Overview
 
-Engram is your persistent memory system. Every significant piece of context, decision, and reasoning must be stored in engram and retrieved from engram. Your LLM context window is transient — engram is not.
+Engram is your persistent memory system. Every significant piece of context, decision, and reasoning must be stored in engram and retrieved from engram. Your LLM context window is transient — engram is not. Store enough detail that a later model or agent can recover and continue if the current model fails, loses context, or cannot finish the session.
 
 ## The Rule
 
-**Before acting on any task, search engram. Before finishing any task, validate via engram.**
+**Before acting on any task, search engram. Before finishing any task, validate via engram. Before any risky, long-running, or uncertain step, checkpoint the current state in engram for recovery by a later model.**
 
 ## When to Use
 
@@ -39,6 +39,8 @@ engram relationship connected --entity-id <UUID> --max-depth <N>
 ```
 
 ### Saving Information
+
+Save recovery-grade details, not just conclusions. Include what you tried, current hypotheses, commands run, files touched, partial results, blockers, and the next concrete step so a later model can resume after failure without re-discovering the same context.
 
 ```bash
 # Raw facts, error logs, code snippets, observations

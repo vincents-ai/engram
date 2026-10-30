@@ -80,6 +80,10 @@ pub enum PersonaCommands {
         /// Offset for pagination
         #[arg(long, short)]
         offset: Option<usize>,
+
+        /// Output format
+        #[arg(long, default_value = "table")]
+        output: String,
     },
     /// Show persona details (accepts slug or UUID prefix)
     Show {
@@ -190,6 +194,7 @@ fn resolve_persona<S: Storage>(storage: &S, id: &str) -> Result<Persona, EngramE
 // ── CRUD functions ────────────────────────────────────────────────────────────
 
 /// Create a new persona
+#[allow(clippy::too_many_arguments)]
 pub fn create_persona<S: Storage>(
     storage: &mut S,
     slug: String,
@@ -261,6 +266,7 @@ use crate::cli::utils::{create_table, truncate};
 use prettytable::row;
 
 /// List personas
+#[allow(clippy::too_many_arguments)]
 pub fn list_personas<S: Storage>(
     storage: &S,
     agent: Option<String>,
@@ -269,6 +275,7 @@ pub fn list_personas<S: Storage>(
     limit: Option<usize>,
     all: bool,
     offset: Option<usize>,
+    output: &str,
 ) -> Result<(), EngramError> {
     let ids = storage.list_ids(Persona::entity_type())?;
 
@@ -310,7 +317,20 @@ pub fn list_personas<S: Storage>(
     }
 
     if items.is_empty() {
-        println!("No personas found matching the criteria.");
+        if output == "json" {
+            println!("[]");
+        } else {
+            println!("No personas found matching the criteria.");
+        }
+        return Ok(());
+    }
+
+    // JSON output
+    if output == "json" {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&items).map_err(EngramError::Serialization)?
+        );
         return Ok(());
     }
 
@@ -406,6 +426,7 @@ pub fn show_persona<S: Storage>(storage: &S, id: &str) -> Result<(), EngramError
 }
 
 /// Update a persona (accepts slug or UUID prefix)
+#[allow(clippy::too_many_arguments)]
 pub fn update_persona<S: Storage>(
     storage: &mut S,
     id: &str,
@@ -853,7 +874,7 @@ mod tests {
     #[test]
     fn test_list_personas_empty() {
         let storage = create_test_storage();
-        assert!(list_personas(&storage, None, None, None, None, false, None).is_ok());
+        assert!(list_personas(&storage, None, None, None, None, false, None, "table").is_ok());
     }
 
     #[test]
@@ -883,7 +904,8 @@ mod tests {
             None,
             None,
             false,
-            None
+            None,
+            "table"
         )
         .is_ok());
     }

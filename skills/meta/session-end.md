@@ -7,7 +7,7 @@ description: "Universal session end protocol. Run at the end of every agent sess
 
 ## Overview
 
-This skill defines the universal protocol for ending an agent session. It closes any open tasks, generates a summary that the next agent can query, syncs to remote so the state is available to other agents, and validates that nothing is broken.
+This skill defines the universal protocol for ending an agent session. It closes any open tasks, generates a summary that the next agent can query, syncs to remote so the state is available to other agents, and validates that nothing is broken. The summary must contain enough operational detail for a later model or agent to resume if the current model failed, timed out, or stopped before completion.
 
 **Rule:** Run this protocol at the end of every agent session — always. An unclosed session loses its summary and breaks `engram next` context for the next agent.
 
@@ -44,7 +44,7 @@ engram task update <UUID> --status blocked --reason "<why blocked, what next age
 
 ### Step 2: End the Session with a Summary
 
-Generate the session summary — this is the handoff artifact for the next agent.
+Generate the session summary — this is the handoff artifact for the next agent. Treat it as a recovery record: include completed work, files touched, commands run, evidence gathered, unresolved blockers, failed attempts, assumptions, and the exact next step.
 
 ```bash
 engram session end --id <SESSION_ID> --generate-summary
@@ -93,7 +93,7 @@ engram validate check
 ## Key Principles
 
 1. **Always end sessions** — an unclosed session loses its summary and breaks `engram next` context for the next agent.
-2. **Generate the summary** — it is the handoff artifact; without it the next agent has no narrative context.
+2. **Generate the summary** — it is the handoff artifact; without it the next agent has no narrative context or recovery path after model/session failure.
 3. **Sync push is the last step** — the summary must be generated before pushing so the remote has the full handoff.
 4. **Close or block all in-progress tasks** — don't leave dangling state; the next agent needs to know what is done and what is blocked.
 5. **Validate before exiting** — `engram validate check` confirms nothing is broken and the workspace is clean.

@@ -171,7 +171,6 @@ pub enum ReasoningCommands {
         #[arg(long, conflicts_with = "limit")]
         all: bool,
 
-
         /// Offset for pagination
         #[arg(long, short)]
         offset: Option<usize>,
@@ -253,7 +252,7 @@ fn read_stdin() -> Result<String, EngramError> {
     let mut buffer = String::new();
     io::stdin()
         .read_to_string(&mut buffer)
-        .map_err(|e| EngramError::Io(e))?;
+        .map_err(EngramError::Io)?;
     Ok(buffer.trim().to_string())
 }
 
@@ -279,6 +278,7 @@ fn create_reasoning_from_input<S: Storage>(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn create_reasoning<S: Storage>(
     storage: &mut S,
     title: Option<String>,
@@ -349,7 +349,7 @@ pub fn create_reasoning<S: Storage>(
 
     // Set initial confidence if provided
     if let Some(conf) = confidence {
-        if conf < 0.0 || conf > 1.0 {
+        if !(0.0..=1.0).contains(&conf) {
             return Err(EngramError::Validation(
                 "Confidence must be between 0.0 and 1.0".to_string(),
             ));
@@ -399,6 +399,7 @@ pub fn create_reasoning<S: Storage>(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn add_reasoning_step<S: Storage>(
     storage: &mut S,
     id: &str,
@@ -439,7 +440,7 @@ pub fn add_reasoning_step<S: Storage>(
         ));
     };
 
-    if confidence < 0.0 || confidence > 1.0 {
+    if !(0.0..=1.0).contains(&confidence) {
         return Err(EngramError::Validation(
             "Confidence must be between 0.0 and 1.0".to_string(),
         ));
@@ -498,7 +499,7 @@ pub fn conclude_reasoning<S: Storage>(
         ));
     };
 
-    if confidence < 0.0 || confidence > 1.0 {
+    if !(0.0..=1.0).contains(&confidence) {
         return Err(EngramError::Validation(
             "Confidence must be between 0.0 and 1.0".to_string(),
         ));
@@ -577,10 +578,7 @@ pub fn list_reasoning<S: Storage>(
         return Ok(());
     }
 
-    println!(
-        "Found {} reasoning chain(s)",
-        reasoning_chains.len()
-    );
+    println!("Found {} reasoning chain(s)", reasoning_chains.len());
 
     let mut table = create_table();
     table.set_titles(row!["ID", "Status", "Title", "Task ID", "Agent"]);
@@ -611,6 +609,7 @@ pub fn list_reasoning<S: Storage>(
 }
 
 /// Search reasoning by IBIS type, polarity, or keyword
+#[allow(clippy::too_many_arguments)]
 pub fn search_reasoning<S: Storage>(
     storage: &S,
     ibis_type: Option<crate::entities::reasoning::IBISNodeType>,

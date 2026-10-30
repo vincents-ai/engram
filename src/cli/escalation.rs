@@ -260,6 +260,7 @@ pub enum EscalationCommands {
 }
 
 /// Create a new escalation request
+#[allow(clippy::too_many_arguments)]
 pub fn create_escalation<S: Storage>(
     storage: &mut S,
     agent: Option<String>,
@@ -367,6 +368,7 @@ use crate::cli::utils::{create_table, truncate};
 use prettytable::row;
 
 /// List escalation requests
+#[allow(clippy::too_many_arguments)]
 pub fn list_escalations<S: Storage>(
     storage: &S,
     agent_id: Option<String>,
@@ -447,46 +449,44 @@ pub fn list_escalations<S: Storage>(
     if json {
         let generic_escalations: Vec<_> = escalations.iter().map(|e| e.to_generic()).collect();
         println!("{}", serde_json::to_string_pretty(&generic_escalations)?);
+    } else if escalations.is_empty() {
+        println!("No escalation requests found.");
     } else {
-        if escalations.is_empty() {
-            println!("No escalation requests found.");
-        } else {
-            let mut table = create_table();
-            table.set_titles(row![
-                "ID",
-                "St",
-                "Agent",
-                "Operation",
-                "Type",
-                "Priority",
-                "Created"
+        let mut table = create_table();
+        table.set_titles(row![
+            "ID",
+            "St",
+            "Agent",
+            "Operation",
+            "Type",
+            "Priority",
+            "Created"
+        ]);
+
+        for escalation in escalations {
+            let status_icon = match escalation.status {
+                EscalationStatus::Pending => "⏳",
+                EscalationStatus::Approved => "✅",
+                EscalationStatus::Denied => "❌",
+                EscalationStatus::Expired => "⏰",
+                EscalationStatus::Cancelled => "🚫",
+            };
+
+            let op_type = format!("{:?}", escalation.operation_type);
+            let priority = format!("{:?}", escalation.priority);
+
+            table.add_row(row![
+                &escalation.id[..8],
+                status_icon,
+                truncate(&escalation.agent_id, 15),
+                truncate(&escalation.operation_context.operation, 30),
+                truncate(&op_type, 15),
+                priority,
+                escalation.created_at.format("%Y-%m-%d %H:%M")
             ]);
-
-            for escalation in escalations {
-                let status_icon = match escalation.status {
-                    EscalationStatus::Pending => "⏳",
-                    EscalationStatus::Approved => "✅",
-                    EscalationStatus::Denied => "❌",
-                    EscalationStatus::Expired => "⏰",
-                    EscalationStatus::Cancelled => "🚫",
-                };
-
-                let op_type = format!("{:?}", escalation.operation_type);
-                let priority = format!("{:?}", escalation.priority);
-
-                table.add_row(row![
-                    &escalation.id[..8],
-                    status_icon,
-                    truncate(&escalation.agent_id, 15),
-                    truncate(&escalation.operation_context.operation, 30),
-                    truncate(&op_type, 15),
-                    priority,
-                    escalation.created_at.format("%Y-%m-%d %H:%M")
-                ]);
-            }
-
-            table.printstd();
         }
+
+        table.printstd();
     }
 
     Ok(())
@@ -594,6 +594,7 @@ pub fn get_escalation<S: Storage>(storage: &S, id: String, json: bool) -> Result
 }
 
 /// Review an escalation request
+#[allow(clippy::too_many_arguments)]
 pub fn review_escalation<S: Storage>(
     storage: &mut S,
     id: String,
@@ -790,30 +791,25 @@ pub fn cleanup_escalations<S: Storage>(
             })).collect::<Vec<_>>()
         });
         println!("{}", serde_json::to_string_pretty(&result)?);
+    } else if expired_requests.is_empty() {
+        println!("No expired escalation requests found.");
     } else {
-        if expired_requests.is_empty() {
-            println!("No expired escalation requests found.");
+        if apply {
+            println!("✅ Marked {} expired escalation requests.", updated_count);
         } else {
-            if apply {
-                println!("✅ Marked {} expired escalation requests.", updated_count);
-            } else {
-                println!(
-                    "🔍 Found {} expired escalation requests (dry run):",
-                    expired_requests.len()
-                );
-                println!("Run with --apply to mark them as expired.");
-            }
+            println!(
+                "🔍 Found {} expired escalation requests (dry run):",
+                expired_requests.len()
+            );
+            println!("Run with --apply to mark them as expired.");
+        }
 
-            for request in &expired_requests {
-                let hours_expired = (chrono::Utc::now() - request.expires_at).num_hours();
-                println!(
-                    "  • {} [{}] - {} (expired {}h ago)",
-                    request.id,
-                    request.agent_id,
-                    request.operation_context.operation,
-                    hours_expired
-                );
-            }
+        for request in &expired_requests {
+            let hours_expired = (chrono::Utc::now() - request.expires_at).num_hours();
+            println!(
+                "  • {} [{}] - {} (expired {}h ago)",
+                request.id, request.agent_id, request.operation_context.operation, hours_expired
+            );
         }
     }
 
@@ -885,44 +881,42 @@ pub fn show_escalation_stats<S: Storage>(
             })).collect::<Vec<_>>()
         });
         println!("{}", serde_json::to_string_pretty(&stats)?);
-    } else {
-        if let Some(filter_agent_id) = agent_id {
-            println!(
-                "🚨 Escalation Stats for Agent: {} (last {} days)",
-                filter_agent_id, days
-            );
-            if agent_requests.is_empty() {
-                println!("  No escalation requests found for this agent.");
-            } else {
-                println!("  Total requests: {}", agent_requests.len());
-                for request in agent_requests {
-                    println!(
-                        "  • {} - {:?} ({:?}, {:?})",
-                        request.operation_context.operation,
-                        request.status,
-                        request.priority,
-                        request.operation_type
-                    );
-                }
-            }
+    } else if let Some(filter_agent_id) = agent_id {
+        println!(
+            "🚨 Escalation Stats for Agent: {} (last {} days)",
+            filter_agent_id, days
+        );
+        if agent_requests.is_empty() {
+            println!("  No escalation requests found for this agent.");
         } else {
-            println!("🚨 Escalation Statistics (last {} days):", days);
-            println!("  Total requests: {}", total_requests);
-
-            println!("  Status distribution:");
-            for (status, count) in status_counts {
-                println!("    {}: {}", status, count);
+            println!("  Total requests: {}", agent_requests.len());
+            for request in agent_requests {
+                println!(
+                    "  • {} - {:?} ({:?}, {:?})",
+                    request.operation_context.operation,
+                    request.status,
+                    request.priority,
+                    request.operation_type
+                );
             }
+        }
+    } else {
+        println!("🚨 Escalation Statistics (last {} days):", days);
+        println!("  Total requests: {}", total_requests);
 
-            println!("  Priority distribution:");
-            for (priority, count) in priority_counts {
-                println!("    {}: {}", priority, count);
-            }
+        println!("  Status distribution:");
+        for (status, count) in status_counts {
+            println!("    {}: {}", status, count);
+        }
 
-            println!("  Operation type distribution:");
-            for (op_type, count) in operation_type_counts {
-                println!("    {}: {}", op_type, count);
-            }
+        println!("  Priority distribution:");
+        for (priority, count) in priority_counts {
+            println!("    {}: {}", priority, count);
+        }
+
+        println!("  Operation type distribution:");
+        for (op_type, count) in operation_type_counts {
+            println!("    {}: {}", op_type, count);
         }
     }
 

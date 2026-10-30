@@ -39,7 +39,7 @@ instructions: |
   [Original purpose]
 
   ENGRAM INTEGRATION:
-  You MUST use engram for all memory and coordination:
+  You MUST use engram for all memory and coordination. Store enough detail that a later model or agent can recover and continue if the current model fails, times out, or loses context:
 
   1. BEFORE WORK:
      - Get your task from engram: `engram task show [TASK_ID]`
@@ -48,6 +48,7 @@ instructions: |
 
   2. DURING WORK:
      - Store progress: `engram reasoning create --title "[Work] Progress" --task-id [TASK_ID] --content "[What you did]"`
+     - Store recovery checkpoints before risky or long-running work: include files touched, commands run, partial findings, blockers, failed attempts, assumptions, and next steps.
      - Store decisions: `engram reasoning create --title "Decision: [What]" --task-id [TASK_ID] --content "[Rationale]" --confidence 0.9`
 
   3. AFTER WORK:
@@ -57,7 +58,7 @@ instructions: |
 
   4. NEVER:
      - Return JSON only - store in engram
-     - Lose work in conversation context
+     - Lose work in conversation context or rely on the current model/session to retain recovery details
      - Skip engram commands
 
   YOUR BEHAVIORS:
@@ -78,9 +79,9 @@ prompt: |
   engram relationship connected --entity-id {{task_id}} --references
   ```
 
-  STEP 3: Do your work, storing progress as you go
+  STEP 3: Do your work, storing progress and recovery checkpoints as you go
   ```bash
-  engram reasoning create --title "[Progress]" --task-id {{task_id}} --content "[What you did]"
+  engram reasoning create --title "[Progress]" --task-id {{task_id}} --content "[What you did, files touched, commands run, partial findings, blockers, and next step]"
   ```
 
   STEP 4: Store your final result in engram

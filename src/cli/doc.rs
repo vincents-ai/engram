@@ -360,8 +360,6 @@ fn slugify(s: &str) -> String {
         .map(|c| {
             if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
                 c.to_ascii_lowercase()
-            } else if c.is_whitespace() {
-                '-'
             } else {
                 '-'
             }
@@ -374,7 +372,7 @@ fn slugify(s: &str) -> String {
 }
 
 fn title_case(s: &str) -> String {
-    s.split(|c: char| c == '-' || c == '_')
+    s.split(['-', '_'])
         .map(|word| {
             let mut chars = word.chars();
             match chars.next() {
@@ -646,6 +644,7 @@ fn handle_chunk_command<S: Storage>(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn write_chunk<S: Storage>(
     storage: &mut S,
     topic: &str,

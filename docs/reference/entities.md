@@ -182,8 +182,17 @@
 | source | `Option<String>` | Source URL |
 | tags | `Vec<String>` | Tags |
 | agent | `String` | Author |
-| usage_count | `u32` | Times referenced |
+| bounded_context | `Option<String>` | Optional scope where this knowledge applies |
+| related_knowledge | `Vec<String>` | Related knowledge IDs |
+| contexts | `Vec<String>` | Contexts where this applies |
+| usage_count | `u64` | Times referenced |
+| last_used | `Option<DateTime>` | Last usage timestamp |
+| decay_weight | `Option<f64>` | Freshness score computed as `e^(-lambda * days_since_last_used)`, clamped to 0.0-1.0 |
+| citation_count | `u32` | Number of inbound entity relationships/citations |
+| last_used_at | `Option<String>` | ISO 8601 timestamp of last reference |
+| metadata | `HashMap` | Additional data |
 | created_at | `DateTime` | Creation timestamp |
+| updated_at | `DateTime` | Last update |
 
 ## Lesson
 
@@ -243,10 +252,48 @@
 |-------|------|-------------|
 | id | `String` | UUID |
 | title | `String` | Decision title |
-| description | `String` | Rationale |
-| task_id | `Option<String>` | Related task |
+| task_id | `String` | Related task |
+| steps | `Vec<ReasoningStep>` | Ordered reasoning steps |
+| conclusion | `String` | Final conclusion |
+| confidence | `f64` | Overall confidence, 0.0-1.0 |
 | agent | `String` | Author |
 | created_at | `DateTime` | Creation timestamp |
+| tags | `Vec<String>` | Tags |
+| context_ids | `Vec<String>` | Supporting context IDs |
+| knowledge_ids | `Vec<String>` | Supporting knowledge IDs |
+| metadata | `HashMap` | Additional data |
+| ibis_mode | `Option<bool>` | Whether IBIS capture mode was used |
+| positions | `Vec<IbisPosition>` | Captured issue/position/argument entries, flattened to steps for compatibility |
+| prov_used | `Vec<String>` | W3C PROV entities used |
+| prov_generated | `Vec<String>` | W3C PROV entities generated |
+| prov_attributed_to | `String` | W3C PROV attribution |
+| prov_activity_id | `Option<String>` | External PROV activity ID |
+| prov_was_informed_by | `Vec<String>` | Informing activity IDs |
+| ibis_node_type | `Option<Enum>` | Chain-level IBIS node type: question, idea, pro, con, reference, note |
+| ibis_parent_id | `Option<String>` | Parent IBIS node ID |
+| ibis_position | `Option<f64>` | Optional layout/order position |
+
+### ReasoningStep
+
+| Field | Type | Description |
+|-------|------|-------------|
+| id | `String` | Step ID |
+| description | `String` | Step description |
+| conclusion | `String` | Step conclusion |
+| evidence | `Vec<String>` | Supporting evidence |
+| confidence | `f64` | Step confidence |
+| timestamp | `DateTime` | Step timestamp |
+| ibis_type | `Option<Enum>` | question, idea, pro, con, reference, note |
+| ibis_polarity | `Option<Enum>` | pro or con |
+| parent_step_id | `Option<String>` | Parent step for IBIS hierarchy |
+
+### IbisPosition
+
+| Field | Type | Description |
+|-------|------|-------------|
+| position_type | `Enum` | issue, position, or argument |
+| content | `String` | Position text |
+| responds_to | `Option<String>` | Parent issue/position/argument this position responds to |
 
 ## Relationship
 

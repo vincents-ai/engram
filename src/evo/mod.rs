@@ -16,29 +16,29 @@
 //! - `engram evo loop` — run the full improvement loop
 //! - `engram evo report` — format evaluation reports
 
-pub mod types;
-pub mod cli;
-#[allow(unused_imports)]
-pub mod ingest;
 #[allow(unused_imports)]
 pub mod capture;
+pub mod cli;
 #[allow(unused_imports)]
 pub mod eval;
 #[allow(unused_imports)]
+pub mod ingest;
+#[allow(unused_imports)]
 pub mod llm;
+#[allow(unused_imports)]
+pub mod loop_;
 #[allow(unused_imports)]
 pub mod optimizer;
 #[allow(unused_imports)]
 pub mod replay;
 #[allow(unused_imports)]
-pub mod loop_;
-#[allow(unused_imports)]
 pub mod report;
+pub mod types;
 
-pub use types::*;
 pub use cli::{
-    EvoCommands, IngestArgs, EvaluateArgs, OptimizeArgs, ReplayArgs, LoopArgs, ReportArgs,
+    EvaluateArgs, EvoCommands, IngestArgs, LoopArgs, OptimizeArgs, ReplayArgs, ReportArgs,
 };
+pub use types::*;
 
 /// Handle the evo subcommand
 pub fn handle_evo_command(cmd: EvoCommands) -> Result<(), crate::error::EngramError> {

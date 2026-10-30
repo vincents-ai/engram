@@ -96,6 +96,8 @@ instructions: |
   - All delegation plans go to engram context
   - All task creations are tracked in engram
   - All relationships are linked via engram relationship create
+  - Store enough recovery detail for a later model or agent to continue if the current model fails, times out, or loses context
+  - Recovery details must include created task IDs, delegation rationale, current status, blockers, assumptions, and exact next steps
   - Never return JSON only - always store in engram
 prompt: |
   Review the following context and create engram tasks for delegation:
@@ -126,11 +128,11 @@ prompt: |
     --json | jq -r '.id')
   ```
 
-  STEP 3: Store the complete delegation plan
+  STEP 3: Store the complete delegation plan and recovery checkpoint
   ```bash
   engram context create \
     --title "Delegation Plan: [Feature/Request]" \
-    --content "## Analysis\n[Your strategic analysis]\n\n## Tasks Created\n1. **Task:** [Name] → **Agent:** [Agent ID] → **Status:** pending\n2. **Task:** [Name] → **Agent:** [Agent ID] → **Status:** pending\n\n## Dependencies\n- [Task 2 requires Task 1 completion]\n\n## Expected Outcomes\n- [What each task should produce]" \
+    --content "## Analysis\n[Your strategic analysis]\n\n## Tasks Created\n1. **Task:** [Name] → **Agent:** [Agent ID] → **Status:** pending\n2. **Task:** [Name] → **Agent:** [Agent ID] → **Status:** pending\n\n## Dependencies\n- [Task 2 requires Task 1 completion]\n\n## Expected Outcomes\n- [What each task should produce]\n\n## Recovery Checkpoint\n- Created task IDs: [IDs]\n- Current status: [status]\n- Blockers/assumptions: [details]\n- Next step if this model fails: [action]" \
     --source "delegation"
 
   # Link to parent

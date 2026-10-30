@@ -2243,7 +2243,7 @@ fn draw_analytics_view(
 /// Build a text-based progress bar: `███░░░░░░░`
 fn build_bar(value: f64, max: f64, width: usize) -> String {
     let clamped = if max > 0.0 {
-        (value / max).min(1.0).max(0.0)
+        (value / max).clamp(0.0, 1.0)
     } else {
         0.0
     };

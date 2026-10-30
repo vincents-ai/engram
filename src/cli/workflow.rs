@@ -89,6 +89,10 @@ pub enum WorkflowCommands {
         /// Show all results (no limit)
         #[arg(long, conflicts_with = "limit")]
         all: bool,
+
+        /// Output format
+        #[arg(long, default_value = "table")]
+        output: String,
     },
     /// Add state to workflow
     AddState {
@@ -405,6 +409,7 @@ pub fn delete_workflow<S: Storage>(storage: &mut S, id: &str) -> Result<(), Engr
 }
 
 /// List workflows
+#[allow(clippy::too_many_arguments)]
 pub fn list_workflows<S: Storage>(
     writer: &mut dyn std::io::Write,
     storage: &S,
@@ -413,6 +418,7 @@ pub fn list_workflows<S: Storage>(
     limit: usize,
     offset: usize,
     all: bool,
+    output: &str,
 ) -> Result<(), EngramError> {
     use crate::cli::utils::{create_table, truncate};
     use crate::storage::QueryFilter;
@@ -443,7 +449,33 @@ pub fn list_workflows<S: Storage>(
     let result = storage.query(&filter)?;
 
     if result.entities.is_empty() {
-        writeln!(writer, "No workflows found matching the criteria.")?;
+        if output == "json" {
+            writeln!(writer, "[]")?;
+        } else {
+            writeln!(writer, "No workflows found matching the criteria.")?;
+        }
+        return Ok(());
+    }
+
+    // JSON output
+    if output == "json" {
+        let items: Vec<serde_json::Value> = result
+            .entities
+            .iter()
+            .map(|e| {
+                serde_json::json!({
+                    "id": e.id,
+                    "entity_type": e.entity_type,
+                    "agent": e.agent,
+                    "data": e.data,
+                })
+            })
+            .collect();
+        writeln!(
+            writer,
+            "{}",
+            serde_json::to_string_pretty(&items).map_err(EngramError::Serialization)?
+        )?;
         return Ok(());
     }
 
@@ -1090,6 +1122,7 @@ pub fn cancel_workflow_instance<S: Storage + 'static>(
 }
 
 /// Execute an action (external command, notification, etc.)
+#[allow(clippy::too_many_arguments)]
 pub fn execute_action<S: Storage + 'static>(
     _storage: S,
     action_type: String,

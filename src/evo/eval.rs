@@ -8,9 +8,9 @@
 //!
 //! Composite score = 0.25 * (step_efficiency + tool_correctness + plan_adherence + task_completion)
 
+use crate::error::EngramError;
 use crate::evo::cli::EvaluateArgs;
 use crate::evo::types::*;
-use crate::error::EngramError;
 use chrono::Utc;
 use std::fs;
 use std::io::{self, Read as IoRead};
@@ -22,18 +22,17 @@ pub fn handle_evaluate(args: EvaluateArgs) -> Result<(), EngramError> {
         let mut buf = String::new();
         io::stdin()
             .read_to_string(&mut buf)
-            .map_err(|e| EngramError::Io(e))?;
+            .map_err(EngramError::Io)?;
         buf
     } else {
-        fs::read_to_string(&args.trajectory)
-            .map_err(|e| EngramError::Io(e))?
+        fs::read_to_string(&args.trajectory).map_err(EngramError::Io)?
     };
 
     // Parse — supports both single trajectory and array
     let trajectories: Vec<Trajectory> = if trajectory_json.trim_start().starts_with('[') {
-        serde_json::from_str(&trajectory_json).map_err(|e| EngramError::Serialization(e))?
+        serde_json::from_str(&trajectory_json).map_err(EngramError::Serialization)?
     } else {
-        vec![serde_json::from_str(&trajectory_json).map_err(|e| EngramError::Serialization(e))?]
+        vec![serde_json::from_str(&trajectory_json).map_err(EngramError::Serialization)?]
     };
 
     let mut reports = Vec::new();
@@ -43,14 +42,12 @@ pub fn handle_evaluate(args: EvaluateArgs) -> Result<(), EngramError> {
     }
 
     // Output
-    let output_json = serde_json::to_string_pretty(&reports)
-        .map_err(|e| EngramError::Serialization(e))?;
+    let output_json = serde_json::to_string_pretty(&reports).map_err(EngramError::Serialization)?;
 
     if args.output == "-" {
         println!("{}", output_json);
     } else {
-        fs::write(&args.output, &output_json)
-            .map_err(|e| EngramError::Io(e))?;
+        fs::write(&args.output, &output_json).map_err(EngramError::Io)?;
         eprintln!("Wrote {} report(s) to {}", reports.len(), args.output);
     }
 
@@ -66,18 +63,23 @@ pub fn evaluate_trajectory(trajectory: &Trajectory, skip_llm: bool) -> EvalRepor
         0.5 // Neutral placeholder when LLM is skipped
     } else {
         match crate::evo::llm::LlmClient::new() {
-            Ok(client) => {
-                match crate::evo::llm::evaluate_plan_adherence(&client, trajectory) {
-                    Ok(result) => {
-                        tracing::info!("Plan adherence LLM score: {:.3} - {}", result.score, result.reasoning);
-                        result.score
-                    }
-                    Err(e) => {
-                        tracing::warn!("LLM plan adherence failed, falling back to heuristic: {}", e);
-                        plan_adherence_heuristic(trajectory)
-                    }
+            Ok(client) => match crate::evo::llm::evaluate_plan_adherence(&client, trajectory) {
+                Ok(result) => {
+                    tracing::info!(
+                        "Plan adherence LLM score: {:.3} - {}",
+                        result.score,
+                        result.reasoning
+                    );
+                    result.score
                 }
-            }
+                Err(e) => {
+                    tracing::warn!(
+                        "LLM plan adherence failed, falling back to heuristic: {}",
+                        e
+                    );
+                    plan_adherence_heuristic(trajectory)
+                }
+            },
             Err(e) => {
                 tracing::warn!("No LLM client available, using heuristic: {}", e);
                 plan_adherence_heuristic(trajectory)
@@ -141,11 +143,7 @@ pub fn evaluate_trajectory(trajectory: &Trajectory, skip_llm: bool) -> EvalRepor
 ///
 /// Returns 0.0-1.0 where 1.0 means perfect efficiency.
 pub fn step_efficiency(trajectory: &Trajectory) -> f64 {
-    let total_tool_calls: usize = trajectory
-        .turns
-        .iter()
-        .map(|t| t.tool_calls.len())
-        .sum();
+    let total_tool_calls: usize = trajectory.turns.iter().map(|t| t.tool_calls.len()).sum();
 
     if total_tool_calls == 0 {
         return 1.0; // No tool calls = nothing to be inefficient about
@@ -250,9 +248,14 @@ pub fn task_completion(trajectory: &Trajectory) -> f64 {
         // Check for success indicators in final text
         if let Some(text) = &last_turn.assistant_text {
             let lower = text.to_lowercase();
-            if lower.contains("done") || lower.contains("complete") || lower.contains("finished")
-                || lower.contains("success") || lower.contains("created") || lower.contains("implemented")
-                || lower.contains("fixed") || lower.contains("resolved")
+            if lower.contains("done")
+                || lower.contains("complete")
+                || lower.contains("finished")
+                || lower.contains("success")
+                || lower.contains("created")
+                || lower.contains("implemented")
+                || lower.contains("fixed")
+                || lower.contains("resolved")
             {
                 score += 0.2;
             }
@@ -428,7 +431,9 @@ fn generate_suggestions(
     }
 
     if scores.tool_correctness < 0.7 {
-        let error_tools: Vec<String> = trajectory.turns.iter()
+        let error_tools: Vec<String> = trajectory
+            .turns
+            .iter()
             .flat_map(|t| t.tool_results.iter())
             .filter(|r| r.is_error)
             .map(|r| r.tool_name.clone())
@@ -454,20 +459,27 @@ fn generate_suggestions(
 
     if let Some(idx) = critical_turn {
         if let Some(turn) = trajectory.turns.get(idx) {
-            let error_results: Vec<&ToolResult> = turn.tool_results.iter().filter(|r| r.is_error).collect();
+            let error_results: Vec<&ToolResult> =
+                turn.tool_results.iter().filter(|r| r.is_error).collect();
             if !error_results.is_empty() {
                 suggestions.push(format!(
                     "Critical failure at turn {}: {} error(s) in tool calls ({})",
                     idx,
                     error_results.len(),
-                    error_results.iter().map(|r| r.tool_name.as_str()).collect::<Vec<_>>().join(", ")
+                    error_results
+                        .iter()
+                        .map(|r| r.tool_name.as_str())
+                        .collect::<Vec<_>>()
+                        .join(", ")
                 ));
             }
         }
     }
 
     // Check for retry loops
-    let consecutive_errors: usize = trajectory.turns.iter()
+    let consecutive_errors: usize = trajectory
+        .turns
+        .iter()
         .flat_map(|t| t.tool_results.iter())
         .filter(|r| r.is_error)
         .count();
@@ -480,7 +492,9 @@ fn generate_suggestions(
     }
 
     if suggestions.is_empty() {
-        suggestions.push("No major issues detected. Trajectory scored well across all metrics.".to_string());
+        suggestions.push(
+            "No major issues detected. Trajectory scored well across all metrics.".to_string(),
+        );
     }
 
     suggestions

@@ -8,6 +8,7 @@ use validator::Validate;
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ReasoningEventType {
+    AutoStored,
     Created,
     StatusChanged,
     ConclusionReached,
@@ -19,6 +20,7 @@ pub enum ReasoningEventType {
 impl clap::ValueEnum for ReasoningEventType {
     fn value_variants<'a>() -> &'a [Self] {
         &[
+            Self::AutoStored,
             Self::Created,
             Self::StatusChanged,
             Self::ConclusionReached,
@@ -30,6 +32,7 @@ impl clap::ValueEnum for ReasoningEventType {
 
     fn to_possible_value(&self) -> Option<clap::builder::PossibleValue> {
         Some(match self {
+            Self::AutoStored => clap::builder::PossibleValue::new("auto_stored"),
             Self::Created => clap::builder::PossibleValue::new("created"),
             Self::StatusChanged => clap::builder::PossibleValue::new("status_changed"),
             Self::ConclusionReached => clap::builder::PossibleValue::new("conclusion_reached"),
@@ -53,6 +56,9 @@ pub struct ReasoningEvent {
     #[serde(rename = "event_type")]
     pub event_type: ReasoningEventType,
 
+    #[serde(rename = "agent", default)]
+    pub agent: String,
+
     #[serde(rename = "timestamp")]
     pub timestamp: DateTime<Utc>,
 
@@ -73,6 +79,7 @@ impl ReasoningEvent {
             id: Uuid::new_v4().to_string(),
             reasoning_id,
             event_type,
+            agent: String::new(),
             timestamp: Utc::now(),
             content,
             metadata: HashMap::new(),
@@ -90,7 +97,7 @@ impl Entity for ReasoningEvent {
     }
 
     fn agent(&self) -> &str {
-        ""
+        &self.agent
     }
 
     fn timestamp(&self) -> DateTime<Utc> {
@@ -115,7 +122,7 @@ impl Entity for ReasoningEvent {
         GenericEntity {
             id: self.id.clone(),
             entity_type: Self::entity_type().to_string(),
-            agent: String::new(),
+            agent: self.agent.clone(),
             timestamp: self.timestamp,
             data: serde_json::to_value(self).unwrap_or_default(),
         }
@@ -197,6 +204,7 @@ mod tests {
     #[test]
     fn test_reasoning_event_type_all_variants() {
         let variants = vec![
+            r#""auto_stored""#,
             r#""created""#,
             r#""status_changed""#,
             r#""conclusion_reached""#,
@@ -208,7 +216,8 @@ mod tests {
             let event_type: ReasoningEventType = serde_json::from_str(variant).unwrap();
             assert!(matches!(
                 event_type,
-                ReasoningEventType::Created
+                ReasoningEventType::AutoStored
+                    | ReasoningEventType::Created
                     | ReasoningEventType::StatusChanged
                     | ReasoningEventType::ConclusionReached
                     | ReasoningEventType::EvidenceAdded

@@ -239,7 +239,7 @@ fn read_stdin() -> Result<String, EngramError> {
     let mut buffer = String::new();
     io::stdin()
         .read_to_string(&mut buffer)
-        .map_err(|e| EngramError::Io(e))?;
+        .map_err(EngramError::Io)?;
     Ok(buffer.trim().to_string())
 }
 
@@ -249,6 +249,7 @@ fn read_file(path: &str) -> Result<String, EngramError> {
 }
 
 /// Create task command
+#[allow(clippy::too_many_arguments)]
 pub fn create_task<S: Storage>(
     storage: &mut S,
     title: Option<String>,
@@ -579,6 +580,7 @@ use crate::cli::utils::{create_table, truncate};
 use prettytable::row;
 
 /// List tasks command
+#[allow(clippy::too_many_arguments)]
 pub fn list_tasks<S: Storage>(
     storage: &S,
     agent: Option<&str>,
@@ -999,20 +1001,18 @@ pub fn archive_tasks_bulk<S: Storage>(
         return Ok(());
     }
 
-    if output_format == "json" || output_format == "text" {
-        if output_format == "text" {
-            println!(
-                "{} {} task(s) matching filters:",
-                if dry_run { "DRY RUN:" } else { "Archiving" },
-                matched.len()
-            );
-            let mut table = create_table();
-            table.set_titles(row!["ID", "Status", "Title"]);
-            for (id, title, status) in &matched {
-                table.add_row(row![&id[..8], status, truncate(title, 50)]);
-            }
-            table.printstd();
+    if output_format == "text" {
+        println!(
+            "{} {} task(s) matching filters:",
+            if dry_run { "DRY RUN:" } else { "Archiving" },
+            matched.len()
+        );
+        let mut table = create_table();
+        table.set_titles(row!["ID", "Status", "Title"]);
+        for (id, title, status) in &matched {
+            table.add_row(row![&id[..8], status, truncate(title, 50)]);
         }
+        table.printstd();
     }
 
     if dry_run {
@@ -1037,23 +1037,19 @@ pub fn archive_tasks_bulk<S: Storage>(
     }
 
     for (id, _title, _status) in &matched {
-        if let Ok(existing) = storage.get(id, "task") {
-            if let Some(generic) = existing {
-                if let Ok(mut task) = Task::from_generic(generic) {
-                    if task.metadata.contains_key("archived_at") {
-                        skipped_count += 1;
-                        continue;
-                    }
-                    task.metadata.insert(
-                        "archived_at".to_string(),
-                        serde_json::Value::String(now.to_rfc3339()),
-                    );
-                    let updated_generic = task.to_generic();
-                    if storage.store(&updated_generic).is_ok() {
-                        archived_count += 1;
-                    } else {
-                        skipped_count += 1;
-                    }
+        if let Ok(Some(generic)) = storage.get(id, "task") {
+            if let Ok(mut task) = Task::from_generic(generic) {
+                if task.metadata.contains_key("archived_at") {
+                    skipped_count += 1;
+                    continue;
+                }
+                task.metadata.insert(
+                    "archived_at".to_string(),
+                    serde_json::Value::String(now.to_rfc3339()),
+                );
+                let updated_generic = task.to_generic();
+                if storage.store(&updated_generic).is_ok() {
+                    archived_count += 1;
                 } else {
                     skipped_count += 1;
                 }

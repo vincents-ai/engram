@@ -136,10 +136,11 @@ pub struct EvalScores {
 impl EvalScores {
     /// Compute composite as weighted average
     pub fn compute_composite(&mut self) {
-        self.composite = 0.25 * (self.step_efficiency
-            + self.tool_correctness
-            + self.plan_adherence
-            + self.task_completion);
+        self.composite = 0.25
+            * (self.step_efficiency
+                + self.tool_correctness
+                + self.plan_adherence
+                + self.task_completion);
     }
 }
 

@@ -42,9 +42,10 @@ pub enum GitCommands {
 /// Handle Git commands
 pub fn handle_git_command(command: GitCommands) -> Result<(), EngramError> {
     match command {
-        GitCommands::Checkpoint { message, allow_empty } => {
-            run_checkpoint(&message, allow_empty)
-        }
+        GitCommands::Checkpoint {
+            message,
+            allow_empty,
+        } => run_checkpoint(&message, allow_empty),
         GitCommands::Status => run_status(),
         GitCommands::Log { limit } => run_log(limit),
         GitCommands::VerifyHistory { limit } => run_verify_history(limit),
@@ -105,7 +106,10 @@ fn run_checkpoint(message: &str, allow_empty: bool) -> Result<(), EngramError> {
                         Some("commit"),
                     ) {
                         Ok(Some(suggestion)) => {
-                            println!("\n💡 \x1b[1m\x1b[36mEngram Suggestion:\x1b[0m {}", suggestion);
+                            println!(
+                                "\n💡 \x1b[1m\x1b[36mEngram Suggestion:\x1b[0m {}",
+                                suggestion
+                            );
                         }
                         Ok(None) => {}
                         Err(_) => {}
@@ -113,7 +117,8 @@ fn run_checkpoint(message: &str, allow_empty: bool) -> Result<(), EngramError> {
                 }
                 Err(e) => {
                     return Err(EngramError::Validation(format!(
-                        "Failed to initialize validator: {}", e
+                        "Failed to initialize validator: {}",
+                        e
                     )));
                 }
             }
@@ -126,12 +131,14 @@ fn run_checkpoint(message: &str, allow_empty: bool) -> Result<(), EngramError> {
     // Create the commit via gix
     let repo = open_repo()?;
 
-    let head_id = repo.head_id()
+    let head_id = repo
+        .head_id()
         .map_err(|e| EngramError::Git(format!("Failed to get HEAD: {}", e)))?;
 
-    let head_obj = repo.find_object(head_id)
+    let head_obj = repo
+        .find_object(head_id)
         .map_err(|e| EngramError::Git(format!("Failed to find HEAD commit: {}", e)))?;
-    let head_commit = gix::objs::CommitRef::from_bytes(&head_obj.data)
+    let head_commit = gix::objs::CommitRef::from_bytes(&head_obj.data, gix::hash::Kind::Sha1)
         .map_err(|e| EngramError::Git(format!("Failed to parse HEAD commit: {}", e)))?;
 
     // Use HEAD tree — user stages via `git add` externally
@@ -161,11 +168,13 @@ fn run_checkpoint(message: &str, allow_empty: bool) -> Result<(), EngramError> {
         extra_headers: Default::default(),
     };
 
-    let commit_id = repo.write_object(&commit)
+    let commit_id = repo
+        .write_object(&commit)
         .map_err(|e| EngramError::Git(format!("Failed to write commit: {}", e)))?;
 
     // Update HEAD branch
-    let head_ref = repo.head_ref()
+    let head_ref = repo
+        .head_ref()
         .map_err(|e| EngramError::Git(format!("Failed to get HEAD ref: {}", e)))?;
 
     let branch_name = match head_ref {
@@ -173,9 +182,9 @@ fn run_checkpoint(message: &str, allow_empty: bool) -> Result<(), EngramError> {
         None => "main".to_string(),
     };
 
+    use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
     use gix::refs::FullName;
     use gix::refs::Target;
-    use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
 
     let ref_name = FullName::try_from(format!("refs/heads/{}", branch_name))
         .map_err(|e| EngramError::Git(format!("Invalid ref name: {}", e)))?;
@@ -207,8 +216,14 @@ fn run_status() -> Result<(), EngramError> {
     let head_info: Option<(gix::ObjectId, String)> = (|| {
         let head_id = repo.head_id().ok()?;
         let obj = repo.find_object(head_id).ok()?;
-        let commit = gix::objs::CommitRef::from_bytes(&obj.data).ok()?;
-        let first_line = commit.message.to_string().lines().next().unwrap_or("").to_string();
+        let commit = gix::objs::CommitRef::from_bytes(&obj.data, gix::hash::Kind::Sha1).ok()?;
+        let first_line = commit
+            .message
+            .to_string()
+            .lines()
+            .next()
+            .unwrap_or("")
+            .to_string();
         Some((head_id.detach(), first_line))
     })();
 
@@ -234,7 +249,8 @@ fn run_status() -> Result<(), EngramError> {
 
 fn run_log(limit: usize) -> Result<(), EngramError> {
     let repo = open_repo()?;
-    let head_id = repo.head_id()
+    let head_id = repo
+        .head_id()
         .map_err(|e| EngramError::Git(format!("Failed to get HEAD: {}", e)))?;
 
     let walk = repo
@@ -245,35 +261,35 @@ fn run_log(limit: usize) -> Result<(), EngramError> {
         .all()
         .map_err(|e| EngramError::Git(format!("revwalk failed: {}", e)))?;
 
-    let mut count = 0;
-    for info_result in walk {
+    for (count, info_result) in walk.enumerate() {
         if count >= limit {
             break;
         }
         let info = info_result
             .map_err(|e| EngramError::Git(format!("revwalk iteration failed: {}", e)))?;
 
-        let obj = repo.find_object(info.id)
+        let obj = repo
+            .find_object(info.id)
             .map_err(|e| EngramError::Git(format!("Failed to find commit: {}", e)))?;
-        let commit = gix::objs::CommitRef::from_bytes(&obj.data)
+        let commit = gix::objs::CommitRef::from_bytes(&obj.data, gix::hash::Kind::Sha1)
             .map_err(|e| EngramError::Git(format!("Failed to parse commit: {}", e)))?;
 
         let id_str = info.id.to_string();
         let short_hash = &id_str[..8];
         let msg = commit.message.to_string();
         let msg_first_line = msg.lines().next().unwrap_or("");
-        let author = commit.author()
+        let author = commit
+            .author()
             .map(|sig| sig.name.to_string())
             .unwrap_or_default();
 
-        let date = info.commit_time
+        let date = info
+            .commit_time
             .and_then(|secs| DateTime::from_timestamp(secs, 0))
             .map(|dt| dt.format("%Y-%m-%d %H:%M").to_string())
             .unwrap_or_else(|| "unknown".to_string());
 
         println!("{} {} {} <{}>", short_hash, date, msg_first_line, author);
-
-        count += 1;
     }
 
     Ok(())
@@ -281,7 +297,8 @@ fn run_log(limit: usize) -> Result<(), EngramError> {
 
 fn run_verify_history(limit: usize) -> Result<(), EngramError> {
     let repo = open_repo()?;
-    let head_id = repo.head_id()
+    let head_id = repo
+        .head_id()
         .map_err(|e| EngramError::Git(format!("Failed to get HEAD: {}", e)))?;
 
     let walk = repo
@@ -320,13 +337,16 @@ fn run_verify_history(limit: usize) -> Result<(), EngramError> {
             }
         };
 
-        match gix::objs::CommitRef::from_bytes(&obj.data) {
+        match gix::objs::CommitRef::from_bytes(&obj.data, gix::hash::Kind::Sha1) {
             Ok(commit) => {
                 // Verify tree exists
                 let tree_id = gix::hash::ObjectId::from_hex(commit.tree)
                     .map_err(|e| EngramError::Git(format!("Invalid tree hash: {}", e)))?;
                 if repo.find_object(tree_id).is_err() {
-                    eprintln!("❌ Commit {} references missing tree {}", info.id, commit.tree);
+                    eprintln!(
+                        "❌ Commit {} references missing tree {}",
+                        info.id, commit.tree
+                    );
                     errors += 1;
                 }
                 // Verify parents exist
@@ -334,13 +354,19 @@ fn run_verify_history(limit: usize) -> Result<(), EngramError> {
                     let parent_id = match gix::hash::ObjectId::from_hex(parent_bstr) {
                         Ok(id) => id,
                         Err(_) => {
-                            eprintln!("❌ Commit {} has invalid parent hash {:?}", info.id, parent_bstr);
+                            eprintln!(
+                                "❌ Commit {} has invalid parent hash {:?}",
+                                info.id, parent_bstr
+                            );
                             errors += 1;
                             continue;
                         }
                     };
                     if repo.find_object(parent_id).is_err() {
-                        eprintln!("❌ Commit {} references missing parent {}", info.id, parent_id);
+                        eprintln!(
+                            "❌ Commit {} references missing parent {}",
+                            info.id, parent_id
+                        );
                         errors += 1;
                     }
                 }
@@ -362,9 +388,13 @@ fn run_verify_history(limit: usize) -> Result<(), EngramError> {
     if errors == 0 {
         println!("✅ Verified {} commit(s) — all valid", checked);
     } else {
-        println!("❌ Verified {} commit(s) — {} error(s) found", checked, errors);
+        println!(
+            "❌ Verified {} commit(s) — {} error(s) found",
+            checked, errors
+        );
         return Err(EngramError::Git(format!(
-            "History verification failed with {} error(s)", errors
+            "History verification failed with {} error(s)",
+            errors
         )));
     }
 

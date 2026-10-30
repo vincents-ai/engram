@@ -341,38 +341,35 @@ impl RuleExecutionEngine {
         prefix: &str,
         variables: &mut HashMap<String, RuleValue>,
     ) {
-        match json {
-            serde_json::Value::Object(map) => {
-                for (key, value) in map {
-                    let var_name = if prefix.is_empty() {
-                        key.clone()
-                    } else {
-                        format!("{}.{}", prefix, key)
-                    };
+        if let serde_json::Value::Object(map) = json {
+            for (key, value) in map {
+                let var_name = if prefix.is_empty() {
+                    key.clone()
+                } else {
+                    format!("{}.{}", prefix, key)
+                };
 
-                    match value {
-                        serde_json::Value::String(s) => {
-                            variables.insert(var_name, RuleValue::String(s.clone()));
-                        }
-                        serde_json::Value::Number(n) => {
-                            if let Some(f) = n.as_f64() {
-                                variables.insert(var_name, RuleValue::Number(f));
-                            }
-                        }
-                        serde_json::Value::Bool(b) => {
-                            variables.insert(var_name, RuleValue::Boolean(*b));
-                        }
-                        serde_json::Value::Null => {
-                            variables.insert(var_name, RuleValue::Null);
-                        }
-                        serde_json::Value::Object(_) => {
-                            self.extract_variables_from_json(value, &var_name, variables);
-                        }
-                        serde_json::Value::Array(_) => {}
+                match value {
+                    serde_json::Value::String(s) => {
+                        variables.insert(var_name, RuleValue::String(s.clone()));
                     }
+                    serde_json::Value::Number(n) => {
+                        if let Some(f) = n.as_f64() {
+                            variables.insert(var_name, RuleValue::Number(f));
+                        }
+                    }
+                    serde_json::Value::Bool(b) => {
+                        variables.insert(var_name, RuleValue::Boolean(*b));
+                    }
+                    serde_json::Value::Null => {
+                        variables.insert(var_name, RuleValue::Null);
+                    }
+                    serde_json::Value::Object(_) => {
+                        self.extract_variables_from_json(value, &var_name, variables);
+                    }
+                    serde_json::Value::Array(_) => {}
                 }
             }
-            _ => {}
         }
     }
 

@@ -158,7 +158,7 @@ impl Migration {
             let entry = entry.map_err(|e| {
                 EngramError::InvalidOperation(format!("Failed to read entry: {}", e))
             })?;
-            if entry.path().extension().map_or(false, |ext| ext == "json") {
+            if entry.path().extension().is_some_and(|ext| ext == "json") {
                 return Ok(true);
             }
         }
@@ -183,7 +183,7 @@ impl Migration {
             })?;
             let path = entry.path();
 
-            if path.extension().map_or(false, |ext| ext == "json") {
+            if path.extension().is_some_and(|ext| ext == "json") {
                 stats.entities_processed += 1;
 
                 match self.migrate_single_entity(entity_type, &path) {
@@ -218,8 +218,7 @@ impl Migration {
             entity_type: entity_type.to_string(),
             agent: memory_entity.agent.clone(),
             timestamp: memory_entity.timestamp,
-            data: serde_json::to_value(&memory_entity.data)
-                .map_err(|e| EngramError::Serialization(e))?,
+            data: serde_json::to_value(&memory_entity.data).map_err(EngramError::Serialization)?,
         };
 
         if !self.dry_run {
@@ -263,7 +262,7 @@ impl Migration {
             if ty.is_dir() {
                 self.copy_dir_all(&entry.path(), &dst.join(entry.file_name()))?;
             } else {
-                fs::copy(&entry.path(), &dst.join(entry.file_name())).map_err(|e| {
+                fs::copy(entry.path(), dst.join(entry.file_name())).map_err(|e| {
                     EngramError::InvalidOperation(format!("Failed to copy file: {}", e))
                 })?;
             }
@@ -384,6 +383,14 @@ mod tests {
 
     fn setup_git_repo(dir: &std::path::Path) {
         gix::init(dir).unwrap();
+        // Configure git identity for reflog operations (required on CI where no global config exists)
+        let config_path = dir.join(".git").join("config");
+        let config_content = std::fs::read_to_string(&config_path).unwrap_or_default();
+        let new_content = format!(
+            "{}\n[user]\n\tname = Test\n\temail = test@test.com\n",
+            config_content.trim_end()
+        );
+        std::fs::write(&config_path, new_content).unwrap();
     }
 
     fn setup_engram_dir(dir: &std::path::Path) {
@@ -843,12 +850,14 @@ mod tests {
     /// Helper: write a raw blob JSON directly into a git ref (bypasses
     /// `store_entity_as_ref` so we can inject a pre-fix nested blob).
     fn write_raw_blob(repo: &gix::Repository, ref_name: &str, json: &str) {
+        use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
         use gix::refs::FullName;
         use gix::refs::Target;
-        use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
 
         let blob_id = repo
-            .write_object(&gix::objs::Blob { data: json.as_bytes().to_vec() })
+            .write_object(&gix::objs::Blob {
+                data: json.as_bytes().to_vec(),
+            })
             .unwrap();
         repo.edit_reference(RefEdit {
             change: Change::Update {
@@ -858,7 +867,8 @@ mod tests {
             },
             name: FullName::try_from(ref_name).unwrap(),
             deref: false,
-        }).unwrap();
+        })
+        .unwrap();
     }
 
     /// Unit test: round-trip a Task through to_generic / store / get and

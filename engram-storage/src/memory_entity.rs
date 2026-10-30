@@ -141,7 +141,7 @@ impl MemoryEntity {
         let mut path = PathBuf::from(base_path);
         path.push(&self.entity_type);
         path.push(first_two);
-        path.push(format!("{}.json", &self.id));
+        path.push(format!("{}.json", self.id));
 
         path
     }

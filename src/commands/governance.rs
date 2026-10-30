@@ -114,6 +114,7 @@ pub fn handle_rule_command<S: engram::storage::Storage>(
             limit,
             offset,
             all,
+            output,
         } => {
             cli::list_rules(
                 storage,
@@ -125,6 +126,7 @@ pub fn handle_rule_command<S: engram::storage::Storage>(
                 limit,
                 offset,
                 all,
+                &output,
             )?;
         }
         cli::RuleCommands::Execute {
@@ -197,6 +199,7 @@ pub fn handle_standard_command<S: engram::storage::Storage>(
             limit,
             offset,
             all,
+            output,
         } => {
             cli::list_standards(
                 &mut std::io::stdout(),
@@ -207,6 +210,7 @@ pub fn handle_standard_command<S: engram::storage::Storage>(
                 limit,
                 offset,
                 all,
+                &output,
             )?;
         }
         cli::StandardCommands::AddRequirement {
