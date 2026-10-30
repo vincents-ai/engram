@@ -934,10 +934,17 @@ pub fn pull_from_remote_gix(
 
     let repo = open_workspace_repo()?;
 
-    // Fetch refs/engram/* into refs/engram/remote/<name>/*
-    let refspec = format!("+refs/engram/*:refs/engram/remote/{}/*", remote_name);
-    gix_fetch(&repo, &remote_config.url, auth, &refspec)?;
-    println!("   Fetch complete.");
+    // Local filesystem remote: copy objects + refs directly with gix rather
+    // than the *file* transport, which shells out to `git upload-pack` (against
+    // the no-shell-out rule). SSH/HTTPS still go through gix_fetch.
+    if let Some(dest_path) = local_remote_path(&remote_config.url) {
+        pull_from_local_remote(&repo, dest_path, remote_name)?;
+    } else {
+        // Fetch refs/engram/* into refs/engram/remote/<name>/*
+        let refspec = format!("+refs/engram/*:refs/engram/remote/{}/*", remote_name);
+        gix_fetch(&repo, &remote_config.url, auth, &refspec)?;
+        println!("   Fetch complete.");
+    }
 
     // --- Version-aware merge (same logic as git2 version, using gix helpers) ---
     let remote_prefix = format!("refs/engram/remote/{}/", remote_name);
@@ -1277,6 +1284,117 @@ fn push_to_local_remote(
     Ok(local_engram_refs.len())
 }
 
+/// Pull engram refs from a local filesystem repository into the workspace
+/// object store without any network transport.
+///
+/// Mirrors [`push_to_local_remote`] in reverse: the gix *file* transport
+/// shells out to `git upload-pack` for fetch — against engram's "never shell
+/// out to system git" rule. Instead we open the remote repo directly with gix,
+/// copy the closed object graph of every `refs/engram/*` ref into the
+/// workspace odb (pure Rust, deduped by id like the push path), and write each
+/// fetched ref under `refs/engram/remote/<name>/<rest>` — exactly what the
+/// `+refs/engram/*:refs/engram/remote/<name>/*` refspec would have produced.
+/// The version-aware merge runs afterwards unchanged.
+fn pull_from_local_remote(
+    repo: &gix::Repository,
+    dest_path: std::path::PathBuf,
+    remote_name: &str,
+) -> Result<usize, EngramError> {
+    use gix::refs::transaction::{Change, LogChange, PreviousValue, RefEdit};
+    use gix::refs::{FullName, Target};
+    use std::collections::HashSet;
+
+    let dest = gix::open(&dest_path).map_err(|e| {
+        EngramError::Git(format!(
+            "Failed to open local remote '{}': {}",
+            dest_path.display(),
+            e
+        ))
+    })?;
+
+    let remote_refs: Vec<(String, String)> = list_all_refs(&dest)?
+        .into_iter()
+        .filter(|(name, _)| name.starts_with("refs/engram/"))
+        .collect();
+
+    if remote_refs.is_empty() {
+        println!(
+            "   No refs/engram/* refs on local remote '{}' — nothing to pull.",
+            dest_path.display()
+        );
+        return Ok(0);
+    }
+
+    // 1. Copy every object reachable from the remote refs into the workspace
+    //    odb, deduped by id. Object hashes are content-identical across copies,
+    //    so the refs written below resolve against the workspace store.
+    let mut visited: HashSet<gix::ObjectId> = HashSet::new();
+    let mut stack: Vec<gix::ObjectId> = Vec::new();
+    stack.extend(
+        remote_refs
+            .iter()
+            .filter_map(|(_, oid_str)| gix::ObjectId::from_hex(oid_str.as_bytes()).ok()),
+    );
+
+    while let Some(oid) = stack.pop() {
+        if !visited.insert(oid) {
+            continue;
+        }
+        let obj = dest
+            .find_object(oid)
+            .map_err(|e| EngramError::Git(format!("Failed to load object {oid}: {e}")))?;
+        let kind = obj.kind;
+        let hash_kind = dest.object_hash();
+        let parsed = gix::objs::ObjectRef::from_bytes(&obj.data, kind, hash_kind)
+            .map_err(|e| EngramError::Git(format!("Failed to parse object {oid}: {e}")))?;
+        match &parsed {
+            gix::objs::ObjectRef::Commit(commit) => {
+                stack.push(commit.tree());
+                stack.extend(commit.parents());
+            }
+            gix::objs::ObjectRef::Tree(tree) => {
+                for entry in &tree.entries {
+                    stack.push(gix::ObjectId::from(entry.oid));
+                }
+            }
+            _ => {}
+        }
+        repo.write_object(&parsed)
+            .map_err(|e| EngramError::Git(format!("Failed to write object {oid}: {e}")))?;
+    }
+
+    // 2. Write fetched refs under refs/engram/remote/<name>/<rest>.
+    for (ref_name, oid_str) in &remote_refs {
+        let rest = &ref_name["refs/engram/".len()..];
+        let local_name = format!("refs/engram/remote/{}/{}", remote_name, rest);
+        let name = FullName::try_from(local_name.as_str())
+            .map_err(|e| EngramError::Git(format!("Invalid ref name '{local_name}': {e}")))?;
+        let oid = gix::ObjectId::from_hex(oid_str.as_bytes())
+            .map_err(|e| EngramError::Git(format!("Invalid OID '{oid_str}': {e}")))?;
+        repo.edit_reference(RefEdit {
+            change: Change::Update {
+                log: LogChange {
+                    mode: gix::refs::transaction::RefLog::AndReference,
+                    force_create_reflog: false,
+                    message: format!("engram sync pull: {local_name}").into(),
+                },
+                expected: PreviousValue::Any,
+                new: Target::Object(oid),
+            },
+            name,
+            deref: false,
+        })
+        .map_err(|e| EngramError::Git(format!("Failed to write ref '{local_name}': {e}")))?;
+    }
+
+    println!(
+        "   🗂  Copied {} refs/engram/* refs from local remote '{}'",
+        remote_refs.len(),
+        dest_path.display()
+    );
+    Ok(remote_refs.len())
+}
+
 /// Push to remote using gix transport + pack generation
 pub fn push_to_remote_gix(
     remote_name: &str,
@@ -1482,9 +1600,69 @@ mod tests {
             .try_find_reference("refs/engram/t1")
             .unwrap()
             .expect("ref must be present in the destination");
-        assert_eq!(
-            reference.target().id().to_string(),
-            blob_id.to_string()
+        assert_eq!(reference.target().id().to_string(), blob_id.to_string());
+    }
+
+    /// A real local pull round-trip: a workspace repo pulls from a remote that
+    /// holds engram refs/objects, and the objects + refs (as
+    /// refs/engram/remote/<name>/...) land in the workspace odb — exactly where
+    /// the version-aware merge reads them. Proves the no-shell-out path works.
+    #[test]
+    fn local_pull_copies_objects_and_refs() {
+        let ws_dir = tempfile::TempDir::new().unwrap();
+        let remote_dir = tempfile::TempDir::new().unwrap();
+        let remote_path = remote_dir.path().join("remote.git");
+
+        // The workspace we pull INTO is a normal repo.
+        let ws = gix::init(ws_dir.path()).unwrap();
+
+        // The local remote is a bare repo holding engram state.
+        gix::init_bare(&remote_path).unwrap();
+        let remote = gix::open(&remote_path).unwrap();
+        let blob_id = remote
+            .write_object(&gix::objs::Object::Blob(gix::objs::Blob {
+                data: b"hello pull".to_vec(),
+            }))
+            .unwrap()
+            .detach();
+
+        // Seed a primary entity ref and its version sidecar.
+        for ref_name in ["refs/engram/entity/uu1", "refs/engram/entity/v1/uu1"] {
+            let name = FullName::try_from(ref_name).unwrap();
+            remote
+                .edit_reference(RefEdit {
+                    change: Change::Update {
+                        log: LogChange {
+                            mode: gix::refs::transaction::RefLog::AndReference,
+                            force_create_reflog: false,
+                            message: "seed remote".into(),
+                        },
+                        expected: PreviousValue::MustNotExist,
+                        new: Target::Object(blob_id),
+                    },
+                    name,
+                    deref: false,
+                })
+                .unwrap();
+        }
+
+        pull_from_local_remote(&ws, remote_path, "origin").unwrap();
+
+        // Object landed in the workspace odb …
+        assert!(
+            ws.find_object(blob_id).ok().is_some(),
+            "object must be present in the workspace odb"
         );
+        // … and both refs are written under the remote/<name>/ namespace.
+        for local_name in [
+            "refs/engram/remote/origin/entity/uu1",
+            "refs/engram/remote/origin/entity/v1/uu1",
+        ] {
+            let reference = ws
+                .try_find_reference(local_name)
+                .unwrap()
+                .unwrap_or_else(|| panic!("ref {local_name} must be present"));
+            assert_eq!(reference.target().id().to_string(), blob_id.to_string());
+        }
     }
 }
