@@ -173,7 +173,7 @@ fn read_stdin() -> Result<String, EngramError> {
 fn read_file(path: &str) -> Result<String, EngramError> {
     fs::read_to_string(path)
         .map(|s| s.trim().to_string())
-        .map_err(|e| EngramError::Io(e))
+        .map_err(EngramError::Io)
 }
 
 /// Parse knowledge type string to KnowledgeType enum
@@ -207,7 +207,7 @@ fn create_knowledge_from_input<S: Storage>(
     let knowledge_type = parse_knowledge_type(&knowledge_type_str)?;
 
     // Validate confidence
-    if confidence < 0.0 || confidence > 1.0 {
+    if !(0.0..=1.0).contains(&confidence) {
         return Err(EngramError::Validation(
             "Confidence must be between 0.0 and 1.0".to_string(),
         ));
@@ -235,6 +235,7 @@ fn create_knowledge_from_input<S: Storage>(
 }
 
 /// Create a new knowledge item
+#[allow(clippy::too_many_arguments)]
 pub fn create_knowledge<S: Storage>(
     storage: &mut S,
     title: Option<String>,
@@ -311,7 +312,7 @@ pub fn create_knowledge<S: Storage>(
     let knowledge_type_enum = parse_knowledge_type(&knowledge_type)?;
 
     // Validate confidence
-    if confidence < 0.0 || confidence > 1.0 {
+    if !(0.0..=1.0).contains(&confidence) {
         return Err(EngramError::Validation(
             "Confidence must be between 0.0 and 1.0".to_string(),
         ));
@@ -350,6 +351,7 @@ use crate::cli::utils::{create_table, truncate};
 use prettytable::row;
 
 /// List knowledge items
+#[allow(clippy::too_many_arguments)]
 pub fn list_knowledge<S: Storage>(
     storage: &S,
     agent: Option<String>,
@@ -412,7 +414,10 @@ pub fn list_knowledge<S: Storage>(
 
     // JSON output
     if output == "json" {
-        println!("{}", serde_json::to_string_pretty(&items).map_err(|e| EngramError::Serialization(e))?);
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&items).map_err(EngramError::Serialization)?
+        );
         return Ok(());
     }
 
@@ -423,7 +428,7 @@ pub fn list_knowledge<S: Storage>(
 
     for knowledge in &items {
         let type_str = format!("{:?}", knowledge.knowledge_type);
-        let source_str = knowledge.source.as_ref().map(|s| s.as_str()).unwrap_or("-");
+        let source_str = knowledge.source.as_deref().unwrap_or("-");
 
         table.add_row(row![
             &knowledge.id[..8],
@@ -431,7 +436,7 @@ pub fn list_knowledge<S: Storage>(
             type_str,
             format!("{:.2}", knowledge.confidence),
             truncate(&knowledge.agent, 15),
-            truncate(&source_str, 20),
+            truncate(source_str, 20),
             knowledge.updated_at.format("%Y-%m-%d")
         ]);
     }
@@ -494,9 +499,15 @@ pub fn show_knowledge<S: Storage>(storage: &S, id: &str) -> Result<(), EngramErr
         println!("Last Used: {}", last_used);
     }
 
-    println!("Decay Weight: {:.4}", knowledge.decay_weight);
+    if let Some(decay_weight) = knowledge.decay_weight {
+        println!("Decay Weight: {:.4}", decay_weight);
+    }
 
     println!("Citation Count: {}", knowledge.citation_count);
+
+    if let Some(last_used_at) = &knowledge.last_used_at {
+        println!("Last Used At: {}", last_used_at);
+    }
 
     Ok(())
 }
@@ -523,7 +534,7 @@ pub fn update_knowledge<S: Storage>(
             let confidence: f64 = value
                 .parse()
                 .map_err(|_| EngramError::Validation("Confidence must be a number".to_string()))?;
-            if confidence < 0.0 || confidence > 1.0 {
+            if !(0.0..=1.0).contains(&confidence) {
                 return Err(EngramError::Validation(
                     "Confidence must be between 0.0 and 1.0".to_string(),
                 ));
@@ -769,9 +780,17 @@ mod tests {
         .unwrap();
 
         // Just verify it runs without error (output is to stdout)
-        assert!(
-            list_knowledge(&storage, None, Some("fact".to_string()), None, None, false, None, "text".to_string()).is_ok()
-        );
+        assert!(list_knowledge(
+            &storage,
+            None,
+            Some("fact".to_string()),
+            None,
+            None,
+            false,
+            None,
+            "text".to_string()
+        )
+        .is_ok());
     }
 
     #[test]

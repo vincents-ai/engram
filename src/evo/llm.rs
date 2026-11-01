@@ -79,16 +79,27 @@ fn discover_config() -> Result<(String, String, String), EngramError> {
         .join(".pi/agent/auth.json");
 
     if auth_path.exists() {
-        let content = std::fs::read_to_string(&auth_path)
-            .map_err(|e| EngramError::Io(e))?;
-        let auth: serde_json::Value = serde_json::from_str(&content)
-            .map_err(|e| EngramError::Serialization(e))?;
+        let content = std::fs::read_to_string(&auth_path).map_err(EngramError::Io)?;
+        let auth: serde_json::Value =
+            serde_json::from_str(&content).map_err(EngramError::Serialization)?;
 
         // Try providers in preference order
         let providers = [
-            ("anthropic", "https://api.anthropic.com/v1/chat/completions", "claude-sonnet-4-20250514"),
-            ("openai", "https://api.openai.com/v1/chat/completions", "gpt-4o"),
-            ("openrouter", "https://openrouter.ai/api/v1/chat/completions", "anthropic/claude-sonnet-4-20250514"),
+            (
+                "anthropic",
+                "https://api.anthropic.com/v1/chat/completions",
+                "claude-sonnet-4-20250514",
+            ),
+            (
+                "openai",
+                "https://api.openai.com/v1/chat/completions",
+                "gpt-4o",
+            ),
+            (
+                "openrouter",
+                "https://openrouter.ai/api/v1/chat/completions",
+                "anthropic/claude-sonnet-4-20250514",
+            ),
         ];
 
         for (provider, endpoint, model) in &providers {
@@ -196,9 +207,9 @@ impl LlmClient {
             )));
         }
 
-        let chat_response: ChatResponse = response
-            .json()
-            .map_err(|e| EngramError::Deserialization(format!("Failed to parse LLM response: {}", e)))?;
+        let chat_response: ChatResponse = response.json().map_err(|e| {
+            EngramError::Deserialization(format!("Failed to parse LLM response: {}", e))
+        })?;
 
         chat_response
             .choices
@@ -250,9 +261,9 @@ impl LlmClient {
             )));
         }
 
-        let chat_response: ChatResponse = response
-            .json()
-            .map_err(|e| EngramError::Deserialization(format!("Failed to parse LLM response: {}", e)))?;
+        let chat_response: ChatResponse = response.json().map_err(|e| {
+            EngramError::Deserialization(format!("Failed to parse LLM response: {}", e))
+        })?;
 
         let content = chat_response
             .choices
@@ -263,8 +274,13 @@ impl LlmClient {
         // Extract JSON from possible markdown code blocks
         let json_str = extract_json(&content);
 
-        serde_json::from_str::<T>(json_str)
-            .map_err(|e| EngramError::Deserialization(format!("Failed to parse structured LLM output: {}. Content: {}", e, &content[..content.len().min(200)])))
+        serde_json::from_str::<T>(json_str).map_err(|e| {
+            EngramError::Deserialization(format!(
+                "Failed to parse structured LLM output: {}. Content: {}",
+                e,
+                &content[..content.len().min(200)]
+            ))
+        })
     }
 }
 
@@ -325,25 +341,49 @@ Respond in JSON format:
 
     // Build a summary of the trajectory for the LLM
     let mut trajectory_summary = String::new();
-    trajectory_summary.push_str(&format!("Task: {}\n", trajectory.task_description.as_deref().unwrap_or("Unknown")));
-    trajectory_summary.push_str(&format!("Model: {} | Turns: {}\n\n", trajectory.model, trajectory.turns.len()));
+    trajectory_summary.push_str(&format!(
+        "Task: {}\n",
+        trajectory.task_description.as_deref().unwrap_or("Unknown")
+    ));
+    trajectory_summary.push_str(&format!(
+        "Model: {} | Turns: {}\n\n",
+        trajectory.model,
+        trajectory.turns.len()
+    ));
 
     for turn in &trajectory.turns {
         trajectory_summary.push_str(&format!("--- Turn {} ---\n", turn.index));
         if let Some(thinking) = &turn.assistant_thinking {
-            let truncated = if thinking.len() > 300 { format!("{}...", &thinking[..300]) } else { thinking.clone() };
+            let truncated = if thinking.len() > 300 {
+                format!("{}...", &thinking[..300])
+            } else {
+                thinking.clone()
+            };
             trajectory_summary.push_str(&format!("Thinking: {}\n", truncated));
         }
         if let Some(text) = &turn.assistant_text {
-            let truncated = if text.len() > 200 { format!("{}...", &text[..200]) } else { text.clone() };
+            let truncated = if text.len() > 200 {
+                format!("{}...", &text[..200])
+            } else {
+                text.clone()
+            };
             trajectory_summary.push_str(&format!("Said: {}\n", truncated));
         }
         for tc in &turn.tool_calls {
-            trajectory_summary.push_str(&format!("Tool call: {}({})\n", tc.name, truncate_value(&tc.arguments, 100)));
+            trajectory_summary.push_str(&format!(
+                "Tool call: {}({})\n",
+                tc.name,
+                truncate_value(&tc.arguments, 100)
+            ));
         }
         for tr in &turn.tool_results {
             let status = if tr.is_error { "ERROR" } else { "OK" };
-            trajectory_summary.push_str(&format!("Tool result ({}): {} - {} chars\n", status, tr.tool_name, tr.content.len()));
+            trajectory_summary.push_str(&format!(
+                "Tool result ({}): {} - {} chars\n",
+                status,
+                tr.tool_name,
+                tr.content.len()
+            ));
         }
         trajectory_summary.push('\n');
     }

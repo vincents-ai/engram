@@ -8,6 +8,7 @@ This guide explains how to construct effective prompts for agents using the Engr
 - **Atomic Operations**: Workflows should be broken down into discrete steps tracked by Engram tasks.
 - **Evidence-Based Validation**: Every step must be verifiable via `engram validate` with provide evidence-based validation for all final claims instead of unsubstantiated assertions.
 - **Skills First**: Check for existing skills before creating new prompts.
+- **Recovery-Ready Memory**: Prompts should require agents to store enough detail in Engram for a later model or agent to resume if the current model fails, times out, or loses context.
 
 ## Available Prompts
 
@@ -125,6 +126,7 @@ You are an autonomous agent using Engram for state management.
    - Read the task description: `engram task show {{TASK_ID}}`
    - Access linked contexts: `engram context show [CONTEXT_ID]`
    - Store progress: `engram reasoning create --title "[Progress]" --task-id {{TASK_ID}} --content "[Details]"`
+   - Store recovery checkpoints before risky or long-running work so a later model can continue after failure: include files touched, commands run, partial findings, blockers, and the next step.
 
 3. **Validate**:
    - Run `engram validate check`
@@ -403,6 +405,7 @@ For writing docs.
 - **Skills First**: Check `./engram/skills/` for existing skills before creating new prompts.
 - **Use Adapted Prompts**: Prefer engram-adapted prompts from `./engram/prompts/` over generic prompts.
 - **Store Progress**: Don't just complete tasks - store intermediate progress as reasoning entities.
+- **Checkpoint for Model Failure**: Store recovery-grade details throughout the session so a different model can resume without relying on the current conversation.
 
 ## Prompt Locations Quick Reference
 

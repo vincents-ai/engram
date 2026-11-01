@@ -3,8 +3,8 @@
 //! Spawns pi as a subprocess with `--mode json` and captures
 //! the JSON event stream, parsing it into Trajectory structs.
 
-use crate::evo::types::*;
 use crate::error::EngramError;
+use crate::evo::types::*;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::process::{Command, Stdio};
@@ -70,7 +70,7 @@ pub fn capture_pi_session(config: &CaptureConfig) -> Result<CaptureResult, Engra
     let mut events: Vec<serde_json::Value> = Vec::new();
 
     for line in reader.lines() {
-        let line = line.map_err(|e| EngramError::Io(e))?;
+        let line = line.map_err(EngramError::Io)?;
         if line.trim().is_empty() {
             continue;
         }
@@ -81,7 +81,7 @@ pub fn capture_pi_session(config: &CaptureConfig) -> Result<CaptureResult, Engra
     }
 
     // Wait for process to finish
-    let status = child.wait().map_err(|e| EngramError::Io(e))?;
+    let status = child.wait().map_err(EngramError::Io)?;
     let exit_code = status.code();
 
     // Parse events into Trajectory
@@ -154,8 +154,7 @@ pub fn parse_events(events: &[serde_json::Value]) -> Result<Trajectory, EngramEr
                         for block in blocks {
                             match block["type"].as_str().unwrap_or("") {
                                 "thinking" => {
-                                    current_thinking =
-                                        block["thinking"].as_str().map(String::from);
+                                    current_thinking = block["thinking"].as_str().map(String::from);
                                 }
                                 "text" => {
                                     current_text = block["text"].as_str().map(String::from);
@@ -231,10 +230,7 @@ pub fn parse_events(events: &[serde_json::Value]) -> Result<Trajectory, EngramEr
                 _pending_tool_name = event["toolName"].as_str().map(String::from);
             }
             "tool_execution_end" => {
-                let tool_call_id = event["toolCallId"]
-                    .as_str()
-                    .unwrap_or("")
-                    .to_string();
+                let tool_call_id = event["toolCallId"].as_str().unwrap_or("").to_string();
                 let tool_name = event["toolName"].as_str().unwrap_or("").to_string();
                 let is_error = event["isError"].as_bool().unwrap_or(false);
 

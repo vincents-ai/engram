@@ -15,7 +15,7 @@ use crate::error::{ConfigError, EngramError};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Config {
     pub app: AppConfig,
 
@@ -250,18 +250,6 @@ impl Config {
         Ok(())
     }
 
-    /// Get default configuration
-    pub fn default() -> Self {
-        Self {
-            app: AppConfig::default(),
-            workspace: WorkspaceConfig::default(),
-            agents: HashMap::new(),
-            plugins: HashMap::new(),
-            storage: ConfigStorage::default(),
-            features: ConfigFeatures::default(),
-        }
-    }
-
     /// Merge with another configuration
     pub fn merge(&self, other: &Config) -> Self {
         let mut app = self.app.clone();
@@ -330,12 +318,9 @@ impl Config {
 
     /// Find configuration file
     pub fn find_config_file() -> Option<String> {
-        for path in Self::get_config_paths() {
-            if std::path::Path::new(&path).exists() {
-                return Some(path);
-            }
-        }
-        None
+        Self::get_config_paths()
+            .into_iter()
+            .find(|path| std::path::Path::new(path).exists())
     }
 
     /// Load configuration with defaults

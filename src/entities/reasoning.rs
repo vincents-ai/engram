@@ -111,6 +111,41 @@ pub struct ReasoningStep {
     pub parent_step_id: Option<String>,
 }
 
+/// IBIS position type for issue/position/argument modeling.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
+pub enum IbisPositionType {
+    Issue,
+    Position,
+    Argument,
+}
+
+impl std::fmt::Display for IbisPositionType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            IbisPositionType::Issue => write!(f, "Issue"),
+            IbisPositionType::Position => write!(f, "Position"),
+            IbisPositionType::Argument => write!(f, "Argument"),
+        }
+    }
+}
+
+/// A single IBIS position captured during reasoning creation.
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct IbisPosition {
+    #[serde(rename = "position_type")]
+    pub position_type: IbisPositionType,
+
+    #[serde(rename = "content")]
+    pub content: String,
+
+    #[serde(
+        rename = "responds_to",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
+    pub responds_to: Option<String>,
+}
+
 /// Reasoning chain entity
 #[derive(Debug, Clone, Serialize, Deserialize, Validate, schemars::JsonSchema)]
 pub struct Reasoning {
@@ -169,6 +204,12 @@ pub struct Reasoning {
         default
     )]
     pub metadata: HashMap<String, serde_json::Value>,
+
+    #[serde(rename = "ibis_mode", skip_serializing_if = "Option::is_none", default)]
+    pub ibis_mode: Option<bool>,
+
+    #[serde(rename = "positions", skip_serializing_if = "Vec::is_empty", default)]
+    pub positions: Vec<IbisPosition>,
 
     #[serde(rename = "prov_used", skip_serializing_if = "Vec::is_empty", default)]
     pub prov_used: Vec<String>,
@@ -238,6 +279,8 @@ impl Reasoning {
             context_ids: Vec::new(),
             knowledge_ids: Vec::new(),
             metadata: HashMap::new(),
+            ibis_mode: None,
+            positions: Vec::new(),
             prov_used: Vec::new(),
             prov_generated: Vec::new(),
             prov_attributed_to: String::new(),
@@ -247,6 +290,38 @@ impl Reasoning {
             ibis_parent_id: None,
             ibis_position: None,
         }
+    }
+
+    /// Flatten captured IBIS positions into normal reasoning steps.
+    pub fn flatten_positions_to_steps(&mut self) {
+        if self.positions.is_empty() {
+            return;
+        }
+
+        self.steps = self
+            .positions
+            .iter()
+            .map(|pos| ReasoningStep {
+                id: Uuid::new_v4().to_string(),
+                description: format!("[{}] {}", pos.position_type, pos.content),
+                conclusion: pos
+                    .responds_to
+                    .as_ref()
+                    .map(|responds_to| format!("responds to: {}", responds_to))
+                    .unwrap_or_default(),
+                evidence: Vec::new(),
+                confidence: 0.0,
+                timestamp: Utc::now(),
+                ibis_type: match pos.position_type {
+                    IbisPositionType::Issue => Some(IBISNodeType::Question),
+                    IbisPositionType::Position => Some(IBISNodeType::Idea),
+                    IbisPositionType::Argument => None,
+                },
+                ibis_polarity: None,
+                parent_step_id: pos.responds_to.clone(),
+            })
+            .collect();
+        self.recalculate_confidence();
     }
 
     /// Add a reasoning step with IBIS metadata

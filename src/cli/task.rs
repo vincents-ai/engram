@@ -132,11 +132,11 @@ pub enum TaskCommands {
         #[arg(help = "Task ID to update")]
         id: String,
 
-        /// New status (todo, in_progress, done, blocked, cancelled)
+        /// New status (todo, in_progress, review, done, blocked, cancelled)
         #[arg(
             long,
             short,
-            help = "New status: todo, in_progress, done, blocked, cancelled"
+            help = "New status: todo, in_progress, review, done, blocked, cancelled"
         )]
         status: String,
 
@@ -164,7 +164,7 @@ pub enum TaskCommands {
         #[arg(long)]
         older_than: Option<u64>,
 
-        /// Archive tasks with specific status (done, cancelled, todo, in_progress, blocked)
+        /// Archive tasks with specific status (done, cancelled, todo, in_progress, review, blocked)
         #[arg(long)]
         status: Option<String>,
 
@@ -239,7 +239,7 @@ fn read_stdin() -> Result<String, EngramError> {
     let mut buffer = String::new();
     io::stdin()
         .read_to_string(&mut buffer)
-        .map_err(|e| EngramError::Io(e))?;
+        .map_err(EngramError::Io)?;
     Ok(buffer.trim().to_string())
 }
 
@@ -249,6 +249,7 @@ fn read_file(path: &str) -> Result<String, EngramError> {
 }
 
 /// Create task command
+#[allow(clippy::too_many_arguments)]
 pub fn create_task<S: Storage>(
     storage: &mut S,
     title: Option<String>,
@@ -579,6 +580,7 @@ use crate::cli::utils::{create_table, truncate};
 use prettytable::row;
 
 /// List tasks command
+#[allow(clippy::too_many_arguments)]
 pub fn list_tasks<S: Storage>(
     storage: &S,
     agent: Option<&str>,
@@ -663,6 +665,7 @@ pub fn list_tasks<S: Storage>(
                 crate::entities::TaskStatus::Done => "✅ Done",
                 crate::entities::TaskStatus::Blocked => "⛔ Blocked",
                 crate::entities::TaskStatus::Cancelled => "❌ Cancelled",
+                crate::entities::TaskStatus::Review => "👀 Review",
             };
 
             let priority_str = format!("{:?}", task.priority);
@@ -883,9 +886,13 @@ pub fn update_task<S: Storage>(
             "cancelled" | "canceled" | "cancel" | "abandoned" | "dropped" => {
                 updated_task.status = crate::entities::TaskStatus::Cancelled;
             }
+            // Handle review
+            "review" | "in_review" | "in-review" => {
+                updated_task.status = crate::entities::TaskStatus::Review;
+            }
             _ => {
                 return Err(EngramError::Validation(format!(
-                "Invalid status: '{}'. Valid values: todo, in_progress, done, blocked, cancelled",
+                "Invalid status: '{}'. Valid values: todo, in_progress, review, done, blocked, cancelled",
                 status
             )))
             }
@@ -999,20 +1006,18 @@ pub fn archive_tasks_bulk<S: Storage>(
         return Ok(());
     }
 
-    if output_format == "json" || output_format == "text" {
-        if output_format == "text" {
-            println!(
-                "{} {} task(s) matching filters:",
-                if dry_run { "DRY RUN:" } else { "Archiving" },
-                matched.len()
-            );
-            let mut table = create_table();
-            table.set_titles(row!["ID", "Status", "Title"]);
-            for (id, title, status) in &matched {
-                table.add_row(row![&id[..8], status, truncate(title, 50)]);
-            }
-            table.printstd();
+    if output_format == "text" {
+        println!(
+            "{} {} task(s) matching filters:",
+            if dry_run { "DRY RUN:" } else { "Archiving" },
+            matched.len()
+        );
+        let mut table = create_table();
+        table.set_titles(row!["ID", "Status", "Title"]);
+        for (id, title, status) in &matched {
+            table.add_row(row![&id[..8], status, truncate(title, 50)]);
         }
+        table.printstd();
     }
 
     if dry_run {
@@ -1037,23 +1042,19 @@ pub fn archive_tasks_bulk<S: Storage>(
     }
 
     for (id, _title, _status) in &matched {
-        if let Ok(existing) = storage.get(id, "task") {
-            if let Some(generic) = existing {
-                if let Ok(mut task) = Task::from_generic(generic) {
-                    if task.metadata.contains_key("archived_at") {
-                        skipped_count += 1;
-                        continue;
-                    }
-                    task.metadata.insert(
-                        "archived_at".to_string(),
-                        serde_json::Value::String(now.to_rfc3339()),
-                    );
-                    let updated_generic = task.to_generic();
-                    if storage.store(&updated_generic).is_ok() {
-                        archived_count += 1;
-                    } else {
-                        skipped_count += 1;
-                    }
+        if let Ok(Some(generic)) = storage.get(id, "task") {
+            if let Ok(mut task) = Task::from_generic(generic) {
+                if task.metadata.contains_key("archived_at") {
+                    skipped_count += 1;
+                    continue;
+                }
+                task.metadata.insert(
+                    "archived_at".to_string(),
+                    serde_json::Value::String(now.to_rfc3339()),
+                );
+                let updated_generic = task.to_generic();
+                if storage.store(&updated_generic).is_ok() {
+                    archived_count += 1;
                 } else {
                     skipped_count += 1;
                 }
@@ -1436,6 +1437,75 @@ mod tests {
 
         let result = update_task(&mut storage, &task_id, "invalid_status", None, None);
         assert!(matches!(result, Err(EngramError::Validation(_))));
+    }
+
+    #[test]
+    fn task_status_help_lists_review() {
+        use clap::{CommandFactory, Parser};
+
+        let mut cli = crate::cli::Cli::command();
+        let task = cli.find_subcommand_mut("task").unwrap();
+
+        let update = task.find_subcommand_mut("update").unwrap();
+        let update_help = update
+            .get_arguments()
+            .find(|arg| arg.get_id() == "status")
+            .and_then(|arg| arg.get_help())
+            .map(|help| help.to_string())
+            .unwrap_or_default();
+        assert!(
+            update_help.contains("review"),
+            "task update help should list review, got: {update_help}"
+        );
+
+        let archive_bulk = task.find_subcommand_mut("archive-bulk").unwrap();
+        let archive_help = archive_bulk
+            .get_arguments()
+            .find(|arg| arg.get_id() == "status")
+            .and_then(|arg| arg.get_help())
+            .map(|help| help.to_string())
+            .unwrap_or_default();
+        assert!(
+            archive_help.contains("review"),
+            "archive-bulk help should list review, got: {archive_help}"
+        );
+
+        crate::cli::Cli::try_parse_from([
+            "engram", "task", "update", "task-id", "--status", "review",
+        ])
+        .expect("--status review should be accepted by the parser");
+
+        let mut storage = create_test_storage();
+        create_task(
+            &mut storage,
+            Some("Review Status Task".to_string()),
+            None,
+            "medium",
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+            "text".to_string(),
+        )
+        .unwrap();
+        let task_id = storage.query_by_agent("default", Some("task")).unwrap()[0]
+            .id
+            .clone();
+
+        update_task(&mut storage, &task_id, "review", None, None).unwrap();
+        let task = Task::from_generic(storage.get(&task_id, "task").unwrap().unwrap()).unwrap();
+        assert_eq!(task.status, crate::entities::TaskStatus::Review);
+
+        let err = update_task(&mut storage, &task_id, "invalid_status", None, None).unwrap_err();
+        assert!(
+            err.to_string().contains("review"),
+            "validation error should list review, got: {err}"
+        );
     }
 
     #[test]

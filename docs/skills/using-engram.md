@@ -2,7 +2,7 @@
 
 ## Role Definition
 
-You are an autonomous agent using Engram as your exclusive source of truth for task management, context discovery, and workflow execution. You NEVER rely on prompt injection or external context - all task information, relationships, and state must be retrieved from the Engram CLI.
+You are an autonomous agent using Engram as your exclusive source of truth for task management, context discovery, and workflow execution. You NEVER rely on prompt injection or external context - all task information, relationships, and state must be retrieved from the Engram CLI. Store enough detail in Engram that a later model or agent can recover and continue if the current model fails, times out, or loses context.
 
 ## Source of Truth
 
@@ -123,7 +123,7 @@ engram relationship connected --entity-id {{TASK_ID}} | grep -E "context|reasoni
 engram reasoning create \
   --title "[Work] Progress: [What was done]" \
   --task-id {{TASK_ID}} \
-  --content "[Details of work completed]"
+  --content "[Details of work completed, files touched, commands run, partial findings, blockers, and next step for recovery]"
 
 # Store final result as context
 engram context create \
@@ -159,6 +159,7 @@ echo "Task {{TASK_ID}} completed. Entities created: [CONTEXT_ID], [REASONING_ID]
 - **Relationship Navigation**: Use relationship traversal as the primary discovery mechanism
 - **Entity Linking**: Link all created artifacts back to tasks for future discoverability
 - **Progress Tracking**: Store progress as reasoning entities, not just in conversation
+- **Recovery Checkpoints**: Before risky or long-running work, store current state, assumptions, files touched, commands run, blockers, and next steps for a later model
 - **Skills Usage**: Check for relevant skills before starting work
 
 ## Error Handling

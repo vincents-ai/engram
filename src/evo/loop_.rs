@@ -12,6 +12,7 @@
 //!
 //! Rollback: delete the patch entities from engram storage.
 
+use crate::error::EngramError;
 use crate::evo::capture::CaptureConfig;
 use crate::evo::cli::LoopArgs;
 use crate::evo::eval;
@@ -20,7 +21,6 @@ use crate::evo::llm::LlmClient;
 use crate::evo::optimizer;
 use crate::evo::replay;
 use crate::evo::types::*;
-use crate::error::EngramError;
 use std::fs;
 use std::path::Path;
 
@@ -37,9 +37,15 @@ pub fn handle_loop(args: LoopArgs) -> Result<(), EngramError> {
     println!("╔══════════════════════════════════════════════════╗");
     println!("║          ENGRAM-EVO SELF-IMPROVEMENT LOOP        ║");
     println!("╠══════════════════════════════════════════════════╣");
-    println!("║  Sessions dir: {:<34}  ║", truncate_str(&sessions_dir, 34));
+    println!(
+        "║  Sessions dir: {:<34}  ║",
+        truncate_str(&sessions_dir, 34)
+    );
     println!("║  Max iterations: {:<31}  ║", args.max_iterations);
-    println!("║  Min improvement: {:<30}  ║", format!("{:.2}", args.min_improvement));
+    println!(
+        "║  Min improvement: {:<30}  ║",
+        format!("{:.2}", args.min_improvement)
+    );
     println!("║  Max sessions: {:<33}  ║", args.limit);
     println!("╚══════════════════════════════════════════════════╝");
     println!();
@@ -48,7 +54,7 @@ pub fn handle_loop(args: LoopArgs) -> Result<(), EngramError> {
     println!("📥 Ingesting sessions...");
     let session_files = ingest::discover_sessions(
         &sessions_dir,
-        None,  // no filter
+        None, // no filter
         args.limit,
     )?;
 

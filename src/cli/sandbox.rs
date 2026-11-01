@@ -274,25 +274,23 @@ pub fn list_sandboxes<S: Storage>(
     if json {
         let generic_sandboxes: Vec<_> = sandboxes.iter().map(|s| s.to_generic()).collect();
         println!("{}", serde_json::to_string_pretty(&generic_sandboxes)?);
+    } else if sandboxes.is_empty() {
+        println!("No sandbox configurations found.");
     } else {
-        if sandboxes.is_empty() {
-            println!("No sandbox configurations found.");
-        } else {
-            let mut table = create_table();
-            table.set_titles(row!["ID", "Agent ID", "Level", "Created By", "Violations"]);
+        let mut table = create_table();
+        table.set_titles(row!["ID", "Agent ID", "Level", "Created By", "Violations"]);
 
-            for sandbox in sandboxes {
-                table.add_row(row![
-                    &sandbox.id[..8],
-                    truncate(&sandbox.agent_id, 20),
-                    format!("{:?}", sandbox.sandbox_level),
-                    truncate(&sandbox.created_by, 15),
-                    sandbox.violation_count
-                ]);
-            }
-
-            table.printstd();
+        for sandbox in sandboxes {
+            table.add_row(row![
+                &sandbox.id[..8],
+                truncate(&sandbox.agent_id, 20),
+                format!("{:?}", sandbox.sandbox_level),
+                truncate(&sandbox.created_by, 15),
+                sandbox.violation_count
+            ]);
         }
+
+        table.printstd();
     }
 
     Ok(())
@@ -499,24 +497,22 @@ pub fn show_stats<S: Storage>(
             })).collect::<Vec<_>>()
         });
         println!("{}", serde_json::to_string_pretty(&stats)?);
-    } else {
-        if let Some(filter_agent_id) = agent_id {
-            println!("📊 Sandbox Stats for Agent: {}", filter_agent_id);
-            if agent_sandboxes.is_empty() {
-                println!("  No sandbox configuration found for this agent.");
-            } else {
-                for sandbox in agent_sandboxes {
-                    println!("  • Level: {:?}", sandbox.sandbox_level);
-                    println!("    Violations: {}", sandbox.violation_count);
-                }
-            }
+    } else if let Some(filter_agent_id) = agent_id {
+        println!("📊 Sandbox Stats for Agent: {}", filter_agent_id);
+        if agent_sandboxes.is_empty() {
+            println!("  No sandbox configuration found for this agent.");
         } else {
-            println!("📊 Sandbox Statistics:");
-            println!("  Total sandboxes: {}", total_sandboxes);
-            println!("  Level distribution:");
-            for (level, count) in level_counts {
-                println!("    {}: {}", level, count);
+            for sandbox in agent_sandboxes {
+                println!("  • Level: {:?}", sandbox.sandbox_level);
+                println!("    Violations: {}", sandbox.violation_count);
             }
+        }
+    } else {
+        println!("📊 Sandbox Statistics:");
+        println!("  Total sandboxes: {}", total_sandboxes);
+        println!("  Level distribution:");
+        for (level, count) in level_counts {
+            println!("    {}: {}", level, count);
         }
     }
 

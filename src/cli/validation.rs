@@ -75,7 +75,7 @@ fn handle_commit_validation<S: Storage + RelationshipStorage>(
 
     if result.valid {
         println!("✅ Validation passed");
-        if !result.task_id.as_ref().map_or(true, |id| id == "exempt") {
+        if result.task_id.as_ref().is_some_and(|id| id != "exempt") {
             println!("📋 Task ID: {}", result.task_id.unwrap());
         }
     } else {

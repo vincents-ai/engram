@@ -1,5 +1,3 @@
-//! Escalation Request entity for sandbox permission escalations
-
 use super::{Entity, GenericEntity};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -11,15 +9,10 @@ use validator::Validate;
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, schemars::JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum EscalationStatus {
-    /// Request is pending human review
     Pending,
-    /// Request has been approved
     Approved,
-    /// Request has been denied
     Denied,
-    /// Request has expired without action
     Expired,
-    /// Request was cancelled by the requestor
     Cancelled,
 }
 
@@ -27,13 +20,9 @@ pub enum EscalationStatus {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, schemars::JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum EscalationPriority {
-    /// Low priority - can wait for review
     Low,
-    /// Normal priority - standard review process
     Normal,
-    /// High priority - expedited review needed
     High,
-    /// Critical priority - immediate attention required
     Critical,
 }
 

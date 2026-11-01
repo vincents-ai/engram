@@ -167,7 +167,7 @@ fn find_last_commit_for_task(task_id: &str) -> Option<DateTime<Utc>> {
     for info_result in walk {
         let info = info_result.ok()?;
         let obj = repo.find_object(info.id).ok()?;
-        let commit = gix::objs::CommitRef::from_bytes(&obj.data).ok()?;
+        let commit = gix::objs::CommitRef::from_bytes(&obj.data, gix::hash::Kind::Sha1).ok()?;
         let msg = commit.message.to_string();
         if msg.contains(&short_tag) || msg.contains(&full_tag) {
             let secs = info.commit_time.unwrap_or(0);

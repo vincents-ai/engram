@@ -1,11 +1,12 @@
 use super::{Entity, GenericEntity};
 use chrono::{DateTime, Utc};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
 use validator::Validate;
 
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, JsonSchema)]
 pub struct TaskDurationReport {
     #[serde(rename = "id")]
     pub id: String,
@@ -154,7 +155,7 @@ impl TaskDurationReport {
             report.max_duration_hours = durations[durations.len() - 1];
 
             let mid = durations.len() / 2;
-            report.median_duration_hours = if durations.len() % 2 == 0 {
+            report.median_duration_hours = if durations.len().is_multiple_of(2) {
                 (durations[mid - 1] + durations[mid]) / 2.0
             } else {
                 durations[mid]

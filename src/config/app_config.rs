@@ -10,23 +10,12 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Main application configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AppConfig {
     pub storage: StorageConfig,
     pub workspace: WorkspaceConfig,
     pub features: FeatureFlags,
     pub agents: HashMap<String, AgentConfig>,
-}
-
-impl Default for AppConfig {
-    fn default() -> Self {
-        Self {
-            storage: StorageConfig::default(),
-            workspace: WorkspaceConfig::default(),
-            features: FeatureFlags::default(),
-            agents: HashMap::new(),
-        }
-    }
 }
 
 impl AppConfig {
@@ -152,33 +141,16 @@ impl GitConfig {
 }
 
 /// BDD testing configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct BddConfig {
     pub features: Vec<String>,
     pub steps: Vec<String>,
 }
 
-impl Default for BddConfig {
-    fn default() -> Self {
-        Self {
-            features: vec![],
-            steps: vec![],
-        }
-    }
-}
-
 /// Application settings container
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AppSettings {
     pub workspace: WorkspaceConfig,
-}
-
-impl Default for AppSettings {
-    fn default() -> Self {
-        Self {
-            workspace: WorkspaceConfig::default(),
-        }
-    }
 }
 
 impl AppSettings {

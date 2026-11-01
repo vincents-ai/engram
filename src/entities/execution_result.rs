@@ -1,8 +1,3 @@
-//! ExecutionResult entity implementation
-//!
-//! Stores results from quality gate execution including command output,
-//! timing, environment context, and validation status.
-
 use super::{Entity, GenericEntity};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

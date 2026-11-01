@@ -144,6 +144,12 @@ pub struct FlakinessAssessment {
     pub is_flaky: bool,
 }
 
+impl Default for FlakinessTracker {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FlakinessTracker {
     pub fn new() -> Self {
         Self {
@@ -164,10 +170,7 @@ impl FlakinessTracker {
             "flaky_blacklist_{}",
             gate_name.replace(['/', ' ', '.'], "_")
         );
-        match storage.get(&id, "flakiness_blacklist") {
-            Ok(Some(_)) => true,
-            _ => false,
-        }
+        matches!(storage.get(&id, "flakiness_blacklist"), Ok(Some(_)))
     }
 
     pub fn get_blacklist_entry<S: Storage>(

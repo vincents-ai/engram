@@ -98,7 +98,7 @@ impl<S: Storage + RelationshipStorage> LocusIntegration<S> {
             if let Ok(result) = serde_json::from_value::<ExecutionResult>(entity.data) {
                 // Apply filters
                 if let Some(filter_task_id) = task_id {
-                    if result.task_id.to_string() != filter_task_id {
+                    if result.task_id != filter_task_id {
                         continue;
                     }
                 }
