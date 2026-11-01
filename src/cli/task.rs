@@ -665,6 +665,7 @@ pub fn list_tasks<S: Storage>(
                 crate::entities::TaskStatus::Done => "✅ Done",
                 crate::entities::TaskStatus::Blocked => "⛔ Blocked",
                 crate::entities::TaskStatus::Cancelled => "❌ Cancelled",
+                crate::entities::TaskStatus::Review => "👀 Review",
             };
 
             let priority_str = format!("{:?}", task.priority);
@@ -885,9 +886,13 @@ pub fn update_task<S: Storage>(
             "cancelled" | "canceled" | "cancel" | "abandoned" | "dropped" => {
                 updated_task.status = crate::entities::TaskStatus::Cancelled;
             }
+            // Handle review
+            "review" | "in_review" | "in-review" => {
+                updated_task.status = crate::entities::TaskStatus::Review;
+            }
             _ => {
                 return Err(EngramError::Validation(format!(
-                "Invalid status: '{}'. Valid values: todo, in_progress, done, blocked, cancelled",
+                "Invalid status: '{}'. Valid values: todo, in_progress, review, done, blocked, cancelled",
                 status
             )))
             }

@@ -12,10 +12,14 @@ use validator::Validate;
 #[serde(rename_all = "lowercase")]
 pub enum TaskStatus {
     Todo,
+    // agentic-loop historically wrote both `in_progress` and `inprogress`.
+    #[serde(alias = "in_progress")]
     InProgress,
     Done,
     Blocked,
     Cancelled,
+    /// Awaiting review. This is a distinct state, never coerced to another one.
+    Review,
 }
 
 /// Task priority variants
@@ -282,6 +286,53 @@ mod tests {
         assert_eq!(task.status, TaskStatus::Done);
         assert!(task.end_time.is_some());
         assert_eq!(task.outcome, Some("Done".to_string()));
+    }
+
+    #[test]
+    fn task_status_round_trips_agentic_loop_vocabulary() {
+        // Both spellings agentic-loop has written must deserialize to InProgress.
+        for input in ["in_progress", "inprogress"] {
+            let deserialized: TaskStatus =
+                serde_json::from_str(&format!("\"{}\"", input)).unwrap();
+            assert_eq!(deserialized, TaskStatus::InProgress);
+            assert_eq!(
+                serde_json::to_string(&deserialized).unwrap(),
+                "\"inprogress\""
+            );
+        }
+
+        // Every accepted vocabulary value round-trips.
+        let vocabulary = [
+            ("todo", TaskStatus::Todo),
+            ("inprogress", TaskStatus::InProgress),
+            ("review", TaskStatus::Review),
+            ("done", TaskStatus::Done),
+            ("blocked", TaskStatus::Blocked),
+            ("cancelled", TaskStatus::Cancelled),
+        ];
+        for (input, expected) in vocabulary {
+            let deserialized: TaskStatus =
+                serde_json::from_str(&format!("\"{}\"", input)).unwrap();
+            assert_eq!(deserialized, expected);
+            assert_eq!(
+                serde_json::to_string(&deserialized).unwrap(),
+                format!("\"{}\"", input)
+            );
+        }
+
+        // `review` must stay review, never coerced to another state.
+        let review: TaskStatus = serde_json::from_str("\"review\"").unwrap();
+        assert_eq!(review, TaskStatus::Review);
+        assert_eq!(serde_json::to_string(&review).unwrap(), "\"review\"");
+
+        // Genuinely unknown values are rejected.
+        for unknown in ["\"archived\"", "\"pending\"", "\"REVIEW\"", "\"\""] {
+            assert!(
+                serde_json::from_str::<TaskStatus>(unknown).is_err(),
+                "expected {:?} to be rejected",
+                unknown
+            );
+        }
     }
 
     #[test]
