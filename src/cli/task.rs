@@ -132,11 +132,11 @@ pub enum TaskCommands {
         #[arg(help = "Task ID to update")]
         id: String,
 
-        /// New status (todo, in_progress, done, blocked, cancelled)
+        /// New status (todo, in_progress, review, done, blocked, cancelled)
         #[arg(
             long,
             short,
-            help = "New status: todo, in_progress, done, blocked, cancelled"
+            help = "New status: todo, in_progress, review, done, blocked, cancelled"
         )]
         status: String,
 
@@ -164,7 +164,7 @@ pub enum TaskCommands {
         #[arg(long)]
         older_than: Option<u64>,
 
-        /// Archive tasks with specific status (done, cancelled, todo, in_progress, blocked)
+        /// Archive tasks with specific status (done, cancelled, todo, in_progress, review, blocked)
         #[arg(long)]
         status: Option<String>,
 
@@ -1437,6 +1437,75 @@ mod tests {
 
         let result = update_task(&mut storage, &task_id, "invalid_status", None, None);
         assert!(matches!(result, Err(EngramError::Validation(_))));
+    }
+
+    #[test]
+    fn task_status_help_lists_review() {
+        use clap::{CommandFactory, Parser};
+
+        let mut cli = crate::cli::Cli::command();
+        let task = cli.find_subcommand_mut("task").unwrap();
+
+        let update = task.find_subcommand_mut("update").unwrap();
+        let update_help = update
+            .get_arguments()
+            .find(|arg| arg.get_id() == "status")
+            .and_then(|arg| arg.get_help())
+            .map(|help| help.to_string())
+            .unwrap_or_default();
+        assert!(
+            update_help.contains("review"),
+            "task update help should list review, got: {update_help}"
+        );
+
+        let archive_bulk = task.find_subcommand_mut("archive-bulk").unwrap();
+        let archive_help = archive_bulk
+            .get_arguments()
+            .find(|arg| arg.get_id() == "status")
+            .and_then(|arg| arg.get_help())
+            .map(|help| help.to_string())
+            .unwrap_or_default();
+        assert!(
+            archive_help.contains("review"),
+            "archive-bulk help should list review, got: {archive_help}"
+        );
+
+        crate::cli::Cli::try_parse_from([
+            "engram", "task", "update", "task-id", "--status", "review",
+        ])
+        .expect("--status review should be accepted by the parser");
+
+        let mut storage = create_test_storage();
+        create_task(
+            &mut storage,
+            Some("Review Status Task".to_string()),
+            None,
+            "medium",
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
+            None,
+            false,
+            None,
+            "text".to_string(),
+        )
+        .unwrap();
+        let task_id = storage.query_by_agent("default", Some("task")).unwrap()[0]
+            .id
+            .clone();
+
+        update_task(&mut storage, &task_id, "review", None, None).unwrap();
+        let task = Task::from_generic(storage.get(&task_id, "task").unwrap().unwrap()).unwrap();
+        assert_eq!(task.status, crate::entities::TaskStatus::Review);
+
+        let err = update_task(&mut storage, &task_id, "invalid_status", None, None).unwrap_err();
+        assert!(
+            err.to_string().contains("review"),
+            "validation error should list review, got: {err}"
+        );
     }
 
     #[test]
