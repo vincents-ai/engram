@@ -40,7 +40,7 @@ pub(crate) enum SyncOperation {
 fn execute_sync_op(op: SyncOperation) -> SyncResult {
     let message = match op {
         SyncOperation::Pull { remote_name } => match build_auth_for_remote(&remote_name) {
-            Ok(auth) => crate::cli::sync::pull_from_remote(remote_name.clone(), auth, false)
+            Ok(auth) => crate::cli::sync_gix::pull_from_remote_gix(&remote_name, &auth, false)
                 .map(|outcomes| {
                     let conflicts = outcomes
                         .iter()
@@ -54,7 +54,7 @@ fn execute_sync_op(op: SyncOperation) -> SyncResult {
             Err(e) => format!("auth error: {}", e),
         },
         SyncOperation::Push { remote_name } => match build_auth_for_remote(&remote_name) {
-            Ok(auth) => crate::cli::sync::push_to_remote(remote_name.clone(), auth, false)
+            Ok(auth) => crate::cli::sync_gix::push_to_remote_gix(&remote_name, &auth, false)
                 .map(|count| format!("push: {} refs pushed", count))
                 .unwrap_or_else(|e| format!("push error: {}", e)),
             Err(e) => format!("auth error: {}", e),

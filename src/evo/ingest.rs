@@ -11,9 +11,9 @@
 //!   - role "assistant": content has thinking, text, toolCall blocks
 //!   - role "toolResult": content has tool results with isError flag
 
+use crate::error::EngramError;
 use crate::evo::cli::IngestArgs;
 use crate::evo::types::*;
-use crate::error::EngramError;
 use chrono::{DateTime, Utc};
 use std::fs;
 use std::io::{self, Read};
@@ -64,13 +64,12 @@ pub fn handle_ingest(args: IngestArgs) -> Result<(), EngramError> {
     tracing::info!("{}", report);
 
     if json_mode {
-        let json = serde_json::to_string_pretty(&trajectories)
-            .map_err(|e| EngramError::Serialization(e))?;
+        let json =
+            serde_json::to_string_pretty(&trajectories).map_err(EngramError::Serialization)?;
         if output_path == "-" {
             println!("{}", json);
         } else {
-            fs::write(output_path, json)
-                .map_err(|e| EngramError::Io(e))?;
+            fs::write(output_path, json).map_err(EngramError::Io)?;
             println!("{}", report);
         }
     } else {
@@ -98,8 +97,7 @@ pub fn discover_sessions(
         .into_iter()
         .filter_map(|e| e.ok())
         .filter(|e| {
-            e.file_type().is_file()
-                && e.path().extension().map_or(false, |ext| ext == "jsonl")
+            e.file_type().is_file() && e.path().extension().is_some_and(|ext| ext == "jsonl")
         })
         .map(|e| e.into_path())
         .collect();
@@ -125,8 +123,7 @@ pub fn discover_sessions(
 
 /// Parse a single session JSONL file into a Trajectory
 pub fn parse_session_file(path: &Path) -> Result<Trajectory, EngramError> {
-    let content = fs::read_to_string(path)
-        .map_err(|e| EngramError::Io(e))?;
+    let content = fs::read_to_string(path).map_err(EngramError::Io)?;
 
     let lines: Vec<&str> = content.lines().filter(|l| !l.trim().is_empty()).collect();
     if lines.is_empty() {
@@ -134,8 +131,8 @@ pub fn parse_session_file(path: &Path) -> Result<Trajectory, EngramError> {
     }
 
     // Parse header
-    let header: serde_json::Value = serde_json::from_str(lines[0])
-        .map_err(|e| EngramError::Serialization(e))?;
+    let header: serde_json::Value =
+        serde_json::from_str(lines[0]).map_err(EngramError::Serialization)?;
 
     if header["type"].as_str() != Some("session") {
         return Err(EngramError::Deserialization(
@@ -232,14 +229,8 @@ pub fn parse_session_file(path: &Path) -> Result<Trajectory, EngramError> {
                                     }
                                     "toolCall" => {
                                         tool_calls.push(ToolCall {
-                                            id: block["id"]
-                                                .as_str()
-                                                .unwrap_or("")
-                                                .to_string(),
-                                            name: block["name"]
-                                                .as_str()
-                                                .unwrap_or("")
-                                                .to_string(),
+                                            id: block["id"].as_str().unwrap_or("").to_string(),
+                                            name: block["name"].as_str().unwrap_or("").to_string(),
                                             arguments: block["arguments"].clone(),
                                         });
                                     }
@@ -286,14 +277,8 @@ pub fn parse_session_file(path: &Path) -> Result<Trajectory, EngramError> {
                     }
                     "toolResult" => {
                         let result = ToolResult {
-                            tool_call_id: msg["toolCallId"]
-                                .as_str()
-                                .unwrap_or("")
-                                .to_string(),
-                            tool_name: msg["toolName"]
-                                .as_str()
-                                .unwrap_or("")
-                                .to_string(),
+                            tool_call_id: msg["toolCallId"].as_str().unwrap_or("").to_string(),
+                            tool_name: msg["toolName"].as_str().unwrap_or("").to_string(),
                             content: extract_text_content(msg["content"].clone()),
                             is_error: msg["isError"].as_bool().unwrap_or(false),
                             exit_code: None, // Will be extracted from bashExecution messages

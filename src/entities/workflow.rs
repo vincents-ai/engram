@@ -326,17 +326,13 @@ pub struct TransitionCondition {
 /// How to handle action failure during a transition
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum ActionFailurePolicy {
     /// Log the failure but continue the transition
+    #[default]
     Continue,
     /// Abort the entire transition on failure
     Block,
-}
-
-impl Default for ActionFailurePolicy {
-    fn default() -> Self {
-        Self::Continue
-    }
 }
 
 /// Transition action

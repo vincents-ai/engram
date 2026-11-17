@@ -151,7 +151,11 @@ pub trait Storage: Send {
     fn store(&mut self, entity: &crate::entity_types::GenericEntity) -> Result<(), EngramError>;
 
     /// Retrieve an entity by ID and type.
-    fn get(&self, id: &str, entity_type: &str) -> Result<Option<crate::entity_types::GenericEntity>, EngramError>;
+    fn get(
+        &self,
+        id: &str,
+        entity_type: &str,
+    ) -> Result<Option<crate::entity_types::GenericEntity>, EngramError>;
 
     /// Advanced query with filtering, sorting, and pagination.
     fn query(&self, filter: &QueryFilter) -> Result<QueryResult, EngramError>;
@@ -197,7 +201,10 @@ pub trait Storage: Send {
     fn list_ids(&self, entity_type: &str) -> Result<Vec<String>, EngramError>;
 
     /// Get all entities of a specific type.
-    fn get_all(&self, entity_type: &str) -> Result<Vec<crate::entity_types::GenericEntity>, EngramError>;
+    fn get_all(
+        &self,
+        entity_type: &str,
+    ) -> Result<Vec<crate::entity_types::GenericEntity>, EngramError>;
 
     /// Sync with remote repository.
     fn sync(&mut self) -> Result<(), EngramError>;
@@ -218,7 +225,10 @@ pub trait Storage: Send {
     fn history(&self, limit: Option<usize>) -> Result<Vec<GitCommit>, EngramError>;
 
     /// Bulk store operations.
-    fn bulk_store(&mut self, entities: &[crate::entity_types::GenericEntity]) -> Result<(), EngramError>;
+    fn bulk_store(
+        &mut self,
+        entities: &[crate::entity_types::GenericEntity],
+    ) -> Result<(), EngramError>;
 
     /// Get statistics about stored entities.
     fn get_stats(&self) -> Result<StorageStats, EngramError>;

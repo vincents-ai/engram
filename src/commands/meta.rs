@@ -6,9 +6,7 @@ use engram::cli::theory::*;
 use engram::error::EngramError;
 
 /// Handle theory commands (Naur, 1985 - Programming as Theory Building)
-pub fn handle_theory_command<
-    S: engram::storage::Storage + engram::storage::RelationshipStorage,
->(
+pub fn handle_theory_command<S: engram::storage::Storage + engram::storage::RelationshipStorage>(
     command: cli::TheoryCommands,
     storage: &mut S,
 ) -> Result<(), EngramError> {

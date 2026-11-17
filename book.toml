@@ -16,8 +16,6 @@ default-theme = "light"
 preferred-dark-theme = "coal"
 smart-punctuation = true
 edit-url-template = "https://github.com/vincents-ai/engram/edit/main/{path}"
-favicon = "docs/theme/logo.svg"
-logo = "docs/theme/logo.svg"
 
 [preprocessor.index]
 [preprocessor.links]

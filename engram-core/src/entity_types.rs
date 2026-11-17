@@ -149,7 +149,8 @@ impl GenericEntity {
 }
 
 /// Deserialize function for entity types in the registry.
-pub type EntityDeserializeFn = fn(GenericEntity) -> Result<GenericEntity, crate::error::EngramError>;
+pub type EntityDeserializeFn =
+    fn(GenericEntity) -> Result<GenericEntity, crate::error::EngramError>;
 
 /// Registry mapping entity type names to their deserializers.
 ///
@@ -169,10 +170,7 @@ impl EntityRegistry {
 
     /// Register an entity type (validates it can round-trip through GenericEntity).
     pub fn register<E: Entity + 'static>(&mut self) {
-        self.types.insert(
-            E::entity_type().to_string(),
-            Ok,
-        );
+        self.types.insert(E::entity_type().to_string(), Ok);
     }
 
     /// Check if a type is registered.

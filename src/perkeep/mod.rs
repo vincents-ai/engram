@@ -474,7 +474,7 @@ impl PerkeepClient {
         let response = self
             .add_auth(
                 self.client
-                    .post(&self.search_url())
+                    .post(self.search_url())
                     .header("Content-Type", "application/json"),
             )
             .json(&search_query)

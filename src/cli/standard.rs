@@ -104,6 +104,10 @@ pub enum StandardCommands {
         /// Show all results (no limit)
         #[arg(long, conflicts_with = "limit")]
         all: bool,
+
+        /// Output format
+        #[arg(long, default_value = "table")]
+        output: String,
     },
     /// Add requirement to standard
     AddRequirement {
@@ -195,6 +199,7 @@ pub fn get_standard<S: Storage>(storage: &S, id: &str) -> Result<(), EngramError
 }
 
 /// Update standard
+#[allow(clippy::too_many_arguments)]
 pub fn update_standard<S: Storage>(
     storage: &mut S,
     id: &str,
@@ -313,6 +318,7 @@ use crate::cli::utils::{create_table, truncate};
 use prettytable::row;
 
 /// List standards
+#[allow(clippy::too_many_arguments)]
 pub fn list_standards<S: Storage>(
     writer: &mut dyn std::io::Write,
     storage: &S,
@@ -322,6 +328,7 @@ pub fn list_standards<S: Storage>(
     limit: usize,
     offset: usize,
     all: bool,
+    output: &str,
 ) -> Result<(), EngramError> {
     use crate::storage::QueryFilter;
     use serde_json::Value;
@@ -354,7 +361,33 @@ pub fn list_standards<S: Storage>(
     let result = storage.query(&filter)?;
 
     if result.entities.is_empty() {
-        writeln!(writer, "No standards found matching the criteria.")?;
+        if output == "json" {
+            writeln!(writer, "[]")?;
+        } else {
+            writeln!(writer, "No standards found matching the criteria.")?;
+        }
+        return Ok(());
+    }
+
+    // JSON output
+    if output == "json" {
+        let items: Vec<serde_json::Value> = result
+            .entities
+            .iter()
+            .map(|e| {
+                serde_json::json!({
+                    "id": e.id,
+                    "entity_type": e.entity_type,
+                    "agent": e.agent,
+                    "data": e.data,
+                })
+            })
+            .collect();
+        writeln!(
+            writer,
+            "{}",
+            serde_json::to_string_pretty(&items).map_err(EngramError::Serialization)?
+        )?;
         return Ok(());
     }
 
@@ -546,7 +579,7 @@ fn display_standard(standard: &Standard) {
                 } else {
                     "Optional"
                 },
-                format!("{:?}", req.priority)
+                format_args!("{:?}", req.priority)
             );
         }
     }
@@ -711,7 +744,17 @@ mod tests {
 
         // List all
         let mut buffer = Vec::new();
-        let result = list_standards(&mut buffer, &storage, None, None, None, 10, 0, false);
+        let result = list_standards(
+            &mut buffer,
+            &storage,
+            None,
+            None,
+            None,
+            10,
+            0,
+            false,
+            "table",
+        );
         assert!(result.is_ok());
 
         // Filter by category
@@ -725,6 +768,7 @@ mod tests {
             10,
             0,
             false,
+            "table",
         );
         assert!(result.is_ok());
     }

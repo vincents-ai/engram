@@ -135,7 +135,7 @@ pub fn list_prompts(query: &PromptsQuery) -> Result<Vec<PromptInfo>, EngramError
             }
 
             // Search in subdirectory
-            let subentries = fs::read_dir(&entry.path())?;
+            let subentries = fs::read_dir(entry.path())?;
             for subentry in subentries.flatten() {
                 if subentry.path().is_file() {
                     let name = subentry.file_name().to_string_lossy().to_string();
@@ -148,7 +148,7 @@ pub fn list_prompts(query: &PromptsQuery) -> Result<Vec<PromptInfo>, EngramError
                     }
 
                     // Try to extract title/description from YAML
-                    let content = fs::read_to_string(&subentry.path()).ok();
+                    let content = fs::read_to_string(subentry.path()).ok();
                     let (title, description) = extract_yaml_metadata(&content.unwrap_or_default());
 
                     prompts.push(PromptInfo {

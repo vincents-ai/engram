@@ -1,5 +1,3 @@
-//! DocFragment entity implementation
-
 use super::{Entity, GenericEntity};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

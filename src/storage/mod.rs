@@ -8,8 +8,8 @@ pub mod git_refs_storage;
 
 // Re-export storage types from engram-core
 pub use engram_core::storage_types::{
-    Storage, QueryFilter, QueryResult, TimeRange, SortOrder, GitCommit, StorageStats,
-    SyncStrategy, ConflictResolution, SyncResult, RemoteSyncDirection, RemoteAuth, RemoteSyncOptions,
+    ConflictResolution, GitCommit, QueryFilter, QueryResult, RemoteAuth, RemoteSyncDirection,
+    RemoteSyncOptions, SortOrder, Storage, StorageStats, SyncResult, SyncStrategy, TimeRange,
 };
 
 // Re-export everything from engram-storage (MemoryEntity, MemoryStorage, RelationshipStorage, etc.)

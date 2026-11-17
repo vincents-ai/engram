@@ -850,6 +850,7 @@ pub fn task_to_row(task: &Task) -> TaskRow {
         TaskStatus::Done => "done".to_string(),
         TaskStatus::Blocked => "blocked".to_string(),
         TaskStatus::Cancelled => "cancelled".to_string(),
+        TaskStatus::Review => "review".to_string(),
     };
     let priority = format!("{:?}", task.priority).to_lowercase();
     TaskRow {

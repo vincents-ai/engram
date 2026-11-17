@@ -10,13 +10,15 @@ use crate::memory_entity::MemoryEntity;
 use crate::relationship_storage::{
     RelationshipIndex, RelationshipStats, RelationshipStorage, TraversalAlgorithm,
 };
-use engram_core::storage_types::{GitCommit, QueryFilter, QueryResult, SortOrder, Storage, StorageStats};
+use chrono::{DateTime, Utc};
 use engram_core::entity_types::{Entity, GenericEntity};
+use engram_core::error::EngramError;
 use engram_core::relationship::{
     EntityRelationType, EntityRelationship, RelationshipDirection, RelationshipFilter,
 };
-use engram_core::error::EngramError;
-use chrono::{DateTime, Utc};
+use engram_core::storage_types::{
+    GitCommit, QueryFilter, QueryResult, SortOrder, Storage, StorageStats,
+};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -708,7 +710,6 @@ impl RelationshipStorage for MemoryStorage {
     }
 }
 #[cfg(test)]
-
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -485,9 +485,7 @@ fn handle_key(app: &mut AppState, key: KeyEvent) -> (bool, Option<Action>) {
         KeyAction::Back => {
             if app.show_help {
                 app.show_help = false;
-            } else if app.task_detail.is_some() {
-                return (true, Some(Action::CloseDetail));
-            } else if app.persona_detail.is_some() {
+            } else if app.task_detail.is_some() || app.persona_detail.is_some() {
                 return (true, Some(Action::CloseDetail));
             } else if app.active_view == ActiveView::Relationships
                 && app.relationship_focus == RelationshipFocus::Edges

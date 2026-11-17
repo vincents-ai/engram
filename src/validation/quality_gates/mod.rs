@@ -316,10 +316,7 @@ impl<S: Storage> QualityGatesExecutor<S> {
             .map(Duration::from_secs)
             .unwrap_or(Duration::from_secs(300));
 
-        let output = match self.wait_for_output_with_timeout(child, timeout_duration) {
-            Ok(output) => output,
-            Err(e) => return Err(e),
-        };
+        let output = self.wait_for_output_with_timeout(child, timeout_duration)?;
 
         let stdout = String::from_utf8_lossy(&output.stdout).to_string();
         let stderr = String::from_utf8_lossy(&output.stderr).to_string();

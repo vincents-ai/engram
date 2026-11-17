@@ -69,9 +69,7 @@ impl ActionExecutor {
 
     /// Check if Nix sandbox is active and available
     pub fn is_nix_sandbox_active(&self) -> bool {
-        self.nix_sandbox
-            .as_ref()
-            .map_or(false, |s| s.is_available())
+        self.nix_sandbox.as_ref().is_some_and(|s| s.is_available())
     }
 
     /// Execute an action based on type and parameters

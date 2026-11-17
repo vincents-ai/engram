@@ -115,7 +115,7 @@ pub async fn perkeep_backup<S: Storage>(
         let ids = storage.list_ids(et)?;
 
         for id in &ids {
-            if let Ok(Some(entity)) = storage.get(&id, et) {
+            if let Ok(Some(entity)) = storage.get(id, et) {
                 let blob_data = serde_json::to_vec(&entity).map_err(|e| {
                     EngramError::InvalidOperation(format!("Failed to serialize entity: {}", e))
                 })?;
@@ -140,7 +140,7 @@ pub async fn perkeep_backup<S: Storage>(
         let rel_ids = storage.list_ids("relationship")?;
 
         for id in &rel_ids {
-            if let Ok(Some(entity)) = storage.get(&id, "relationship") {
+            if let Ok(Some(entity)) = storage.get(id, "relationship") {
                 let blob_data = serde_json::to_vec(&entity).map_err(|e| {
                     EngramError::InvalidOperation(format!(
                         "Failed to serialize relationship: {}",
@@ -348,7 +348,7 @@ pub async fn perkeep_restore<S: Storage>(
 
                 restored_count += 1;
 
-                if restored_count % 10 == 0 {
+                if restored_count.is_multiple_of(10) {
                     println!("   Restored {} entities...", restored_count);
                 }
             }

@@ -137,7 +137,7 @@ impl Default for PerformanceConfig {
 impl ValidationConfig {
     /// Load configuration from file
     pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<Self, EngramError> {
-        let content = std::fs::read_to_string(path).map_err(|e| EngramError::Io(e))?;
+        let content = std::fs::read_to_string(path).map_err(EngramError::Io)?;
 
         let config: Self = serde_yaml::from_str(&content).map_err(EngramError::Yaml)?;
 
@@ -149,7 +149,7 @@ impl ValidationConfig {
         let content = serde_yaml::to_string(self)
             .map_err(|e| EngramError::Validation(format!("Failed to serialize config: {}", e)))?;
 
-        std::fs::write(path, content).map_err(|e| EngramError::Io(e))?;
+        std::fs::write(path, content).map_err(EngramError::Io)?;
 
         Ok(())
     }

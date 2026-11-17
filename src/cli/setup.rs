@@ -79,7 +79,7 @@ pub fn setup_agent(
     let engram_dir = root_dir
         .unwrap_or_else(|| PathBuf::from("."))
         .join(".engram");
-    fs::create_dir_all(&engram_dir.join("agents")).map_err(EngramError::Io)?;
+    fs::create_dir_all(engram_dir.join("agents")).map_err(EngramError::Io)?;
 
     let agent_profile = AgentProfile {
         name: name.to_string(),

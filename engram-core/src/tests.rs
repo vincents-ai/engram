@@ -1,8 +1,8 @@
 //! Tests for engram-core traits and types.
 
-use crate::*;
 use crate::entity_types::EntityRegistry;
 use crate::storage_types;
+use crate::*;
 use serde_json::json;
 
 #[test]
@@ -86,7 +86,11 @@ fn generic_entity_from_value_defaults_timestamp() {
     // Timestamp should be roughly now (within last 10 seconds)
     let now = chrono::Utc::now();
     let diff = (now.timestamp() - entity.timestamp.timestamp()).abs();
-    assert!(diff < 10, "Timestamp should be near now, but diff was {}s", diff);
+    assert!(
+        diff < 10,
+        "Timestamp should be near now, but diff was {}s",
+        diff
+    );
 }
 
 #[test]
@@ -115,10 +119,7 @@ fn entity_registry_register_and_check() {
     let mut registry = EntityRegistry::new();
     assert!(!registry.has_type("task"));
 
-    registry.types.insert(
-        "task".to_string(),
-        Ok,
-    );
+    registry.types.insert("task".to_string(), Ok);
     assert!(registry.has_type("task"));
 
     let names = registry.type_names();

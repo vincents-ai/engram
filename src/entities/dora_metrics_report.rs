@@ -1,9 +1,3 @@
-//! DoraMetricsReport entity - persisted DORA metrics computation results
-//!
-//! Stores computed DORA metrics (Deployment Frequency, Lead Time for Changes,
-//! Change Failure Rate, Mean Time to Recovery) as a first-class engram entity
-//! so results persist and sync via GitRefsStorage.
-
 use super::{Entity, GenericEntity};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -234,9 +228,9 @@ impl DoraMetricsCalculator {
         let start_secs = window_start.timestamp();
         let end_secs = window_end.timestamp();
 
-        let head_id = repo.head_id().map_err(|e| {
-            crate::EngramError::Git(format!("head_id failed: {}", e))
-        })?;
+        let head_id = repo
+            .head_id()
+            .map_err(|e| crate::EngramError::Git(format!("head_id failed: {}", e)))?;
 
         let mut commit_timestamps: Vec<i64> = Vec::new();
 
@@ -244,7 +238,9 @@ impl DoraMetricsCalculator {
         // ByCommitTime sorting is required to populate commit_time in the walk info.
         let commits = repo
             .rev_walk([head_id])
-            .sorting(gix::revision::walk::Sorting::ByCommitTime(gix::traverse::commit::simple::CommitTimeOrder::NewestFirst))
+            .sorting(gix::revision::walk::Sorting::ByCommitTime(
+                gix::traverse::commit::simple::CommitTimeOrder::NewestFirst,
+            ))
             .all()
             .map_err(|e| crate::EngramError::Git(format!("revwalk failed: {}", e)))?;
 
@@ -310,7 +306,7 @@ impl DoraMetricsCalculator {
         spans.sort_by(|a, b| a.partial_cmp(b).unwrap());
 
         let mid = spans.len() / 2;
-        if spans.len() % 2 == 0 {
+        if spans.len().is_multiple_of(2) {
             (spans[mid - 1] + spans[mid]) / 2.0
         } else {
             spans[mid]

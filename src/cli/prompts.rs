@@ -112,10 +112,7 @@ pub fn list_prompts(
     }
 
     // Determine whether to show embedded personas (only for agents category or no category filter)
-    let show_embedded = match category {
-        None | Some("agents") => true,
-        _ => false,
-    };
+    let show_embedded = matches!(category, None | Some("agents"));
 
     let entries = if prompts_path.exists() {
         fs::read_dir(&prompts_path).ok()
@@ -146,7 +143,7 @@ pub fn list_prompts(
                             }
                         }
 
-                        let count = fs::read_dir(&entry.path())
+                        let count = fs::read_dir(entry.path())
                             .map(|d| d.flatten().count())
                             .unwrap_or(0);
                         table.add_row(row!["[disk]", name, count]);
@@ -187,7 +184,7 @@ pub fn list_prompts(
                             }
                         }
 
-                        let subentries = fs::read_dir(&entry.path())?;
+                        let subentries = fs::read_dir(entry.path())?;
                         let mut file_names = Vec::new();
 
                         for subentry in subentries.flatten() {
@@ -370,12 +367,12 @@ pub fn show_prompt(name: &str, root: Option<PathBuf>) -> Result<(), std::io::Err
         for entry in entries.flatten() {
             if entry.path().is_dir() {
                 let entry_name = entry.file_name().to_string_lossy().into_owned();
-                let subentries = fs::read_dir(&entry.path())?;
+                let subentries = fs::read_dir(entry.path())?;
                 for subentry in subentries.flatten() {
                     let sub_name = subentry.file_name().to_string_lossy().into_owned();
                     if sub_name.to_lowercase().contains(&search_name) && subentry.path().is_file() {
                         println!("\nFound: {}/{}", entry_name, sub_name);
-                        let content = fs::read_to_string(&subentry.path())?;
+                        let content = fs::read_to_string(subentry.path())?;
                         println!("\n{}", content);
 
                         // Validate evidence-based validation requirements
@@ -448,14 +445,14 @@ pub fn validate_prompts(
 
             println!("📁 Validating category: {}", dir_name);
 
-            let subentries = fs::read_dir(&entry.path())?;
+            let subentries = fs::read_dir(entry.path())?;
             for subentry in subentries.flatten() {
                 if subentry.path().is_file() {
                     let file_name = subentry.file_name().to_string_lossy().into_owned();
                     if file_name.ends_with(".yaml") || file_name.ends_with(".md") {
                         total_files += 1;
 
-                        let content = match fs::read_to_string(&subentry.path()) {
+                        let content = match fs::read_to_string(subentry.path()) {
                             Ok(c) => c,
                             Err(_) => {
                                 println!("  ❌ Failed to read: {}", file_name);

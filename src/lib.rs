@@ -10,6 +10,7 @@ pub mod config;
 pub mod engines;
 pub mod entities;
 pub mod error;
+pub mod evo;
 pub mod feedback;
 pub mod locus_cli;
 pub mod locus_handlers;
@@ -26,7 +27,6 @@ pub mod storage;
 pub mod validation;
 pub mod vector;
 pub mod version;
-pub mod evo;
 
 use std::result::Result as StdResult;
 

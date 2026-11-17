@@ -1,5 +1,3 @@
-//! Agent Sandbox entity implementation
-
 use super::{Entity, GenericEntity};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -68,7 +66,7 @@ pub struct ResourceLimits {
 }
 
 /// Command filtering configuration
-#[derive(Debug, Clone, Serialize, Deserialize, Validate, schemars::JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, schemars::JsonSchema, Default)]
 pub struct CommandFilter {
     /// Whether to use whitelist mode (only allow listed commands)
     pub whitelist_mode: bool,
@@ -872,15 +870,15 @@ impl Entity for AgentSandbox {
         );
         data.insert(
             "created_at".to_string(),
-            serde_json::to_value(&self.created_at).unwrap(),
+            serde_json::to_value(self.created_at).unwrap(),
         );
         data.insert(
             "last_modified".to_string(),
-            serde_json::to_value(&self.last_modified).unwrap(),
+            serde_json::to_value(self.last_modified).unwrap(),
         );
         data.insert(
             "violation_count".to_string(),
-            serde_json::to_value(&self.violation_count).unwrap(),
+            serde_json::to_value(self.violation_count).unwrap(),
         );
         data.insert(
             "agent".to_string(),
@@ -954,18 +952,6 @@ impl Default for WorkflowPermissions {
             can_modify_workflows: false,
             can_execute_workflows: true,
             restricted_workflow_types: vec![],
-        }
-    }
-}
-
-impl Default for CommandFilter {
-    fn default() -> Self {
-        Self {
-            whitelist_mode: false,
-            allowed_commands: vec![],
-            forbidden_commands: vec![],
-            parameter_restrictions: HashMap::new(),
-            dangerous_patterns: vec![],
         }
     }
 }

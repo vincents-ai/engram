@@ -361,8 +361,8 @@ pub fn resolve_skills_dir(dir: Option<&str>, tool: Option<&str>) -> Result<PathB
         .map_err(|_| EngramError::Validation("HOME environment variable not set".to_string()))?;
 
     if let Some(explicit) = dir {
-        let expanded = if explicit.starts_with("~/") {
-            home.join(&explicit[2..])
+        let expanded = if let Some(stripped) = explicit.strip_prefix("~/") {
+            home.join(stripped)
         } else if explicit == "~" {
             home.clone()
         } else {

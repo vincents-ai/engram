@@ -44,8 +44,9 @@ pub fn handle_persona_command<S: engram::storage::Storage>(
             limit,
             all,
             offset,
+            output,
         } => {
-            cli::list_personas(storage, agent, domain, tag, limit, all, offset)?;
+            cli::list_personas(storage, agent, domain, tag, limit, all, offset, &output)?;
         }
         cli::PersonaCommands::Show { id } => {
             cli::show_persona(storage, &id)?;

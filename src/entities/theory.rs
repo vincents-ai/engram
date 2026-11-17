@@ -1,9 +1,3 @@
-//! Theory entity implementation for agent cognitive modeling (Naur, 1985)
-//!
-//! Based on Peter Naur's "Programming as Theory Building" (1985), this entity
-//! represents an agent's internal theory of the system - the mental model
-//! that informs how the agent understands and operates on the domain.
-
 use super::{Entity, GenericEntity};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

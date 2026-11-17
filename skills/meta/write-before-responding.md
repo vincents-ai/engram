@@ -7,9 +7,9 @@ description: "Before replying to the user, always write findings, decisions, and
 
 ## Overview
 
-Agents lose work when they reply to the user before storing findings in engram. Context compaction and session end are silent — they do not warn you. If you reply first, then write, the write may never happen.
+Agents lose work when they reply to the user before storing findings in engram. Context compaction, model failure, and session end are silent — they do not warn you. If you reply first, then write, the write may never happen.
 
-The rule is simple: **engram first, reply second. Always.**
+The rule is simple: **engram first, reply second. Always.** Write enough detail for a later model or agent to continue if the current model fails before completing the task.
 
 ## When to Use
 
@@ -18,6 +18,7 @@ This rule fires on every response where you have something new to record:
 1. After any research or investigation — you found something
 2. After any decision — you chose something
 3. After completing a unit of work — a task or subtask is done
+4. Before risky edits, long-running commands, tool calls likely to fail, or any handoff point — create a recovery checkpoint
 
 ## The Rule
 
@@ -25,8 +26,9 @@ Before sending ANY response to the user:
 
 1. Store new findings → `engram context create`
 2. Store new decisions → `engram reasoning create` or `engram adr create`
-3. Link new records → `engram relationship create`
-4. Update task status if a unit of work is complete → `engram task update`
+3. Store recovery checkpoints → include current state, attempted commands, files changed, blockers, and next step
+4. Link new records → `engram relationship create`
+5. Update task status if a unit of work is complete → `engram task update`
 
 **Then** reply to the user.
 
@@ -106,7 +108,7 @@ This is wrong. The store must precede the reply.
 Unlinked records cannot be found by graph traversal. They are effectively lost.
 
 **Omit the store entirely** — summarising findings verbally without writing them to engram
-This is the root failure this skill exists to prevent. Verbal summaries vanish on compaction.
+This is the root failure this skill exists to prevent. Verbal summaries vanish on compaction, model failure, timeout, or session loss.
 
 **Use wrong command syntax:**
 - `engram ask "<text>"` — wrong; correct is `engram ask query "<text>"`

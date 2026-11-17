@@ -164,6 +164,7 @@ pub fn get_adr<S: Storage>(storage: &S, id: &str) -> Result<(), EngramError> {
 }
 
 /// Update ADR
+#[allow(clippy::too_many_arguments)]
 pub fn update_adr<S: Storage>(
     storage: &mut S,
     id: &str,
