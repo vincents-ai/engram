@@ -287,9 +287,22 @@ fn parse_timestamp(value: &Value) -> Option<DateTime<Utc>> {
 /// Read block history from the task payload if it records any.
 ///
 /// Supported shapes, in order:
+/// - the typed `blocked_at` / `blocked_intervals` fields the task now writes;
 /// - `metadata.blocked_intervals`: `[{ "blocked_at": ..., "unblocked_at": ... }]`
 /// - `metadata.blocked_at` (and optional `metadata.unblocked_at`)
+///
+/// The metadata shapes are the legacy ones, still honoured so a task blocked
+/// before block history was recorded is not silently treated as never blocked.
 fn blocked_intervals(task: &Task) -> Option<Vec<(DateTime<Utc>, Option<DateTime<Utc>>)>> {
+    let typed: Vec<_> = task
+        .blocked_periods()
+        .into_iter()
+        .map(|period| (period.blocked_at, period.unblocked_at))
+        .collect();
+    if !typed.is_empty() {
+        return Some(typed);
+    }
+
     let metadata = &task.metadata;
 
     if let Some(intervals) = metadata.get("blocked_intervals").and_then(|value| value.as_array()) {
@@ -827,6 +840,8 @@ mod tests {
             files: Vec::new(),
             outcome: None,
             block_reason,
+            blocked_at: None,
+            blocked_intervals: Vec::new(),
             workflow_id: None,
             workflow_state: None,
             metadata: std::collections::HashMap::new(),
@@ -1618,5 +1633,86 @@ mod tests {
         assert_eq!(data["long_lived_all_tasks"], 1);
         assert_eq!(data["active_duration_available"], false);
         assert_eq!(data["duration_semantics"], ELAPSED_SEMANTICS);
+    }
+
+    // ─── block history feeds active duration ──────────────────────────────────
+    //
+    // Elapsed time is wall-clock; active time is elapsed minus recorded blocks.
+    // The clock-dependent assertions are tolerant because `now` moves between
+    // building the fixture and evaluating it.
+
+    fn active_of(task: &Task, now: chrono::DateTime<Utc>) -> f64 {
+        active_hours(task, elapsed_hours(task, now), now).expect("block history is readable")
+    }
+
+    #[test]
+    fn active_duration_uses_the_typed_block_history() {
+        let now = Utc::now();
+        let mut task = make_task(
+            "blocked-once",
+            "Blocked once",
+            TaskStatus::Done,
+            now - Duration::hours(10),
+            Some(now),
+            None,
+        );
+        task.blocked_intervals.push(crate::entities::BlockedInterval {
+            blocked_at: now - Duration::hours(9),
+            unblocked_at: Some(now - Duration::hours(5)),
+            reason: Some("waiting".to_string()),
+        });
+
+        let active = active_of(&task, now);
+        assert!(
+            (active - 6.0).abs() < 0.2,
+            "10 h elapsed minus a 4 h block is ~6 h active, got {active}"
+        );
+    }
+
+    #[test]
+    fn an_open_block_is_subtracted_up_to_now() {
+        let now = Utc::now();
+        let mut task = make_task(
+            "open-block",
+            "Open block",
+            TaskStatus::Blocked,
+            now - Duration::hours(10),
+            None,
+            Some("waiting".to_string()),
+        );
+        task.blocked_at = Some(now - Duration::hours(3));
+
+        let active = active_of(&task, now);
+        assert!(
+            (active - 7.0).abs() < 0.2,
+            "10 h elapsed with a block open for 3 h is ~7 h active, got {active}"
+        );
+    }
+
+    #[test]
+    fn legacy_metadata_block_history_is_still_honoured() {
+        let now = Utc::now();
+        let mut task = make_task(
+            "legacy",
+            "Legacy block",
+            TaskStatus::Done,
+            now - Duration::hours(10),
+            Some(now),
+            None,
+        );
+        task.metadata.insert(
+            "blocked_at".to_string(),
+            serde_json::json!((now - Duration::hours(9)).to_rfc3339()),
+        );
+        task.metadata.insert(
+            "unblocked_at".to_string(),
+            serde_json::json!((now - Duration::hours(5)).to_rfc3339()),
+        );
+
+        let active = active_of(&task, now);
+        assert!(
+            (active - 6.0).abs() < 0.2,
+            "the legacy metadata block must still be subtracted, got {active}"
+        );
     }
 }

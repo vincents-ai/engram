@@ -535,6 +535,8 @@ mod tests {
             workflow_id: None,
             workflow_state: None,
             block_reason: None,
+            blocked_at: None,
+            blocked_intervals: vec![],
             tags: vec![],
             metadata: HashMap::new(),
         }

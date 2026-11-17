@@ -863,6 +863,7 @@ pub fn update_task<S: Storage>(
         match status.to_lowercase().as_str() {
             // Handle "todo" - reset task to initial state
             "todo" | "backlog" => {
+                updated_task.end_block();
                 updated_task.status = crate::entities::TaskStatus::Todo;
             }
             // Handle various forms of in_progress
@@ -884,10 +885,11 @@ pub fn update_task<S: Storage>(
             }
             // Handle cancelled
             "cancelled" | "canceled" | "cancel" | "abandoned" | "dropped" => {
-                updated_task.status = crate::entities::TaskStatus::Cancelled;
+                updated_task.cancel(None);
             }
             // Handle review
             "review" | "in_review" | "in-review" => {
+                updated_task.end_block();
                 updated_task.status = crate::entities::TaskStatus::Review;
             }
             _ => {
@@ -922,13 +924,7 @@ pub fn archive_task<S: Storage>(
 
     if let Ok(task) = Task::from_generic(existing_generic) {
         let mut updated_task = task;
-        updated_task.status = crate::entities::TaskStatus::Cancelled;
-        if let Some(reason_text) = reason {
-            let archive_note = format!("Archived: {}", reason_text);
-            if updated_task.outcome.is_none() {
-                updated_task.outcome = Some(archive_note);
-            }
-        }
+        updated_task.cancel(reason.map(|reason_text| format!("Archived: {}", reason_text)));
 
         let updated_generic = updated_task.to_generic();
         storage.store(&updated_generic)?;
@@ -1185,6 +1181,15 @@ fn display_task(task: &Task) {
         if let Some(reason) = &task.block_reason {
             println!("  ⚠️ Block Reason: {}", reason);
         }
+        if let Some(blocked_at) = task.blocked_at {
+            println!(
+                "  Blocked since: {}",
+                blocked_at.format("%Y-%m-%d %H:%M:%S UTC")
+            );
+        }
+    }
+    if !task.blocked_intervals.is_empty() {
+        println!("  Prior blocked periods: {}", task.blocked_intervals.len());
     }
     println!("  Priority: {:?}", task.priority);
     println!("  Agent: {}", task.agent);

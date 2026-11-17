@@ -2168,6 +2168,8 @@ mod tests {
             files: Vec::new(),
             outcome: None,
             block_reason: None,
+            blocked_at: None,
+            blocked_intervals: vec![],
             workflow_id: None,
             workflow_state: None,
             metadata: std::collections::HashMap::new(),
